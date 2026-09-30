@@ -8,11 +8,11 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (15:45 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (16:55 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Base Supabase Officielle Initialisée & Connectée en Direct (`dnwlqgsftauqsyjwhoza`) — Schéma SQL complet appliqué via le cluster de pooler `aws-1-eu-west-1.pooler.supabase.com:6543`, 13 conversations et contacts réels insérés, 7 commandes enregistrées, 3 automatisations de production activées, solde de départ 2 749 400 F CFA certifié. Endpoints REST validés (HTTP 200). Déploiement GitHub Pages live.
+- **Statut Opérationnel** : Authentification Supabase & Étanchéité Multi-Tenant RLS Opérationnelles — Migration SQL `supabase_auth_multitenant.sql` appliquée avec 32 politiques RLS strictes garantissant qu'aucun client ne voit les données d'un autre, trigger PostgreSQL `on_auth_user_created` provisionnant automatiquement chaque nouveau studio, modal d'authentification sobre sans émojis (`AuthModal.tsx`), `AuthProvider` React avec persistance et synchronisation automatique des commandes en direct.
 
 ---
 
@@ -29,6 +29,33 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 12. Authentification Supabase & Étanchéité Multi-Tenant des Données par Client (RLS) — Production Live (30 Septembre 2026)
+- **Objectif Métier & Technique** :
+  - Permettre à chaque entrepreneur / étudiant de créer son propre compte Studio et de se connecter.
+  - Verrouiller la sécurité au niveau de la base de données (Row Level Security) afin qu'aucun client ne puisse jamais voir, modifier ou mélanger les données d'un autre client (contacts, conversations WhatsApp, commandes, métriques de chiffre d'affaires, règles d'automatisation).
+- **Réalisations & Composants Déployés** :
+  1. *Sécurité & RLS au Niveau Base de Données (`supabase_auth_multitenant.sql`)* :
+     - 32 politiques RLS strictes sur 7 tables (`contacts`, `conversations`, `messages`, `orders`, `automation_rules`, `wa_sessions`, `revenue_opening_balances`).
+     - Règle de sélection / écriture / suppression : `user_id = auth.uid()` pour les comptes authentifiés.
+     - Valeur par défaut automatique : `user_id SET DEFAULT auth.uid()` sur toutes les tables.
+     - Mode visiteur / démonstration : lecture autorisée uniquement sur les données démo (`user_id IS NULL`).
+     - Trigger PostgreSQL `handle_new_studio_user()` sur `auth.users` : à chaque inscription, le studio de l'utilisateur est automatiquement initialisé avec son solde de départ (0 F CFA), ses règles d'automatisation standard et sa session WhatsApp dédiée.
+  2. *Couche Frontend d'Authentification (`src/contexts/AuthContext.tsx` & `src/hooks/useAuth.ts`)* :
+     - Provider React gérant la session, l'utilisateur connecté, la persistance automatique et l'état de démonstration.
+     - Méthodes `signIn`, `signUp`, `signOut`, `openAuthModal`, `closeAuthModal`.
+  3. *Composant d'Authentification de Haute Précision (`src/components/AuthModal.tsx`)* :
+     - Conforme aux règles strictes `craft-ui-engineering` : zéro émojis, icônes fines Lucide, design architectural sombre graphite.
+     - Onglets "Se connecter" et "Créer un studio" avec nom du studio, email et mot de passe sécurisé.
+     - Option "Continuer en mode démonstration" pour explorer librement l'interface.
+  4. *Intégration Studio OS & Navbar* :
+     - `StudioAppLayout.tsx` : le profil en bas de la barre latérale affiche le nom réel du studio de l'utilisateur avec l'indicateur "Données isolées (RLS)", ainsi qu'un bouton de déconnexion fonctionnel.
+     - `Navbar.tsx` : bouton "Connexion" / pilule de statut studio actif sur desktop et mobile.
+     - `src/services/supabase.ts` & `App.tsx` : persistance automatique des nouvelles commandes créées dans Supabase sous l'identité de l'utilisateur connecté.
+- **Validation Globale** :
+  - Linter `oxlint` : **0 erreur, 0 avertissement** sur 31 fichiers.
+  - Compilation `tsc -b && vite build` : **100% succès en 3.12s**.
+  - Synchronisation automatique sur `main` (`4e29487`).
 
 ### 11. Intégration & Initialisation Complète du Projet Supabase Dédié (`dnwlqgsftauqsyjwhoza`) — Production Live (30 Septembre 2026)
 - **Objectif Métier & Technique** :
