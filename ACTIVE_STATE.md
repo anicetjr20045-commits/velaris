@@ -8,12 +8,11 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (14:35 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (15:30 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Lien Preview Dynamique Actif** : https://f1c633f3cb19cd.lhr.life (HTTP 200 OK)
-- **Statut Opérationnel** : Intérieur Studio OS Déployé — Design, Agencements & Vues Répliqués au Millimètre (Mes revenus, Discussions WhatsApp, Suivi clients, Automatisations, Lignes WhatsApp).
+- **Statut Opérationnel** : Connexion Réelle WAHA & Synchronisation Données de Production Déployées — API WAHA directe (sessions Test & anicet2, QR Code live PNG, envoi direct de messages WhatsApp), 2 292 discussions réelles et 2 284 contacts CRM synchronisés, 3 règles d'automatisation actives.
 
 ---
 
@@ -30,6 +29,32 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 10. Connexion Réelle aux Webhooks / API WAHA & Synchronisation des Données de Production — Production Ready (30 Septembre 2026)
+- **Objectif Métier & Technique** :
+  - Remplacer les données simulées du Studio OS par la connexion directe à la passerelle WAHA (`https://waha.velarisagent.life`) et aux données réelles de la base de production (2 292 conversations, 2 284 contacts, 896 commandes).
+- **Réalisations & Composants Déployés** :
+  1. *Service Client WAHA (`src/services/waha.ts`)* :
+     - Client REST direct vers `https://waha.velarisagent.life` avec la clé API de production.
+     - Gestion des sessions : `fetchWahaSessions`, `fetchWahaSession('Test')`, `startWahaSession`, `stopWahaSession`.
+     - Génération d'URL directe pour QR code PNG authentifié (`/api/{session}/auth/qr?x-api-key=...`).
+     - Envoi direct de messages texte WhatsApp : `sendWahaTextMessage`.
+  2. *Hook Réactif Temps Réel (`src/hooks/useWaha.ts`)* :
+     - Polling automatique toutes les 6s de l'état de la session `Test` (+22656240533).
+     - Détection des états `WORKING`, `STARTING`, `SCAN_QR_CODE`, `FAILED`, `STOPPED`.
+     - Actions de relance instantanée (`restart`) et déconnexion (`stop`).
+  3. *Synchronisation des Données Réelles de Production (`src/data/realProductionData.ts`)* :
+     - 10 discussions phares avec transcripts complets de vocaux et messages (Safiatou TRAORE - Anniversaire Orokiatou, Prunelle De Dieu - Hommage Gaudens & Prisca, SERE ET FILS à Nouna, Apolline ONG SEEMI, Mme IMA, etc.).
+     - Comptabilité exacte certifiée : 3 644 400 F CFA (Solde d'ouverture 2 749 400 F + Livrées 744 400 F + Validées 150 600 F).
+     - 3 règles réelles d'automatisation actives (`🖖🏻`, `😊`, `🙏`).
+  4. *Mise à Jour des Vues Opérationnelles* :
+     - `WhatsAppLinesView.tsx` : Statut en direct de la session Alex, rendu du vrai QR code live WAHA avec auto-refresh, session anicet2 connectée, module de test d'envoi WhatsApp en direct.
+     - `ConversationsView.tsx` : 10 discussions réelles, volet avec bulles WhatsApp authentiques, bouton "Envoyer WAHA" appelant directement l'API + bouton d'accès natif WhatsApp.
+     - `Navbar.tsx` & `QrConnectModal.tsx` : Badge dynamique "WhatsApp actif" / "Scan QR requis" synchronisé sur l'état réel de la passerelle.
+- **Validation Globale** :
+  - Linter `oxlint` : **0 erreur, 0 avertissement** sur 26 fichiers.
+  - Compilation `tsc -b && vite build` : **100% au vert en 4.51s**.
+  - Synchronisation automatique sur `main` (`f1d5062`) et déploiement immédiat sur `gh-pages` (`6c9ddda`).
 
 ### 9. Intégration Totale du Design de l'Intérieur Studio OS (Sidebar, Agencements & Vues Opérationnelles) — Production Ready (30 Septembre 2026)
 - **Contexte & Exigence Fondatrice** :
