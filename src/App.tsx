@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
+import { LandingPage } from './components/LandingPage';
 import { CockpitView } from './components/CockpitView';
 import { StudioView } from './components/StudioView';
 import { AcademyView } from './components/AcademyView';
@@ -11,7 +12,8 @@ import type { Order, StudioMetrics } from './types';
 const STORAGE_KEY = 'velaris_studio_orders_v1';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'cockpit' | 'studio' | 'academy' | 'qr'>('cockpit');
+  // Default to the public storefront landing page for all visitors
+  const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr'>('home');
   
   // Initialize orders with localStorage persistence
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -46,7 +48,6 @@ export function App() {
   // Compute dynamic metrics in real time
   const currentMetrics: StudioMetrics = useMemo(() => {
     const totalRevenue = orders.reduce((sum, o) => {
-      // Comptabiliser les commandes payées ou livrées
       return sum + (o.amount || 0);
     }, 0);
 
@@ -56,7 +57,7 @@ export function App() {
     const conversion = totalLeads > 0 ? Math.round((orders.length / totalLeads) * 1000) / 10 : 39.4;
 
     return {
-      totalRevenue: Math.max(INITIAL_METRICS.totalRevenue, totalRevenue * 40), // Base de volume studio
+      totalRevenue: Math.max(INITIAL_METRICS.totalRevenue, totalRevenue * 40),
       ordersDelivered: INITIAL_METRICS.ordersDelivered + deliveredCount,
       ordersActive: activeCount,
       adLeadsCount: totalLeads,
@@ -88,7 +89,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#08090d] text-[#e5c158] font-sans selection:bg-[#d4af37]/30 selection:text-[#f3e5ab]">
+    <div className="min-h-screen bg-[#08090d] text-[#e8eaed] font-sans selection:bg-[#d4af37]/30 selection:text-[#f3e5ab]">
       {/* Ambient background glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-[#d4af37]/5 blur-[120px]" />
@@ -104,6 +105,7 @@ export function App() {
               setIsQrModalOpen(true);
             } else {
               setActiveTab(tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }
           }}
           isWhatsAppConnected={isWhatsAppConnected}
@@ -113,6 +115,19 @@ export function App() {
 
         {/* Main Content Area */}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
+          {activeTab === 'home' && (
+            <LandingPage
+              onOpenStudio={() => {
+                setActiveTab('studio');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenCockpit={() => {
+                setActiveTab('cockpit');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          )}
+
           {activeTab === 'cockpit' && (
             <CockpitView
               metrics={currentMetrics}

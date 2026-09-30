@@ -8,68 +8,62 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (11:15 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (11:25 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Studio OS & Académie Interactifs — Système Complet Opérationnel & Déployé
+- **Statut Opérationnel** : Vitrine Publique Haute Couture & Studio OS — Expérience Complète Déployée en Direct
 
 ---
 
 ## 💎 Vision Produit & Piliers
 
-1. **Académie du Studio** :
-   - Formation complète pour lancer un studio de chansons personnalisées.
-   - Acquisition Facebook/TikTok Ads & scripts de vente WhatsApp.
-   - Boîte à outils de prompts IA Suno copiables en 1 clic.
-2. **Cockpit WhatsApp (Connexion QR Code)** :
-   - Connexion instantanée via WAHA.
-   - Suivi des revenus encaissés (Wave, Orange Money, Moov).
-   - Suivi des commandes en direct, recherche instantanée et export CSV.
-3. **Atelier Créatif & Studio IA 1-Clic** :
+1. **Vitrine Client & Landing Page Immersive** :
+   - Hero section émotionnelle à fort impact (*"Offrez une vraie chanson personnalisée à ceux qui comptent le plus"*).
+   - Lecteur audio interactif d'extraits réels (Afro-Love, Guitare Acoustique, Rumba, Gospel).
+   - Déroulé limpide en 3 étapes (Racontez votre histoire ➔ Validez les paroles gratuitement ➔ Chanson livrée en 18 min).
+   - Grille tarifaire claire (Formule 1 200 F Chanson MP3, Formule 3 000 F Vidéo + MP3, Pack VIP 5 000 F).
+   - Preuves sociales et témoignages WhatsApp authentiques.
+   - Foire aux questions (FAQ accordéon interactif).
+2. **Atelier Créatif & Studio IA 1-Clic** :
    - Prise de brief rapide & création de commandes en direct.
    - Transcription automatique des vocaux clients WhatsApp.
    - Éditeur de paroles poétiques en direct avec retouches et instructions personnalisées.
    - Sélection du timbre vocal studio (Femme, Homme, Duo) et styles ouest-africains.
    - Bouton de production musicale 🎵 et livraison automatique sur WhatsApp.
+3. **Cockpit WhatsApp & Académie** :
+   - Suivi des revenus encaissés (Wave, Orange Money, Moov).
+   - Suivi des commandes en direct, recherche instantanée et export CSV.
+   - Académie du studio avec boîte à outils de prompts IA Suno copiables en 1 clic.
 
 ---
 
 ## ✅ Jalons Validés
 
+### 3. Vitrine Haute Couture & Page d'Accueil Publique (`LandingPage.tsx`) (30 Septembre 2026)
+- **Refonte de l'Expérience Visuelle & Architecture du Site** :
+  - Fin du saut brutal dans un dashboard technique : tout visiteur arrive désormais sur une **véritable Landing Page vitrine de luxe**.
+  - **Hero Section Majestueuse** : Titre émotionnel, sous-titre captivant, boutons CTA WhatsApp direct et écoute audio, badge de réassurance (4.9/5, 1 240+ chansons livrées, paroles gratuites avant paiement). Carte audio preview animée flottante.
+  - **Démonstrateur Audio Live 4 Styles** : Lecteur d'extraits interactif (Afro-Love, Guitare Acoustique, Rumba Congolaise, Gospel) avec forme d'ondes, lecteur audio et paroles défilantes.
+  - **Parcours en 3 Étapes** : Explication visuelle et sans friction du fonctionnement (Vocal WhatsApp ➔ Validation du texte sans payer d'avance ➔ Livraison en 18 min).
+  - **Grille des 3 Formules Tarifaires** : Formule Découverte 1 200 F, Pack Vidéo Paroles 3 000 F (badge star le plus populaire) et Pack VIP Express 5 000 F.
+  - **Témoignages Clients Réels & Captures WhatsApp** : Retours touchants (Abidjan, Ouaga, Bobo).
+  - **Foire aux Questions Interactive (FAQ)** : Accordéon répondant à toutes les objections (délais, modification, paiements Wave/OM).
+  - **Navigation Unifiée Navbar** : Accueil (Landing), Studio 1-Clic, Cockpit Ventes, Académie et bouton direct WhatsApp.
+
 ### 2. Prise de Brief Rapide, Édition de Paroles, Boîte à Prompts & Persistance (30 Septembre 2026)
 - **Modal Nouveau Lead / Commande (`NewOrderModal.tsx`)** :
-  - Création instantanée de commande avec formulaire complet : nom du client, WhatsApp, prénom destinataire, occasion, style musical (Afro-Love, Acoustique, Rumba, Zouk, Gospel, Mandingue), formule (1 200 F / 3 000 F / 5 000 F), moyen de paiement Mobile Money et histoire / transcription vocale.
-  - Ajout direct en tête de liste et ouverture immédiate au studio de production.
+  - Création instantanée de commande avec formulaire complet : nom, WhatsApp, destinataire, occasion, style musical, formule tarifaire, Mobile Money et histoire / note vocale.
 - **Éditeur de Paroles & Atelier Studio Enrichi (`StudioView.tsx`)** :
-  - Mode d'édition inline dynamique permettant de retoucher le titre, couplet 1, refrain, couplet 2 et outro en direct.
-  - Champ de retouche par consigne libre (ex: insister sur le mariage ce samedi, clin d'œil à Ouaga/Abidjan).
-  - Sélecteur de timbre vocal studio : Voix Femme (douce), Voix Homme (chaleureux), Duo Mixte (harmonies).
-  - Ouverture directe de la discussion WhatsApp via lien cliquable `https://wa.me/...` avec le texte formaté prêt à valider.
-- **Recherche Instantanée, Filtres et Export CSV dans le Cockpit (`CockpitView.tsx`)** :
-  - Barre de recherche temps réel sur les noms, prénoms de destinataires, téléphones et occasions.
-  - Filtres par badges d'états (Tous, Briefs, Paroles, Studio, Livrés).
-  - Export CSV complet en 1 clic de la base de commandes.
+  - Mode d'édition inline dynamique, consigne libre de retouche, sélecteur de timbre vocal studio (Femme, Homme, Duo) et lien WhatsApp direct.
+- **Cockpit Ventes Avancé (`CockpitView.tsx`)** :
+  - Recherche instantanée temps réel, filtres par badges d'états et export CSV 1-clic.
 - **Académie Interactive & Boîte à Outils de Prompts (`AcademyView.tsx`)** :
-  - Système interactif de validation des modules avec jauge de progression dynamique recalculée en direct.
-  - Boîte à outils de prompts clés copiables en 1 clic avec feedback visuel : Prompt Maître Suno IA, Scripts WhatsApp d'accueil, Scripts de closing et Accroches publicitaires Facebook/TikTok Ads.
+  - Suivi de progression dynamique et prompts clés copiables en 1 clic (Prompt Maître Suno IA, Scripts WhatsApp, Accroches Facebook/TikTok Ads).
 - **Persistance des Données & Métriques Dynamiques (`App.tsx`)** :
-  - Persistance automatique dans `localStorage` des commandes et modifications.
-  - Recalcul dynamique des métriques du cockpit (revenus, conversions, leads actifs).
-- **Validation Globale** :
-  - `oxlint` : **0 erreur, 0 avertissement**.
-  - `tsc -b && vite build` : **100% au vert en 2.33s**.
+  - Persistance automatique dans `localStorage`.
 
 ### 1. Socle Frontend Studio OS & Académie (30 Septembre 2026)
 - Initialisation React + TypeScript + Tailwind CSS dans `/root/projets/velaris`.
-- Palette de couleurs studio haute couture : Noir chaud / Ardoise nuit, accents Or Champagne (`#d4af37`), typographie `Plus Jakarta Sans` & `Space Grotesk`.
-- **Cockpit Ventes** : Métriques business en direct (CA 524 000 FCFA, 112 livraisons, 284 prospects Facebook Ads, 39.4% conversion).
-- **Atelier Studio 1-Clic** :
-  - Transcription automatique des notes vocales WhatsApp avec lecteur interactif d'ondes audio.
-  - Sélecteur de styles ouest-africains & internationaux (Afro-Love, Acoustique, Rumba, Zouk, Gospel).
-  - Générateur de paroles IA complet (Couplets, Refrain, Outro) avec bouton d'envoi WhatsApp.
-  - Déclencheur 1-Clic `🎵 Produire & Livrer` simulant le pipeline complet (Suno ➔ Mastering ➔ Envoi WhatsApp).
-- **Académie Studio** : 4 modules de formation structurés avec boîte à ressources téléchargeables (prompts, scripts, templates ads).
-- **Modal QR Code WhatsApp** : Simulation de pairing WAHA sécurisé avec statut actif `+226 56 24 05 33`.
-- **Validation Build** : `npm run build` validé au vert en 1.96s (TypeScript 0 erreur).
-- **Dépôt Git** : Initialisé et commité sur `main` (commit `e4b1aad`).
+- Palette studio haute couture : Noir chaud / Ardoise nuit, accents Or Champagne (`#d4af37`), typographie `Plus Jakarta Sans` & `Space Grotesk`.
+- **Validation Build** : `npm run build` validé au vert (TypeScript 0 erreur).
