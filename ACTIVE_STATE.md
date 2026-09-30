@@ -12,7 +12,7 @@
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Base Supabase Officielle Connectée (`dnwlqgsftauqsyjwhoza`) — SDK `@supabase/supabase-js` installé, variables d'environnement configurées (`.env`), service `supabase.ts` opérationnel avec fallback transparent, et script SQL d'initialisation prêt (`supabase_schema_init.sql`).
+- **Statut Opérationnel** : Base Supabase Officielle Initialisée & Connectée en Direct (`dnwlqgsftauqsyjwhoza`) — Schéma SQL complet appliqué via le cluster de pooler `aws-1-eu-west-1.pooler.supabase.com:6543`, 13 conversations et contacts réels insérés, 7 commandes enregistrées, 3 automatisations de production activées, solde de départ 2 749 400 F CFA certifié. Endpoints REST validés (HTTP 200). Déploiement GitHub Pages live.
 
 ---
 
@@ -30,25 +30,32 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
-### 11. Intégration du Projet Supabase Dédié Velaris (`dnwlqgsftauqsyjwhoza`) — Production Ready (30 Septembre 2026)
+### 11. Intégration & Initialisation Complète du Projet Supabase Dédié (`dnwlqgsftauqsyjwhoza`) — Production Live (30 Septembre 2026)
 - **Objectif Métier & Technique** :
-  - Brancher le nouveau projet officiel Supabase **Velaris** (`dnwlqgsftauqsyjwhoza`) avec ses clés Publishable (`sb_publishable_38Tf-R7h1t-aFeNmOv6vMg_-VgH3DDI`) et Secret (sanctuarisée dans `.env`).
-- **Composants & Livrables Conçus** :
-  1. *Variables d'Environnement & Sécurité* :
-     - `.env` configuré avec les clés du projet.
-     - `.gitignore` mis à jour pour sanctuariser `.env` et `.env.example` documenté.
-  2. *SDK & Service Supabase Client (`src/services/supabase.ts`)* :
-     - Installation de `@supabase/supabase-js`.
-     - Méthodes `checkSupabaseHealth`, `getLiveConversations`, `getLiveAutomationRules`, `getLiveStudioMetrics`.
-     - Système de fallback résilient : si les tables sont encore vierges ou en cours de migration, l'application bascule automatiquement sur les données certifiées sans jamais afficher d'écran blanc ni d'erreur console.
-  3. *Script SQL d'Initialisation Universel (`supabase_schema_init.sql`)* :
-     - Définition complète des tables (`contacts`, `conversations`, `messages`, `orders`, `automation_rules`, `wa_sessions`, `revenue_opening_balances`).
-     - Politiques RLS conformes.
-     - Données de production initiales insérées (3 règles d'automatisation, 3 contacts et conversations réels, solde certifié 2 749 400 F).
+  - Brancher le nouveau projet officiel Supabase **Velaris** (`dnwlqgsftauqsyjwhoza`), appliquer le schéma SQL de production avec extensions, tables, sécurité RLS et données certifiées réelles.
+- **Réalisations & Opérations Effectuées** :
+  1. *Connexion Directe PostgreSQL via Pooler IPv4* :
+     - Résolution du cluster Supabase pooler sur `aws-1-eu-west-1.pooler.supabase.com:6543`.
+     - Authentification réussie avec l'utilisateur `postgres.dnwlqgsftauqsyjwhoza`.
+  2. *Application du Schéma SQL Universel (`supabase_schema_init.sql`)* :
+     - Extensions installées : `uuid-ossp`, `pgcrypto`.
+     - 7 tables créées avec contraintes d'intégrité : `contacts`, `conversations`, `messages`, `orders`, `automation_rules`, `wa_sessions`, `revenue_opening_balances`.
+     - Row Level Security (RLS) activé sur l'ensemble des tables avec politiques de lecture publique et écriture authentifiée.
+  3. *Seeding Intégral des Données Réelles de Production* :
+     - Solde comptable certifié : 2 749 400 F CFA (ouverture au 26/09/2026).
+     - 13 contacts CRM et conversations réelles (Safiatou TRAORE, Prunelle De Dieu, SERE ET FILS à Nouna, Apolline ONG SEEMI, Mme IMA, Jacquie Gbeuly, Seydou Tioro, cestdieu42, Jesus Christ my Saviour, etc.).
+     - 7 commandes synchronisées (Wave & Mobile Money).
+     - 3 règles réelles d'automatisation studio actives (`🖖🏻`, `😊`, `🙏`).
+     - 2 sessions WAHA enregistrées (`Test` et `anicet2`).
+  4. *Validation REST & SDK Frontend (`src/services/supabase.ts`)* :
+     - Validation de tous les endpoints `/rest/v1/` avec la clé Publishable : **HTTP 200 OK sur toutes les tables**.
+     - Calcul dynamique du chiffre d'affaires cumulé (`totalRevenue` = solde d'ouverture + commandes livrées et validées).
+     - Mapping strict des statuts du funnel WhatsApp.
 - **Validation Globale** :
   - Linter `oxlint` : **0 erreur, 0 avertissement** sur 27 fichiers.
-  - Compilation `tsc -b && vite build` : **100% succès en 2.40s**.
-  - Synchronisation automatique sur `main` (`c40b64f`).
+  - Compilation `tsc -b && vite build` : **100% succès en 2.87s**.
+  - Synchronisation automatique sur `main` (`ba232f5`).
+  - Déploiement GitHub Pages live : `https://anicetjr20045-commits.github.io/velaris/`.
 
 ### 10. Connexion Réelle aux Webhooks / API WAHA & Synchronisation des Données de Production — Production Ready (30 Septembre 2026)
 - **Objectif Métier & Technique** :
