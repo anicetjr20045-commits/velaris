@@ -151,3 +151,98 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
     return REAL_STUDIO_METRICS;
   }
 }
+
+/**
+ * Récupère les commandes du studio de l'utilisateur connecté
+ */
+export async function getLiveOrders(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, amount_cents, currency, status, payment_method, notes, created_at, contacts(name, phone, occasion)')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((o: any) => ({
+      id: o.id,
+      clientName: o.contacts?.name || 'Client WhatsApp',
+      clientPhone: o.contacts?.phone || '',
+      occasion: o.contacts?.occasion || 'Commande personnalisée',
+      recipient: o.contacts?.name || '',
+      style: 'afro_love',
+      status: o.status === 'delivered' ? 'livre' : o.status === 'validated' ? 'paiement_valide' : 'brief_recu',
+      amount: Number(o.amount_cents || 120000) / 100,
+      paymentMethod: o.payment_method || 'Wave',
+      createdAt: new Date(o.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Crée une nouvelle commande rattachée automatiquement au studio connecté via RLS
+ */
+export async function createLiveOrder(order: {
+  clientName: string;
+  clientPhone: string;
+  occasion: string;
+  amount: number;
+  paymentMethod?: string;
+  status?: string;
+}): Promise<{ id: string } | null> {
+  try {
+    // 1. Créer le contact (hérite de user_id = auth.uid())
+    const { data: contact, error: contactErr } = await supabase
+      .from('contacts')
+      .insert({
+        name: order.clientName,
+        phone: order.clientPhone,
+        occasion: order.occasion,
+        price_quoted_cents: Math.round(order.amount * 100),
+      })
+      .select('id')
+      .single();
+
+    if (contactErr || !contact) {
+      console.error('Error creating contact:', contactErr);
+      return null;
+    }
+
+    // 2. Créer la conversation associée
+    const { data: conv } = await supabase
+      .from('conversations')
+      .insert({
+        contact_id: contact.id,
+        funnel_stage: order.status === 'livre' ? 'delivered' : 'paid',
+        summary: `Commande ${order.occasion} pour ${order.clientName} (${order.amount} F CFA)`,
+      })
+      .select('id')
+      .single();
+
+    // 3. Créer la commande
+    const { data: ord, error: ordErr } = await supabase
+      .from('orders')
+      .insert({
+        contact_id: contact.id,
+        conversation_id: conv?.id,
+        amount_cents: Math.round(order.amount * 100),
+        currency: 'XOF',
+        status: order.status === 'livre' ? 'delivered' : 'validated',
+        payment_method: order.paymentMethod || 'Wave',
+        notes: `Créé depuis le Studio OS - ${order.occasion}`,
+      })
+      .select('id')
+      .single();
+
+    if (ordErr || !ord) {
+      console.error('Error creating order:', ordErr);
+      return null;
+    }
+
+    return { id: ord.id };
+  } catch (err) {
+    console.error('Exception in createLiveOrder:', err);
+    return null;
+  }
+}

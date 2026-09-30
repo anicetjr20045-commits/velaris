@@ -13,10 +13,13 @@ import {
   Music2,
   GraduationCap,
   LogOut,
+  LogIn,
+  ShieldCheck,
   Menu,
   X,
   ArrowLeft
 } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
 import { RevenusView } from './RevenusView';
 import { ConversationsView } from './ConversationsView';
@@ -58,8 +61,14 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   renderAcademy,
   onSelectOrderForStudio
 }) => {
+  const { user, signOut, openAuthModal } = useAuth();
   const [currentTab, setCurrentTab] = useState<StudioTab>(initialTab);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  const userDisplayName = (user?.user_metadata?.studio_name as string) || 
+    (user?.user_metadata?.full_name as string) || 
+    (user?.email ? user.email.split('@')[0] : 'Invité Démo');
+  const userInitials = (userDisplayName.slice(0, 2) || 'ST').toUpperCase();
 
   const navGroups = [
     {
@@ -228,31 +237,57 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
           ))}
         </nav>
 
-        {/* Footer User Profile (Matching Image 4) */}
+        {/* Footer User Profile (Multi-Tenant Auth) */}
         <div className="p-3 border-t border-white/[0.08] bg-[#090807]">
-          <div className="rounded-xl border border-white/[0.06] bg-[#12110e] p-3 flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-8 w-8 rounded-full bg-[#1c1914] border border-[#c5a059]/40 flex items-center justify-center text-xs font-bold text-[#e5c158] shrink-0">
-                AN
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-stone-200 truncate">
-                  anicetjr20045
+          {user ? (
+            <div className="rounded-xl border border-white/[0.06] bg-[#12110e] p-3 flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-[#1c1914] border border-[#c5a059]/40 flex items-center justify-center text-xs font-bold text-[#e5c158] shrink-0">
+                  {userInitials}
                 </div>
-                <div className="text-[10px] text-stone-400 truncate font-mono">
-                  anicetjr20045@gmail.com
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-stone-200 truncate">
+                    {userDisplayName}
+                  </div>
+                  <div className="text-[10px] text-emerald-400 truncate flex items-center gap-1 font-mono">
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    <span>Données isolées (RLS)</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={onReturnToHome}
-              title="Se déconnecter / Quitter"
-              className="p-1.5 rounded-lg text-stone-400 hover:text-rose-400 hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+              <button
+                onClick={async () => {
+                  await signOut();
+                  onReturnToHome();
+                }}
+                title="Se déconnecter"
+                className="p-1.5 rounded-lg text-stone-400 hover:text-rose-400 hover:bg-white/[0.05] transition-colors cursor-pointer shrink-0"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/[0.06] bg-[#12110e] p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-[11px] font-semibold text-stone-300">Mode Démonstration</span>
+                </div>
+                <span className="text-[9px] uppercase font-mono text-stone-500">Public</span>
+              </div>
+              <p className="text-[10px] text-stone-400">
+                Chaque studio possède ses données privées étanches.
+              </p>
+              <button
+                onClick={() => openAuthModal('login')}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-black hover:bg-stone-200 transition-colors cursor-pointer"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Mon Espace Studio</span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

@@ -7,10 +7,13 @@ import { DecouvrirView } from './components/DecouvrirView';
 import { StudioAppLayout } from './components/StudioAppLayout';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
+import { AuthModal } from './components/AuthModal';
 import { CosmicBackground } from './components/CosmicBackground';
 import { INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
 import { REAL_STUDIO_METRICS } from './data/realProductionData';
 import { useWahaSession } from './hooks/useWaha';
+import { useAuth } from './hooks/useAuth';
+import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 
 const STORAGE_KEY = 'velaris_studio_orders_v1';
@@ -44,6 +47,7 @@ export function App() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>(() => orders[0]?.id || INITIAL_ORDERS[0].id);
   const [manualConnected, setManualConnected] = useState<boolean | null>(null);
+  const { user } = useAuth();
   const isWhatsAppConnected = manualConnected !== null ? manualConnected : waha.isOnline;
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
@@ -56,6 +60,18 @@ export function App() {
       // storage quota or private browsing
     }
   }, [orders]);
+
+  // Fetch user-specific orders from Supabase when logged in (isolated via RLS)
+  useEffect(() => {
+    if (user) {
+      getLiveOrders().then((live) => {
+        if (live && live.length > 0) {
+          setOrders(live);
+          setSelectedOrderId(live[0].id);
+        }
+      });
+    }
+  }, [user]);
 
   // Compute dynamic metrics from verified real production data
   const currentMetrics: StudioMetrics = useMemo(() => {
@@ -86,6 +102,18 @@ export function App() {
     setSelectedOrderId(newOrder.id);
     setActiveTab('studio');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Asynchronously persist to Supabase under the authenticated studio
+    if (user) {
+      createLiveOrder({
+        clientName: newOrder.clientName,
+        clientPhone: newOrder.clientPhone,
+        occasion: newOrder.occasion,
+        amount: newOrder.amount,
+        paymentMethod: newOrder.paymentMethod,
+        status: newOrder.status,
+      }).catch(console.error);
+    }
   };
 
   return (
@@ -179,6 +207,9 @@ export function App() {
         onClose={() => setIsNewOrderModalOpen(false)}
         onAddOrder={handleAddNewOrder}
       />
+
+      {/* Authentication & Studio Creation Modal */}
+      <AuthModal />
     </div>
   );
 }

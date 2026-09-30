@@ -1,5 +1,6 @@
 import { useState, type FC } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogIn, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 interface NavbarProps {
   activeTab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir';
@@ -15,6 +16,7 @@ export const Navbar: FC<NavbarProps> = ({
   isWhatsAppConnected,
   onOpenQrModal,
 }) => {
+  const { user, openAuthModal } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleNavClick = (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir') => {
@@ -123,6 +125,26 @@ export const Navbar: FC<NavbarProps> = ({
               </span>
             </button>
 
+            {user ? (
+              <button
+                onClick={() => handleNavClick('cockpit')}
+                className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.04] px-3 py-1.5 text-xs text-neutral-200 hover:border-white/40 hover:bg-white/[0.08] transition-colors whitespace-nowrap"
+              >
+                <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                <span className="font-semibold text-xs max-w-[120px] truncate">
+                  {(user.user_metadata?.studio_name as string) || (user.email ? user.email.split('@')[0] : 'Mon Studio')}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => openAuthModal('login')}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-neutral-300 hover:text-white hover:border-white/35 transition-colors whitespace-nowrap"
+              >
+                <LogIn className="h-3 w-3" />
+                <span>Connexion</span>
+              </button>
+            )}
+
             <a
               href={WHATSAPP_URL}
               target="_blank"
@@ -193,6 +215,33 @@ export const Navbar: FC<NavbarProps> = ({
             </nav>
 
             <div className="pt-2 flex flex-col gap-3">
+              {!user ? (
+                <button
+                  onClick={() => {
+                    openAuthModal('login');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] py-2.5 text-xs font-semibold text-white hover:bg-white/10 transition-colors"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span>Connexion Espace Studio</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    handleNavClick('cockpit');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3 text-xs text-emerald-300"
+                >
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>{(user.user_metadata?.studio_name as string) || 'Mon Studio'}</span>
+                  </span>
+                  <span className="text-[10px] uppercase font-mono text-emerald-400">Isolé RLS</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   onOpenQrModal();
