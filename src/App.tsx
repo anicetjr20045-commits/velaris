@@ -6,6 +6,7 @@ import { StudioView } from './components/StudioView';
 import { AcademyView } from './components/AcademyView';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
+import { CosmicBackground } from './components/CosmicBackground';
 import { INITIAL_METRICS, INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
 import type { Order, StudioMetrics } from './types';
 
@@ -89,7 +90,8 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0e12] text-[#e8eaed] font-sans selection:bg-[#c5a059]/20 selection:text-white">
+    <div className="min-h-screen bg-[#07080a] text-[#e8eaed] font-sans selection:bg-white/20 selection:text-white relative">
+      <CosmicBackground />
       <div className="relative z-10 flex min-h-screen flex-col">
         {/* Navigation Bar */}
         <Navbar
