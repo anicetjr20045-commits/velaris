@@ -1,20 +1,32 @@
 import { useState, useRef, useEffect, type FC, type MouseEvent } from 'react';
-import velarisLiquidOrb from '../assets/velaris_liquid_orb.jpg';
+import velarisLiquidOrbWebp from '../assets/velaris_liquid_orb.webp';
 
 export const LiquidSoundOrb: FC = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [rotate, setRotate] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState<boolean>(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+    return false;
+  });
 
-  // Parallax tilt calculation
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
+    if (prefersReducedMotion || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    const rotateX = -((y / rect.height) * 10);
-    const rotateY = (x / rect.width) * 10;
+    const rotateX = -((y / rect.height) * 8);
+    const rotateY = (x / rect.width) * 8;
     setRotate({ x: rotateX, y: rotateY });
   };
 
@@ -23,8 +35,9 @@ export const LiquidSoundOrb: FC = () => {
     setRotate({ x: 0, y: 0 });
   };
 
-  // Organic fluid soundwave caustics animation
+  // Concentric wave caustics (disabled if reduced motion)
   useEffect(() => {
+    if (prefersReducedMotion) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -43,17 +56,16 @@ export const LiquidSoundOrb: FC = () => {
       const cy = h / 2;
       const maxR = Math.min(w, h) * 0.44;
 
-      // Draw subtle precision concentric acoustic waves
       for (let i = 0; i < 2; i++) {
         const ringT = t + i * 2.2;
         const progress = (ringT % 4) / 4;
-        const r = maxR * (0.68 + progress * 0.4);
-        const alpha = Math.max(0, (1 - progress) * 0.22);
+        const r = maxR * (0.7 + progress * 0.35);
+        const alpha = Math.max(0, (1 - progress) * 0.18);
 
         ctx.save();
         ctx.beginPath();
-        for (let angle = 0; angle < Math.PI * 2; angle += 0.06) {
-          const wave = Math.sin(angle * 4 + t * 1.5) * 3 + Math.cos(angle * 2 - t) * 2;
+        for (let angle = 0; angle < Math.PI * 2; angle += 0.08) {
+          const wave = Math.sin(angle * 4 + t * 1.2) * 2.5 + Math.cos(angle * 2 - t) * 2;
           const curR = r + wave;
           const px = cx + Math.cos(angle) * curR;
           const py = cy + Math.sin(angle) * curR;
@@ -64,7 +76,7 @@ export const LiquidSoundOrb: FC = () => {
           }
         }
         ctx.closePath();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.strokeStyle = `rgba(212, 175, 55, ${alpha})`;
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
@@ -75,38 +87,42 @@ export const LiquidSoundOrb: FC = () => {
 
     renderRipples();
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [prefersReducedMotion]);
 
   return (
-    <div className="relative pt-8 sm:pt-14 flex items-center justify-center select-none">
-      {/* Background Soft Atmospheric Glow */}
+    <div className="relative pt-6 sm:pt-10 flex flex-col items-center justify-center select-none w-full">
+      {/* Background Subtle Warm Radial Glow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-[380px] sm:w-[540px] h-[380px] sm:h-[540px] rounded-full bg-white/[0.03] blur-[120px]" />
+        <div className="w-[320px] sm:w-[460px] h-[320px] sm:h-[460px] rounded-full bg-[#c5a059]/[0.04] blur-[100px]" />
       </div>
 
-      {/* 3D Interactive Container */}
+      {/* 3D Visual Hero Piece (Unobstructed, cards moved OUT per Point 7) */}
       <div
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={handleMouseLeave}
-        className="relative z-10 w-full max-w-sm sm:max-w-xl aspect-[16/11] sm:aspect-[16/10] flex items-center justify-center cursor-default transition-transform duration-300 ease-out"
+        className="relative z-10 w-full max-w-sm sm:max-w-xl aspect-[16/10] flex items-center justify-center cursor-default transition-transform duration-300 ease-out"
         style={{ perspective: '1400px' }}
       >
-        {/* Main Acoustic Sphere Display */}
         <div
-          className="relative w-full h-full rounded-2xl overflow-hidden border border-white/[0.08] bg-[#050608] shadow-[0_30px_80px_rgba(0,0,0,0.9)] transition-all duration-300 ease-out"
+          className="relative w-full h-full rounded-2xl overflow-hidden border border-white/[0.1] bg-[#08080a] shadow-[0_20px_60px_rgba(0,0,0,0.85)] transition-all duration-300 ease-out"
           style={{
-            transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(${isHovered ? 1.015 : 1})`,
+            transform: prefersReducedMotion ? 'none' : `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(${isHovered ? 1.01 : 1})`,
             transformStyle: 'preserve-3d',
           }}
         >
+          {/* Compressed WebP image with lazy loading (Point 11) */}
           <img
-            src={velarisLiquidOrb}
-            alt="Velaris Acoustic Sound Sphere"
+            src={velarisLiquidOrbWebp}
+            alt="Velaris Sphere Musicale"
+            loading="lazy"
+            decoding="async"
+            width={640}
+            height={400}
             className="w-full h-full object-cover rounded-2xl transition-transform duration-700 ease-out"
             style={{
-              transform: isHovered ? 'scale(1.04)' : 'scale(1)',
+              transform: prefersReducedMotion ? 'none' : (isHovered ? 'scale(1.03)' : 'scale(1)'),
             }}
           />
 
@@ -116,48 +132,36 @@ export const LiquidSoundOrb: FC = () => {
             className="absolute inset-0 w-full h-full pointer-events-none mix-blend-screen"
           />
 
-          {/* Deep Cinematic Matte Vignettes */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-[#050608] via-transparent to-[#050608]/20 opacity-90 pointer-events-none" />
-          <div className="absolute inset-0 rounded-2xl border border-white/[0.06] pointer-events-none" />
+          {/* Warm Dark Vignettes */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-[#08080a] via-transparent to-[#08080a]/30 opacity-80 pointer-events-none" />
         </div>
+      </div>
 
-        {/* LEFT PRECISION READOUT PLAQUE */}
-        <div
-          className="absolute -left-2 sm:left-4 -bottom-4 sm:bottom-6 z-30 rounded-xl border border-white/[0.1] bg-[#050608]/90 backdrop-blur-2xl p-4 text-left shadow-[0_20px_50px_rgba(0,0,0,0.8)] space-y-1.5 w-44 sm:w-56"
-          style={{
-            transform: `translateZ(25px) rotateX(${rotate.x * 0.4}deg) rotateY(${rotate.y * 0.4}deg)`,
-          }}
-        >
-          <div className="text-[10px] text-neutral-400 font-medium tracking-wider uppercase">
-            01 / Cadence studio
+      {/* SPECIFICATIONS CARDS MOVED CLEANLY BELOW THE ORBE (Point 7 & Point 9) */}
+      <div className="relative z-20 w-full max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 text-left">
+        {/* Left card: Cadence */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#0c0d11]/80 backdrop-blur-md p-4 space-y-1">
+          <div className="text-xs uppercase font-medium tracking-wider text-[#c5a059]">
+            Livraison studio
           </div>
-
-          <div className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            18 min
+          <div className="font-heading text-xl font-bold text-white tracking-tight">
+            18 minutes
           </div>
-
-          <p className="text-[11px] text-neutral-400 leading-snug">
-            De la note vocale WhatsApp au master audio final.
+          <p className="text-sm text-zinc-300 leading-snug">
+            De la note vocale WhatsApp au master audio finalisé.
           </p>
         </div>
 
-        {/* RIGHT PRECISION READOUT PLAQUE */}
-        <div
-          className="absolute -right-2 sm:right-4 -bottom-4 sm:bottom-6 z-30 rounded-xl border border-white/[0.1] bg-[#050608]/90 backdrop-blur-2xl p-4 text-left shadow-[0_20px_50px_rgba(0,0,0,0.8)] space-y-1.5 w-44 sm:w-56"
-          style={{
-            transform: `translateZ(25px) rotateX(${rotate.x * 0.4}deg) rotateY(${rotate.y * 0.4}deg)`,
-          }}
-        >
-          <div className="text-[10px] text-neutral-400 font-medium tracking-wider uppercase">
-            02 / Marge brute
+        {/* Right card: Marge nette (Unified term per Point 9) */}
+        <div className="rounded-xl border border-white/[0.08] bg-[#0c0d11]/80 backdrop-blur-md p-4 space-y-1">
+          <div className="text-xs uppercase font-medium tracking-wider text-[#c5a059]">
+            Marge nette
           </div>
-
-          <div className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            92 %
+          <div className="font-heading text-xl font-bold text-white tracking-tight">
+            85 à 95 %
           </div>
-
-          <p className="text-[11px] text-neutral-400 leading-snug">
-            Encaissement direct sans intermédiaire sur Wave et OM.
+          <p className="text-sm text-zinc-300 leading-snug">
+            Encaissement direct sur vos comptes Wave & Orange Money.
           </p>
         </div>
       </div>

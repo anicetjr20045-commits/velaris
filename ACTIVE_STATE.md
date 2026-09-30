@@ -31,6 +31,51 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 8. Exécution Chirurgicale du Brief Dev Homepage (P0, P1, P2) — Production Ready (30 Septembre 2026)
+- **Priorité P0 (Pré-Trafic & Fondations Techniques)** :
+  1. *Simulateur financier retiré de l'accueil* : Déplacé et sanctuarisé dans le composant dédié [`DecouvrirView.tsx`](file:///root/projets/velaris/src/components/DecouvrirView.tsx) sur la route `/decouvrir` / `#decouvrir`.
+  2. *Viewport & Accessibilité de Zoom* : Retrait de `maximum-scale=1.0, user-scalable=no` dans `index.html`. Zoom et redimensionnement natifs 100% opérationnels.
+  3. *Navigation Responsive Sans Chevauchement (360px à 1440px)* :
+     - Écartement minimum garanti `gap >= 16px` entre le logo "VELARIS Studio" et les liens.
+     - Pastille d'état avec `white-space: nowrap`, texte condensé « WhatsApp actif » et statut vert.
+     - Sur mobile : menu tiroir burger complet + un seul bouton d'action direct « Commander ».
+  4. *Formatage des Nombres & Typographie des Prix* :
+     - Nombres formatés avec `Intl.NumberFormat('fr-FR')` et espaces insécables (`1 200 à 5 000 FCFA`, `380 000 FCFA`).
+     - Abandon des polices display illisibles pour les chiffres au profit d'une typographie `font-sans` tabulaire sobre.
+     - Suffixe `FCFA` sanctuarisé avec `whitespace-nowrap`.
+- **Priorité P1 (Conversion Commerciale & Fluidité)** :
+  5. *CTA Principal & Secondaire* :
+     - Remplacement de « Ouvrir l'atelier » par un lien direct WhatsApp `wa.me/22656240533` avec message prérempli (« Bonjour Velaris, je souhaite créer une chanson personnalisée »).
+     - Bouton secondaire « Écouter un exemple » qui scroll de manière fluide directement vers le lecteur audio.
+     - « Ouvrir l'atelier » réservé aux créateurs et utilisateurs connectés dans la barre de navigation.
+  6. *Lecteur Audio Haute Fidélité Remonté sous le Hero* :
+     - Positionné immédiatement sous le hero pour une écoute instantanée en 1 tap.
+     - Suppression des mentions superflues de tonalité et de BPM.
+     - Bouton unique Play/Pause (suppression de la mention redondante « ÉCOUTER »).
+     - Ligne de progression masquée tant qu'aucun morceau n'est en lecture.
+  7. *Hero Visuel & Cartes Découplées* :
+     - Les deux cartes de métriques ont été sorties de l'image de l'orbe et repositionnées élégamment en dessous.
+     - Opacité des particules célestes fortement abaissée (fond sobre et discret).
+  8. *Contraste & Lisibilité WCAG AA* :
+     - Textes secondaires en `text-zinc-300` (ratio 9.5:1 sur fond sombre).
+     - Toutes les légendes calibrées à au moins 14px (`text-sm`).
+  9. *Harmonisation des Libellés Métier* :
+     - Terme unique « Marge nette : 85 à 95 % » sur l'ensemble de la page.
+     - Mention « 18 minutes » affichée une seule fois sur toute la vitrine.
+- **Priorité P2 (Finitions & Performance)** :
+  10. *Rythme Vertical & Espacements* : Espacement harmonisé avec une échelle compacte (`space-y-16 sm:space-y-24`), suppression des gouffres de 200px.
+  11. *Performance Mobile & Format WebP* :
+      - Orbe converti en WebP haute performance ([`velaris_liquid_orb.webp`](file:///root/projets/velaris/src/assets/velaris_liquid_orb.webp)) : passage de 394 Ko à **54 Ko (-86% de poids)** avec `loading="lazy"` et `decoding="async"`.
+      - Prise en charge formelle de `prefers-reduced-motion` désactivant les animations si configuré par l'utilisateur.
+  12. *Témoignages Complets & Réels* :
+      - Patrick Kouamé (Abidjan), Idrissa Sawadogo (Ouagadougou), Fatoumata Bâ (Dakar).
+      - Phrases complètes sans aucune coupure de syntaxe et chiffres vérifiés.
+  13. *Direction Artistique Réalignée* : Palette noir ébène chaud (`#08080a`), or champagne doux (`#c5a059`), typographie Syne et Inter.
+- **Validation Globale** :
+  - `oxlint` : **0 erreur, 0 avertissement** sur 16 fichiers.
+  - Compilation `tsc -b && vite build` : **100% succès en 2.5s**.
+  - Synchronisation automatique pushée sur `main` et déployée sur `gh-pages`.
+
 ### 7. Installation des Compétences IA Design & Purge Intégrale Zéro-Émoji (30 Septembre 2026)
 - **Nouvelles Compétences IA Déployées dans le Système** :
   - `craft-ui-engineering` ([`/root/.gemini/config/skills/craft-ui-engineering/SKILL.md`](file:///root/.gemini/config/skills/craft-ui-engineering/SKILL.md)) : directives strictes anti-slop, interdiction totale des émojis en UI, palettes graphites monochromes (`#050608`), typographie architecturale suisse.

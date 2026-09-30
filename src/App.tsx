@@ -4,6 +4,7 @@ import { LandingPage } from './components/LandingPage';
 import { CockpitView } from './components/CockpitView';
 import { StudioView } from './components/StudioView';
 import { AcademyView } from './components/AcademyView';
+import { DecouvrirView } from './components/DecouvrirView';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
 import { CosmicBackground } from './components/CosmicBackground';
@@ -13,8 +14,13 @@ import type { Order, StudioMetrics } from './types';
 const STORAGE_KEY = 'velaris_studio_orders_v1';
 
 export function App() {
-  // Default to the public storefront landing page for all visitors
-  const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr'>('home');
+  // Support #decouvrir or default to home
+  const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir'>(() => {
+    if (typeof window !== 'undefined' && (window.location.hash === '#decouvrir' || window.location.pathname === '/decouvrir')) {
+      return 'decouvrir';
+    }
+    return 'home';
+  });
   
   // Initialize orders with localStorage persistence
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -150,6 +156,10 @@ export function App() {
 
           {activeTab === 'academy' && (
             <AcademyView modules={ACADEMY_MODULES} />
+          )}
+
+          {activeTab === 'decouvrir' && (
+            <DecouvrirView />
           )}
         </main>
       </div>

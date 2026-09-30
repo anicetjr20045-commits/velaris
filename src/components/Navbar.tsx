@@ -1,8 +1,9 @@
-import type { FC } from 'react';
+import { useState, type FC } from 'react';
+import { Menu, X } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr';
-  setActiveTab: (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr') => void;
+  activeTab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir';
+  setActiveTab: (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir') => void;
   isWhatsAppConnected: boolean;
   onOpenQrModal: () => void;
   onOpenNewOrderModal?: () => void;
@@ -14,17 +15,25 @@ export const Navbar: FC<NavbarProps> = ({
   isWhatsAppConnected,
   onOpenQrModal,
 }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleNavClick = (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir') => {
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
+  };
+
+  const WHATSAPP_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Velaris, je souhaite créer une chanson personnalisée.');
+
   return (
     <>
       {/* Top Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/[0.07] bg-[#050608]/85 backdrop-blur-2xl transition-all">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
-          {/* Logo & Brand */}
+      <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#08080a]/90 backdrop-blur-2xl transition-all">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8 gap-4">
+          {/* Logo & Brand (with explicit right margin to avoid crowding nav) */}
           <div 
-            onClick={() => setActiveTab('home')}
-            className="flex items-center gap-3 cursor-pointer group select-none"
+            onClick={() => handleNavClick('home')}
+            className="flex items-center gap-3 cursor-pointer group select-none shrink-0 mr-4 lg:mr-8"
           >
-            {/* Minimalist Acoustic Emblem */}
             <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/[0.04] transition-colors group-hover:border-white/50">
               <span className="h-2 w-2 rounded-full bg-white" />
             </div>
@@ -39,11 +48,11 @@ export const Navbar: FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation: Pure Minimalist Typography */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-medium tracking-tight">
+          {/* Desktop Navigation Links (with minimum 16px gap and generous spacing) */}
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-xs font-medium tracking-tight">
             <button
-              onClick={() => setActiveTab('home')}
-              className={`transition-colors py-1 relative ${
+              onClick={() => handleNavClick('home')}
+              className={`transition-colors py-1 relative whitespace-nowrap ${
                 activeTab === 'home'
                   ? 'text-white font-semibold'
                   : 'text-neutral-400 hover:text-white'
@@ -56,8 +65,8 @@ export const Navbar: FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('studio')}
-              className={`transition-colors py-1 relative ${
+              onClick={() => handleNavClick('studio')}
+              className={`transition-colors py-1 relative whitespace-nowrap ${
                 activeTab === 'studio'
                   ? 'text-white font-semibold'
                   : 'text-neutral-400 hover:text-white'
@@ -70,8 +79,8 @@ export const Navbar: FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('cockpit')}
-              className={`transition-colors py-1 relative ${
+              onClick={() => handleNavClick('cockpit')}
+              className={`transition-colors py-1 relative whitespace-nowrap ${
                 activeTab === 'cockpit'
                   ? 'text-white font-semibold'
                   : 'text-neutral-400 hover:text-white'
@@ -84,8 +93,8 @@ export const Navbar: FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('academy')}
-              className={`transition-colors py-1 relative ${
+              onClick={() => handleNavClick('academy')}
+              className={`transition-colors py-1 relative whitespace-nowrap ${
                 activeTab === 'academy'
                   ? 'text-white font-semibold'
                   : 'text-neutral-400 hover:text-white'
@@ -98,69 +107,118 @@ export const Navbar: FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* Right Actions: Professional Status & Sharp Action */}
-          <div className="flex items-center gap-4">
+          {/* Desktop Right Actions: Gap >= 16px, White-space nowrap pastille */}
+          <div className="hidden md:flex items-center gap-4 lg:gap-5 shrink-0 ml-4">
             <button
               onClick={onOpenQrModal}
-              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
                 isWhatsAppConnected
-                  ? 'border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-400 hover:bg-emerald-500/10'
-                  : 'border-white/10 bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20'
+                  ? 'border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-400 hover:bg-emerald-500/15'
+                  : 'border-white/10 bg-white/[0.02] text-neutral-300 hover:text-white hover:border-white/20'
               }`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span className="font-medium text-[11px]">
-                {isWhatsAppConnected ? 'Ligne WhatsApp active' : 'Connecter WhatsApp'}
+              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className="font-medium text-xs whitespace-nowrap">
+                WhatsApp actif
               </span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('studio')}
-              className="hidden sm:inline-flex items-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition-all hover:bg-neutral-200 active:scale-95"
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition-all hover:bg-neutral-200 active:scale-95 whitespace-nowrap"
             >
-              Ouvrir l'atelier
+              Commander sur WhatsApp
+            </a>
+          </div>
+
+          {/* Mobile Right Bar: Single CTA + Burger button (Point 3) */}
+          <div className="flex md:hidden items-center gap-2.5 shrink-0">
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black whitespace-nowrap"
+            >
+              Commander
+            </a>
+
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+              className="p-1.5 rounded-lg border border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
-      </header>
 
-      {/* Mobile Floating Bottom Bar: Pure & Architectural */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden border-t border-white/[0.08] bg-[#050608]/95 backdrop-blur-2xl px-4 py-2.5 safe-area-bottom">
-        <div className="flex w-full items-center justify-around text-[11px] font-medium">
-          <button
-            onClick={() => setActiveTab('home')}
-            className={`px-2 py-1 transition-colors ${
-              activeTab === 'home' ? 'text-white font-bold' : 'text-neutral-500'
-            }`}
-          >
-            Accueil
-          </button>
-          <button
-            onClick={() => setActiveTab('studio')}
-            className={`px-2 py-1 transition-colors ${
-              activeTab === 'studio' ? 'text-white font-bold' : 'text-neutral-500'
-            }`}
-          >
-            Atelier
-          </button>
-          <button
-            onClick={() => setActiveTab('cockpit')}
-            className={`px-2 py-1 transition-colors ${
-              activeTab === 'cockpit' ? 'text-white font-bold' : 'text-neutral-500'
-            }`}
-          >
-            Cockpit
-          </button>
-          <button
-            onClick={() => setActiveTab('academy')}
-            className={`px-2 py-1 transition-colors ${
-              activeTab === 'academy' ? 'text-white font-bold' : 'text-neutral-500'
-            }`}
-          >
-            Académie
-          </button>
-        </div>
-      </div>
+        {/* Mobile Slide-Down Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-white/[0.08] bg-[#08080a]/95 backdrop-blur-2xl px-6 py-6 space-y-4">
+            <nav className="flex flex-col space-y-3 text-sm font-medium">
+              <button
+                onClick={() => handleNavClick('home')}
+                className={`text-left py-2 border-b border-white/[0.04] ${
+                  activeTab === 'home' ? 'text-white font-bold' : 'text-neutral-400'
+                }`}
+              >
+                Accueil
+              </button>
+              <button
+                onClick={() => handleNavClick('studio')}
+                className={`text-left py-2 border-b border-white/[0.04] ${
+                  activeTab === 'studio' ? 'text-white font-bold' : 'text-neutral-400'
+                }`}
+              >
+                Atelier de composition
+              </button>
+              <button
+                onClick={() => handleNavClick('cockpit')}
+                className={`text-left py-2 border-b border-white/[0.04] ${
+                  activeTab === 'cockpit' ? 'text-white font-bold' : 'text-neutral-400'
+                }`}
+              >
+                Cockpit des ventes
+              </button>
+              <button
+                onClick={() => handleNavClick('academy')}
+                className={`text-left py-2 border-b border-white/[0.04] ${
+                  activeTab === 'academy' ? 'text-white font-bold' : 'text-neutral-400'
+                }`}
+              >
+                Académie
+              </button>
+            </nav>
+
+            <div className="pt-2 flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  onOpenQrModal();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-neutral-300"
+              >
+                <span>État WhatsApp</span>
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  WhatsApp actif
+                </span>
+              </button>
+
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full rounded-full bg-white text-black py-3 text-center text-xs font-bold"
+              >
+                Lancer une commande sur WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
+      </header>
     </>
   );
 };
