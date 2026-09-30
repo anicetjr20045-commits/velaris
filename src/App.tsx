@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
-import { CockpitView } from './components/CockpitView';
 import { StudioView } from './components/StudioView';
 import { AcademyView } from './components/AcademyView';
 import { DecouvrirView } from './components/DecouvrirView';
+import { StudioAppLayout } from './components/StudioAppLayout';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
 import { CosmicBackground } from './components/CosmicBackground';
@@ -99,25 +99,27 @@ export function App() {
     <div className="min-h-screen bg-[#07080a] text-[#e8eaed] font-sans selection:bg-white/20 selection:text-white relative">
       <CosmicBackground />
       <div className="relative z-10 flex min-h-screen flex-col">
-        {/* Navigation Bar */}
-        <Navbar
-          activeTab={activeTab}
-          setActiveTab={(tab) => {
-            if (tab === 'qr') {
-              setIsQrModalOpen(true);
-            } else {
-              setActiveTab(tab);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          }}
-          isWhatsAppConnected={isWhatsAppConnected}
-          onOpenQrModal={() => setIsQrModalOpen(true)}
-          onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
-        />
+        {/* Public Navigation Bar (only on home & decouvrir) */}
+        {(activeTab === 'home' || activeTab === 'decouvrir') && (
+          <Navbar
+            activeTab={activeTab}
+            setActiveTab={(tab) => {
+              if (tab === 'qr') {
+                setIsQrModalOpen(true);
+              } else {
+                setActiveTab(tab);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            isWhatsAppConnected={isWhatsAppConnected}
+            onOpenQrModal={() => setIsQrModalOpen(true)}
+            onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
+          />
+        )}
 
         {/* Main Content Area */}
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
-          {activeTab === 'home' && (
+        {activeTab === 'home' && (
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
             <LandingPage
               onOpenStudio={() => {
                 setActiveTab('studio');
@@ -132,36 +134,42 @@ export function App() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
-          )}
+          </main>
+        )}
 
-          {activeTab === 'cockpit' && (
-            <CockpitView
-              metrics={currentMetrics}
-              orders={orders}
-              onSelectOrderForStudio={handleSelectOrderForStudio}
-              onOpenQrModal={() => setIsQrModalOpen(true)}
-              onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
-            />
-          )}
-
-          {activeTab === 'studio' && (
-            <StudioView
-              key={selectedOrderId}
-              orders={orders}
-              selectedOrderId={selectedOrderId}
-              onSelectOrder={setSelectedOrderId}
-              onUpdateOrder={handleUpdateOrder}
-            />
-          )}
-
-          {activeTab === 'academy' && (
-            <AcademyView modules={ACADEMY_MODULES} />
-          )}
-
-          {activeTab === 'decouvrir' && (
+        {activeTab === 'decouvrir' && (
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
             <DecouvrirView />
-          )}
-        </main>
+          </main>
+        )}
+
+        {/* Interior Studio OS (Cockpit, Studio IA, Discussions, Pipeline, Automations, WhatsApp Lines) */}
+        {(activeTab === 'cockpit' || activeTab === 'studio' || activeTab === 'academy') && (
+          <div className="w-full flex-1">
+            <StudioAppLayout
+              initialTab={activeTab === 'cockpit' ? 'revenus' : activeTab === 'studio' ? 'studio_ai' : 'academy'}
+              orders={orders}
+              metrics={currentMetrics}
+              onReturnToHome={() => {
+                setActiveTab('home');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onSelectOrderForStudio={handleSelectOrderForStudio}
+              renderStudioAI={() => (
+                <StudioView
+                  key={selectedOrderId}
+                  orders={orders}
+                  selectedOrderId={selectedOrderId}
+                  onSelectOrder={setSelectedOrderId}
+                  onUpdateOrder={handleUpdateOrder}
+                />
+              )}
+              renderAcademy={() => (
+                <AcademyView modules={ACADEMY_MODULES} />
+              )}
+            />
+          </div>
+        )}
       </div>
 
       {/* QR Code Pairing Modal */}

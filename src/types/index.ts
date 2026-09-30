@@ -42,3 +42,50 @@ export interface AcademyModule {
   icon: string;
   completed?: boolean;
 }
+
+export interface ConversationItem {
+  id: string;
+  name: string;
+  phone: string;
+  lastExchange: string;
+  status: 'en_discussion' | 'nouveau' | 'devis' | 'livre';
+  preview: string;
+  facts?: string;
+  fullMessage?: string;
+  unread?: boolean;
+}
+
+export interface PipelineLead {
+  id: string;
+  name: string;
+  phone?: string;
+  lastExchange: string;
+  stage: 'nouveau' | 'en_discussion' | 'paiement' | 'livre';
+  tag?: string;
+  summary?: string;
+}
+
+export interface AutomationRule {
+  id: string;
+  name: string;
+  emoji: string;
+  action: string;
+  active: boolean;
+}
+
+export interface AutomationLog {
+  id: string;
+  ruleName: string;
+  recipient: string;
+  status: 'Envoyé' | 'Échoué';
+  date: string;
+}
+
+export interface WhatsAppLine {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+  status: 'connected' | 'qr_pending' | 'disconnected';
+  isPrimary?: boolean;
+}
