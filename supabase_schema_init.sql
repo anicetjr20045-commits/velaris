@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS public.revenue_opening_balances (
 );
 
 -- =========================================================================
--- SÉCURITÉ & RLS (Row Level Security)
+-- SÉCURITÉ & RLS (Row Level Security) - Idempotent
 -- =========================================================================
 
 ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
@@ -115,7 +115,23 @@ ALTER TABLE public.automation_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wa_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.revenue_opening_balances ENABLE ROW LEVEL SECURITY;
 
--- Politiques de lecture publique (pour l'affichage en vitrine et studio)
+-- Suppression préalable des politiques si elles existent pour éviter toute erreur de ré-exécution
+DROP POLICY IF EXISTS "contacts_select_policy" ON public.contacts;
+DROP POLICY IF EXISTS "conversations_select_policy" ON public.conversations;
+DROP POLICY IF EXISTS "messages_select_policy" ON public.messages;
+DROP POLICY IF EXISTS "orders_select_policy" ON public.orders;
+DROP POLICY IF EXISTS "automation_rules_select_policy" ON public.automation_rules;
+DROP POLICY IF EXISTS "wa_sessions_select_policy" ON public.wa_sessions;
+DROP POLICY IF EXISTS "revenue_opening_balances_select_policy" ON public.revenue_opening_balances;
+
+DROP POLICY IF EXISTS "contacts_all_auth" ON public.contacts;
+DROP POLICY IF EXISTS "conversations_all_auth" ON public.conversations;
+DROP POLICY IF EXISTS "messages_all_auth" ON public.messages;
+DROP POLICY IF EXISTS "orders_all_auth" ON public.orders;
+DROP POLICY IF EXISTS "automation_rules_all_auth" ON public.automation_rules;
+DROP POLICY IF EXISTS "wa_sessions_all_auth" ON public.wa_sessions;
+
+-- Politiques de lecture publique
 CREATE POLICY "contacts_select_policy" ON public.contacts FOR SELECT USING (true);
 CREATE POLICY "conversations_select_policy" ON public.conversations FOR SELECT USING (true);
 CREATE POLICY "messages_select_policy" ON public.messages FOR SELECT USING (true);
@@ -124,7 +140,7 @@ CREATE POLICY "automation_rules_select_policy" ON public.automation_rules FOR SE
 CREATE POLICY "wa_sessions_select_policy" ON public.wa_sessions FOR SELECT USING (true);
 CREATE POLICY "revenue_opening_balances_select_policy" ON public.revenue_opening_balances FOR SELECT USING (true);
 
--- Politiques de modification pour les utilisateurs connectés ou la clé secrète
+-- Politiques d'écriture / modification
 CREATE POLICY "contacts_all_auth" ON public.contacts FOR ALL USING (auth.role() = 'authenticated' OR auth.role() = 'service_role');
 CREATE POLICY "conversations_all_auth" ON public.conversations FOR ALL USING (auth.role() = 'authenticated' OR auth.role() = 'service_role');
 CREATE POLICY "messages_all_auth" ON public.messages FOR ALL USING (auth.role() = 'authenticated' OR auth.role() = 'service_role');
@@ -137,17 +153,17 @@ CREATE POLICY "wa_sessions_all_auth" ON public.wa_sessions FOR ALL USING (auth.r
 -- =========================================================================
 
 -- Solde de départ certifié : 2 749 400 F CFA
-INSERT INTO public.revenue_opening_balances (amount_cents, currency, as_of_date)
-VALUES (274940000, 'XOF', '2026-09-26')
-ON CONFLICT DO NOTHING;
+INSERT INTO public.revenue_opening_balances (id, amount_cents, currency, as_of_date)
+VALUES ('c0000001-0000-0000-0000-000000000001', 274940000, 'XOF', '2026-09-26')
+ON CONFLICT (id) DO NOTHING;
 
--- Les 3 règles d'automatisation de production
-INSERT INTO public.automation_rules (name, trigger_type, trigger_value, text_body, enabled)
+-- Les 3 règles d'automatisation réelles
+INSERT INTO public.automation_rules (id, name, trigger_type, trigger_value, text_body, enabled)
 VALUES 
-('texte', 'reaction', '🖖🏻', 'nous faisons la chanson a 1000 f', true),
-('Vocal', 'reaction', '😊', 'Nous faisons la chanson à 1200 f . On a aussi un autre modèle vidéo avec photos à 3000 f. Tout dépend de vous 😊', true),
-('Test', 'reaction', '🙏', 'Prévision de mon chiffre d''affaires à la fin du mois ?', true)
-ON CONFLICT DO NOTHING;
+('163e1c54-c080-4d10-bad9-23569cb18ce9', 'texte', 'reaction', '🖖🏻', 'nous faisons la chanson a 1000 f', true),
+('29dd7277-2612-443c-bc6b-4cfd9c109b04', 'Vocal', 'reaction', '😊', 'Nous faisons la chanson à 1200 f . On a aussi un autre modèle vidéo avec photos à 3000 f. Tout dépend de vous 😊', true),
+('587dc5c0-a81e-4b16-9ce5-a6a83c0e3d41', 'Test', 'reaction', '🙏', 'Prévision de mon chiffre d''affaires à la fin du mois ?', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Sessions WhatsApp
 INSERT INTO public.wa_sessions (session_name, phone_number, status)
@@ -162,7 +178,7 @@ VALUES
 ('a0000001-0000-0000-0000-000000000001', 'Safiatou TRAORE', '+226 79 29 64 99', 'Anniversaire Orokiatou Tientrebéogo'),
 ('a0000002-0000-0000-0000-000000000002', 'Prunelle De Dieu', '+226 58 58 34 71', 'Hommage Gaudens & Prisca'),
 ('a0000003-0000-0000-0000-000000000003', 'sere inoussa', '+226 71 12 43 40', 'Publicité SERE ET FILS Nouna')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Conversations clés réelles
 INSERT INTO public.conversations (id, contact_id, funnel_stage, summary, ai_paused, pause_reason)
@@ -170,13 +186,13 @@ VALUES
 ('b0000001-0000-0000-0000-000000000001', 'a0000001-0000-0000-0000-000000000001', 'paid', 'Destinataire Orokiatou Tientrebéogo. Version vidéo photos en duo. 3000 F payé et confirmé, montage final en cours.', true, 'merchant_reply'),
 ('b0000002-0000-0000-0000-000000000002', 'a0000002-0000-0000-0000-000000000002', 'delivered', 'Frère Gaudens, Défunte Prisca. Chanson espérance chrétienne (1 200 FCFA). Morceau livré et validé avec émotion.', true, 'merchant_reply'),
 ('b0000003-0000-0000-0000-000000000003', 'a0000003-0000-0000-0000-000000000003', 'presenting', 'Entreprise SERE ET FILS à Nouna. Chanson publicitaire 1 200 F. En attente numéro Moov.', true, 'merchant_reply')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Messages clés
-INSERT INTO public.messages (conversation_id, role, direction, body)
+INSERT INTO public.messages (id, conversation_id, role, direction, body)
 VALUES 
-('b0000001-0000-0000-0000-000000000001', 'user', 'inbound', 'Bonsoir ! C''est l''anniversaire de ma bestie Orokiatou Tientrebéogo ce samedi. Je veux lui faire une chanson surprise magnifique.'),
-('b0000001-0000-0000-0000-000000000001', 'human_agent', 'outbound', 'Bonjour Safiatou ! Quel plaisir. Donnez-nous vos souvenirs forts avec Orokiatou et nous lançons la composition tout de suite.'),
-('b0000002-0000-0000-0000-000000000002', 'user', 'inbound', 'Bonjour Velaris Studio. Je viens pour un hommage à mon frère Gaudens et sa défunte épouse Prisca.'),
-('b0000002-0000-0000-0000-000000000002', 'human_agent', 'outbound', 'Toutes nos condoléances Prunelle. Nous allons composer un chant d''espérance et de paix pour lui donner du courage.')
-ON CONFLICT DO NOTHING;
+('d0000001-0000-0000-0000-000000000001', 'b0000001-0000-0000-0000-000000000001', 'user', 'inbound', 'Bonsoir ! C''est l''anniversaire de ma bestie Orokiatou Tientrebéogo ce samedi. Je veux lui faire une chanson surprise magnifique.'),
+('d0000002-0000-0000-0000-000000000002', 'b0000001-0000-0000-0000-000000000001', 'human_agent', 'outbound', 'Bonjour Safiatou ! Quel plaisir. Donnez-nous vos souvenirs forts avec Orokiatou et nous lançons la composition tout de suite.'),
+('d0000003-0000-0000-0000-000000000002', 'b0000002-0000-0000-0000-000000000002', 'user', 'inbound', 'Bonjour Velaris Studio. Je viens pour un hommage à mon frère Gaudens et sa défunte épouse Prisca.'),
+('d0000004-0000-0000-0000-000000000002', 'b0000002-0000-0000-0000-000000000002', 'human_agent', 'outbound', 'Toutes nos condoléances Prunelle. Nous allons composer un chant d''espérance et de paix pour lui donner du courage.')
+ON CONFLICT (id) DO NOTHING;
