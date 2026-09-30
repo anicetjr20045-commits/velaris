@@ -1,6 +1,5 @@
 import { useState, type FC } from 'react';
 import { 
-  Sparkles, 
   Check, 
   Play, 
   Pause, 
@@ -17,7 +16,9 @@ import {
   X,
   ExternalLink,
   Sliders,
-  UserCheck
+  UserCheck,
+  Disc,
+  FileText
 } from 'lucide-react';
 import type { Order } from '../types';
 
@@ -60,10 +61,10 @@ export const StudioView: FC<StudioViewProps> = ({
   // Styles list
   const STYLES = [
     { id: 'afro_love', label: 'Afro-Love', desc: 'Chaud, rythmé & romantique' },
-    { id: 'acoustique', label: 'Guitare Acoustique', desc: 'Doux, intime & émouvant' },
+    { id: 'acoustique', label: 'Guitare Acoustique', desc: 'Doux, intime & sobre' },
     { id: 'rumba', label: 'Rumba Congolaise', desc: 'Mélodique & festif' },
     { id: 'zouk', label: 'Zouk Rétro', desc: 'Sensuel & enveloppant' },
-    { id: 'gospel', label: 'Gospel & Louange', desc: 'Puissant & reconnaissant' },
+    { id: 'gospel', label: 'Gospel & Célébration', desc: 'Harmonique & majestueux' },
     { id: 'mandingue', label: 'Mandingue Kora', desc: 'Traditionnel & envoûtant' },
   ];
 
@@ -112,21 +113,21 @@ export const StudioView: FC<StudioViewProps> = ({
     setIsEditingLyrics(false);
   };
 
-  // 1-Click Music Production & WhatsApp Delivery Trigger
   const handleLaunchProduction = () => {
+    if (!currentOrder.lyrics) return;
     setIsLaunchingProduction(true);
-    setProductionStep('Connexion Studio Suno IA...');
+    setProductionStep('Initialisation du pipeline de composition...');
 
     setTimeout(() => {
-      setProductionStep(`Composition ${selectedVoice.toUpperCase()} & Mastering audio (~18 min en réel)...`);
+      setProductionStep(`Arrangement audio ${selectedVoice.toUpperCase()} & Mastering (Simulation 18 min)...`);
     }, 1200);
 
     setTimeout(() => {
-      setProductionStep('Finalisation du master HD & Encodage WhatsApp...');
+      setProductionStep('Finalisation du master 24-bit & Encodage WhatsApp...');
     }, 2600);
 
     setTimeout(() => {
-      setProductionStep(`Livraison automatique sur ${currentOrder.clientPhone}...`);
+      setProductionStep(`Expédition sur ${currentOrder.clientPhone}...`);
     }, 3900);
 
     setTimeout(() => {
@@ -163,33 +164,33 @@ export const StudioView: FC<StudioViewProps> = ({
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-[#d4af37]/20 px-2 py-0.5 text-[11px] font-bold text-[#e5c158]">
-              STUDIO IA
+            <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-mono tracking-wider text-neutral-300 uppercase">
+              STUDIO OS • ENGINE V4
             </span>
-            <span className="text-xs text-white/50">Automatisation & Production 1-Clic</span>
+            <span className="text-xs font-mono text-neutral-500">Pipeline Audio 18 Min</span>
           </div>
-          <h1 className="font-['Space_Grotesk'] text-2xl font-extrabold text-white mt-1">
-            Atelier de Production
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">
+            Atelier de Création Audio & Paroles
           </h1>
         </div>
 
-        {/* Client quick switcher */}
+        {/* Client quick switcher strip */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           {orders.map((o) => (
             <button
               key={o.id}
               onClick={() => onSelectOrder(o.id)}
-              className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all border ${
+              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-mono whitespace-nowrap transition-all border cursor-pointer ${
                 o.id === currentOrder.id
-                  ? 'bg-[#d4af37] text-black border-[#d4af37] shadow-lg shadow-[#d4af37]/20'
-                  : 'bg-white/[0.04] text-white/70 border-white/[0.08] hover:bg-white/[0.08]'
+                  ? 'bg-white text-black font-semibold border-white shadow-sm'
+                  : 'bg-white/[0.02] text-neutral-400 border-white/[0.06] hover:bg-white/[0.05] hover:text-white'
               }`}
             >
               <span>{o.clientName.split(' ')[0]}</span>
-              <span className="text-[10px] opacity-70">({o.amount.toLocaleString()} F)</span>
+              <span className="text-[10px] opacity-60">({o.amount.toLocaleString()} F)</span>
             </button>
           ))}
         </div>
@@ -200,22 +201,22 @@ export const StudioView: FC<StudioViewProps> = ({
         {/* Left Column: Client Info & Voice Transcription (5 cols) */}
         <div className="lg:col-span-5 space-y-5">
           {/* Client Brief Card */}
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 backdrop-blur-md">
-            <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#07080B] p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
               <div>
-                <span className="text-[11px] uppercase font-bold text-white/40 tracking-wider">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
                   Détails Commande ({currentOrder.id})
                 </span>
-                <h3 className="font-['Space_Grotesk'] text-lg font-bold text-white">
+                <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
                   {currentOrder.clientName}
                 </h3>
-                <p className="text-xs text-[#e5c158] font-medium">{currentOrder.clientPhone}</p>
+                <p className="text-xs font-mono text-neutral-400">{currentOrder.clientPhone}</p>
               </div>
               <div className="text-right">
-                <span className="font-['Space_Grotesk'] text-lg font-extrabold text-white">
+                <span className="font-mono text-lg font-bold text-white">
                   {currentOrder.amount.toLocaleString()} FCFA
                 </span>
-                <p className="text-[11px] text-emerald-400 font-semibold flex items-center justify-end gap-1">
+                <p className="text-[10px] font-mono text-emerald-400 flex items-center justify-end gap-1">
                   <CheckCircle2 className="h-3 w-3" />
                   {currentOrder.paymentMethod}
                 </p>
@@ -223,38 +224,38 @@ export const StudioView: FC<StudioViewProps> = ({
             </div>
 
             {/* Target & Occasion */}
-            <div className="grid grid-cols-2 gap-3 py-3 border-b border-white/[0.06] text-xs">
-              <div>
-                <span className="text-white/40 block text-[11px]">Destinataire</span>
-                <span className="font-semibold text-white">{currentOrder.recipient}</span>
+            <div className="grid grid-cols-2 gap-3 py-1 text-xs">
+              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">Destinataire</span>
+                <span className="font-semibold text-white mt-0.5 block">{currentOrder.recipient}</span>
               </div>
-              <div>
-                <span className="text-white/40 block text-[11px]">Occasion</span>
-                <span className="font-semibold text-white">{currentOrder.occasion}</span>
+              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">Occasion</span>
+                <span className="font-semibold text-white mt-0.5 block">{currentOrder.occasion}</span>
               </div>
             </div>
 
             {/* WhatsApp Voice Note Transcription Module */}
-            <div className="pt-4">
+            <div className="pt-2">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-white/80">
-                  <Mic className="h-3.5 w-3.5 text-[#e5c158]" />
-                  <span>Note Vocale Transcrite par l'IA</span>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300">
+                  <Mic className="h-3.5 w-3.5 text-white" />
+                  <span>Transcription Note Vocale</span>
                 </div>
-                <span className="text-[10px] text-white/40">WhatsApp Audio • 0:48</span>
+                <span className="text-[10px] font-mono text-neutral-500">Audio WhatsApp • 0:48</span>
               </div>
 
-              {/* Simulated Waveform Player */}
-              <div className="rounded-2xl border border-white/[0.06] bg-[#07080c] p-3.5 space-y-2.5">
+              {/* Hardware Waveform Player */}
+              <div className="rounded-xl border border-white/[0.06] bg-[#0D0F14] p-3.5 space-y-3">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#d4af37] text-black shadow-md hover:scale-105 transition-transform"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer"
                   >
                     {isPlayingAudio ? (
-                      <Pause className="h-4 w-4 fill-current" />
+                      <Pause className="h-3.5 w-3.5 fill-current" />
                     ) : (
-                      <Play className="h-4 w-4 fill-current ml-0.5" />
+                      <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
                     )}
                   </button>
 
@@ -265,25 +266,25 @@ export const StudioView: FC<StudioViewProps> = ({
                         key={i}
                         style={{ height: `${isPlayingAudio ? Math.min(26, h + (i % 3) * 3) : h}px` }}
                         className={`w-1 rounded-full transition-all duration-200 ${
-                          isPlayingAudio ? 'bg-[#e5c158]' : 'bg-white/20'
+                          isPlayingAudio ? 'bg-white' : 'bg-white/20'
                         }`}
                       />
                     ))}
                   </div>
 
-                  <span className="text-[11px] font-mono text-white/60">0:48</span>
+                  <span className="text-[11px] font-mono text-neutral-400">0:48</span>
                 </div>
 
                 {/* Transcription Text */}
-                <div className="text-xs text-white/70 italic bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.04] leading-relaxed">
+                <div className="text-xs text-neutral-300 italic bg-white/[0.02] p-3 rounded-lg border border-white/[0.04] leading-relaxed">
                   « {currentOrder.transcription} »
                 </div>
               </div>
             </div>
 
             {/* Musical Style Selector */}
-            <div className="pt-4">
-              <label className="text-xs font-semibold text-white/70 block mb-2">
+            <div className="pt-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 block mb-2">
                 Style Musical Souhaité
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -296,23 +297,24 @@ export const StudioView: FC<StudioViewProps> = ({
                         style: style.id,
                       })
                     }
-                    className={`rounded-xl border p-2 text-left transition-all ${
+                    className={`rounded-lg border p-2.5 text-left transition-all cursor-pointer ${
                       currentOrder.style === style.id
-                        ? 'border-[#d4af37] bg-[#d4af37]/15 text-[#f3e5ab]'
-                        : 'border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.04]'
+                        ? 'border-white/30 bg-white/[0.08] text-white shadow-sm'
+                        : 'border-white/[0.06] bg-white/[0.02] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
                     }`}
                   >
-                    <div className="font-bold text-xs">{style.label}</div>
-                    <div className="text-[10px] opacity-70 line-clamp-1">{style.desc}</div>
+                    <div className="font-semibold text-xs text-white">{style.label}</div>
+                    <div className="text-[10px] text-neutral-500 line-clamp-1 mt-0.5">{style.desc}</div>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Vocal Gender Selector */}
-            <div className="pt-4 border-t border-white/[0.06]">
-              <label className="text-xs font-semibold text-white/70 block mb-2 flex items-center gap-1.5">
-                <UserCheck className="h-3.5 w-3.5 text-[#e5c158]" /> Timbre Vocal Studio
+            <div className="pt-3 border-t border-white/[0.06]">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 block mb-2 flex items-center gap-1.5">
+                <UserCheck className="h-3 w-3 text-neutral-300" />
+                <span>Timbre Vocal Studio</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -327,14 +329,14 @@ export const StudioView: FC<StudioViewProps> = ({
                       setSelectedVoice(v.id as 'femme' | 'homme' | 'duo');
                       onUpdateOrder({ ...currentOrder, voiceGender: v.id as 'femme' | 'homme' | 'duo' });
                     }}
-                    className={`rounded-xl border p-2 text-center transition-all ${
+                    className={`rounded-lg border p-2 text-center transition-all cursor-pointer ${
                       selectedVoice === v.id
-                        ? 'border-[#d4af37] bg-[#d4af37]/15 text-[#e5c158]'
-                        : 'border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.04]'
+                        ? 'border-white/30 bg-white text-black font-semibold'
+                        : 'border-white/[0.06] bg-white/[0.02] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
                     }`}
                   >
-                    <div className="text-xs font-bold">{v.label}</div>
-                    <div className="text-[9px] opacity-70">{v.desc}</div>
+                    <div className="text-xs font-semibold">{v.label}</div>
+                    <div className={`text-[9px] mt-0.5 ${selectedVoice === v.id ? 'text-neutral-700' : 'text-neutral-500'}`}>{v.desc}</div>
                   </button>
                 ))}
               </div>
@@ -344,18 +346,18 @@ export const StudioView: FC<StudioViewProps> = ({
 
         {/* Right Column: AI Lyrics Editor & 1-Click Launch (7 cols) */}
         <div className="lg:col-span-7 space-y-5">
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6 backdrop-blur-md space-y-5">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#07080B] p-5 sm:p-6 space-y-5">
             {/* Lyrics Card Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.06]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
               <div>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#e5c158]" />
-                  <h3 className="font-['Space_Grotesk'] text-lg font-bold text-white">
+                  <FileText className="h-4 w-4 text-white" />
+                  <h3 className="text-lg font-bold text-white tracking-tight">
                     Paroles de la Chanson
                   </h3>
                 </div>
-                <p className="text-xs text-white/50">
-                  Générées sur-mesure par l'IA et modifiables en direct avant envoi.
+                <p className="text-xs text-neutral-400">
+                  Générées à partir du brief vocal et éditables en direct.
                 </p>
               </div>
 
@@ -363,9 +365,9 @@ export const StudioView: FC<StudioViewProps> = ({
                 {currentOrder.lyrics && !isEditingLyrics && (
                   <button
                     onClick={() => setIsEditingLyrics(true)}
-                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/80 hover:text-white hover:bg-white/[0.08] transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-mono text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
                   >
-                    <Edit3 className="h-3.5 w-3.5 text-[#e5c158]" />
+                    <Edit3 className="h-3 w-3" />
                     <span>Modifier</span>
                   </button>
                 )}
@@ -373,51 +375,51 @@ export const StudioView: FC<StudioViewProps> = ({
                   <>
                     <button
                       onClick={handleSaveEditedLyrics}
-                      className="flex items-center gap-1.5 rounded-xl bg-[#d4af37] text-black px-3 py-1.5 text-xs font-bold hover:bg-[#e5c158] transition-all"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white text-black px-3 py-1.5 text-xs font-semibold hover:bg-neutral-200 transition-all cursor-pointer"
                     >
-                      <Save className="h-3.5 w-3.5" />
+                      <Save className="h-3 w-3" />
                       <span>Enregistrer</span>
                     </button>
                     <button
                       onClick={() => setIsEditingLyrics(false)}
-                      className="flex items-center gap-1 rounded-xl border border-white/[0.08] px-2.5 py-1.5 text-xs text-white/60 hover:text-white transition-all"
+                      className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs text-neutral-400 hover:text-white transition-all cursor-pointer"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-3 w-3" />
                     </button>
                   </>
                 )}
                 <button
                   onClick={() => handleGenerateLyrics(customPrompt)}
                   disabled={isGeneratingLyrics}
-                  className="flex items-center gap-1.5 rounded-xl border border-[#d4af37]/40 bg-[#d4af37]/10 px-3 py-1.5 text-xs font-semibold text-[#e5c158] hover:bg-[#d4af37]/20 transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-xs font-mono text-white hover:bg-white/[0.08] transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isGeneratingLyrics ? 'animate-spin' : ''}`} />
-                  <span>{isGeneratingLyrics ? 'Génération...' : 'Réécrire'}</span>
+                  <RefreshCw className={`h-3 w-3 ${isGeneratingLyrics ? 'animate-spin' : ''}`} />
+                  <span>{isGeneratingLyrics ? 'Génération...' : 'Régénérer'}</span>
                 </button>
                 <button
                   onClick={copyLyrics}
-                  className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70 hover:text-white"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-mono text-neutral-400 hover:text-white cursor-pointer"
                 >
-                  {lyricsCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {lyricsCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
                   <span>{lyricsCopied ? 'Copié' : 'Copier'}</span>
                 </button>
               </div>
             </div>
 
             {/* Quick Directive / Custom Retouch Input */}
-            <div className="flex items-center gap-2 bg-[#07080c] p-2 rounded-2xl border border-white/[0.06]">
-              <Sliders className="h-3.5 w-3.5 text-[#e5c158] ml-2 shrink-0" />
+            <div className="flex items-center gap-2 bg-[#0D0F14] p-2 rounded-xl border border-white/[0.06]">
+              <Sliders className="h-3.5 w-3.5 text-neutral-400 ml-2 shrink-0" />
               <input
                 type="text"
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
                 placeholder="Consigne de retouche (ex: insister sur le mariage ce samedi, ajouter un clin d'œil à Ouaga...)"
-                className="w-full bg-transparent px-2 text-xs text-white placeholder-white/30 focus:outline-none"
+                className="w-full bg-transparent px-2 text-xs text-white placeholder-neutral-500 focus:outline-none"
               />
               <button
                 onClick={() => handleGenerateLyrics(customPrompt)}
                 disabled={isGeneratingLyrics || !customPrompt.trim()}
-                className="rounded-xl bg-white/[0.08] px-3 py-1 text-xs font-medium text-[#e5c158] hover:bg-[#d4af37]/20 disabled:opacity-40 transition-all shrink-0"
+                className="rounded-lg bg-white/[0.08] px-3 py-1 text-xs font-medium text-white hover:bg-white/[0.15] disabled:opacity-40 transition-all shrink-0 cursor-pointer"
               >
                 Appliquer
               </button>
@@ -427,88 +429,88 @@ export const StudioView: FC<StudioViewProps> = ({
             {currentOrder.lyrics ? (
               isEditingLyrics ? (
                 /* Inline Editor Mode */
-                <div className="space-y-3 rounded-2xl border border-[#d4af37]/30 bg-[#07080c] p-4 text-xs">
+                <div className="space-y-3 rounded-xl border border-white/[0.1] bg-[#0D0F14] p-4 text-xs font-mono">
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-[#e5c158] block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
                       Titre de la chanson
                     </label>
                     <input
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none"
+                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-white/50 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
                       Couplet 1
                     </label>
                     <textarea
                       rows={3}
                       value={editVerse1}
                       onChange={(e) => setEditVerse1(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed"
+                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none resize-none leading-relaxed"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-[#e5c158] block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
                       Refrain
                     </label>
                     <textarea
                       rows={3}
                       value={editChorus}
                       onChange={(e) => setEditChorus(e.target.value)}
-                      className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/[0.05] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed font-medium"
+                      className="w-full rounded-md border border-white/[0.15] bg-white/[0.05] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none resize-none leading-relaxed font-semibold"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-white/50 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
                       Couplet 2
                     </label>
                     <textarea
                       rows={3}
                       value={editVerse2}
                       onChange={(e) => setEditVerse2(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed"
+                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none resize-none leading-relaxed"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">
+                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
                       Outro
                     </label>
                     <input
                       type="text"
                       value={editOutro}
                       onChange={(e) => setEditOutro(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none"
+                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none"
                     />
                   </div>
                 </div>
               ) : (
-                /* Standard Display Mode */
-                <div className="space-y-4 rounded-2xl border border-white/[0.06] bg-[#07080c] p-4 font-sans text-xs leading-relaxed max-h-[360px] overflow-y-auto">
+                /* Standard Display Mode — Vinyl Lyric Sheet */
+                <div className="space-y-4 rounded-xl border border-white/[0.06] bg-[#0D0F14] p-4 text-xs leading-relaxed max-h-[360px] overflow-y-auto font-sans">
                   <div className="text-center pb-2 border-b border-white/[0.06]">
-                    <span className="font-heading text-sm font-bold text-white tracking-wider">
+                    <span className="text-sm font-bold text-white tracking-tight">
                       {currentOrder.lyrics.title}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                      Couplet 1
+                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block mb-1">
+                      [Couplet 1]
                     </span>
-                    <p className="text-white/90 whitespace-pre-line pl-3 border-l-2 border-[#d4af37]/40">
+                    <p className="text-neutral-300 whitespace-pre-line pl-3 border-l-2 border-white/20">
                       {currentOrder.lyrics.verse1}
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-[#d4af37]/[0.08] p-3 border border-[#d4af37]/20">
-                    <span className="text-[10px] font-bold text-[#e5c158] uppercase tracking-widest block mb-1">
-                      Refrain
+                  <div className="rounded-lg bg-white/[0.03] p-3.5 border border-white/[0.08]">
+                    <span className="text-[10px] font-mono text-white font-semibold uppercase tracking-widest block mb-1">
+                      [Refrain]
                     </span>
                     <p className="text-white font-medium whitespace-pre-line">
                       {currentOrder.lyrics.chorus}
@@ -516,37 +518,37 @@ export const StudioView: FC<StudioViewProps> = ({
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                      Couplet 2
+                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block mb-1">
+                      [Couplet 2]
                     </span>
-                    <p className="text-white/90 whitespace-pre-line pl-3 border-l-2 border-white/20">
+                    <p className="text-neutral-300 whitespace-pre-line pl-3 border-l-2 border-white/20">
                       {currentOrder.lyrics.verse2}
                     </p>
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                      Outro
+                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block mb-1">
+                      [Outro]
                     </span>
-                    <p className="text-white/70 italic pl-3 border-l-2 border-purple-500/40">
+                    <p className="text-neutral-400 italic pl-3 border-l-2 border-white/10">
                       {currentOrder.lyrics.outro}
                     </p>
                   </div>
                 </div>
               )
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border border-dashed border-white/[0.1] bg-[#07080c]">
-                <Music className="h-10 w-10 text-white/20 mb-3" />
-                <p className="text-xs font-semibold text-white/70">Aucune parole rédigée pour l'instant</p>
-                <p className="text-[11px] text-white/40 max-w-xs mt-1 mb-4">
-                  Cliquez sur le bouton ci-dessous pour que l'IA transforme la note vocale en texte en rimes.
+              <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-white/[0.08] bg-[#0D0F14]">
+                <Music className="h-8 w-8 text-neutral-600 mb-3" />
+                <p className="text-xs font-semibold text-neutral-300">Aucune parole rédigée pour l'instant</p>
+                <p className="text-[11px] text-neutral-500 max-w-xs mt-1 mb-4">
+                  Cliquez sur le bouton ci-dessous pour transformer le brief vocal en texte rimé.
                 </p>
                 <button
                   onClick={() => handleGenerateLyrics()}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#e5c158] px-4 py-2 text-xs font-bold text-black"
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition-all cursor-pointer"
                 >
-                  <Sparkles className="h-4 w-4" />
-                  Générer les Paroles IA
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Générer les Paroles</span>
                 </button>
               </div>
             )}
@@ -556,43 +558,43 @@ export const StudioView: FC<StudioViewProps> = ({
               <button
                 onClick={openWhatsAppChat}
                 disabled={!currentOrder.lyrics}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-40"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-40 cursor-pointer"
               >
                 {lyricsSentToWhatsApp ? (
                   <>
                     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>WhatsApp ouvert pour {currentOrder.clientName.split(' ')[0]} !</span>
+                    <span>WhatsApp ouvert pour {currentOrder.clientName.split(' ')[0]}</span>
                   </>
                 ) : (
                   <>
                     <Smartphone className="h-4 w-4" />
-                    <span>Envoyer les paroles sur WhatsApp pour validation</span>
+                    <span>Envoyer les paroles sur WhatsApp pour validation client</span>
                     <ExternalLink className="h-3 w-3 opacity-60 ml-0.5" />
                   </>
                 )}
               </button>
 
-              {/* The Grand 1-Click Trigger */}
-              <div className="rounded-2xl border border-[#d4af37]/30 bg-gradient-to-r from-[#17140a] via-[#1f1b0c] to-[#121008] p-4 relative overflow-hidden">
+              {/* The Grand 1-Click Master Control */}
+              <div className="rounded-xl border border-white/[0.1] bg-[#0D0F14] p-4 relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-[#e5c158]" />
-                      <span className="font-['Space_Grotesk'] text-sm font-bold text-white">
+                      <Zap className="h-4 w-4 text-white" />
+                      <span className="text-sm font-bold text-white tracking-tight">
                         Production & Expédition 1-Clic
                       </span>
                     </div>
-                    <p className="text-[11px] text-white/60 mt-0.5">
-                      Génère le morceau en studio, masterise et l'envoie directement en MP3 sur WhatsApp.
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      Génère le master en studio Suno et l'envoie directement en MP3 sur WhatsApp.
                     </p>
                   </div>
 
                   <button
                     onClick={handleLaunchProduction}
                     disabled={isLaunchingProduction || !currentOrder.lyrics}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f0ce6b] to-[#c59e2b] px-6 py-3.5 text-xs font-extrabold text-black shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-semibold text-black hover:bg-neutral-200 transition-all active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.15)] disabled:opacity-40 cursor-pointer"
                   >
-                    <Music className="h-4 w-4" />
+                    <Disc className={`h-4 w-4 ${isLaunchingProduction ? 'animate-spin' : ''}`} />
                     <span>
                       {isLaunchingProduction ? 'Production en cours...' : 'Produire & Livrer'}
                     </span>
@@ -603,14 +605,14 @@ export const StudioView: FC<StudioViewProps> = ({
                 {isLaunchingProduction && (
                   <div className="mt-4 pt-3 border-t border-white/[0.08] space-y-2">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#e5c158] font-semibold animate-pulse flex items-center gap-1.5">
-                        <Radio className="h-3 w-3 animate-spin" />
+                      <span className="text-white font-mono font-medium flex items-center gap-1.5">
+                        <Radio className="h-3 w-3 text-emerald-400 animate-spin" />
                         {productionStep}
                       </span>
-                      <span className="font-mono text-white/50">IA Suno v4 • {selectedVoice}</span>
+                      <span className="font-mono text-neutral-500">Suno Engine • {selectedVoice}</span>
                     </div>
-                    <div className="h-1.5 w-full rounded-full bg-white/[0.08] overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#d4af37] to-emerald-400 animate-pulse w-full transition-all duration-500" />
+                    <div className="h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
+                      <div className="h-full bg-white animate-pulse w-full transition-all duration-500" />
                     </div>
                   </div>
                 )}
@@ -622,7 +624,7 @@ export const StudioView: FC<StudioViewProps> = ({
                       <CheckCircle2 className="h-4 w-4" />
                       <span>{currentOrder.deliveryDate || 'Morceau livré au client avec succès !'}</span>
                     </div>
-                    <span className="text-[10px] text-white/50 font-mono">100% Automatisé</span>
+                    <span className="text-[10px] text-neutral-500 font-mono">Pipeline Terminé</span>
                   </div>
                 )}
               </div>

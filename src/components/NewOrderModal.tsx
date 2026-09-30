@@ -1,7 +1,6 @@
 import { useState, type FC } from 'react';
 import { 
   X, 
-  Sparkles, 
   User, 
   Phone, 
   Heart, 
@@ -10,7 +9,8 @@ import {
   Wallet, 
   FileText, 
   Mic, 
-  CheckCircle2 
+  CheckCircle2,
+  Plus
 } from 'lucide-react';
 import type { Order } from '../types';
 
@@ -25,7 +25,7 @@ const STYLES = [
   { id: 'acoustique', label: 'Guitare Acoustique (Intime & Doux)' },
   { id: 'rumba', label: 'Rumba Congolaise (Mélodique & Festif)' },
   { id: 'zouk', label: 'Zouk Rétro (Sensuel & Enveloppant)' },
-  { id: 'gospel', label: 'Gospel & Louange (Puissant & Reconnaissant)' },
+  { id: 'gospel', label: 'Gospel & Célébration (Puissant & Reconnaissant)' },
   { id: 'mandingue', label: 'Mandingue / Kora (Traditionnel & Profond)' },
 ];
 
@@ -85,40 +85,38 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-white/[0.12] bg-[#0e1017] p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
-        {/* Glow ambient */}
-        <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-[#d4af37]/15 blur-3xl pointer-events-none" />
-
+      <div className="relative w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-[#07080B] p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.05] border border-white/[0.08] text-white/70 hover:bg-white/[0.1] hover:text-white transition-all"
+          className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
         >
           <X className="h-4 w-4" />
         </button>
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#e5c158]">
-            <Sparkles className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.08] text-white">
+            <Plus className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold font-['Space_Grotesk'] text-white">
-              Nouveau Lead / Prise de Brief Client
+            <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">NOUVELLE ENTRÉE</div>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Prise de Brief & Lead Client
             </h2>
-            <p className="text-xs text-white/60">
-              Enregistrez une nouvelle commande WhatsApp issue de vos campagnes ads.
+            <p className="text-xs text-neutral-400 mt-0.5">
+              Enregistrez une nouvelle commande issue de vos publicités WhatsApp.
             </p>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Client Name */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5 flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5 text-[#e5c158]" /> Nom du Client
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5 text-neutral-300" /> Nom du Client
               </label>
               <input
                 type="text"
@@ -126,13 +124,13 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="Ex: Ibrahim Traoré"
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#d4af37] focus:outline-none transition-all"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-sans"
               />
             </div>
 
             {/* Client Phone */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5 flex items-center gap-1.5">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5 flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5 text-emerald-400" /> WhatsApp Client
               </label>
               <input
@@ -140,7 +138,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 value={clientPhone}
                 onChange={(e) => setClientPhone(e.target.value)}
                 placeholder="Ex: +225 07 12 34 56 78"
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#d4af37] focus:outline-none transition-all"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-mono"
               />
             </div>
           </div>
@@ -148,8 +146,8 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Recipient */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5 flex items-center gap-1.5">
-                <Heart className="h-3.5 w-3.5 text-rose-400" /> Prénom du Destinataire
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                <Heart className="h-3.5 w-3.5 text-neutral-300" /> Prénom du Destinataire
               </label>
               <input
                 type="text"
@@ -157,19 +155,19 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
                 placeholder="Ex: Fadila, Awa, Maman..."
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#d4af37] focus:outline-none transition-all"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-sans"
               />
             </div>
 
             {/* Occasion */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5 flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-amber-400" /> Occasion
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-neutral-300" /> Occasion
               </label>
               <select
                 value={occasion}
                 onChange={(e) => setOccasion(e.target.value)}
-                className="w-full rounded-xl border border-white/[0.08] bg-[#141620] px-3.5 py-2.5 text-sm text-white focus:border-[#d4af37] focus:outline-none transition-all"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-sans cursor-pointer"
               >
                 {OCCASIONS.map((occ) => (
                   <option key={occ} value={occ}>
@@ -183,13 +181,13 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Musical Style */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5 flex items-center gap-1.5">
-                <Music className="h-3.5 w-3.5 text-purple-400" /> Style Musical
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                <Music className="h-3.5 w-3.5 text-neutral-300" /> Style Musical
               </label>
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
-                className="w-full rounded-xl border border-white/[0.08] bg-[#141620] px-3.5 py-2.5 text-sm text-white focus:border-[#d4af37] focus:outline-none transition-all"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-sans cursor-pointer"
               >
                 {STYLES.map((st) => (
                   <option key={st.id} value={st.id}>
@@ -201,13 +199,13 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
 
             {/* Package / Amount */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5 flex items-center gap-1.5">
-                <Wallet className="h-3.5 w-3.5 text-emerald-400" /> Formule Choisie
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                <Wallet className="h-3.5 w-3.5 text-neutral-300" /> Formule Choisie
               </label>
               <select
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full rounded-xl border border-white/[0.08] bg-[#141620] px-3.5 py-2.5 text-sm text-white focus:border-[#d4af37] focus:outline-none transition-all"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-mono cursor-pointer"
               >
                 {PACKS.map((pk) => (
                   <option key={pk.amount} value={pk.amount}>
@@ -220,7 +218,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
 
           {/* Payment Method Selector */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-white/70 mb-1.5">
+            <label className="block text-[10px] font-mono uppercase tracking-wider text-neutral-400 mb-1.5">
               Moyen d'encaissement Mobile Money
             </label>
             <div className="grid grid-cols-3 gap-2.5">
@@ -229,10 +227,10 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                   type="button"
                   key={method}
                   onClick={() => setPaymentMethod(method)}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition-all ${
+                  className={`rounded-lg border py-2 text-xs font-mono transition-all cursor-pointer ${
                     paymentMethod === method
-                      ? 'border-[#d4af37] bg-[#d4af37]/15 text-[#e5c158]'
-                      : 'border-white/[0.08] bg-white/[0.02] text-white/60 hover:bg-white/[0.05]'
+                      ? 'border-white bg-white text-black font-semibold shadow-sm'
+                      : 'border-white/[0.06] bg-[#0D0F14] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
                   }`}
                 >
                   {method}
@@ -244,8 +242,8 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
           {/* Story / Brief Details */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-white/70 flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-[#e5c158]" /> Histoire & Anecdotes du Client
+              <label className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-neutral-300" /> Histoire & Anecdotes du Client
               </label>
               <button
                 type="button"
@@ -255,10 +253,10 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                     setDetails("Message vocal client : C'est pour ma dulcinée. Elle aime les surprises douces. Rappeler nos souvenirs à Bassam et notre promesse sous la pluie.");
                   }
                 }}
-                className="text-[11px] text-[#e5c158] hover:underline flex items-center gap-1"
+                className="text-[11px] font-mono text-neutral-400 hover:text-white flex items-center gap-1 cursor-pointer"
               >
                 <Mic className="h-3 w-3" />
-                {isAudioSimulated ? 'Vocal transcrit' : 'Simuler note vocale'}
+                <span>{isAudioSimulated ? 'Vocal transcrit' : 'Simuler note vocale'}</span>
               </button>
             </div>
             <textarea
@@ -266,25 +264,25 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               placeholder="Racontez l'histoire : comment ils se sont rencontrés, les surnoms doux, les souvenirs marquants..."
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-all resize-none"
+              className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all resize-none font-sans"
             />
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/[0.08]">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/[0.06]">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-white/[0.1] px-5 py-2.5 text-xs font-medium text-neutral-300 hover:text-white hover:bg-white/[0.05] transition-all"
+              className="rounded-full border border-white/10 px-5 py-2 text-xs font-medium text-neutral-400 hover:text-white hover:bg-white/[0.04] transition-all cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-6 py-2.5 text-xs font-semibold text-black transition-all active:scale-95 shadow-md"
+              className="inline-flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-6 py-2.5 text-xs font-semibold text-black transition-all active:scale-95 shadow-sm cursor-pointer"
             >
-              <CheckCircle2 className="h-4 w-4" />
-              Créer la Commande & Ouvrir au Studio
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Créer la Commande & Ouvrir au Studio</span>
             </button>
           </div>
         </form>

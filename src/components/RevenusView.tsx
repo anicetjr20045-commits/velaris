@@ -1,7 +1,6 @@
 import { useState, type FC } from 'react';
 import { 
   Landmark, 
-  Radio, 
   MessageSquare, 
   UserPlus, 
   Zap, 
@@ -43,59 +42,58 @@ export const RevenusView: FC<RevenusViewProps> = ({
   const hours = ['01h', '04h', '07h', '10h', '13h', '16h', '19h', '23h'];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* 1. Carte Chiffre d'affaires Total Réalisé */}
-      <div className="rounded-2xl border border-amber-950/30 bg-[#12110e] p-6 sm:p-8 relative overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2 text-xs uppercase tracking-widest font-semibold text-[#c5a059]">
-            <Landmark className="h-4 w-4" />
+    <div className="space-y-6 max-w-4xl mx-auto pb-16">
+      {/* 1. Carte Chiffre d'affaires Total Réalisé — Precision Telemetry Master */}
+      <div className="rounded-2xl border border-white/[0.08] bg-[#07080B] p-6 sm:p-8 relative overflow-hidden shadow-2xl space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono text-neutral-400">
+            <Landmark className="h-3.5 w-3.5 text-neutral-300" />
             <span>Chiffre d'affaires total réalisé</span>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-            <Radio className="h-3 w-3 animate-pulse" />
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-mono text-emerald-400 border border-emerald-500/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>En direct</span>
           </div>
         </div>
 
-        <div className="font-serif text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#f3f4f6] mb-2">
-          {new Intl.NumberFormat('fr-FR').format(totalCA)} F CFA
+        <div>
+          <div className="font-mono text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white">
+            {new Intl.NumberFormat('fr-FR').format(totalCA)} F CFA
+          </div>
+          <p className="text-xs text-neutral-400 mt-2">
+            Grand livre des encaissements Wave et Orange Money validés.
+          </p>
         </div>
 
-        <p className="text-sm text-stone-400">
-          Historique repris + toutes les ventes validées depuis
-        </p>
-
         {/* Section Revenus Aujourd'hui intégrée */}
-        <div className="mt-8 pt-6 border-t border-white/[0.08]">
-          <div className="text-xs uppercase tracking-widest font-semibold text-stone-400 mb-2">
-            Revenus · {selectedPeriod.toUpperCase()}
+        <div className="pt-6 border-t border-white/[0.06] space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">
+              Revenus · {selectedPeriod.toUpperCase()}
+            </div>
+            <div className="text-xs font-mono text-neutral-400">
+              <span className="text-white font-semibold">{todaySalesCount}</span> vente(s) · Panier moyen{' '}
+              <span className="text-white font-semibold">
+                {todaySalesCount > 0 ? `${new Intl.NumberFormat('fr-FR').format(Math.round(todayRevenue / todaySalesCount))} F CFA` : '3 000 F CFA'}
+              </span>
+            </div>
           </div>
 
-          <div className="font-serif text-3xl sm:text-4xl font-bold tracking-tight text-[#f3f4f6] mb-2">
+          <div className="font-mono text-3xl sm:text-4xl font-bold tracking-tight text-white">
             {todayRevenue > 0 ? `${new Intl.NumberFormat('fr-FR').format(todayRevenue)} F CFA` : '0 F CFA'}
           </div>
 
-          <div className="text-sm text-stone-400 mb-5">
-            <span className="font-semibold text-stone-200">{todaySalesCount}</span> vente{' '}
-            <span className="text-stone-600">·</span>{' '}
-            <span className="font-semibold text-stone-200">{todaySalesCount}</span> client{' '}
-            <span className="text-stone-600">·</span> Panier moyen{' '}
-            <span className="font-semibold text-stone-200">
-              {todaySalesCount > 0 ? `${new Intl.NumberFormat('fr-FR').format(Math.round(todayRevenue / todaySalesCount))} F CFA` : '0 F CFA'}
-            </span>
-          </div>
-
           {/* Filtres de période en pilules */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
             {periods.map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
-                className={`text-xs px-3.5 py-1.5 rounded-full font-medium transition-all shrink-0 cursor-pointer ${
+                className={`text-xs px-3 py-1.5 rounded-lg font-mono transition-all shrink-0 cursor-pointer border ${
                   selectedPeriod === period
-                    ? 'bg-[#c5a059] text-black font-semibold shadow-md'
-                    : 'bg-[#181612] text-stone-300 hover:bg-[#201d18] border border-white/[0.06]'
+                    ? 'border-white bg-white text-black font-semibold shadow-sm'
+                    : 'bg-[#0D0F14] text-neutral-400 hover:text-white border-white/[0.06] hover:bg-white/[0.04]'
                 }`}
               >
                 {period}
@@ -104,19 +102,18 @@ export const RevenusView: FC<RevenusViewProps> = ({
           </div>
 
           {/* Graphique temporel linéaire d'aujourd'hui (01h -> 23h) */}
-          <div className="mt-6 pt-4">
-            <div className="relative h-16 flex items-end">
-              <div className="absolute inset-x-0 bottom-2 h-[1px] bg-amber-500/20" />
-              {/* Courbe ou ligne plate d'activité */}
+          <div className="pt-4">
+            <div className="relative h-12 flex items-end">
+              <div className="absolute inset-x-0 bottom-1 h-[1px] bg-white/[0.08]" />
               <div className="w-full flex items-center justify-between z-10 px-2">
-                {hours.map((h) => (
+                {hours.map((h, i) => (
                   <div key={h} className="flex flex-col items-center">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500/40" />
+                    <span className={`h-1.5 w-1.5 rounded-full ${i > 4 ? 'bg-white' : 'bg-white/20'}`} />
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-between text-[11px] text-stone-400 font-mono mt-1 px-1">
+            <div className="flex items-center justify-between text-[10px] text-neutral-500 font-mono mt-1 px-1">
               {hours.map((h) => (
                 <span key={h}>{h}</span>
               ))}
@@ -130,92 +127,99 @@ export const RevenusView: FC<RevenusViewProps> = ({
         {/* Messages reçus aujourd'hui */}
         <div 
           onClick={onOpenConversations}
-          className="rounded-2xl border border-white/[0.07] bg-[#12110e] p-5 hover:border-amber-500/30 transition-all cursor-pointer group shadow-lg"
+          className="rounded-xl border border-white/[0.06] bg-[#07080B] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
         >
-          <div className="flex items-center justify-between mb-3">
-            <MessageSquare className="h-5 w-5 text-stone-400 group-hover:text-[#c5a059] transition-colors" />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Messages Entrants</span>
+            <MessageSquare className="h-4 w-4 text-neutral-500 group-hover:text-white transition-colors" />
           </div>
-          <div className="text-3xl font-bold font-sans tracking-tight text-white mb-1">
+          <div className="text-3xl font-bold font-mono tracking-tight text-white">
             126
           </div>
-          <div className="text-xs text-stone-400">
-            Messages reçus aujourd'hui
+          <div className="text-xs text-neutral-400">
+            Messages reçus sur vos numéros connectés
           </div>
         </div>
 
         {/* Nouveaux clients (7 jours) */}
         <div 
           onClick={onOpenPipeline}
-          className="rounded-2xl border border-white/[0.07] bg-[#12110e] p-5 hover:border-amber-500/30 transition-all cursor-pointer group shadow-lg"
+          className="rounded-xl border border-white/[0.06] bg-[#07080B] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
         >
-          <div className="flex items-center justify-between mb-3">
-            <UserPlus className="h-5 w-5 text-stone-400 group-hover:text-[#c5a059] transition-colors" />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Nouveaux Prospects</span>
+            <UserPlus className="h-4 w-4 text-neutral-500 group-hover:text-white transition-colors" />
           </div>
-          <div className="text-3xl font-bold font-sans tracking-tight text-white mb-1">
+          <div className="text-3xl font-bold font-mono tracking-tight text-white">
             42
           </div>
-          <div className="text-xs text-stone-400">
-            Nouveaux clients (7 jours)
+          <div className="text-xs text-neutral-400">
+            Nouveaux leads qualifiés sur 7 jours
           </div>
         </div>
 
         {/* Automatisations envoyées aujourd'hui */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#12110e] p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <Zap className="h-5 w-5 text-stone-400" />
+        <div className="rounded-xl border border-white/[0.06] bg-[#07080B] p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Déclenchements IA</span>
+            <Zap className="h-4 w-4 text-neutral-500" />
           </div>
-          <div className="text-3xl font-bold font-sans tracking-tight text-white mb-1">
+          <div className="text-3xl font-bold font-mono tracking-tight text-white">
             1
           </div>
-          <div className="text-xs text-stone-400">
-            Automatisations envoyées aujourd'hui
+          <div className="text-xs text-neutral-400">
+            Automatisations WhatsApp exécutées aujourd'hui
           </div>
         </div>
 
         {/* Lignes WhatsApp connectées */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#12110e] p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-3">
-            <Smartphone className="h-5 w-5 text-stone-400" />
+        <div className="rounded-xl border border-white/[0.06] bg-[#07080B] p-5 shadow-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Lignes Connectées</span>
+            <Smartphone className="h-4 w-4 text-neutral-500" />
           </div>
-          <div className="text-3xl font-bold font-sans tracking-tight text-white mb-1">
+          <div className="text-3xl font-bold font-mono tracking-tight text-white">
             0/1
           </div>
-          <div className="text-xs text-stone-400">
-            Lignes WhatsApp connectées
+          <div className="text-xs text-neutral-400">
+            Sessions WAHA actives pour votre studio
           </div>
         </div>
       </div>
 
       {/* 3. Section Dernières Ventes */}
-      <div className="rounded-2xl border border-white/[0.07] bg-[#12110e] p-6 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-serif text-lg font-bold text-[#f3f4f6]">
-            Dernières ventes
-          </h3>
+      <div className="rounded-2xl border border-white/[0.06] bg-[#07080B] p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">FLUX RÉCENT</div>
+            <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
+              Dernières Ventes Encaissées
+            </h3>
+          </div>
           <button
             onClick={onOpenVentes}
-            className="text-xs text-stone-400 hover:text-white transition-colors cursor-pointer"
+            className="text-xs font-mono text-neutral-400 hover:text-white transition-colors cursor-pointer"
           >
-            Tout voir
+            Tout afficher
           </button>
         </div>
 
         {orders.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {orders.slice(0, 3).map((o) => (
               <div 
                 key={o.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-black/30 border border-white/[0.05]"
+                className="flex items-center justify-between p-3.5 rounded-xl bg-[#0D0F14] border border-white/[0.04]"
               >
                 <div>
-                  <div className="text-sm font-semibold text-stone-200">{o.clientName}</div>
-                  <div className="text-xs text-stone-500">{o.occasion} · {o.createdAt}</div>
+                  <div className="text-xs font-semibold text-white">{o.clientName}</div>
+                  <div className="text-[11px] text-neutral-400 font-mono mt-0.5">{o.occasion} · {o.createdAt}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-bold text-[#e5c158]">
+                  <div className="text-xs font-mono font-bold text-white">
                     {new Intl.NumberFormat('fr-FR').format(o.amount)} FCFA
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-white/[0.04] text-neutral-400 border border-white/[0.06] mt-0.5 inline-block">
                     {o.status === 'livre' ? 'Livré' : 'En cours'}
                   </span>
                 </div>
@@ -223,29 +227,30 @@ export const RevenusView: FC<RevenusViewProps> = ({
             ))}
           </div>
         ) : (
-          <p className="text-sm text-stone-500 italic py-2">
+          <p className="text-xs text-neutral-500 italic py-2">
             Aucune vente sur cette période.
           </p>
         )}
       </div>
 
       {/* 4. Section Où en sont tes clients (30 jours) */}
-      <div className="rounded-2xl border border-white/[0.07] bg-[#12110e] p-6 shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border border-white/[0.06] bg-[#07080B] p-6 shadow-sm">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h3 className="font-serif text-lg font-bold text-[#f3f4f6]">
-              Où en sont tes clients (30 jours)
+            <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">PIPELINE ACTIF</div>
+            <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
+              Suivi de l'Entonnoir Clients (30 jours)
             </h3>
-            <p className="text-xs text-stone-400 mt-0.5">
+            <p className="text-xs text-neutral-400 mt-0.5">
               187 prospects qualifiés et fiches en cours d'avancement
             </p>
           </div>
           <button
             onClick={onOpenPipeline}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[#1c1914] text-[#e5c158] hover:bg-[#25211a] border border-[#c5a059]/30 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-sm"
           >
-            <span>Suivi clients</span>
-            <ArrowRight className="h-3 w-3" />
+            <span>Ouvrir le Kanban</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
