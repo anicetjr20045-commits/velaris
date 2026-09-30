@@ -8,11 +8,11 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (17:45 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (18:25 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Authentification et Étanchéité Multi-Tenant 100% Validées de Bout en Bout — Test de pénétration à 10 points validé (Alice vs Bob vs Visiteur Démo avec 0 fuite et 0 collision), trigger PostgreSQL `auto_confirm_new_user` actif (inscription avec connexion immédiate sans friction d'email), et frontend raccordé pour que chaque client connecté ne voie EXCLUSIVEMENT que ses commandes, ses discussions et ses métriques réelles (sans forçage des données démo).
+- **Statut Opérationnel** : Passerelle WhatsApp WAHA ↔ VPS ↔ Supabase Multi-Tenant 100% Opérationnelle — Chaque studio client possède sa session WAHA dédiée (`studio_<user_id_prefix>`) auto-provisionnée, son QR code sécurisé isolé, son conteneur bridge webhook sur le VPS (`waha-bridge`) enregistrant les messages entrants/sortants avec `user_id` et RLS stricte, et configuration anti-déconnexion (`markOnline: false`, `WHATSAPP_RESTART_ALL_SESSIONS=true`, sessions persistées sur volumes Docker).
 
 ---
 
@@ -29,6 +29,33 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 14. Architecture Multi-Tenant WhatsApp WAHA ↔ VPS ↔ Plateforme Velaris (30 Septembre 2026)
+- **Objectif & Exigences Fondamentales** :
+  - Permettre à chaque client/studio de scanner son propre QR Code WhatsApp, relié à sa propre session WAHA dédiée sur le VPS.
+  - Garantir l'étanchéité absolue : chaque utilisateur ne voit et n'envoie de messages qu'à travers son numéro/sa ligne.
+  - Résoudre définitivement le problème des déconnexions intempestives vécues dans le passé.
+  - Préserver impérativement la session de production `anicet2` (+226 58 35 77 72) de Velaris Partners sans perturbation.
+- **Réalisations & Composants Déployés** :
+  1. *Stabilité Maximale sur le VPS & Anti-Déconnexion* :
+     - Ajout de `WHATSAPP_RESTART_ALL_SESSIONS=true`, `WAHA_WORKER_RESTART_SESSIONS=true`, `WAHA_AUTO_START_DELAY_SECONDS=2` dans `docker-compose.yml` sur le VPS.
+     - Configuration de session avec `noweb.markOnline: false` : supprime les conflits entre WhatsApp Web et le smartphone de l'entrepreneur (évite la rupture de flux Baileys dès que l'utilisateur ouvre WhatsApp sur son téléphone).
+     - Persistance vérifiée sur volumes Docker `waha_data` et `waha_sessions` (`/app/.sessions`).
+  2. *Conteneur `waha-bridge` Déployé sur le VPS (Port 3001)* :
+     - Microservice Node.js dédié gérant les webhooks WAHA entrants pour toutes les sessions `studio_*`.
+     - Résolution automatique du `user_id` à partir de `wa_sessions` dans Supabase avec la clé secrète service role.
+     - Événement `session.status` : met à jour `wa_sessions.status` ('connected', 'scan_qr_code') et renseigne le numéro réel `phone_number`.
+     - Événement `message` / `message.any` : crée/met à jour le contact dans `contacts`, la conversation dans `conversations`, et insère le message dans `messages` avec le `user_id` du studio (filtré par RLS).
+     - Règle de reverse proxy Caddy : `/webhook` redirigé vers `waha-bridge:3001`, `/qr/*` vers `qrserve`, et le reste vers `waha:3000`.
+  3. *Auto-Provisioning & Hook Dynamique Frontend* :
+     - `src/services/waha.ts` : fonction `ensureWahaSession(sessionName)` qui crée et démarre la session avec la configuration anti-déconnexion si elle n'existe pas encore.
+     - `src/hooks/useWaha.ts` : gère dynamiquement la session studio `studio_${user.id.slice(0, 8)}` pour tout utilisateur connecté.
+     - `src/components/QrConnectModal.tsx` : affichage du QR Code dédié par studio, vérification de l'authentification (invite propre à se connecter si visiteur), affichage du numéro connecté et relance assistée.
+     - `src/components/ConversationsView.tsx` : envoi des réponses via la session studio active du client.
+- **Validation Globale** :
+  - Session test `studio_bd1481ad` provisionnée avec succès sur WAHA, QR Code généré en HTTP 200 PNG.
+  - Webhook de transition d'état reçu et synchronisé dans `wa_sessions` en base de données.
+  - Déployé live sur `main` (`3cd9ec8`) et `gh-pages` (`1575cf3`).
 
 ### 13. Vérification Médico-Légale de l'Authentification & Étanchéité Multi-Tenant de Bout en Bout (30 Septembre 2026)
 - **Objectif & Exigence Fondamentale** :
