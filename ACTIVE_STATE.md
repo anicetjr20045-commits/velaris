@@ -8,11 +8,12 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (13:25 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (13:42 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
-- **Lien Live Permanent** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Design Haute Couture Épuré (Benchmark Liquid Brokers) Déployé — 0 Erreur, 0 Warning
+- **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
+- **Lien Preview Dynamique Actif** : https://5602cbf9f744b2.lhr.life (HTTP 200 OK)
+- **Statut Opérationnel** : Zéro Émoji sur tout le codebase, Nouvelles Compétences IA Intégrées (`craft-ui-engineering`, `motion-design-principles`), Build 100% Validé.
 
 ---
 
@@ -29,6 +30,17 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 7. Installation des Compétences IA Design & Purge Intégrale Zéro-Émoji (30 Septembre 2026)
+- **Nouvelles Compétences IA Déployées dans le Système** :
+  - `craft-ui-engineering` ([`/root/.gemini/config/skills/craft-ui-engineering/SKILL.md`](file:///root/.gemini/config/skills/craft-ui-engineering/SKILL.md)) : directives strictes anti-slop, interdiction totale des émojis en UI, palettes graphites monochromes (`#050608`), typographie architecturale suisse.
+  - `motion-design-principles` ([`/root/.gemini/config/skills/motion-design-principles/SKILL.md`](file:///root/.gemini/config/skills/motion-design-principles/SKILL.md)) : courbes de bézier physiques (`cubic-bezier(0.16, 1, 0.3, 1)`), parallaxe 3D, ondes sonores fluides canvas à 60 FPS.
+- **Règles Globales Sanctifiées (`/root/AGENTS.md` & `/root/GEMINI.md`)** :
+  - Intégration de la Section 4 imposant à tous les agents et au bot Telegram d'appliquer ces compétences d'office.
+- **Nettoyage Intégral du Codebase Velaris** :
+  - Purge complète des émojis résiduels dans [`StudioView.tsx`](file:///root/projets/velaris/src/components/StudioView.tsx), [`AcademyView.tsx`](file:///root/projets/velaris/src/components/AcademyView.tsx), [`QrConnectModal.tsx`](file:///root/projets/velaris/src/components/QrConnectModal.tsx), [`NewOrderModal.tsx`](file:///root/projets/velaris/src/components/NewOrderModal.tsx).
+  - Score vérification automatique : **0 émoji sur 100% des fichiers**.
+  - Build de production `npm run build` : **100% succès**.
 
 ### 6. Éradication Totale des Tics IA, Typographie Studio Haut de Gamme (Syne + Inter) & Mise en Page Éditoriale Suisse (30 Septembre 2026)
 - **Typographie Architectural & Studio d'Élite (`index.html`, `index.css`)** :
