@@ -47,7 +47,7 @@ export function App() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>(() => orders[0]?.id || INITIAL_ORDERS[0].id);
   const [manualConnected, setManualConnected] = useState<boolean | null>(null);
-  const { user } = useAuth();
+  const { user, openAuthModal, isDemoMode } = useAuth();
   const isWhatsAppConnected = manualConnected !== null ? manualConnected : waha.isOnline;
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
@@ -143,10 +143,18 @@ export function App() {
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
             <LandingPage
               onOpenStudio={() => {
+                if (!user && !isDemoMode) {
+                  openAuthModal('login');
+                  return;
+                }
                 setActiveTab('studio');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onOpenCockpit={() => {
+                if (!user && !isDemoMode) {
+                  openAuthModal('login');
+                  return;
+                }
                 setActiveTab('cockpit');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}

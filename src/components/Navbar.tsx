@@ -16,10 +16,15 @@ export const Navbar: FC<NavbarProps> = ({
   isWhatsAppConnected,
   onOpenQrModal,
 }) => {
-  const { user, openAuthModal } = useAuth();
+  const { user, openAuthModal, isDemoMode } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleNavClick = (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir') => {
+    if ((tab === 'cockpit' || tab === 'studio') && !user && !isDemoMode) {
+      openAuthModal('login');
+      setIsMobileMenuOpen(false);
+      return;
+    }
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
