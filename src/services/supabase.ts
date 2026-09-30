@@ -275,3 +275,106 @@ export async function createLiveOrder(order: {
     return null;
   }
 }
+
+/**
+ * Récupère les messages d'une conversation spécifique (ou de toutes les conversations récentes)
+ */
+export async function getLiveMessages(conversationId?: string): Promise<any[]> {
+  try {
+    let query = supabase
+      .from('messages')
+      .select('id, role, direction, body, created_at, conversation_id, conversations(contact_id, contacts(name, phone))')
+      .order('created_at', { ascending: true });
+
+    if (conversationId) {
+      query = query.eq('conversation_id', conversationId);
+    }
+
+    const { data, error } = await query.limit(50);
+    if (error || !data) return [];
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Recherche multi-tables sécurisée par RLS pour le Copilot IA (contacts, commandes, conversations)
+ */
+export async function searchStudioData(term: string): Promise<{
+  contacts: any[];
+  orders: any[];
+  conversations: any[];
+  messages: any[];
+}> {
+  const clean = term.trim().toLowerCase();
+  try {
+    const [contactsRes, ordersRes, convsRes, msgsRes] = await Promise.all([
+      supabase.from('contacts').select('id, name, phone, occasion, price_quoted_cents, notes, created_at').order('created_at', { ascending: false }),
+      supabase.from('orders').select('id, amount_cents, currency, status, payment_method, notes, created_at, contacts(name, phone, occasion)').order('created_at', { ascending: false }),
+      supabase.from('conversations').select('id, funnel_stage, summary, last_message_at, contacts(id, name, phone, occasion)').order('last_message_at', { ascending: false }),
+      supabase.from('messages').select('id, role, direction, body, created_at, conversation_id').order('created_at', { ascending: false }).limit(40),
+    ]);
+
+    const allContacts = contactsRes.data || [];
+    const allOrders = ordersRes.data || [];
+    const allConvs = convsRes.data || [];
+    const allMsgs = msgsRes.data || [];
+
+    const matchedContacts = allContacts.filter(c => 
+      (c.name && c.name.toLowerCase().includes(clean)) ||
+      (c.phone && c.phone.includes(clean)) ||
+      (c.occasion && c.occasion.toLowerCase().includes(clean))
+    );
+
+    const matchedOrders = allOrders.filter((o: any) => {
+      const c = Array.isArray(o.contacts) ? o.contacts[0] : o.contacts;
+      return (
+        (c?.name && c.name.toLowerCase().includes(clean)) ||
+        (c?.phone && c.phone.includes(clean)) ||
+        (o.notes && o.notes.toLowerCase().includes(clean)) ||
+        (o.status && o.status.toLowerCase().includes(clean))
+      );
+    });
+
+    const matchedConvs = allConvs.filter((c: any) => {
+      const ct = Array.isArray(c.contacts) ? c.contacts[0] : c.contacts;
+      return (
+        (ct?.name && ct.name.toLowerCase().includes(clean)) ||
+        (ct?.phone && ct.phone.includes(clean)) ||
+        (c.summary && c.summary.toLowerCase().includes(clean))
+      );
+    });
+
+    const matchedMsgs = allMsgs.filter(m => 
+      m.body && m.body.toLowerCase().includes(clean)
+    );
+
+    return {
+      contacts: matchedContacts,
+      orders: matchedOrders,
+      conversations: matchedConvs,
+      messages: matchedMsgs,
+    };
+  } catch {
+    return { contacts: [], orders: [], conversations: [], messages: [] };
+  }
+}
+
+/**
+ * Enregistre un message sortant dans Supabase pour garder l'historique synchrone
+ */
+export async function recordOutboundMessage(conversationId: string, body: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      role: 'assistant',
+      direction: 'outbound',
+      body: body,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+

@@ -27,6 +27,7 @@ import { PipelineView } from './PipelineView';
 import { AutomationsView } from './AutomationsView';
 import { WhatsAppLinesView } from './WhatsAppLinesView';
 import { VentesCaisseView } from './VentesCaisseView';
+import { StudioCopilotView } from './StudioCopilotView';
 
 export type StudioTab = 
   | 'revenus'
@@ -79,7 +80,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         { id: 'conversations' as StudioTab, label: 'Discussions WhatsApp', icon: MessagesSquare, badge: 42 },
         { id: 'pipeline' as StudioTab, label: 'Suivi clients', icon: Columns3 },
         { id: 'couts' as StudioTab, label: 'Coûts & marges', icon: Percent },
-        { id: 'analyste' as StudioTab, label: 'Analyste', icon: TrendingUp },
+        { id: 'analyste' as StudioTab, label: 'Analyste & Copilot IA', icon: TrendingUp },
       ]
     },
     {
@@ -364,32 +365,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         )}
 
         {currentTab === 'analyste' && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <h1 className="font-serif text-3xl font-bold text-[#f3f4f6]">Analyste Commercial & Conversion</h1>
-            <div className="rounded-2xl border border-white/[0.08] bg-[#12110e] p-6 space-y-4">
-              <div className="text-sm text-stone-300">
-                Performance globale des 30 derniers jours :
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs text-stone-300">
-                  <span>Taux de closing des briefs recueillis</span>
-                  <span className="font-bold text-[#c5a059]">46.8 %</span>
-                </div>
-                <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#c5a059] h-full rounded-full" style={{ width: '46.8%' }} />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs text-stone-300">
-                  <span>Délai moyen de livraison studio</span>
-                  <span className="font-bold text-emerald-400">18 minutes</span>
-                </div>
-                <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-400 h-full rounded-full" style={{ width: '92%' }} />
-                </div>
-              </div>
-            </div>
-          </div>
+          <StudioCopilotView onNavigateToStudio={() => handleTabClick('studio_ai')} />
         )}
 
         {currentTab === 'tarifs' && (
