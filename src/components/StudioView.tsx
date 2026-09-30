@@ -144,7 +144,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
   const copyLyrics = () => {
     if (!currentOrder.lyrics) return;
-    const fullText = `🎵 *${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\n✨ *Velaris Studio Musical*`;
+    const fullText = `*${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\n*Velaris Studio Musical*`;
     navigator.clipboard.writeText(fullText);
     setLyricsCopied(true);
     setTimeout(() => setLyricsCopied(false), 2000);
@@ -153,7 +153,7 @@ export const StudioView: FC<StudioViewProps> = ({
   const openWhatsAppChat = () => {
     if (!currentOrder.lyrics) return;
     const cleanPhone = currentOrder.clientPhone.replace(/[^0-9]/g, '');
-    const message = `Bonjour ${currentOrder.clientName.split(' ')[0]} ! 👋 Voici les paroles personnalisées créées pour ${currentOrder.recipient} :\n\n🎵 *${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\nEst-ce que tout vous convient ou souhaitez-vous un ajustement avant le passage en studio musical ? 😊`;
+    const message = `Bonjour ${currentOrder.clientName.split(' ')[0]}, voici les paroles personnalisées conçues pour ${currentOrder.recipient} :\n\n*${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\nSouhaitez-vous un ajustement ou validons-nous ce texte pour le passage au mixage studio ?`;
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     setLyricsSentToWhatsApp(true);
@@ -454,7 +454,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
                   <div>
                     <label className="text-[10px] uppercase font-bold text-[#e5c158] block mb-1">
-                      ★ Refrain
+                      Refrain
                     </label>
                     <textarea
                       rows={3}
@@ -477,7 +477,7 @@ export const StudioView: FC<StudioViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-purple-400 block mb-1">
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">
                       Outro
                     </label>
                     <input
@@ -508,7 +508,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
                   <div className="rounded-xl bg-[#d4af37]/[0.08] p-3 border border-[#d4af37]/20">
                     <span className="text-[10px] font-bold text-[#e5c158] uppercase tracking-widest block mb-1">
-                      ★ Refrain Accrocheur
+                      Refrain
                     </span>
                     <p className="text-white font-medium whitespace-pre-line">
                       {currentOrder.lyrics.chorus}
@@ -526,7 +526,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
                   <div>
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                      Outro Émouvante
+                      Outro
                     </span>
                     <p className="text-white/70 italic pl-3 border-l-2 border-purple-500/40">
                       {currentOrder.lyrics.outro}

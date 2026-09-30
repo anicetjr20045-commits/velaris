@@ -258,7 +258,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 className="text-[11px] text-[#e5c158] hover:underline flex items-center gap-1"
               >
                 <Mic className="h-3 w-3" />
-                {isAudioSimulated ? 'Vocal transcrit ✓' : 'Simuler note vocale'}
+                {isAudioSimulated ? 'Vocal transcrit' : 'Simuler note vocale'}
               </button>
             </div>
             <textarea
@@ -266,7 +266,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               placeholder="Racontez l'histoire : comment ils se sont rencontrés, les surnoms doux, les souvenirs marquants..."
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-[#d4af37] focus:outline-none transition-all resize-none"
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-white placeholder-white/30 focus:border-white/30 focus:outline-none transition-all resize-none"
             />
           </div>
 
@@ -275,13 +275,13 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-white/[0.08] px-4 py-2.5 text-xs font-semibold text-white/70 hover:bg-white/[0.05] transition-all"
+              className="rounded-full border border-white/[0.1] px-5 py-2.5 text-xs font-medium text-neutral-300 hover:text-white hover:bg-white/[0.05] transition-all"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#b38f2a] px-5 py-2.5 text-xs font-bold text-[#0c0d12] shadow-lg shadow-[#d4af37]/20 hover:opacity-95 transition-all"
+              className="flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-6 py-2.5 text-xs font-semibold text-black transition-all active:scale-95 shadow-md"
             >
               <CheckCircle2 className="h-4 w-4" />
               Créer la Commande & Ouvrir au Studio

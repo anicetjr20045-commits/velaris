@@ -10,7 +10,7 @@ import {
   Bot, 
   MessageSquareText, 
   Award,
-  Sparkles
+  BookOpen
 } from 'lucide-react';
 import type { AcademyModule } from '../types';
 
@@ -43,36 +43,35 @@ const TOOLBOX_RESOURCES: ResourceItem[] = [
   },
   {
     id: 'whatsapp_welcome',
-    title: 'Script Accueil WhatsApp (Trafic Publicitaire)',
+    title: 'Protocole d\'Accueil WhatsApp (Trafic Publicitaire)',
     category: 'Vente WhatsApp',
-    content: `« Bonjour et bienvenue au Studio Velaris ! 🎙️✨
-Nous composons des chansons personnalisées uniques pour immortaliser vos plus beaux moments (anniversaire, mariage, amour, hommage).
+    content: `« Bonjour et bienvenue au Studio Velaris.
+Nous concevons des compositions musicales sur-mesure pour célébrer les moments marquants : anniversaires, fiançailles, hommages et mariages.
 
-Dites-nous tout : pour qui aimeriez-vous créer cette chanson et quelle est la belle occasion ? 😊 »`,
+Pour démarrer la création des paroles, précisez-nous le prénom du destinataire ainsi que l'occasion célébrée. »`,
   },
   {
     id: 'whatsapp_pricing',
-    title: 'Script Annonce Tarifs & Confiance Absolue',
+    title: 'Protocole Tarifaire & Validation des Paroles',
     category: 'Closing Vente',
-    content: `« C'est une magnifique histoire ! 🙏 Voici notre démarche artisanale :
+    content: `« Nous avons bien noté vos éléments. Notre protocole de production se déroule en 3 étapes :
 
-1️⃣ Nous composons d'abord les paroles complètes de votre chanson.
-2️⃣ Vous lisez, ajustez et validez le texte avec nous.
-3️⃣ Une fois que le texte vous plaît, vous choisissez votre formule :
-   • 1 200 F CFA : Chanson Audio HD (MP3 Studio)
-   • 3 000 F CFA : Pack Vidéo Paroles + Audio HD
-4️⃣ Dès réception, notre studio enregistre et vous livre votre chanson en ~18 min !
+1. Rédaction intégrale du texte et envoi pour validation sur ce fil WhatsApp.
+2. Choix de la formule de mastering :
+   • 1 200 FCFA : Master Audio HD (Format MP3 Studio 24-bit)
+   • 3 000 FCFA : Pack Intégral (Master Audio HD + Vidéo Paroles Synchronisées)
+3. Rendu studio et expédition de votre fichier en moins de 18 minutes.
 
-On commence l'écriture ensemble ? 🎵 »`,
+Validez-vous le lancement de l'écriture des paroles ? »`,
   },
   {
     id: 'facebook_ad_copy',
-    title: 'Accroche Publicitaire Facebook & TikTok Ads',
+    title: 'Texte Publicitaire Facebook & TikTok Ads',
     category: 'Acquisition Ads',
-    content: `« "Tu m'as fait pleurer de joie..." 🥺❤️
-Offrez à votre partenaire ou à votre maman une vraie chanson personnalisée écrite avec vos propres souvenirs et prénoms.
-Livrée en moins de 30 minutes sur WhatsApp.
-👉 Cliquez ici pour écouter un extrait et commander vos paroles dès aujourd'hui ! »`,
+    content: `« Le souvenir le plus marquant que vous puissiez offrir.
+Une chanson originale entièrement composée à partir de vos souvenirs, anecdotes et prénoms.
+Livraison du master audio en moins de 30 minutes sur WhatsApp.
+Écoutez les extraits studio et réservez votre composition dès aujourd'hui. »`,
   },
 ];
 
@@ -242,25 +241,25 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules: initialModules }) =
 
               <button
                 onClick={() => toggleModuleCompleted(selectedModule.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shrink-0 ${
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-all shrink-0 ${
                   selectedModule.completed
                     ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-                    : 'bg-gradient-to-r from-[#d4af37] to-[#e5c158] text-black shadow-lg shadow-[#d4af37]/20 hover:opacity-95'
+                    : 'bg-white text-black hover:bg-neutral-200'
                 }`}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                <span>{selectedModule.completed ? 'Module Validé ✓' : 'Marquer comme validé'}</span>
+                <span>{selectedModule.completed ? 'Module validé' : 'Marquer comme validé'}</span>
               </button>
             </div>
 
             {/* Interactive Toolbox & Ready Prompts */}
             <div className="rounded-2xl border border-white/[0.06] bg-[#07080c] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-[#e5c158]" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-white/70 flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-neutral-300" />
                   Boîte à Outils & Prompts Prêts à l'Emploi
                 </span>
-                <span className="text-[10px] text-white/40">Copie directe en 1 clic</span>
+                <span className="text-[10px] text-neutral-400 font-mono">Copie directe</span>
               </div>
 
               <div className="space-y-2.5">

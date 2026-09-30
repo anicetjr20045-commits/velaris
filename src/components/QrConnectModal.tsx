@@ -143,13 +143,13 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
                 <span>Ouvrez WhatsApp sur votre smartphone</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#d4af37] text-black font-bold text-[9px]">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/10 text-white font-mono text-[10px]">
                   2
                 </span>
-                <span>Allez dans <strong>Appareils connectés</strong> ➔ <strong>Lier un appareil</strong></span>
+                <span>Allez dans <strong>Appareils connectés</strong> › <strong>Lier un appareil</strong></span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#d4af37] text-black font-bold text-[9px]">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/10 text-white font-mono text-[10px]">
                   3
                 </span>
                 <span>Pointez votre appareil vers cet écran</span>
@@ -160,7 +160,7 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
             <button
               onClick={handleSimulateConnection}
               disabled={isScanning}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#e5c158] py-3 text-xs font-extrabold text-black shadow-lg shadow-[#d4af37]/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-3 text-xs font-semibold text-black shadow-md active:scale-95 transition-all disabled:opacity-50"
             >
               <Smartphone className="h-4 w-4" />
               <span>Simuler Scan WhatsApp Réussi</span>
