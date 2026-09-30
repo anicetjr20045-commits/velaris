@@ -3,8 +3,8 @@ import { Menu, X, LogIn, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface NavbarProps {
-  activeTab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir';
-  setActiveTab: (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir') => void;
+  activeTab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
+  setActiveTab: (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot') => void;
   isWhatsAppConnected: boolean;
   onOpenQrModal: () => void;
   onOpenNewOrderModal?: () => void;
@@ -16,15 +16,10 @@ export const Navbar: FC<NavbarProps> = ({
   isWhatsAppConnected,
   onOpenQrModal,
 }) => {
-  const { user, openAuthModal, isDemoMode } = useAuth();
+  const { user, openAuthModal } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleNavClick = (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir') => {
-    if ((tab === 'cockpit' || tab === 'studio') && !user && !isDemoMode) {
-      openAuthModal('login');
-      setIsMobileMenuOpen(false);
-      return;
-    }
+  const handleNavClick = (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot') => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
@@ -96,6 +91,21 @@ export const Navbar: FC<NavbarProps> = ({
               Cockpit des ventes
               {activeTab === 'cockpit' && (
                 <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-white rounded-full" />
+              )}
+            </button>
+
+            <button
+              onClick={() => handleNavClick('copilot')}
+              className={`transition-colors py-1 relative whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'copilot'
+                  ? 'text-[#d4af37] font-semibold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d4af37]" />
+              <span>Copilot IA & Analyste</span>
+              {activeTab === 'copilot' && (
+                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d4af37] rounded-full" />
               )}
             </button>
 
@@ -208,6 +218,15 @@ export const Navbar: FC<NavbarProps> = ({
                 }`}
               >
                 Cockpit des ventes
+              </button>
+              <button
+                onClick={() => handleNavClick('copilot')}
+                className={`text-left py-2 border-b border-white/[0.04] flex items-center justify-between ${
+                  activeTab === 'copilot' ? 'text-[#d4af37] font-bold' : 'text-neutral-400'
+                }`}
+              >
+                <span>Copilot IA & Analyste</span>
+                <span className="text-[10px] font-mono text-[#d4af37] bg-[#d4af37]/10 px-2 py-0.5 rounded">IA</span>
               </button>
               <button
                 onClick={() => handleNavClick('academy')}

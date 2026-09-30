@@ -21,10 +21,14 @@ export function App() {
   const sessionName = user ? (`studio_${user.id.slice(0, 8)}`) : 'Test';
   const waha = useWahaSession(sessionName);
 
-  // Support #decouvrir or default to home
-  const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir'>(() => {
-    if (typeof window !== 'undefined' && (window.location.hash === '#decouvrir' || window.location.pathname === '/decouvrir')) {
-      return 'decouvrir';
+  // Support #copilot, #analyste, #studio, #cockpit, #decouvrir or default to home
+  const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot'>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash;
+      if (h === '#copilot' || h === '#analyste') return 'copilot';
+      if (h === '#studio') return 'studio';
+      if (h === '#cockpit') return 'cockpit';
+      if (h === '#decouvrir' || window.location.pathname === '/decouvrir') return 'decouvrir';
     }
     return 'home';
   });
@@ -181,6 +185,10 @@ export function App() {
                 setActiveTab('academy');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
+              onOpenCopilot={() => {
+                setActiveTab('copilot');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           </main>
         )}
@@ -191,11 +199,11 @@ export function App() {
           </main>
         )}
 
-        {/* Interior Studio OS (Cockpit, Studio IA, Discussions, Pipeline, Automations, WhatsApp Lines) */}
-        {(activeTab === 'cockpit' || activeTab === 'studio' || activeTab === 'academy') && (
+        {/* Interior Studio OS (Cockpit, Copilot IA, Studio IA, Discussions, Pipeline, Automations, WhatsApp Lines) */}
+        {(activeTab === 'cockpit' || activeTab === 'studio' || activeTab === 'academy' || activeTab === 'copilot') && (
           <div className="w-full flex-1">
             <StudioAppLayout
-              initialTab={activeTab === 'cockpit' ? 'revenus' : activeTab === 'studio' ? 'studio_ai' : 'academy'}
+              initialTab={activeTab === 'copilot' ? 'analyste' : activeTab === 'cockpit' ? 'revenus' : activeTab === 'studio' ? 'studio_ai' : 'academy'}
               orders={orders}
               metrics={currentMetrics}
               onReturnToHome={() => {

@@ -6,6 +6,7 @@ interface LandingPageProps {
   onOpenStudio?: () => void;
   onOpenCockpit?: () => void;
   onOpenAcademy?: () => void;
+  onOpenCopilot?: () => void;
 }
 
 const MODULES = [
@@ -79,7 +80,7 @@ const TESTIMONIALS = [
   },
 ];
 
-export const LandingPage: FC<LandingPageProps> = ({ onOpenAcademy }) => {
+export const LandingPage: FC<LandingPageProps> = ({ onOpenAcademy, onOpenCopilot }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   const WHATSAPP_ORDER_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Velaris, je souhaite créer une chanson personnalisée.');
@@ -113,6 +114,17 @@ export const LandingPage: FC<LandingPageProps> = ({ onOpenAcademy }) => {
 
         {/* Call to Actions (Point 5: wa.me primary CTA, scroll to player secondary CTA) */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+          {onOpenCopilot && (
+            <button
+              type="button"
+              onClick={onOpenCopilot}
+              className="w-full sm:w-auto rounded-full bg-gradient-to-r from-[#d4af37] to-[#e5c158] hover:opacity-95 text-black px-8 py-3.5 text-sm font-bold tracking-tight transition-all active:scale-95 shadow-[0_0_25px_rgba(212,175,55,0.25)] cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span className="h-2 w-2 rounded-full bg-black animate-pulse" />
+              <span>Ouvrir le Copilot IA & Analyste</span>
+            </button>
+          )}
+
           <a
             href={WHATSAPP_ORDER_URL}
             target="_blank"
