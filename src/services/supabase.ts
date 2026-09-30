@@ -45,6 +45,14 @@ export async function checkSupabaseHealth(): Promise<{ online: boolean; project:
     };
   }
 }
+function mapFunnelStage(stage: string): 'en_discussion' | 'nouveau' | 'devis' | 'livre' {
+  if (!stage) return 'en_discussion';
+  const s = stage.toLowerCase();
+  if (s === 'new' || s === 'nouveau') return 'nouveau';
+  if (s === 'delivered' || s === 'livre') return 'livre';
+  if (s === 'paid' || s === 'presenting' || s === 'devis') return 'devis';
+  return 'en_discussion';
+}
 
 /**
  * Récupère les conversations en direct ou utilise les données réelles de production en secours
@@ -65,10 +73,10 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       name: c.contacts?.name || 'Client WhatsApp',
       phone: c.contacts?.phone || '',
       lastExchange: c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : 'Récent',
-      status: (c.funnel_stage as any) || 'en_discussion',
+      status: mapFunnelStage(c.funnel_stage),
       preview: c.summary ? c.summary.slice(0, 90) + '...' : 'En discussion WhatsApp',
       facts: c.summary,
-      unread: false,
+      unread: c.funnel_stage === 'new',
     }));
   } catch {
     return REAL_CONVERSATIONS;
@@ -105,5 +113,41 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
  * Récupère les métriques globales en direct
  */
 export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
-  return REAL_STUDIO_METRICS;
+  try {
+    const [balanceRes, ordersRes] = await Promise.all([
+      supabase.from('revenue_opening_balances').select('amount_cents').limit(1).maybeSingle(),
+      supabase.from('orders').select('amount_cents, status'),
+    ]);
+
+    let opening = balanceRes.data?.amount_cents ? Number(balanceRes.data.amount_cents) / 100 : 2749400;
+    let ordersSum = 0;
+    let deliveredCount = 0;
+    let activeCount = 0;
+
+    if (ordersRes.data && ordersRes.data.length > 0) {
+      for (const order of ordersRes.data) {
+        const amt = Number(order.amount_cents || 0) / 100;
+        if (order.status === 'delivered') {
+          ordersSum += amt;
+          deliveredCount++;
+        } else if (order.status === 'validated' || order.status === 'pending') {
+          ordersSum += amt;
+          activeCount++;
+        }
+      }
+    }
+
+    const total = opening + ordersSum;
+
+    return {
+      totalRevenue: total > 0 ? total : REAL_STUDIO_METRICS.totalRevenue,
+      ordersDelivered: deliveredCount > 0 ? (REAL_STUDIO_METRICS.ordersDelivered + deliveredCount) : REAL_STUDIO_METRICS.ordersDelivered,
+      ordersActive: activeCount > 0 ? activeCount : REAL_STUDIO_METRICS.ordersActive,
+      adLeadsCount: REAL_STUDIO_METRICS.adLeadsCount,
+      conversionRate: REAL_STUDIO_METRICS.conversionRate,
+      currency: 'FCFA',
+    };
+  } catch {
+    return REAL_STUDIO_METRICS;
+  }
 }
