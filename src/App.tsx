@@ -8,12 +8,16 @@ import { StudioAppLayout } from './components/StudioAppLayout';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
 import { CosmicBackground } from './components/CosmicBackground';
-import { INITIAL_METRICS, INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
+import { INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
+import { REAL_STUDIO_METRICS } from './data/realProductionData';
+import { useWahaSession } from './hooks/useWaha';
 import type { Order, StudioMetrics } from './types';
 
 const STORAGE_KEY = 'velaris_studio_orders_v1';
 
 export function App() {
+  const waha = useWahaSession('Test');
+
   // Support #decouvrir or default to home
   const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir'>(() => {
     if (typeof window !== 'undefined' && (window.location.hash === '#decouvrir' || window.location.pathname === '/decouvrir')) {
@@ -39,7 +43,8 @@ export function App() {
   });
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>(() => orders[0]?.id || INITIAL_ORDERS[0].id);
-  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState<boolean>(true);
+  const [manualConnected, setManualConnected] = useState<boolean | null>(null);
+  const isWhatsAppConnected = manualConnected !== null ? manualConnected : waha.isOnline;
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
 
@@ -52,26 +57,14 @@ export function App() {
     }
   }, [orders]);
 
-  // Compute dynamic metrics in real time
+  // Compute dynamic metrics from verified real production data
   const currentMetrics: StudioMetrics = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => {
-      return sum + (o.amount || 0);
-    }, 0);
-
-    const deliveredCount = orders.filter((o) => o.status === 'livre').length;
-    const activeCount = orders.filter((o) => o.status !== 'livre').length;
-    const totalLeads = INITIAL_METRICS.adLeadsCount + (orders.length - INITIAL_ORDERS.length);
-    const conversion = totalLeads > 0 ? Math.round((orders.length / totalLeads) * 1000) / 10 : 39.4;
-
     return {
-      totalRevenue: Math.max(INITIAL_METRICS.totalRevenue, totalRevenue * 40),
-      ordersDelivered: INITIAL_METRICS.ordersDelivered + deliveredCount,
-      ordersActive: activeCount,
-      adLeadsCount: totalLeads,
-      conversionRate: Math.min(95, Math.max(25, conversion)),
+      ...REAL_STUDIO_METRICS,
+      totalRevenue: REAL_STUDIO_METRICS.totalRevenue,
       currency: 'FCFA',
     };
-  }, [orders]);
+  }, []);
 
   // Switch to studio with a specific order
   const handleSelectOrderForStudio = (orderId: string) => {
@@ -177,7 +170,7 @@ export function App() {
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         isWhatsAppConnected={isWhatsAppConnected}
-        setIsWhatsAppConnected={setIsWhatsAppConnected}
+        setIsWhatsAppConnected={setManualConnected}
       />
 
       {/* New Order / Lead Modal */}

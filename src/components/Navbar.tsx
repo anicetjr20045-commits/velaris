@@ -114,12 +114,12 @@ export const Navbar: FC<NavbarProps> = ({
               className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
                 isWhatsAppConnected
                   ? 'border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-400 hover:bg-emerald-500/15'
-                  : 'border-white/10 bg-white/[0.02] text-neutral-300 hover:text-white hover:border-white/20'
+                  : 'border-amber-500/30 bg-amber-500/[0.08] text-amber-300 hover:bg-amber-500/15'
               }`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
               <span className="font-medium text-xs whitespace-nowrap">
-                WhatsApp actif
+                {isWhatsAppConnected ? 'WhatsApp actif' : 'Scan QR requis'}
               </span>
             </button>
 
@@ -201,9 +201,9 @@ export const Navbar: FC<NavbarProps> = ({
                 className="w-full flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-neutral-300"
               >
                 <span>État WhatsApp</span>
-                <span className="flex items-center gap-1.5 text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  WhatsApp actif
+                <span className={`flex items-center gap-1.5 ${isWhatsAppConnected ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                  {isWhatsAppConnected ? 'WhatsApp actif' : 'Scan QR requis'}
                 </span>
               </button>
 

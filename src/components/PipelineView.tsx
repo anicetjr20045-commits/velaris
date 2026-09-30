@@ -10,14 +10,14 @@ import {
   Calendar
 } from 'lucide-react';
 import type { PipelineLead } from '../types';
-import { MOCK_PIPELINE_LEADS } from '../data/mockData';
+import { REAL_PIPELINE_LEADS } from '../data/realProductionData';
 
 interface PipelineViewProps {
   onSelectLeadForStudio?: (leadId: string) => void;
 }
 
 export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) => {
-  const [leads, setLeads] = useState<PipelineLead[]>(MOCK_PIPELINE_LEADS);
+  const [leads, setLeads] = useState<PipelineLead[]>(REAL_PIPELINE_LEADS);
   const [selectedPeriod, setSelectedPeriod] = useState<string>('30 jours');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);

@@ -7,11 +7,14 @@ import {
   Trash2
 } from 'lucide-react';
 import type { AutomationRule, AutomationLog } from '../types';
-import { MOCK_AUTOMATIONS, MOCK_AUTOMATION_LOGS } from '../data/mockData';
+import { 
+  REAL_AUTOMATION_RULES, 
+  REAL_AUTOMATION_LOGS 
+} from '../data/realProductionData';
 
 export const AutomationsView: FC = () => {
-  const [rules, setRules] = useState<AutomationRule[]>(MOCK_AUTOMATIONS);
-  const [logs] = useState<AutomationLog[]>(MOCK_AUTOMATION_LOGS);
+  const [rules, setRules] = useState<AutomationRule[]>(REAL_AUTOMATION_RULES);
+  const [logs] = useState<AutomationLog[]>(REAL_AUTOMATION_LOGS);
   const [isNewRuleOpen, setIsNewRuleOpen] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
   const [newRuleEmoji, setNewRuleEmoji] = useState('🎵');
