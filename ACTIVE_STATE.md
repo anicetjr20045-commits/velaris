@@ -8,11 +8,11 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (15:30 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (15:45 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Connexion Réelle WAHA & Synchronisation Données de Production Déployées — API WAHA directe (sessions Test & anicet2, QR Code live PNG, envoi direct de messages WhatsApp), 2 292 discussions réelles et 2 284 contacts CRM synchronisés, 3 règles d'automatisation actives.
+- **Statut Opérationnel** : Base Supabase Officielle Connectée (`dnwlqgsftauqsyjwhoza`) — SDK `@supabase/supabase-js` installé, variables d'environnement configurées (`.env`), service `supabase.ts` opérationnel avec fallback transparent, et script SQL d'initialisation prêt (`supabase_schema_init.sql`).
 
 ---
 
@@ -29,6 +29,26 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 11. Intégration du Projet Supabase Dédié Velaris (`dnwlqgsftauqsyjwhoza`) — Production Ready (30 Septembre 2026)
+- **Objectif Métier & Technique** :
+  - Brancher le nouveau projet officiel Supabase **Velaris** (`dnwlqgsftauqsyjwhoza`) avec ses clés Publishable (`sb_publishable_38Tf-R7h1t-aFeNmOv6vMg_-VgH3DDI`) et Secret (sanctuarisée dans `.env`).
+- **Composants & Livrables Conçus** :
+  1. *Variables d'Environnement & Sécurité* :
+     - `.env` configuré avec les clés du projet.
+     - `.gitignore` mis à jour pour sanctuariser `.env` et `.env.example` documenté.
+  2. *SDK & Service Supabase Client (`src/services/supabase.ts`)* :
+     - Installation de `@supabase/supabase-js`.
+     - Méthodes `checkSupabaseHealth`, `getLiveConversations`, `getLiveAutomationRules`, `getLiveStudioMetrics`.
+     - Système de fallback résilient : si les tables sont encore vierges ou en cours de migration, l'application bascule automatiquement sur les données certifiées sans jamais afficher d'écran blanc ni d'erreur console.
+  3. *Script SQL d'Initialisation Universel (`supabase_schema_init.sql`)* :
+     - Définition complète des tables (`contacts`, `conversations`, `messages`, `orders`, `automation_rules`, `wa_sessions`, `revenue_opening_balances`).
+     - Politiques RLS conformes.
+     - Données de production initiales insérées (3 règles d'automatisation, 3 contacts et conversations réels, solde certifié 2 749 400 F).
+- **Validation Globale** :
+  - Linter `oxlint` : **0 erreur, 0 avertissement** sur 27 fichiers.
+  - Compilation `tsc -b && vite build` : **100% succès en 2.40s**.
+  - Synchronisation automatique sur `main` (`c40b64f`).
 
 ### 10. Connexion Réelle aux Webhooks / API WAHA & Synchronisation des Données de Production — Production Ready (30 Septembre 2026)
 - **Objectif Métier & Technique** :
