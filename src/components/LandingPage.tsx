@@ -1,598 +1,455 @@
 import { useState, type FC } from 'react';
 import { 
-  Play, 
-  Pause, 
   Sparkles, 
-  MessageCircle, 
+  ArrowRight, 
   CheckCircle2, 
-  Clock, 
-  ShieldCheck, 
-  Star, 
-  Music, 
+  GraduationCap, 
+  TrendingUp, 
   ChevronDown, 
-  Headphones
+  BookOpen
 } from 'lucide-react';
 
 interface LandingPageProps {
   onOpenStudio: () => void;
   onOpenCockpit: () => void;
+  onOpenAcademy?: () => void;
 }
 
-interface AudioSample {
-  id: string;
-  title: string;
-  recipient: string;
-  occasion: string;
-  style: string;
-  duration: string;
-  audioUrl: string;
-  lyricsSnippet: string;
-  tag: string;
-}
-
-const SAMPLES: AudioSample[] = [
+const MODULES = [
   {
-    id: 'afro_love_awa',
-    title: 'Awa, Mon Amour Précieux',
-    recipient: 'Awa',
-    occasion: 'Anniversaire de Mariage (5 ans)',
-    style: 'Afro-Love Moderne',
-    duration: '0:48',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
-    lyricsSnippet: '« Cinq ans déjà qu’on marche main dans la main,\nQuand le vent soufflait fort, t’as tracé le chemin.\nAwa mon amour, ma reine couronnée,\nPour toute la vie, mon âme t’est donnée… »',
-    tag: 'Romantique & Festif',
+    num: '01',
+    title: 'Fondations du Studio & Offres Irrésistibles',
+    duration: '45 min • 5 leçons',
+    desc: 'Configurer son WhatsApp Business de studio, structurer ses 3 formules (1 200 F / 3 000 F / 5 000 F) et positionner sa marque pour inspirer une confiance immédiate.',
   },
   {
-    id: 'acoustique_maman',
-    title: 'Merci Maman Marie',
-    recipient: 'Maman Marie',
-    occasion: 'Anniversaire & Hommage',
-    style: 'Guitare Acoustique Douce',
-    duration: '0:42',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
-    lyricsSnippet: '« T’as bravé les tempêtes sans jamais faiblir,\nPour nous voir grandir, pour nous voir sourire.\nMerci maman, ange de notre vie,\nQue la grâce du Très-Haut sur toi soit bénie… »',
-    tag: 'Émouvant & Poignant',
+    num: '02',
+    title: 'Acquisition Ads Rentable (Facebook & TikTok)',
+    duration: '1h 15 min • 8 leçons',
+    desc: 'Lancer des campagnes publicitaires rentables avec seulement 5 000 F CFA de budget de test. Les visuels exacts, les ciblages ouest-africains et les accroches qui génèrent 30 à 50 leads WhatsApp qualifiés.',
   },
   {
-    id: 'rumba_fadila',
-    title: 'Fadila, Ma Fleur Sacrée',
-    recipient: 'Fadila',
-    occasion: 'Dot & Mariage Coutumier',
-    style: 'Rumba Congolaise',
-    duration: '0:50',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
-    lyricsSnippet: '« De Ouaga jusqu’à Bobo, j’ai cherché la perle rare,\nEt c’est dans tes yeux doux que s’est posé mon regard.\nFadila, yaa mam nonga,\nPour toi je donne tout, ma magnifique promise… »',
-    tag: 'Mélodique & Entraînant',
+    num: '03',
+    title: 'Scripts de Vente & Psychologie du Closing WhatsApp',
+    duration: '55 min • 6 leçons',
+    desc: 'Nos scripts mot-à-mot pour accueillir un lead ads, extraire son brief émotionnel en 2 questions et convertir 4 prospects sur 10 avec la promesse du texte gratuit avant paiement.',
   },
   {
-    id: 'gospel_grace',
-    title: 'Reconnaissance Infinie',
-    recipient: 'Pasteur David & Famille',
-    occasion: 'Action de Grâce',
-    style: 'Gospel & Louange',
-    duration: '0:45',
-    audioUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
-    lyricsSnippet: '« Que la gloire revienne au Créateur de nos jours,\nPour ta bonté infinie et ton fidèle amour.\nDans la louange nos voix s’élèvent en chœur,\nTu as comblé nos vies de paix et de douceur… »',
-    tag: 'Spirituel & Puissant',
+    num: '04',
+    title: 'Production Musicale IA & Livraison en 18 Min',
+    duration: '1h 05 min • 7 leçons',
+    desc: 'Maîtriser le Studio OS : transcription automatique des vocaux, génération de rimes poétiques, styles studio (Afro, Acoustique, Rumba) et livraison vidéo karaoké.',
   },
 ];
 
 const FAQS = [
   {
-    q: 'Comment raconter mon histoire pour créer la chanson ?',
-    a: 'C’est très simple ! Cliquez sur le bouton WhatsApp et envoyez-nous une courte note vocale ou un message texte. Dites-nous le prénom de la personne, votre lien avec elle, l’occasion (anniversaire, mariage, amour, hommage) et 2 ou 3 anecdotes ou souvenirs qui vous tiennent à cœur.',
+    q: 'Dois-je savoir chanter, jouer d’un instrument ou composer ?',
+    a: 'Absolument pas. Velaris Studio OS prend en charge l’intégralité de la chaîne musicale. Vous agissez comme le directeur artistique et le gérant de votre boutique : vous écoutez le besoin du client sur WhatsApp, l’outil rédige les paroles poétiques et produit le morceau audio HD masterisé en 1 clic.',
   },
   {
-    q: 'Dois-je payer avant de voir le texte de la chanson ?',
-    a: 'Non, absolument pas ! C’est notre garantie sérénité : nous écrivons d’abord les paroles complètes de votre chanson gratuitement. Vous relisez tranquillement sur WhatsApp, vous nous dites si vous souhaitez modifier un mot ou ajouter un détail. Vous ne réglez qu’une fois le texte 100% validé.',
+    q: 'Combien d’argent me faut-il pour démarrer ce business ?',
+    a: 'La barrière à l’entrée est quasiment nulle. Vous n’avez besoin d’aucun matériel coûteux (un smartphone ou un ordinateur suffit). Pour trouver vos premiers clients, un budget de 5 000 à 10 000 F CFA sur Facebook Ads est suffisant pour générer vos 20 à 40 premières conversations WhatsApp qualifiées.',
   },
   {
-    q: 'Combien de temps prend la livraison ?',
-    a: 'La rédaction des paroles prend environ 8 minutes. Une fois votre texte validé et la commande confirmée, le studio enregistre et masterise votre chanson. Le fichier final MP3 HD (ou vidéo) vous est livré directement sur WhatsApp en 15 à 20 minutes en moyenne.',
+    q: 'Comment et quand mes clients me paient-ils ?',
+    a: 'Vous encaissez 100% des fonds directement sur votre propre numéro Mobile Money (Wave, Orange Money, Moov Money, MTN). Les clients paient immédiatement après avoir validé le texte de leurs paroles que vous leur envoyez sur WhatsApp.',
   },
   {
-    q: 'Quels sont les moyens de paiement acceptés ?',
-    a: 'Nous acceptons tous les paiements Mobile Money locaux sécurisés : Wave (Côte d’Ivoire, Sénégal), Orange Money (Burkina Faso, Côte d’Ivoire, Sénégal, Mali), Moov Money et MTN. Aucun paiement par carte bancaire obligatoire.',
+    q: 'Combien de temps faut-il pour traiter une commande de A à Z ?',
+    a: 'Entre la réception de la note vocale du client et la livraison du fichier final sur WhatsApp, il s’écoule généralement 15 à 20 minutes. Vous pouvez ainsi traiter 5 à 10 commandes par jour sur vos heures libres ou à plein temps.',
   },
   {
-    q: 'Quelle est la différence entre la formule à 1 200 F et celle à 3 000 F ?',
-    a: 'La formule à 1 200 F CFA vous donne la chanson complète en haute qualité audio MP3 Studio. La formule à 3 000 F CFA (notre formule la plus populaire) comprend la chanson MP3 + une vidéo karaoké personnalisée avec défilement des paroles en musique et l’intégration de 3 à 5 de vos plus belles photos, prête à poster sur statut WhatsApp, TikTok ou Instagram !',
+    q: 'Quelle est la marge bénéficiaire réelle ?',
+    a: 'La marge brute est comprise entre 85% et 95%. Pour une chanson vendue 3 000 F CFA avec vidéo, votre coût de production avec nos outils est de quelques dizaines de francs. Le reste est votre marge nette directe.',
   },
 ];
 
-export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit }) => {
-  const [activeSampleId, setActiveSampleId] = useState(SAMPLES[0].id);
-  const [isPlaying, setIsPlaying] = useState(false);
+export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit, onOpenAcademy }) => {
+  const [dailyOrders, setDailyOrders] = useState<number>(4);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  const activeSample = SAMPLES.find((s) => s.id === activeSampleId) || SAMPLES[0];
-
-  const handleOrderWhatsApp = (styleName?: string) => {
-    const text = encodeURIComponent(
-      `Bonjour le Studio Velaris ! 👋 Je souhaite commander une chanson personnalisée${styleName ? ` dans le style ${styleName}` : ''}. Pouvez-vous m'expliquer le déroulé ?`
-    );
-    window.open(`https://wa.me/22656240533?text=${text}`, '_blank');
-  };
+  // Revenue simulator calculation (based on average basket of 3 000 FCFA)
+  const averageBasket = 3000;
+  const monthlyRevenue = dailyOrders * averageBasket * 30;
+  const estimatedAdCost = Math.round(monthlyRevenue * 0.15);
+  const netProfit = monthlyRevenue - estimatedAdCost;
 
   return (
-    <div className="space-y-20 pb-24 text-white">
-      {/* 1. HERO SECTION */}
-      <section className="relative pt-6 sm:pt-12 pb-10 overflow-hidden">
-        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
-          {/* Top Pill Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 px-4 py-1.5 text-xs font-semibold text-[#e5c158] shadow-[0_0_20px_rgba(212,175,55,0.15)]">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Studio Artisanal & Musical N°1 en Afrique de l'Ouest</span>
-          </div>
-
-          {/* Master Headline */}
-          <h1 className="font-['Space_Grotesk'] text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
-            Offrez une vraie chanson personnalisée à{' '}
-            <span className="bg-gradient-to-r from-[#d4af37] via-[#f3e5ab] to-[#c59e2b] bg-clip-text text-transparent">
-              ceux qui comptent le plus.
-            </span>
-          </h1>
-
-          {/* Emotional Subtitle */}
-          <p className="text-base sm:text-lg text-white/70 max-w-2xl mx-auto leading-relaxed font-normal">
-            Racontez votre histoire en quelques mots par note vocale WhatsApp. Nos compositeurs et l'IA créent votre chanson sur-mesure, masterisée et livrée en <strong>18 minutes chrono</strong>.
-          </p>
-
-          {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <button
-              onClick={() => handleOrderWhatsApp()}
-              className="w-full sm:w-auto flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#d4af37] via-[#e5c158] to-[#c59e2b] px-7 py-4 text-sm font-extrabold text-[#090a0f] shadow-[0_0_35px_rgba(212,175,55,0.35)] transition-all hover:scale-105 active:scale-95"
-            >
-              <MessageCircle className="h-5 w-5" />
-              <span>Commander ma Chanson sur WhatsApp</span>
-            </button>
-
-            <a
-              href="#ecouter"
-              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 py-4 text-sm font-semibold text-white/90 hover:bg-white/[0.08] transition-all"
-            >
-              <Headphones className="h-4 w-4 text-[#e5c158]" />
-              <span>Écouter des extraits réels</span>
-            </a>
-          </div>
-
-          {/* Social Proof Trust Badges */}
-          <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-white/60">
-            <div className="flex items-center gap-1.5">
-              <div className="flex text-[#e5c158]">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="h-3.5 w-3.5 fill-current" />
-                ))}
-              </div>
-              <span className="font-bold text-white">4.9/5</span>
-              <span>(1 240+ chansons créées)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>Paroles gratuites avant paiement</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4 text-blue-400" />
-              <span>Livraison ~18 minutes</span>
-            </div>
-          </div>
+    <div className="space-y-24 pb-28 text-[#f3f4f6]">
+      {/* 1. HERO SECTION (EDITORIAL & CLEAN) */}
+      <section className="pt-8 sm:pt-16 pb-8 max-w-4xl mx-auto text-center space-y-7">
+        {/* Subtle Tag */}
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-4 py-1.5 text-xs font-semibold text-[#c5a059]">
+          <GraduationCap className="h-3.5 w-3.5" />
+          <span>Plateforme & Académie pour Entrepreneurs Musicaux</span>
         </div>
 
-        {/* Ambient floating music card preview */}
-        <div className="mt-12 max-w-xl mx-auto rounded-3xl border border-white/[0.1] bg-gradient-to-br from-white/[0.05] via-[#12141c]/80 to-[#08090d] p-5 backdrop-blur-xl shadow-2xl">
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#d4af37]/20 border border-[#d4af37]/30 text-[#e5c158]">
-                <Music className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-wider font-bold text-[#e5c158]">
-                  Extrait Studio en cours de lecture
-                </p>
-                <p className="text-sm font-bold text-white">Awa, Mon Trésor Éternel</p>
-              </div>
-            </div>
-            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
-              Style Afro-Love
-            </span>
+        {/* Master Headline */}
+        <h1 className="font-['Space_Grotesk'] text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.12]">
+          Lancez votre Studio de Chansons Personnalisées sur WhatsApp.
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-base sm:text-lg text-white/70 max-w-2xl mx-auto leading-relaxed font-normal">
+          La méthode complète et la suite logicielle pour créer, vendre et livrer des chansons sur-mesure à vos clients en moins de 18 minutes. Sans savoir chanter, sans studio physique, et en encaissant directement sur votre Mobile Money.
+        </p>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+          <button
+            onClick={onOpenStudio}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] px-7 py-3.5 text-sm font-bold text-black shadow-lg shadow-[#c5a059]/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <span>Ouvrir l'Atelier Studio OS</span>
+            <ArrowRight className="h-4 w-4" />
+          </button>
+
+          <button
+            onClick={onOpenCockpit}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.04] hover:bg-white/[0.08] px-6 py-3.5 text-sm font-semibold text-white/90 transition-all"
+          >
+            <TrendingUp className="h-4 w-4 text-[#c5a059]" />
+            <span>Consulter le Cockpit des Ventes</span>
+          </button>
+        </div>
+
+        {/* Key Business Pillars */}
+        <div className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-4">
+            <span className="text-[11px] text-white/40 block font-medium">Panier Moyen</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white mt-1 block">1 200 à 5 000 F</span>
+            <span className="text-[10px] text-[#c5a059]">Par commande client</span>
           </div>
 
-          {/* Sound wave bars */}
-          <div className="py-4 flex items-center justify-between gap-1 h-12">
-            {[10, 24, 18, 36, 14, 28, 42, 20, 32, 16, 40, 22, 18, 35, 12, 26, 38, 14, 30, 20, 16].map((h, i) => (
-              <span
-                key={i}
-                style={{ height: `${h}px` }}
-                className="w-1.5 rounded-full bg-gradient-to-t from-[#d4af37]/60 to-[#f3e5ab] animate-pulse"
-              />
-            ))}
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-4">
+            <span className="text-[11px] text-white/40 block font-medium">Cadence Studio</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white mt-1 block">~18 Minutes</span>
+            <span className="text-[10px] text-emerald-400">Livraison WhatsApp HD</span>
           </div>
 
-          <div className="rounded-2xl bg-black/40 p-3 border border-white/[0.04] text-xs text-white/80 italic leading-relaxed text-center">
-            « Awa, mon amour, ma reine couronnée, pour toute la vie mon âme t’est donnée… »
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-4">
+            <span className="text-[11px] text-white/40 block font-medium">Marge Nette</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white mt-1 block">85% à 95%</span>
+            <span className="text-[10px] text-blue-400">Coûts de prod quasi-nuls</span>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-4">
+            <span className="text-[11px] text-white/40 block font-medium">Encaissement</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white mt-1 block">100% Direct</span>
+            <span className="text-[10px] text-emerald-400">Wave / Orange Money</span>
           </div>
         </div>
       </section>
 
-      {/* 2. AUDIO SAMPLES PLAYER SECTION */}
-      <section id="ecouter" className="space-y-6 pt-6">
+      {/* 2. THE BUSINESS MODEL BREAKDOWN */}
+      <section className="space-y-8 max-w-5xl mx-auto pt-4">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#e5c158]">
-            Écoutez la Magie
+          <span className="text-xs font-bold uppercase tracking-wider text-[#c5a059]">
+            Opportunité de Marché
           </span>
-          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-4xl font-extrabold text-white">
-            Découvrez nos créations musicales réelles
+          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-3xl font-extrabold text-white">
+            Pourquoi le business des chansons personnalisées cartonne
           </h2>
           <p className="text-xs sm:text-sm text-white/60">
-            Chaque voix, chaque parole et chaque instrument sont personnalisés avec l'émotion exacte que vous souhaitez transmettre.
+            L'émotion est le bien de consommation le plus rentable et le plus intemporel sur le marché africain et dans la diaspora.
           </p>
         </div>
 
-        {/* Style selection tabs */}
-        <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2">
-          {SAMPLES.map((sample) => (
-            <button
-              key={sample.id}
-              onClick={() => {
-                setActiveSampleId(sample.id);
-                setIsPlaying(false);
-              }}
-              className={`rounded-2xl px-4 py-2.5 text-xs font-bold whitespace-nowrap transition-all border ${
-                sample.id === activeSample.id
-                  ? 'border-[#d4af37] bg-[#d4af37] text-black shadow-lg shadow-[#d4af37]/25'
-                  : 'border-white/[0.08] bg-white/[0.02] text-white/70 hover:bg-white/[0.06] hover:text-white'
-              }`}
-            >
-              {sample.style}
-            </button>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#101217] p-6 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c5a059]/15 text-[#c5a059] font-bold">
+              01
+            </div>
+            <h3 className="font-['Space_Grotesk'] text-base font-bold text-white">
+              Une Demande Continue & Émotionnelle
+            </h3>
+            <p className="text-xs text-white/70 leading-relaxed">
+              Anniversaires, mariages, dots coutumières, hommages pour la fête des mères ou déclarations d'amour. Les gens cherchent désespérément un cadeau original qui fait pleurer de joie.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.08] bg-[#101217] p-6 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c5a059]/15 text-[#c5a059] font-bold">
+              02
+            </div>
+            <h3 className="font-['Space_Grotesk'] text-base font-bold text-white">
+              Zéro Barrière Musicale Technique
+            </h3>
+            <p className="text-xs text-white/70 leading-relaxed">
+              Autrefois, il fallait un studio d'enregistrement, un ingénieur son et des musiciens. Aujourd'hui, notre Studio OS transforme une simple note vocale WhatsApp en hit masterisé en 18 minutes.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.08] bg-[#101217] p-6 space-y-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c5a059]/15 text-[#c5a059] font-bold">
+              03
+            </div>
+            <h3 className="font-['Space_Grotesk'] text-base font-bold text-white">
+              Trésorerie Immédiate en Mobile Money
+            </h3>
+            <p className="text-xs text-white/70 leading-relaxed">
+              Vous êtes payé avant même la livraison studio. Les fonds arrivent immédiatement sur votre propre compte Wave, Orange Money ou Moov Money. Vous disposez de votre argent le jour même.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. LIVE INTERACTIVE REVENUE SIMULATOR */}
+      <section className="rounded-3xl border border-white/[0.1] bg-gradient-to-b from-[#13161e] to-[#0c0d12] p-6 sm:p-10 max-w-4xl mx-auto space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.08]">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#c5a059]">Simulateur Financier</span>
+            <h2 className="font-['Space_Grotesk'] text-xl sm:text-2xl font-bold text-white mt-1">
+              Calculez votre potentiel de revenus mensuels
+            </h2>
+            <p className="text-xs text-white/60 mt-1">
+              Basé sur un panier moyen éprouvé de 3 000 FCFA (formule vidéo karaoké + MP3).
+            </p>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-white/50 block">Marge nette estimée</span>
+            <span className="font-['Space_Grotesk'] text-2xl sm:text-3xl font-extrabold text-[#c5a059]">
+              {netProfit.toLocaleString()} F
+            </span>
+            <span className="text-[11px] text-emerald-400 font-semibold block">/ mois dans votre poche</span>
+          </div>
         </div>
 
-        {/* Interactive Master Player Card */}
-        <div className="max-w-3xl mx-auto rounded-3xl border border-white/[0.1] bg-gradient-to-br from-[#12141c] via-[#0e1017] to-[#08090d] p-6 sm:p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 h-48 w-48 rounded-full bg-[#d4af37]/10 blur-3xl pointer-events-none" />
+        {/* Interactive Slider */}
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-white/80">Commandes livrées par jour :</span>
+            <span className="rounded-lg bg-[#c5a059]/20 text-[#c5a059] px-3 py-1 font-bold text-sm">
+              {dailyOrders} commande{dailyOrders > 1 ? 's' : ''} / jour
+            </span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            {/* Player Controls (5 cols) */}
-            <div className="md:col-span-5 space-y-4 text-center md:text-left">
-              <div>
-                <span className="rounded-md bg-[#d4af37]/15 px-2 py-0.5 text-[10px] font-bold text-[#e5c158] border border-[#d4af37]/25">
-                  {activeSample.tag}
-                </span>
-                <h3 className="font-['Space_Grotesk'] text-xl font-bold text-white mt-2">
-                  {activeSample.title}
-                </h3>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Pour <strong className="text-white">{activeSample.recipient}</strong> • {activeSample.occasion}
-                </p>
-              </div>
+          <input
+            type="range"
+            min={1}
+            max={15}
+            step={1}
+            value={dailyOrders}
+            onChange={(e) => setDailyOrders(Number(e.target.value))}
+            className="w-full h-2 bg-white/[0.08] rounded-lg appearance-none cursor-pointer accent-[#c5a059]"
+          />
 
-              {/* Play / Pause button & animated soundbar */}
-              <div className="flex items-center justify-center md:justify-start gap-4 pt-2">
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[#d4af37] to-[#e5c158] text-black shadow-xl hover:scale-105 active:scale-95 transition-all"
-                >
-                  {isPlaying ? (
-                    <Pause className="h-6 w-6 fill-current" />
-                  ) : (
-                    <Play className="h-6 w-6 fill-current ml-0.5" />
-                  )}
-                </button>
-                <div className="text-left">
-                  <span className="text-xs font-bold text-white block">
-                    {isPlaying ? 'Lecture en cours…' : 'Appuyez pour écouter'}
-                  </span>
-                  <span className="text-[11px] font-mono text-white/40">Durée : {activeSample.duration}</span>
+          <div className="flex justify-between text-[11px] text-white/40">
+            <span>1 commande (Débutant)</span>
+            <span>5 commandes (Rythme de croisière)</span>
+            <span>15 commandes (Agence / Studio Pro)</span>
+          </div>
+        </div>
+
+        {/* Detailed Financial Breakdown */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/[0.06]">
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3.5">
+            <span className="text-[11px] text-white/50 block">Chiffre d'Affaires Brut</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white mt-0.5 block">
+              {monthlyRevenue.toLocaleString()} FCFA
+            </span>
+            <span className="text-[10px] text-white/40">{dailyOrders * 30} ventes / mois</span>
+          </div>
+
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3.5">
+            <span className="text-[11px] text-white/50 block">Budget Pubs Estimé (15%)</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white/80 mt-0.5 block">
+              -{estimatedAdCost.toLocaleString()} FCFA
+            </span>
+            <span className="text-[10px] text-white/40">Facebook & TikTok Ads</span>
+          </div>
+
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-3.5">
+            <span className="text-[11px] text-emerald-400 block font-semibold">Bénéfice Net Retirable</span>
+            <span className="font-['Space_Grotesk'] text-lg font-bold text-white mt-0.5 block">
+              {netProfit.toLocaleString()} FCFA
+            </span>
+            <span className="text-[10px] text-emerald-400 font-semibold">Directement sur Wave / OM</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. THE TWO CORE PILLARS (ACADEMY + STUDIO OS) */}
+      <section className="space-y-8 max-w-5xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#c5a059]">
+            L'Écosystème Velaris
+          </span>
+          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-3xl font-extrabold text-white">
+            Deux piliers pour réussir votre lancement
+          </h2>
+          <p className="text-xs sm:text-sm text-white/60">
+            Une formation pas-à-pas pour maîtriser la vente et une suite logicielle pour automatiser la production.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+          {/* Pillar 1: L'Académie */}
+          <div className="rounded-3xl border border-white/[0.08] bg-[#111318] p-7 space-y-6 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#c5a059]/15 text-[#c5a059]">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#c5a059]">Pilier 1</span>
+                  <h3 className="font-['Space_Grotesk'] text-xl font-bold text-white">L'Académie du Studio</h3>
                 </div>
               </div>
 
-              {/* Order this specific style */}
-              <button
-                onClick={() => handleOrderWhatsApp(activeSample.style)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] px-4 py-2.5 text-xs font-semibold text-white/90 transition-all border border-white/[0.08]"
-              >
-                <MessageCircle className="h-4 w-4 text-emerald-400" />
-                <span>Commander ce style sur WhatsApp</span>
-              </button>
-            </div>
-
-            {/* Lyrics Sheet Display (7 cols) */}
-            <div className="md:col-span-7 rounded-2xl border border-white/[0.06] bg-[#07080c]/80 p-5 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#e5c158] flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3" /> Extrait des Paroles
-                </span>
-                <span className="text-[10px] text-white/40 font-mono">100% Personnalisé</span>
-              </div>
-
-              <p className="text-xs sm:text-sm text-white/90 whitespace-pre-line leading-relaxed italic pl-3 border-l-2 border-[#d4af37]/40 font-sans">
-                {activeSample.lyricsSnippet}
+              <p className="text-xs text-white/70 leading-relaxed">
+                Apprenez à structurer vos offres, lancer des publicités rentables à petit budget et closer vos prospects sur WhatsApp avec nos scripts éprouvés.
               </p>
 
-              <div className="text-[11px] text-white/40 pt-2 flex items-center justify-between">
-                <span>Rédigé sur-mesure pour Moussa</span>
-                <span className="text-emerald-400 font-semibold">Validé avant paiement ✓</span>
+              <div className="space-y-2.5 pt-2 border-t border-white/[0.06]">
+                {MODULES.map((mod) => (
+                  <div key={mod.num} className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-3 text-xs">
+                    <div className="flex items-center justify-between font-semibold text-white">
+                      <span>Module {mod.num} — {mod.title}</span>
+                      <span className="text-[10px] text-white/40">{mod.duration.split('•')[0]}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* 3. HOW IT WORKS IN 3 STEPS */}
-      <section className="space-y-8 pt-6">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#e5c158]">
-            Simplicité Absolue
-          </span>
-          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-4xl font-extrabold text-white">
-            Comment ça marche en 3 étapes
-          </h2>
-          <p className="text-xs sm:text-sm text-white/60">
-            Aucune compétence musicale requise. Tout se passe naturellement sur votre WhatsApp.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {/* Step 1 */}
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-md relative space-y-4 hover:border-[#d4af37]/30 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#e5c158] font-bold text-lg">
-              01
-            </div>
-            <h3 className="font-['Space_Grotesk'] text-lg font-bold text-white">
-              Vous racontez votre histoire
-            </h3>
-            <p className="text-xs text-white/70 leading-relaxed">
-              Envoyez-nous une note vocale ou un texte sur WhatsApp avec les prénoms, l’occasion (anniversaire, mariage, hommage) et vos plus beaux souvenirs.
-            </p>
-            <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 pt-1">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Note vocale ou texte simple
-            </div>
+            <button
+              onClick={onOpenAcademy || onOpenCockpit}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.04] hover:bg-white/[0.08] py-3 text-xs font-bold text-white transition-all"
+            >
+              <BookOpen className="h-4 w-4 text-[#c5a059]" />
+              <span>Consulter les Modules de Formation</span>
+            </button>
           </div>
 
-          {/* Step 2 */}
-          <div className="rounded-3xl border border-[#d4af37]/30 bg-gradient-to-b from-[#18160c] to-[#0d0e14] p-6 backdrop-blur-md relative space-y-4 shadow-xl shadow-[#d4af37]/5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4af37] text-black font-extrabold text-lg">
-              02
-            </div>
-            <h3 className="font-['Space_Grotesk'] text-lg font-bold text-white">
-              Vous lisez & validez les paroles
-            </h3>
-            <p className="text-xs text-white/70 leading-relaxed">
-              En moins de 8 minutes, nous composons un texte poétique émouvant avec couplets et refrain. Vous relisez, ajustez et <strong>validez gratuitement sans payer d’avance</strong>.
-            </p>
-            <div className="text-[11px] text-[#e5c158] font-semibold flex items-center gap-1 pt-1">
-              <CheckCircle2 className="h-3.5 w-3.5" /> 100% gratuit avant validation
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-md relative space-y-4 hover:border-[#d4af37]/30 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d4af37]/15 border border-[#d4af37]/30 text-[#e5c158] font-bold text-lg">
-              03
-            </div>
-            <h3 className="font-['Space_Grotesk'] text-lg font-bold text-white">
-              Votre chanson livrée en 18 min
-            </h3>
-            <p className="text-xs text-white/70 leading-relaxed">
-              Après validation et paiement Mobile Money (Wave / Orange Money), notre studio masterise votre morceau audio ou vidéo et vous l’envoie directement sur WhatsApp.
-            </p>
-            <div className="text-[11px] text-blue-400 font-semibold flex items-center gap-1 pt-1">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Fichier MP3 HD + Vidéo
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. PRICING OFFERS */}
-      <section className="space-y-8 pt-6">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#e5c158]">
-            Tarifs Transparents
-          </span>
-          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-4xl font-extrabold text-white">
-            Des formules accessibles pour tous
-          </h2>
-          <p className="text-xs sm:text-sm text-white/60">
-            Aucun abonnement, aucun frais caché. Vous payez par Wave ou Orange Money uniquement après avoir validé votre texte.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
-          {/* Plan 1 */}
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-md flex flex-col justify-between space-y-6">
+          {/* Pillar 2: Le Studio OS */}
+          <div className="rounded-3xl border border-[#c5a059]/30 bg-gradient-to-b from-[#18160e] to-[#0f1116] p-7 space-y-6 flex flex-col justify-between shadow-xl shadow-[#c5a059]/5">
             <div className="space-y-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-white/50">Formule Découverte</span>
-              <h3 className="text-xl font-bold font-['Space_Grotesk'] text-white">Chanson Audio MP3 Studio</h3>
-              <div className="pt-2">
-                <span className="font-['Space_Grotesk'] text-3xl font-extrabold text-white">1 200</span>
-                <span className="text-sm font-semibold text-white/60 ml-1">FCFA</span>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#c5a059] text-black">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#c5a059]">Pilier 2</span>
+                  <h3 className="font-['Space_Grotesk'] text-xl font-bold text-white">La Suite Logicielle Studio OS</h3>
+                </div>
               </div>
-              <p className="text-xs text-white/60">Le cadeau intime et touchant pour faire vibrer le cœur de vos proches.</p>
-              
-              <ul className="space-y-2.5 text-xs text-white/80 pt-2 border-t border-white/[0.06]">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>Paroles sur-mesure (couplets + refrain)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>Chanson audio MP3 HD masterisée</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>Dédicace des prénoms et souvenirs</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span>Livraison WhatsApp en ~18 min</span>
-                </li>
-              </ul>
+
+              <p className="text-xs text-white/70 leading-relaxed">
+                L'atelier complet pour produire vos chansons en 1 clic. Vous n'avez qu'à coller le vocal du client, valider les paroles et lancer le studio.
+              </p>
+
+              <div className="space-y-3 pt-2 border-t border-white/[0.08]">
+                <div className="flex items-start gap-3 text-xs">
+                  <CheckCircle2 className="h-4 w-4 text-[#c5a059] shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white">Transcription Vocale IA :</strong>
+                    <span className="text-white/60 ml-1">Analyse des souvenirs et émotions depuis les notes vocales WhatsApp.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 text-xs">
+                  <CheckCircle2 className="h-4 w-4 text-[#c5a059] shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white">Générateur de Paroles Poétiques :</strong>
+                    <span className="text-white/60 ml-1">Écriture instantanée de couplets et refrains en rimes riches, modifiables en direct.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 text-xs">
+                  <CheckCircle2 className="h-4 w-4 text-[#c5a059] shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white">Moteur Musical Multi-Styles :</strong>
+                    <span className="text-white/60 ml-1">Afro-Love, Guitare Acoustique, Rumba Congolaise, Zouk et Gospel avec choix de voix.</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 text-xs">
+                  <CheckCircle2 className="h-4 w-4 text-[#c5a059] shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-white">Liaison WhatsApp Directe :</strong>
+                    <span className="text-white/60 ml-1">Exportation des paroles et envoi du fichier audio au client en 1 clic.</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button
-              onClick={() => handleOrderWhatsApp('Formule Audio 1200 F')}
-              className="w-full rounded-2xl border border-white/[0.12] bg-white/[0.04] py-3 text-xs font-bold text-white hover:bg-white/[0.08] transition-all"
+              onClick={onOpenStudio}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] py-3 text-xs font-bold text-black transition-all shadow-md"
             >
-              Choisir la Formule 1 200 F
-            </button>
-          </div>
-
-          {/* Plan 2: POPULAR */}
-          <div className="rounded-3xl border-2 border-[#d4af37] bg-gradient-to-b from-[#1c190d] via-[#12141c] to-[#08090d] p-6 backdrop-blur-md flex flex-col justify-between space-y-6 relative shadow-2xl shadow-[#d4af37]/15">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e5c158] px-4 py-1 text-[10px] font-extrabold uppercase tracking-wider text-black shadow-md">
-              ★ Formule La Plus Populaire
-            </div>
-
-            <div className="space-y-4 pt-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#e5c158]">Formule Complète</span>
-              <h3 className="text-xl font-bold font-['Space_Grotesk'] text-white">Pack Vidéo Paroles + MP3</h3>
-              <div className="pt-2">
-                <span className="font-['Space_Grotesk'] text-3xl font-extrabold text-[#e5c158]">3 000</span>
-                <span className="text-sm font-semibold text-white/60 ml-1">FCFA</span>
-              </div>
-              <p className="text-xs text-white/60">L'expérience totale avec un clip vidéo karaoké prêt à être partagé.</p>
-              
-              <ul className="space-y-2.5 text-xs text-white/90 pt-2 border-t border-white/[0.06]">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-[#e5c158] shrink-0" />
-                  <span><strong>Tout ce qui est dans la Formule 1 200 F</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-[#e5c158] shrink-0" />
-                  <span><strong>Vidéo animée avec défilement des paroles</strong></span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-[#e5c158] shrink-0" />
-                  <span>Intégration de 3 à 5 photos personnelles</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-[#e5c158] shrink-0" />
-                  <span>Format optimisé Statut WhatsApp & Réseaux</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              onClick={() => handleOrderWhatsApp('Pack Vidéo 3000 F')}
-              className="w-full rounded-2xl bg-gradient-to-r from-[#d4af37] via-[#e5c158] to-[#c59e2b] py-3.5 text-xs font-extrabold text-black shadow-[0_0_25px_rgba(212,175,55,0.35)] hover:scale-102 transition-all"
-            >
-              Commander le Pack Vidéo 3 000 F
-            </button>
-          </div>
-
-          {/* Plan 3 */}
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6 backdrop-blur-md flex flex-col justify-between space-y-6">
-            <div className="space-y-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-400">Pack Prestige VIP</span>
-              <h3 className="text-xl font-bold font-['Space_Grotesk'] text-white">Célébration Express Master</h3>
-              <div className="pt-2">
-                <span className="font-['Space_Grotesk'] text-3xl font-extrabold text-white">5 000</span>
-                <span className="text-sm font-semibold text-white/60 ml-1">FCFA</span>
-              </div>
-              <p className="text-xs text-white/60">Pour les grandes occasions avec double version musicale et priorité absolue.</p>
-              
-              <ul className="space-y-2.5 text-xs text-white/80 pt-2 border-t border-white/[0.06]">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Chanson MP3 HD + Vidéo Paroles complète</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>2 Versions musicales offertes (Afro + Acoustique)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Dédicace vocale parlée en introduction</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Livraison VIP Express sous 10 minutes</span>
-                </li>
-              </ul>
-            </div>
-
-            <button
-              onClick={() => handleOrderWhatsApp('Pack VIP 5000 F')}
-              className="w-full rounded-2xl border border-white/[0.12] bg-white/[0.04] py-3 text-xs font-bold text-white hover:bg-white/[0.08] transition-all"
-            >
-              Choisir le Pack VIP 5 000 F
+              <span>Tester l'Atelier Studio 1-Clic</span>
+              <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </div>
       </section>
 
-      {/* 5. CUSTOMER TESTIMONIALS */}
-      <section className="space-y-6 pt-6">
+      {/* 5. TESTIMONIALS FROM STUDIO CREATORS */}
+      <section className="space-y-6 max-w-5xl mx-auto pt-4">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#e5c158]">
-            Émotions Vécues
-          </span>
-          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-4xl font-extrabold text-white">
-            Ce que nos clients en disent
-          </h2>
-          <p className="text-xs sm:text-sm text-white/60">
-            De vrais messages reçus sur WhatsApp après réception des chansons.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 space-y-3">
-            <div className="flex items-center gap-1 text-[#e5c158]">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-3.5 w-3.5 fill-current" />
-              ))}
-            </div>
-            <p className="text-xs text-white/80 leading-relaxed italic">
-              « Ma femme Awa a fondu en larmes dès qu’elle a entendu son prénom dans le refrain. C’est le plus beau cadeau de nos 5 ans de mariage. Merci infiniment ! »
-            </p>
-            <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
-              <span className="font-bold text-white">Moussa T. (Abidjan)</span>
-              <span className="text-[#e5c158]">Pack Vidéo 3 000 F</span>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 space-y-3">
-            <div className="flex items-center gap-1 text-[#e5c158]">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-3.5 w-3.5 fill-current" />
-              ))}
-            </div>
-            <p className="text-xs text-white/80 leading-relaxed italic">
-              « Envoyé à 6h du matin pour l’anniversaire de ma mère. Toute la famille écoute ça en boucle à Ouaga. La rapidité m'a impressionnée ! »
-            </p>
-            <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
-              <span className="font-bold text-white">Fatou S. (Ouagadougou)</span>
-              <span className="text-[#e5c158]">Chanson MP3 1 200 F</span>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 space-y-3">
-            <div className="flex items-center gap-1 text-[#e5c158]">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-3.5 w-3.5 fill-current" />
-              ))}
-            </div>
-            <p className="text-xs text-white/80 leading-relaxed italic">
-              « Pour la dot coutumière de ma fiancée Fadila, la rumba était magique. Les paroles racontaient exactement notre histoire. Vous êtes très forts ! »
-            </p>
-            <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
-              <span className="font-bold text-white">Djalilou W. (Bobo)</span>
-              <span className="text-[#e5c158]">Pack Vidéo 3 000 F</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. FAQ ACCORDION */}
-      <section className="space-y-6 pt-6 max-w-3xl mx-auto">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#e5c158]">
-            Des Réponses Claires
+          <span className="text-xs font-bold uppercase tracking-wider text-[#c5a059]">
+            Retours d'Expérience
           </span>
           <h2 className="font-['Space_Grotesk'] text-2xl sm:text-3xl font-extrabold text-white">
-            Questions Fréquemment Posées
+            Ils ont lancé leur studio avec Velaris
+          </h2>
+          <p className="text-xs sm:text-sm text-white/60">
+            Des entrepreneurs ordinaires qui génèrent un revenu quotidien grâce aux chansons personnalisées.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-5 space-y-3">
+            <p className="text-xs text-white/80 leading-relaxed italic">
+              « En 2 semaines après avoir appliqué le module sur Facebook Ads, j'ai rentabilisé mes premiers tests. Je tourne à 4-5 chansons livrées par jour. Le Studio 1-clic me fait gagner des heures de travail. »
+            </p>
+            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-white block">Patrick K.</span>
+                <span className="text-[10px] text-white/40">Abidjan, Côte d'Ivoire</span>
+              </div>
+              <span className="text-[11px] font-bold text-[#c5a059]">~450k F / mois</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-5 space-y-3">
+            <p className="text-xs text-white/80 leading-relaxed italic">
+              « Je n’avais jamais touché à la musique. Les scripts WhatsApp de closing sont redoutables : le fait de donner le texte gratuitement rassure tout le monde. Dès que le client lit les paroles, la vente est pliée. »
+            </p>
+            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-white block">Idrissa S.</span>
+                <span className="text-[10px] text-white/40">Ouagadougou, Burkina</span>
+              </div>
+              <span className="text-[11px] font-bold text-[#c5a059]">~380k F / mois</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.06] bg-[#111318] p-5 space-y-3">
+            <p className="text-xs text-white/80 leading-relaxed italic">
+              « La formule vidéo à 3 000 F cartonne avec les anniversaires de mamans et les mariages. Mes clients partagent la vidéo sur leur statut WhatsApp et leurs amis me contactent directement. »
+            </p>
+            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-white block">Fatoumata B.</span>
+                <span className="text-[10px] text-white/40">Dakar, Sénégal</span>
+              </div>
+              <span className="text-[11px] font-bold text-[#c5a059]">~620k F / mois</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. FAQ (ENTREPRENEUR-FOCUSED) */}
+      <section className="space-y-6 max-w-3xl mx-auto pt-4">
+        <div className="text-center space-y-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#c5a059]">
+            Questions Fréquentes
+          </span>
+          <h2 className="font-['Space_Grotesk'] text-2xl sm:text-3xl font-extrabold text-white">
+            Tout ce que vous devez savoir avant de commencer
           </h2>
         </div>
 
@@ -600,16 +457,16 @@ export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit 
           {FAQS.map((faq, index) => (
             <div
               key={index}
-              className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden transition-all"
+              className="rounded-2xl border border-white/[0.08] bg-[#101217] overflow-hidden transition-all"
             >
               <button
                 onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
-                className="w-full flex items-center justify-between p-4 text-left text-xs sm:text-sm font-bold text-white hover:text-[#e5c158] transition-colors"
+                className="w-full flex items-center justify-between p-4 text-left text-xs sm:text-sm font-bold text-white hover:text-[#c5a059] transition-colors"
               >
                 <span>{faq.q}</span>
                 <ChevronDown
                   className={`h-4 w-4 text-white/50 transition-transform ${
-                    openFaqIndex === index ? 'rotate-180 text-[#e5c158]' : ''
+                    openFaqIndex === index ? 'rotate-180 text-[#c5a059]' : ''
                   }`}
                 />
               </button>
@@ -623,58 +480,47 @@ export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit 
         </div>
       </section>
 
-      {/* 7. BOTTOM CTA & STUDIO OS SWITCHER */}
-      <section className="rounded-3xl border border-[#d4af37]/30 bg-gradient-to-r from-[#17140a] via-[#1f1b0c] to-[#121008] p-8 sm:p-12 text-center max-w-4xl mx-auto space-y-6 shadow-2xl relative overflow-hidden">
+      {/* 7. FINAL CALL TO ACTION */}
+      <section className="rounded-3xl border border-white/[0.1] bg-[#12141c] p-8 sm:p-12 text-center max-w-4xl mx-auto space-y-6">
         <div className="space-y-3">
           <h2 className="font-['Space_Grotesk'] text-2xl sm:text-4xl font-extrabold text-white">
-            Prêt à émouvoir quelqu'un aujourd'hui ?
+            Prêt à lancer votre propre studio musical rentable ?
           </h2>
           <p className="text-xs sm:text-sm text-white/70 max-w-xl mx-auto">
-            Rejoignez plus de 1 200 personnes qui ont offert des larmes de joie. Écriture gratuite des paroles en moins de 8 minutes sur WhatsApp.
+            Accédez immédiatement à l'Atelier Studio OS et découvrez comment produire votre premier morceau en moins de 18 minutes.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            onClick={() => handleOrderWhatsApp()}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d4af37] via-[#e5c158] to-[#c59e2b] px-8 py-4 text-sm font-extrabold text-black shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all"
-          >
-            <MessageCircle className="h-5 w-5" />
-            <span>Créer ma chanson sur WhatsApp</span>
-          </button>
-
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
           <button
             onClick={onOpenStudio}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 py-4 text-xs font-semibold text-white/80 hover:bg-white/[0.08] transition-all"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl bg-[#c5a059] hover:bg-[#d4af37] px-8 py-3.5 text-sm font-bold text-black shadow-lg shadow-[#c5a059]/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Sparkles className="h-4 w-4 text-[#e5c158]" />
-            <span>Tester l'Atelier Studio 1-Clic</span>
+            <span>Démarrer avec l'Atelier Studio OS</span>
+            <ArrowRight className="h-4 w-4" />
           </button>
-        </div>
 
-        <div className="pt-4 flex items-center justify-center gap-4 text-[11px] text-white/40">
-          <span>WhatsApp actif 7j/7</span>
-          <span>•</span>
-          <span>Wave & Orange Money acceptés</span>
-          <span>•</span>
-          <button onClick={onOpenCockpit} className="text-[#e5c158] hover:underline">
-            Accès Espace Créateur →
+          <button
+            onClick={onOpenCockpit}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 text-xs font-semibold text-white/80 hover:bg-white/[0.08] transition-all"
+          >
+            <span>Accéder au Cockpit des Ventes</span>
           </button>
         </div>
       </section>
 
       {/* 8. FOOTER */}
-      <footer className="pt-12 border-t border-white/[0.08] text-center text-xs text-white/40 space-y-3">
+      <footer className="pt-8 border-t border-white/[0.08] text-center text-xs text-white/40 space-y-2">
         <div className="flex items-center justify-center gap-2">
-          <span className="font-['Space_Grotesk'] text-sm font-bold text-white">VELARIS STUDIO</span>
+          <span className="font-['Space_Grotesk'] text-sm font-bold text-white">VELARIS PLATFORM</span>
           <span>—</span>
-          <span>Chansons Personnalisées & Création Musicale</span>
+          <span>Académie & Outils de Vente Musicale</span>
         </div>
-        <p className="max-w-md mx-auto text-[11px]">
-          Côte d'Ivoire (Abidjan) • Burkina Faso (Ouagadougou) • Sénégal (Dakar) • France.
+        <p className="text-[11px] text-white/40">
+          Plateforme dédiée aux créateurs et entrepreneurs indépendants en Afrique et dans la diaspora.
         </p>
-        <p className="text-[10px] text-white/30">
-          © 2026 Velaris Studio. Tous droits réservés.
+        <p className="text-[10px] text-white/30 pt-1">
+          © 2026 Velaris Platform. Tous droits réservés.
         </p>
       </footer>
     </div>

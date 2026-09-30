@@ -89,13 +89,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#08090d] text-[#e8eaed] font-sans selection:bg-[#d4af37]/30 selection:text-[#f3e5ab]">
-      {/* Ambient background glows */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-40 left-1/4 h-[500px] w-[500px] rounded-full bg-[#d4af37]/5 blur-[120px]" />
-        <div className="absolute top-1/2 -right-40 h-[600px] w-[600px] rounded-full bg-purple-500/5 blur-[140px]" />
-      </div>
-
+    <div className="min-h-screen bg-[#0d0e12] text-[#e8eaed] font-sans selection:bg-[#c5a059]/20 selection:text-white">
       <div className="relative z-10 flex min-h-screen flex-col">
         {/* Navigation Bar */}
         <Navbar
@@ -123,6 +117,10 @@ export function App() {
               }}
               onOpenCockpit={() => {
                 setActiveTab('cockpit');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenAcademy={() => {
+                setActiveTab('academy');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
