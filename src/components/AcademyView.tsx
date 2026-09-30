@@ -3,13 +3,14 @@ import {
   PlayCircle, 
   CheckCircle2, 
   Clock, 
-  Download, 
-  FileText, 
+  Copy, 
+  Check, 
   Flame, 
   Music, 
   Bot, 
   MessageSquareText, 
-  Award
+  Award,
+  Sparkles
 } from 'lucide-react';
 import type { AcademyModule } from '../types';
 
@@ -17,9 +18,85 @@ interface AcademyViewProps {
   modules: AcademyModule[];
 }
 
-export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
-  const [selectedModuleId, setSelectedModuleId] = useState(modules[0]?.id || '');
-  const selectedModule = modules.find((m) => m.id === selectedModuleId) || modules[0];
+interface ResourceItem {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+}
+
+const TOOLBOX_RESOURCES: ResourceItem[] = [
+  {
+    id: 'suno_prompt',
+    title: 'Prompt Maître Suno IA (Afro-Love & Acoustique)',
+    category: 'Studio IA',
+    content: `[Style & Tags]: Afro-love, acoustic guitar, warm soulful vocal, slow tempo 85 bpm, emotional, gentle West African percussion, romantic ballad
+
+[Structure Recommandée]:
+[Intro - Guitare acoustique douce]
+[Verse 1 - Récit de la rencontre et des débuts]
+[Chorus - Refrain mélodique accrocheur avec chœurs]
+[Verse 2 - Témoignage d'amour et de gratitude]
+[Bridge - Montée en émotion intime]
+[Chorus - Climax vocal]
+[Outro - Dédicace et fondu guitare]`,
+  },
+  {
+    id: 'whatsapp_welcome',
+    title: 'Script Accueil WhatsApp (Trafic Publicitaire)',
+    category: 'Vente WhatsApp',
+    content: `« Bonjour et bienvenue au Studio Velaris ! 🎙️✨
+Nous composons des chansons personnalisées uniques pour immortaliser vos plus beaux moments (anniversaire, mariage, amour, hommage).
+
+Dites-nous tout : pour qui aimeriez-vous créer cette chanson et quelle est la belle occasion ? 😊 »`,
+  },
+  {
+    id: 'whatsapp_pricing',
+    title: 'Script Annonce Tarifs & Confiance Absolue',
+    category: 'Closing Vente',
+    content: `« C'est une magnifique histoire ! 🙏 Voici notre démarche artisanale :
+
+1️⃣ Nous composons d'abord les paroles complètes de votre chanson.
+2️⃣ Vous lisez, ajustez et validez le texte avec nous.
+3️⃣ Une fois que le texte vous plaît, vous choisissez votre formule :
+   • 1 200 F CFA : Chanson Audio HD (MP3 Studio)
+   • 3 000 F CFA : Pack Vidéo Paroles + Audio HD
+4️⃣ Dès réception, notre studio enregistre et vous livre votre chanson en ~18 min !
+
+On commence l'écriture ensemble ? 🎵 »`,
+  },
+  {
+    id: 'facebook_ad_copy',
+    title: 'Accroche Publicitaire Facebook & TikTok Ads',
+    category: 'Acquisition Ads',
+    content: `« "Tu m'as fait pleurer de joie..." 🥺❤️
+Offrez à votre partenaire ou à votre maman une vraie chanson personnalisée écrite avec vos propres souvenirs et prénoms.
+Livrée en moins de 30 minutes sur WhatsApp.
+👉 Cliquez ici pour écouter un extrait et commander vos paroles dès aujourd'hui ! »`,
+  },
+];
+
+export const AcademyView: FC<AcademyViewProps> = ({ modules: initialModules }) => {
+  const [modulesList, setModulesList] = useState(initialModules);
+  const [selectedModuleId, setSelectedModuleId] = useState(initialModules[0]?.id || '');
+  const [copiedResourceId, setCopiedResourceId] = useState<string | null>(null);
+
+  const selectedModule = modulesList.find((m) => m.id === selectedModuleId) || modulesList[0];
+
+  const completedCount = modulesList.filter((m) => m.completed).length;
+  const progressPercent = Math.round((completedCount / modulesList.length) * 100);
+
+  const toggleModuleCompleted = (id: string) => {
+    setModulesList((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, completed: !m.completed } : m))
+    );
+  };
+
+  const copyResource = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedResourceId(id);
+    setTimeout(() => setCopiedResourceId(null), 2000);
+  };
 
   const getModuleIcon = (iconName: string) => {
     switch (iconName) {
@@ -58,14 +135,26 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-white/[0.04] border border-white/[0.08] px-4 py-2.5">
-              <Award className="h-5 w-5 text-[#e5c158]" />
+            <div className="flex items-center gap-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] px-4 py-3">
+              <Award className="h-6 w-6 text-[#e5c158]" />
               <div>
-                <span className="text-[10px] text-white/50 block">Progression</span>
-                <span className="text-xs font-bold text-white">50% Complété</span>
+                <span className="text-[10px] text-white/50 block font-semibold uppercase tracking-wider">
+                  Progression
+                </span>
+                <span className="text-sm font-bold text-white">
+                  {progressPercent}% ({completedCount}/{modulesList.length} validés)
+                </span>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-5 h-1.5 w-full rounded-full bg-white/[0.08] overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-[#d4af37] to-[#e5c158] transition-all duration-500 rounded-full"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
 
@@ -77,7 +166,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
             Parcours de Formation (4 Modules)
           </h3>
 
-          {modules.map((mod, index) => (
+          {modulesList.map((mod, index) => (
             <div
               key={mod.id}
               onClick={() => setSelectedModuleId(mod.id)}
@@ -134,60 +223,81 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
               </div>
             </div>
 
-            {/* Module Details & Summary */}
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="rounded-md bg-[#d4af37]/20 px-2 py-0.5 text-[10px] font-bold text-[#e5c158]">
-                  {selectedModule.level}
-                </span>
-                <span className="text-xs text-white/50">{selectedModule.duration}</span>
+            {/* Module Details & Validation Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="rounded-md bg-[#d4af37]/20 px-2 py-0.5 text-[10px] font-bold text-[#e5c158]">
+                    {selectedModule.level}
+                  </span>
+                  <span className="text-xs text-white/50">{selectedModule.duration}</span>
+                </div>
+                <h2 className="font-['Space_Grotesk'] text-xl font-bold text-white">
+                  {selectedModule.title}
+                </h2>
+                <p className="text-xs text-white/70 mt-1 leading-relaxed">
+                  {selectedModule.description}
+                </p>
               </div>
-              <h2 className="font-['Space_Grotesk'] text-xl font-bold text-white">
-                {selectedModule.title}
-              </h2>
-              <p className="text-xs text-white/70 mt-2 leading-relaxed">
-                {selectedModule.description}
-              </p>
+
+              <button
+                onClick={() => toggleModuleCompleted(selectedModule.id)}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shrink-0 ${
+                  selectedModule.completed
+                    ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                    : 'bg-gradient-to-r from-[#d4af37] to-[#e5c158] text-black shadow-lg shadow-[#d4af37]/20 hover:opacity-95'
+                }`}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                <span>{selectedModule.completed ? 'Module Validé ✓' : 'Marquer comme validé'}</span>
+              </button>
             </div>
 
-            {/* Downloadable Resources Box */}
+            {/* Interactive Toolbox & Ready Prompts */}
             <div className="rounded-2xl border border-white/[0.06] bg-[#07080c] p-4 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-white/50 block">
-                Ressources & Outils à Télécharger
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-white/60 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-[#e5c158]" />
+                  Boîte à Outils & Prompts Prêts à l'Emploi
+                </span>
+                <span className="text-[10px] text-white/40">Copie directe en 1 clic</span>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText className="h-4 w-4 text-[#e5c158] shrink-0" />
-                    <span className="text-xs text-white/80 truncate">Prompts_Suno_Afrique.pdf</span>
+              <div className="space-y-2.5">
+                {TOOLBOX_RESOURCES.map((res) => (
+                  <div
+                    key={res.id}
+                    className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.03] transition-all space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase rounded bg-white/[0.06] px-1.5 py-0.5 text-[#e5c158]">
+                          {res.category}
+                        </span>
+                        <span className="text-xs font-bold text-white">{res.title}</span>
+                      </div>
+                      <button
+                        onClick={() => copyResource(res.id, res.content)}
+                        className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/80 hover:text-white hover:bg-white/[0.08] transition-all"
+                      >
+                        {copiedResourceId === res.id ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-400" />
+                            <span className="text-emerald-400">Copié !</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span>Copier</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <pre className="text-[11px] text-white/60 bg-black/40 p-2.5 rounded-lg overflow-x-auto whitespace-pre-wrap font-sans leading-relaxed">
+                      {res.content}
+                    </pre>
                   </div>
-                  <Download className="h-3.5 w-3.5 text-white/50 hover:text-white shrink-0 cursor-pointer" />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText className="h-4 w-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs text-white/80 truncate">Scripts_WhatsApp_Closing.docx</span>
-                  </div>
-                  <Download className="h-3.5 w-3.5 text-white/50 hover:text-white shrink-0 cursor-pointer" />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText className="h-4 w-4 text-blue-400 shrink-0" />
-                    <span className="text-xs text-white/80 truncate">Templates_Canva_Ads.zip</span>
-                  </div>
-                  <Download className="h-3.5 w-3.5 text-white/50 hover:text-white shrink-0 cursor-pointer" />
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <FileText className="h-4 w-4 text-purple-400 shrink-0" />
-                    <span className="text-xs text-white/80 truncate">Grille_Tarifs_Recommandes.xlsx</span>
-                  </div>
-                  <Download className="h-3.5 w-3.5 text-white/50 hover:text-white shrink-0 cursor-pointer" />
-                </div>
+                ))}
               </div>
             </div>
           </div>

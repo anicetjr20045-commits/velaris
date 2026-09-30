@@ -11,7 +11,13 @@ import {
   CheckCircle2, 
   Smartphone, 
   Zap, 
-  Radio 
+  Radio,
+  Edit3,
+  Save,
+  X,
+  ExternalLink,
+  Sliders,
+  UserCheck
 } from 'lucide-react';
 import type { Order } from '../types';
 
@@ -37,6 +43,20 @@ export const StudioView: FC<StudioViewProps> = ({
   const [lyricsCopied, setLyricsCopied] = useState(false);
   const [lyricsSentToWhatsApp, setLyricsSentToWhatsApp] = useState(false);
 
+  // Lyrics inline editor state
+  const [isEditingLyrics, setIsEditingLyrics] = useState(false);
+  const [editTitle, setEditTitle] = useState(currentOrder.lyrics?.title || '');
+  const [editVerse1, setEditVerse1] = useState(currentOrder.lyrics?.verse1 || '');
+  const [editChorus, setEditChorus] = useState(currentOrder.lyrics?.chorus || '');
+  const [editVerse2, setEditVerse2] = useState(currentOrder.lyrics?.verse2 || '');
+  const [editOutro, setEditOutro] = useState(currentOrder.lyrics?.outro || '');
+  const [customPrompt, setCustomPrompt] = useState('');
+
+  // Voice selector state
+  const [selectedVoice, setSelectedVoice] = useState<'femme' | 'homme' | 'duo'>(
+    (currentOrder.voiceGender as 'femme' | 'homme' | 'duo') || 'homme'
+  );
+
   // Styles list
   const STYLES = [
     { id: 'afro_love', label: 'Afro-Love', desc: 'Chaud, rythmé & romantique' },
@@ -44,15 +64,18 @@ export const StudioView: FC<StudioViewProps> = ({
     { id: 'rumba', label: 'Rumba Congolaise', desc: 'Mélodique & festif' },
     { id: 'zouk', label: 'Zouk Rétro', desc: 'Sensuel & enveloppant' },
     { id: 'gospel', label: 'Gospel & Louange', desc: 'Puissant & reconnaissant' },
+    { id: 'mandingue', label: 'Mandingue Kora', desc: 'Traditionnel & envoûtant' },
   ];
 
   // 1-Click AI Lyrics Generation
-  const handleGenerateLyrics = () => {
+  const handleGenerateLyrics = (directive?: string) => {
     setIsGeneratingLyrics(true);
     setTimeout(() => {
       const generated = {
         title: `${currentOrder.recipient}, Notre Chanson Sacrée`,
-        verse1: `Sous le ciel étoilé de notre rencontre,\nChaque seconde avec toi arrête la montre.\nTu as séché mes peines, ranimé la lueur,\nTon rire est un remède qui guérit ma douleur.`,
+        verse1: directive
+          ? `Sous le ciel étoilé de notre rencontre,\nChaque seconde avec toi arrête la montre.\n(${directive})\nTon rire est un remède qui guérit ma douleur.`
+          : `Sous le ciel étoilé de notre rencontre,\nChaque seconde avec toi arrête la montre.\nTu as séché mes peines, ranimé la lueur,\nTon rire est un remède qui guérit ma douleur.`,
         chorus: `${currentOrder.recipient}, mon amour précieux et béni,\nÀ tes côtés je veux passer ma vie.\nQue la mélodie chante ce qu’on a traversé,\nNotre amour est gravé pour l’éternité.`,
         verse2: `À travers chaque épreuve, tu es restée fidèle,\nPlus le temps avance, et plus tu es belle.\nReçois ce doux refrain comme un baiser d’amour,\nJe te promets mon cœur pour toujours et toujours.`,
         outro: `Pour toujours avec toi, ${currentOrder.recipient}…`,
@@ -63,8 +86,30 @@ export const StudioView: FC<StudioViewProps> = ({
         lyrics: generated,
         status: 'paroles_pretes',
       });
+      setEditTitle(generated.title);
+      setEditVerse1(generated.verse1);
+      setEditChorus(generated.chorus);
+      setEditVerse2(generated.verse2);
+      setEditOutro(generated.outro);
       setIsGeneratingLyrics(false);
-    }, 1200);
+      setIsEditingLyrics(false);
+      setCustomPrompt('');
+    }, 1100);
+  };
+
+  const handleSaveEditedLyrics = () => {
+    onUpdateOrder({
+      ...currentOrder,
+      lyrics: {
+        title: editTitle,
+        verse1: editVerse1,
+        chorus: editChorus,
+        verse2: editVerse2,
+        outro: editOutro,
+      },
+      status: 'paroles_pretes',
+    });
+    setIsEditingLyrics(false);
   };
 
   // 1-Click Music Production & WhatsApp Delivery Trigger
@@ -73,16 +118,16 @@ export const StudioView: FC<StudioViewProps> = ({
     setProductionStep('Connexion Studio Suno IA...');
 
     setTimeout(() => {
-      setProductionStep('Composition musicale & Voix en cours (18 min en live, 3s démo)...');
-    }, 1000);
+      setProductionStep(`Composition ${selectedVoice.toUpperCase()} & Mastering audio (~18 min en réel)...`);
+    }, 1200);
 
     setTimeout(() => {
-      setProductionStep('Mastering audio & Encodage WhatsApp...');
-    }, 2500);
+      setProductionStep('Finalisation du master HD & Encodage WhatsApp...');
+    }, 2600);
 
     setTimeout(() => {
-      setProductionStep('Livraison automatique sur WhatsApp (+226 / +225)...');
-    }, 3800);
+      setProductionStep(`Livraison automatique sur ${currentOrder.clientPhone}...`);
+    }, 3900);
 
     setTimeout(() => {
       setIsLaunchingProduction(false);
@@ -90,23 +135,29 @@ export const StudioView: FC<StudioViewProps> = ({
       onUpdateOrder({
         ...currentOrder,
         status: 'livre',
+        voiceGender: selectedVoice,
         deliveryDate: `Livré sur WhatsApp à ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         audioTrackUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
       });
-    }, 4500);
+    }, 4800);
   };
 
   const copyLyrics = () => {
     if (!currentOrder.lyrics) return;
-    const fullText = `${currentOrder.lyrics.title}\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}`;
+    const fullText = `🎵 *${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\n✨ *Velaris Studio Musical*`;
     navigator.clipboard.writeText(fullText);
     setLyricsCopied(true);
     setTimeout(() => setLyricsCopied(false), 2000);
   };
 
-  const sendLyricsViaWhatsApp = () => {
+  const openWhatsAppChat = () => {
+    if (!currentOrder.lyrics) return;
+    const cleanPhone = currentOrder.clientPhone.replace(/[^0-9]/g, '');
+    const message = `Bonjour ${currentOrder.clientName.split(' ')[0]} ! 👋 Voici les paroles personnalisées créées pour ${currentOrder.recipient} :\n\n🎵 *${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\nEst-ce que tout vous convient ou souhaitez-vous un ajustement avant le passage en studio musical ? 😊`;
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
     setLyricsSentToWhatsApp(true);
-    setTimeout(() => setLyricsSentToWhatsApp(false), 2500);
+    setTimeout(() => setLyricsSentToWhatsApp(false), 3000);
   };
 
   return (
@@ -118,7 +169,7 @@ export const StudioView: FC<StudioViewProps> = ({
             <span className="rounded-md bg-[#d4af37]/20 px-2 py-0.5 text-[11px] font-bold text-[#e5c158]">
               STUDIO IA
             </span>
-            <span className="text-xs text-white/50">Automatisation & Livraison 1-Clic</span>
+            <span className="text-xs text-white/50">Automatisation & Production 1-Clic</span>
           </div>
           <h1 className="font-['Space_Grotesk'] text-2xl font-extrabold text-white mt-1">
             Atelier de Production
@@ -153,7 +204,7 @@ export const StudioView: FC<StudioViewProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
               <div>
                 <span className="text-[11px] uppercase font-bold text-white/40 tracking-wider">
-                  Détails Commande
+                  Détails Commande ({currentOrder.id})
                 </span>
                 <h3 className="font-['Space_Grotesk'] text-lg font-bold text-white">
                   {currentOrder.clientName}
@@ -166,7 +217,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 </span>
                 <p className="text-[11px] text-emerald-400 font-semibold flex items-center justify-end gap-1">
                   <CheckCircle2 className="h-3 w-3" />
-                  Payé via {currentOrder.paymentMethod}
+                  {currentOrder.paymentMethod}
                 </p>
               </div>
             </div>
@@ -242,7 +293,7 @@ export const StudioView: FC<StudioViewProps> = ({
                     onClick={() =>
                       onUpdateOrder({
                         ...currentOrder,
-                        style: style.id as Order['style'],
+                        style: style.id,
                       })
                     }
                     className={`rounded-xl border p-2 text-left transition-all ${
@@ -253,6 +304,37 @@ export const StudioView: FC<StudioViewProps> = ({
                   >
                     <div className="font-bold text-xs">{style.label}</div>
                     <div className="text-[10px] opacity-70 line-clamp-1">{style.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vocal Gender Selector */}
+            <div className="pt-4 border-t border-white/[0.06]">
+              <label className="text-xs font-semibold text-white/70 block mb-2 flex items-center gap-1.5">
+                <UserCheck className="h-3.5 w-3.5 text-[#e5c158]" /> Timbre Vocal Studio
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'femme', label: 'Voix Femme', desc: 'Douce & Sensuelle' },
+                  { id: 'homme', label: 'Voix Homme', desc: 'Chaud & Puissant' },
+                  { id: 'duo', label: 'Duo Mixte', desc: 'Harmonies Riches' },
+                ].map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedVoice(v.id as 'femme' | 'homme' | 'duo');
+                      onUpdateOrder({ ...currentOrder, voiceGender: v.id as 'femme' | 'homme' | 'duo' });
+                    }}
+                    className={`rounded-xl border p-2 text-center transition-all ${
+                      selectedVoice === v.id
+                        ? 'border-[#d4af37] bg-[#d4af37]/15 text-[#e5c158]'
+                        : 'border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className="text-xs font-bold">{v.label}</div>
+                    <div className="text-[9px] opacity-70">{v.desc}</div>
                   </button>
                 ))}
               </div>
@@ -273,18 +355,44 @@ export const StudioView: FC<StudioViewProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-white/50">
-                  Générées sur-mesure par l'IA à partir de la note vocale du client.
+                  Générées sur-mesure par l'IA et modifiables en direct avant envoi.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {currentOrder.lyrics && !isEditingLyrics && (
+                  <button
+                    onClick={() => setIsEditingLyrics(true)}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/80 hover:text-white hover:bg-white/[0.08] transition-all"
+                  >
+                    <Edit3 className="h-3.5 w-3.5 text-[#e5c158]" />
+                    <span>Modifier</span>
+                  </button>
+                )}
+                {isEditingLyrics && (
+                  <>
+                    <button
+                      onClick={handleSaveEditedLyrics}
+                      className="flex items-center gap-1.5 rounded-xl bg-[#d4af37] text-black px-3 py-1.5 text-xs font-bold hover:bg-[#e5c158] transition-all"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      <span>Enregistrer</span>
+                    </button>
+                    <button
+                      onClick={() => setIsEditingLyrics(false)}
+                      className="flex items-center gap-1 rounded-xl border border-white/[0.08] px-2.5 py-1.5 text-xs text-white/60 hover:text-white transition-all"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={handleGenerateLyrics}
+                  onClick={() => handleGenerateLyrics(customPrompt)}
                   disabled={isGeneratingLyrics}
                   className="flex items-center gap-1.5 rounded-xl border border-[#d4af37]/40 bg-[#d4af37]/10 px-3 py-1.5 text-xs font-semibold text-[#e5c158] hover:bg-[#d4af37]/20 transition-all disabled:opacity-50"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${isGeneratingLyrics ? 'animate-spin' : ''}`} />
-                  <span>{isGeneratingLyrics ? 'Génération...' : 'Rédiger / Réécrire'}</span>
+                  <span>{isGeneratingLyrics ? 'Génération...' : 'Réécrire'}</span>
                 </button>
                 <button
                   onClick={copyLyrics}
@@ -296,51 +404,136 @@ export const StudioView: FC<StudioViewProps> = ({
               </div>
             </div>
 
-            {/* Lyrics Content Display */}
+            {/* Quick Directive / Custom Retouch Input */}
+            <div className="flex items-center gap-2 bg-[#07080c] p-2 rounded-2xl border border-white/[0.06]">
+              <Sliders className="h-3.5 w-3.5 text-[#e5c158] ml-2 shrink-0" />
+              <input
+                type="text"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="Consigne de retouche (ex: insister sur le mariage ce samedi, ajouter un clin d'œil à Ouaga...)"
+                className="w-full bg-transparent px-2 text-xs text-white placeholder-white/30 focus:outline-none"
+              />
+              <button
+                onClick={() => handleGenerateLyrics(customPrompt)}
+                disabled={isGeneratingLyrics || !customPrompt.trim()}
+                className="rounded-xl bg-white/[0.08] px-3 py-1 text-xs font-medium text-[#e5c158] hover:bg-[#d4af37]/20 disabled:opacity-40 transition-all shrink-0"
+              >
+                Appliquer
+              </button>
+            </div>
+
+            {/* Lyrics Content: Display vs Inline Edit */}
             {currentOrder.lyrics ? (
-              <div className="space-y-4 rounded-2xl border border-white/[0.06] bg-[#07080c] p-4 font-sans text-xs leading-relaxed max-h-[360px] overflow-y-auto">
-                <div className="text-center pb-2 border-b border-white/[0.06]">
-                  <span className="font-['Space_Grotesk'] text-sm font-bold text-[#e5c158] uppercase tracking-wider">
-                    🎵 {currentOrder.lyrics.title}
-                  </span>
-                </div>
+              isEditingLyrics ? (
+                /* Inline Editor Mode */
+                <div className="space-y-3 rounded-2xl border border-[#d4af37]/30 bg-[#07080c] p-4 text-xs">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-[#e5c158] block mb-1">
+                      Titre de la chanson
+                    </label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none"
+                    />
+                  </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                    Couplet 1
-                  </span>
-                  <p className="text-white/90 whitespace-pre-line pl-3 border-l-2 border-[#d4af37]/40">
-                    {currentOrder.lyrics.verse1}
-                  </p>
-                </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-white/50 block mb-1">
+                      Couplet 1
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editVerse1}
+                      onChange={(e) => setEditVerse1(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed"
+                    />
+                  </div>
 
-                <div className="rounded-xl bg-[#d4af37]/[0.08] p-3 border border-[#d4af37]/20">
-                  <span className="text-[10px] font-bold text-[#e5c158] uppercase tracking-widest block mb-1">
-                    ★ Refrain Accrocheur
-                  </span>
-                  <p className="text-white font-medium whitespace-pre-line">
-                    {currentOrder.lyrics.chorus}
-                  </p>
-                </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-[#e5c158] block mb-1">
+                      ★ Refrain
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editChorus}
+                      onChange={(e) => setEditChorus(e.target.value)}
+                      className="w-full rounded-lg border border-[#d4af37]/40 bg-[#d4af37]/[0.05] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed font-medium"
+                    />
+                  </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                    Couplet 2
-                  </span>
-                  <p className="text-white/90 whitespace-pre-line pl-3 border-l-2 border-white/20">
-                    {currentOrder.lyrics.verse2}
-                  </p>
-                </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-white/50 block mb-1">
+                      Couplet 2
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editVerse2}
+                      onChange={(e) => setEditVerse2(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none resize-none leading-relaxed"
+                    />
+                  </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
-                    Outro Émouvante
-                  </span>
-                  <p className="text-white/70 italic pl-3 border-l-2 border-purple-500/40">
-                    {currentOrder.lyrics.outro}
-                  </p>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-purple-400 block mb-1">
+                      Outro
+                    </label>
+                    <input
+                      type="text"
+                      value={editOutro}
+                      onChange={(e) => setEditOutro(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-xs text-white focus:border-[#d4af37] focus:outline-none"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Standard Display Mode */
+                <div className="space-y-4 rounded-2xl border border-white/[0.06] bg-[#07080c] p-4 font-sans text-xs leading-relaxed max-h-[360px] overflow-y-auto">
+                  <div className="text-center pb-2 border-b border-white/[0.06]">
+                    <span className="font-['Space_Grotesk'] text-sm font-bold text-[#e5c158] uppercase tracking-wider">
+                      🎵 {currentOrder.lyrics.title}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
+                      Couplet 1
+                    </span>
+                    <p className="text-white/90 whitespace-pre-line pl-3 border-l-2 border-[#d4af37]/40">
+                      {currentOrder.lyrics.verse1}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[#d4af37]/[0.08] p-3 border border-[#d4af37]/20">
+                    <span className="text-[10px] font-bold text-[#e5c158] uppercase tracking-widest block mb-1">
+                      ★ Refrain Accrocheur
+                    </span>
+                    <p className="text-white font-medium whitespace-pre-line">
+                      {currentOrder.lyrics.chorus}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
+                      Couplet 2
+                    </span>
+                    <p className="text-white/90 whitespace-pre-line pl-3 border-l-2 border-white/20">
+                      {currentOrder.lyrics.verse2}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest block mb-1">
+                      Outro Émouvante
+                    </span>
+                    <p className="text-white/70 italic pl-3 border-l-2 border-purple-500/40">
+                      {currentOrder.lyrics.outro}
+                    </p>
+                  </div>
+                </div>
+              )
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border border-dashed border-white/[0.1] bg-[#07080c]">
                 <Music className="h-10 w-10 text-white/20 mb-3" />
@@ -349,7 +542,7 @@ export const StudioView: FC<StudioViewProps> = ({
                   Cliquez sur le bouton ci-dessous pour que l'IA transforme la note vocale en texte en rimes.
                 </p>
                 <button
-                  onClick={handleGenerateLyrics}
+                  onClick={() => handleGenerateLyrics()}
                   className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#e5c158] px-4 py-2 text-xs font-bold text-black"
                 >
                   <Sparkles className="h-4 w-4" />
@@ -361,18 +554,20 @@ export const StudioView: FC<StudioViewProps> = ({
             {/* Action Bar: Send Lyrics for Validation & The Master 1-Click Launch Button */}
             <div className="space-y-3 pt-2">
               <button
-                onClick={sendLyricsViaWhatsApp}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                onClick={openWhatsAppChat}
+                disabled={!currentOrder.lyrics}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-40"
               >
                 {lyricsSentToWhatsApp ? (
                   <>
                     <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>Paroles envoyées sur le WhatsApp de {currentOrder.clientName.split(' ')[0]} !</span>
+                    <span>WhatsApp ouvert pour {currentOrder.clientName.split(' ')[0]} !</span>
                   </>
                 ) : (
                   <>
                     <Smartphone className="h-4 w-4" />
                     <span>Envoyer les paroles sur WhatsApp pour validation</span>
+                    <ExternalLink className="h-3 w-3 opacity-60 ml-0.5" />
                   </>
                 )}
               </button>
@@ -412,7 +607,7 @@ export const StudioView: FC<StudioViewProps> = ({
                         <Radio className="h-3 w-3 animate-spin" />
                         {productionStep}
                       </span>
-                      <span className="font-mono text-white/50">IA Suno v4</span>
+                      <span className="font-mono text-white/50">IA Suno v4 • {selectedVoice}</span>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-white/[0.08] overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-[#d4af37] to-emerald-400 animate-pulse w-full transition-all duration-500" />

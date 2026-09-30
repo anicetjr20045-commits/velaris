@@ -6,7 +6,8 @@ import {
   Music, 
   GraduationCap, 
   QrCode, 
-  CheckCircle2 
+  CheckCircle2,
+  Plus
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -14,6 +15,7 @@ interface NavbarProps {
   setActiveTab: (tab: 'cockpit' | 'studio' | 'academy' | 'qr') => void;
   isWhatsAppConnected: boolean;
   onOpenQrModal: () => void;
+  onOpenNewOrderModal?: () => void;
 }
 
 export const Navbar: FC<NavbarProps> = ({
@@ -21,6 +23,7 @@ export const Navbar: FC<NavbarProps> = ({
   setActiveTab,
   isWhatsAppConnected,
   onOpenQrModal,
+  onOpenNewOrderModal,
 }) => {
   return (
     <>
@@ -85,8 +88,18 @@ export const Navbar: FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* WhatsApp Connection Status Badge */}
-          <div className="flex items-center gap-2">
+          {/* Actions: + Nouveau Lead & WhatsApp Status */}
+          <div className="flex items-center gap-2.5">
+            {onOpenNewOrderModal && (
+              <button
+                onClick={onOpenNewOrderModal}
+                className="hidden sm:flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#b38f2a] px-3.5 py-1.5 text-xs font-bold text-black shadow-md hover:scale-105 active:scale-95 transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Nouveau Lead</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenQrModal}
               className={`group flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all ${
@@ -107,7 +120,7 @@ export const Navbar: FC<NavbarProps> = ({
               ) : (
                 <>
                   <Radio className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
-                  <span className="font-semibold">Scanner QR WhatsApp</span>
+                  <span className="font-semibold">Scanner QR</span>
                   <QrCode className="h-3.5 w-3.5 opacity-70 group-hover:scale-110 transition-transform" />
                 </>
               )}
@@ -144,6 +157,17 @@ export const Navbar: FC<NavbarProps> = ({
             </div>
             <span className="text-[10px]">Studio 1-Clic</span>
           </button>
+          {onOpenNewOrderModal && (
+            <button
+              onClick={onOpenNewOrderModal}
+              className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-[#e5c158] hover:text-white transition-all"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d4af37] text-black">
+                <Plus className="h-4 w-4" />
+              </div>
+              <span className="text-[10px] font-bold">+ Lead</span>
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('academy')}
             className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${

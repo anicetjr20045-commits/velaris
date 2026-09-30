@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { useState, useMemo, type FC } from 'react';
 import { 
   TrendingUp, 
   Wallet, 
@@ -9,9 +9,12 @@ import {
   Sparkles, 
   Play, 
   Clock, 
-  Filter,
+  Search,
   MessageCircle,
-  QrCode
+  QrCode,
+  Plus,
+  Download,
+  AlertCircle
 } from 'lucide-react';
 import type { Order, StudioMetrics } from '../types';
 
@@ -20,6 +23,7 @@ interface CockpitViewProps {
   orders: Order[];
   onSelectOrderForStudio: (orderId: string) => void;
   onOpenQrModal: () => void;
+  onOpenNewOrderModal?: () => void;
 }
 
 export const CockpitView: FC<CockpitViewProps> = ({
@@ -27,7 +31,50 @@ export const CockpitView: FC<CockpitViewProps> = ({
   orders,
   onSelectOrderForStudio,
   onOpenQrModal,
+  onOpenNewOrderModal,
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | Order['status']>('all');
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const matchesSearch = 
+        searchTerm.trim() === '' ||
+        o.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.occasion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.clientPhone.includes(searchTerm);
+
+      const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchTerm, statusFilter]);
+
+  const exportCsv = () => {
+    const headers = ['ID', 'Client', 'WhatsApp', 'Destinataire', 'Occasion', 'Style', 'Statut', 'Montant FCFA', 'Paiement', 'Date'];
+    const rows = filteredOrders.map(o => [
+      o.id,
+      `"${o.clientName}"`,
+      `"${o.clientPhone}"`,
+      `"${o.recipient}"`,
+      `"${o.occasion}"`,
+      o.style,
+      o.status,
+      o.amount,
+      o.paymentMethod,
+      `"${o.createdAt}"`,
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `velaris_commandes_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'brief_recu':
@@ -80,20 +127,29 @@ export const CockpitView: FC<CockpitViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {onOpenNewOrderModal && (
+              <button
+                onClick={onOpenNewOrderModal}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d4af37] via-[#e5c158] to-[#c59e2b] px-4 py-3 text-xs font-bold text-black shadow-[0_0_25px_rgba(212,175,55,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>+ Nouveau Lead Client</span>
+              </button>
+            )}
             <button
               onClick={onOpenQrModal}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] px-4 py-3 text-xs font-semibold text-white/80 transition-all"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] px-3.5 py-3 text-xs font-semibold text-white/80 transition-all"
             >
               <QrCode className="h-4 w-4 text-[#e5c158]" />
-              <span className="hidden sm:inline">Liaison WhatsApp</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </button>
             <button
               onClick={() => onSelectOrderForStudio(orders[0]?.id || '')}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d4af37] via-[#e5c158] to-[#c59e2b] px-5 py-3 text-xs font-bold text-black shadow-[0_0_25px_rgba(212,175,55,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] px-3.5 py-3 text-xs font-semibold text-white/80 transition-all"
             >
-              <Sparkles className="h-4 w-4" />
-              Ouvrir Studio 1-Clic
+              <Sparkles className="h-4 w-4 text-[#e5c158]" />
+              <span className="hidden sm:inline">Atelier Studio</span>
             </button>
           </div>
         </div>
@@ -181,79 +237,134 @@ export const CockpitView: FC<CockpitViewProps> = ({
       </div>
 
       {/* Orders Pipeline & Active Queue */}
-      <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6 backdrop-blur-md">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+      <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6 backdrop-blur-md space-y-4">
+        {/* Header with Search and Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="font-['Space_Grotesk'] text-lg font-bold text-white">
-              Commandes WhatsApp en Direct
+              Commandes & Leads WhatsApp ({filteredOrders.length})
             </h2>
             <p className="text-xs text-white/50">
-              Chaque message entrant est analysé automatiquement pour préparer les paroles et le style musical.
+              Recueil des briefs, création de paroles IA et production musicale en 1 clic.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-white/70 hover:text-white">
-              <Filter className="h-3.5 w-3.5" />
-              Toutes les commandes
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white/70 hover:text-white transition-all"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export CSV</span>
             </button>
           </div>
         </div>
 
+        {/* Search Input & Status Filters */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 pt-1">
+          {/* Search bar */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Rechercher par client, destinataire, occasion, téléphone..."
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] pl-9 pr-3.5 py-2 text-xs text-white placeholder-white/30 focus:border-[#d4af37] focus:outline-none transition-all"
+            />
+          </div>
+
+          {/* Status Filter Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            {[
+              { id: 'all', label: 'Tous' },
+              { id: 'brief_recu', label: 'Briefs' },
+              { id: 'paroles_pretes', label: 'Paroles' },
+              { id: 'production_suno', label: 'Studio' },
+              { id: 'livre', label: 'Livrés' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setStatusFilter(f.id as typeof statusFilter)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all border ${
+                  statusFilter === f.id
+                    ? 'border-[#d4af37] bg-[#d4af37]/15 text-[#e5c158]'
+                    : 'border-white/[0.06] bg-white/[0.02] text-white/60 hover:bg-white/[0.05]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Orders List / Cards */}
-        <div className="space-y-3">
-          {orders.map((order) => (
-            <div
-              key={order.id}
-              onClick={() => onSelectOrderForStudio(order.id)}
-              className="group relative flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all hover:border-[#d4af37]/40 hover:bg-white/[0.04] cursor-pointer"
-            >
-              <div className="flex items-start gap-3.5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] text-[#e5c158] font-bold text-sm">
-                  {order.clientName.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-white text-sm">
-                      {order.clientName}
-                    </span>
-                    <span className="text-xs text-white/40">
-                      {order.clientPhone}
-                    </span>
-                    {getStatusBadge(order.status)}
-                  </div>
-                  <p className="text-xs text-white/70 mt-1 line-clamp-1">
-                    <span className="text-[#e5c158] font-medium">{order.occasion}</span> pour{' '}
-                    <span className="text-white font-medium">{order.recipient}</span> — Style{' '}
-                    <span className="capitalize text-white/90">{order.style.replace('_', ' ')}</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between md:justify-end gap-4 border-t border-white/[0.04] pt-3 md:border-t-0 md:pt-0">
-                <div className="text-left md:text-right">
-                  <div className="font-['Space_Grotesk'] text-sm font-bold text-white">
-                    {order.amount.toLocaleString()} FCFA
-                  </div>
-                  <div className="text-[11px] text-white/40 flex items-center gap-1 md:justify-end">
-                    <span>{order.paymentMethod}</span>
-                    <span>•</span>
-                    <span>{order.createdAt}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectOrderForStudio(order.id);
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl bg-white/[0.06] group-hover:bg-[#d4af37] px-3.5 py-2 text-xs font-semibold text-white group-hover:text-black transition-all"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  <span>Traiter</span>
-                </button>
-              </div>
+        <div className="space-y-3 pt-2">
+          {filteredOrders.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/[0.08] p-8 text-center text-white/40">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-xs font-semibold text-white/60">Aucune commande ne correspond aux filtres.</p>
+              <button
+                onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
+                className="mt-2 text-xs text-[#e5c158] hover:underline"
+              >
+                Réinitialiser les filtres
+              </button>
             </div>
-          ))}
+          ) : (
+            filteredOrders.map((order) => (
+              <div
+                key={order.id}
+                onClick={() => onSelectOrderForStudio(order.id)}
+                className="group relative flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition-all hover:border-[#d4af37]/40 hover:bg-white/[0.04] cursor-pointer"
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] text-[#e5c158] font-bold text-sm">
+                    {order.clientName.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-white text-sm">
+                        {order.clientName}
+                      </span>
+                      <span className="text-xs text-white/40">
+                        {order.clientPhone}
+                      </span>
+                      {getStatusBadge(order.status)}
+                    </div>
+                    <p className="text-xs text-white/70 mt-1 line-clamp-1">
+                      <span className="text-[#e5c158] font-medium">{order.occasion}</span> pour{' '}
+                      <span className="text-white font-medium">{order.recipient}</span> — Style{' '}
+                      <span className="capitalize text-white/90">{order.style.replace('_', ' ')}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between md:justify-end gap-4 border-t border-white/[0.04] pt-3 md:border-t-0 md:pt-0">
+                  <div className="text-left md:text-right">
+                    <div className="font-['Space_Grotesk'] text-sm font-bold text-white">
+                      {order.amount.toLocaleString()} FCFA
+                    </div>
+                    <div className="text-[11px] text-white/40 flex items-center gap-1 md:justify-end">
+                      <span>{order.paymentMethod}</span>
+                      <span>•</span>
+                      <span>{order.createdAt}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectOrderForStudio(order.id);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-white/[0.06] group-hover:bg-[#d4af37] px-3.5 py-2 text-xs font-semibold text-white group-hover:text-black transition-all"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Traiter</span>
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

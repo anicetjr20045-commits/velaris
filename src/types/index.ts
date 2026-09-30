@@ -4,10 +4,11 @@ export interface Order {
   clientPhone: string;
   occasion: string;
   recipient: string;
-  style: 'afro_love' | 'acoustique' | 'zouk' | 'rumba' | 'gospel';
+  style: 'afro_love' | 'acoustique' | 'zouk' | 'rumba' | 'gospel' | 'mandingue' | string;
+  voiceGender?: 'femme' | 'homme' | 'duo';
   status: 'brief_recu' | 'paroles_pretes' | 'paiement_valide' | 'production_suno' | 'livre';
   amount: number;
-  paymentMethod: 'Wave' | 'Orange Money' | 'Moov' | 'MTN';
+  paymentMethod: 'Wave' | 'Orange Money' | 'Moov' | 'Moov Money' | 'MTN' | string;
   createdAt: string;
   voiceNoteUrl?: string;
   transcription?: string;
