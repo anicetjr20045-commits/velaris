@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { 
   Zap, 
   Plus, 
@@ -11,14 +11,25 @@ import {
   REAL_AUTOMATION_RULES, 
   REAL_AUTOMATION_LOGS 
 } from '../data/realProductionData';
+import { useAuth } from '../hooks/useAuth';
+import { getLiveAutomationRules } from '../services/supabase';
 
 export const AutomationsView: FC = () => {
-  const [rules, setRules] = useState<AutomationRule[]>(REAL_AUTOMATION_RULES);
+  const { user } = useAuth();
+  const [rules, setRules] = useState<AutomationRule[]>(() => {
+    return user ? [] : REAL_AUTOMATION_RULES;
+  });
   const [logs] = useState<AutomationLog[]>(REAL_AUTOMATION_LOGS);
   const [isNewRuleOpen, setIsNewRuleOpen] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
   const [newRuleEmoji, setNewRuleEmoji] = useState('🎵');
   const [newRuleAction, setNewRuleAction] = useState('Lancer Suno & Envoyer audio');
+
+  useEffect(() => {
+    getLiveAutomationRules().then((live) => {
+      setRules(live);
+    });
+  }, [user]);
 
   const handleToggleRule = (ruleId: string) => {
     setRules(prev => prev.map(r => r.id === ruleId ? { ...r, active: !r.active } : r));

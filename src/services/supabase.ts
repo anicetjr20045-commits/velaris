@@ -55,17 +55,24 @@ function mapFunnelStage(stage: string): 'en_discussion' | 'nouveau' | 'devis' | 
 }
 
 /**
- * Récupère les conversations en direct ou utilise les données réelles de production en secours
+ * Récupère les conversations du studio connecté (ou données démo si visiteur non connecté)
  */
 export async function getLiveConversations(): Promise<ConversationItem[]> {
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const isUser = !!session?.user;
+
     const { data, error } = await supabase
       .from('conversations')
       .select('id, funnel_stage, summary, last_message_at, contacts(name, phone)')
       .order('last_message_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return REAL_CONVERSATIONS;
+    if (error) {
+      return isUser ? [] : REAL_CONVERSATIONS;
+    }
+
+    if (!data || data.length === 0) {
+      return isUser ? [] : REAL_CONVERSATIONS;
     }
 
     return data.map((c: any) => ({
@@ -79,22 +86,29 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       unread: c.funnel_stage === 'new',
     }));
   } catch {
-    return REAL_CONVERSATIONS;
+    return [];
   }
 }
 
 /**
- * Récupère les automatisations en direct
+ * Récupère les automatisations du studio connecté (ou règles démo si visiteur non connecté)
  */
 export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const isUser = !!session?.user;
+
     const { data, error } = await supabase
       .from('automation_rules')
       .select('id, name, trigger_value, text_body, enabled')
       .order('created_at', { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return REAL_AUTOMATION_RULES;
+    if (error) {
+      return isUser ? [] : REAL_AUTOMATION_RULES;
+    }
+
+    if (!data || data.length === 0) {
+      return isUser ? [] : REAL_AUTOMATION_RULES;
     }
 
     return data.map((r: any) => ({
@@ -105,21 +119,29 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
       active: !!r.enabled,
     }));
   } catch {
-    return REAL_AUTOMATION_RULES;
+    return [];
   }
 }
 
 /**
- * Récupère les métriques globales en direct
+ * Récupère les métriques du studio connecté (ou métriques démo si visiteur non connecté)
  */
 export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const isUser = !!session?.user;
+
     const [balanceRes, ordersRes] = await Promise.all([
       supabase.from('revenue_opening_balances').select('amount_cents').limit(1).maybeSingle(),
       supabase.from('orders').select('amount_cents, status'),
     ]);
 
-    let opening = balanceRes.data?.amount_cents ? Number(balanceRes.data.amount_cents) / 100 : 2749400;
+    if (!isUser) {
+      return REAL_STUDIO_METRICS;
+    }
+
+    // Utilisateur connecté : métriques STRICTEMENT isolées à son studio
+    const opening = balanceRes.data?.amount_cents ? Number(balanceRes.data.amount_cents) / 100 : 0;
     let ordersSum = 0;
     let deliveredCount = 0;
     let activeCount = 0;
@@ -140,15 +162,22 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
     const total = opening + ordersSum;
 
     return {
-      totalRevenue: total > 0 ? total : REAL_STUDIO_METRICS.totalRevenue,
-      ordersDelivered: deliveredCount > 0 ? (REAL_STUDIO_METRICS.ordersDelivered + deliveredCount) : REAL_STUDIO_METRICS.ordersDelivered,
-      ordersActive: activeCount > 0 ? activeCount : REAL_STUDIO_METRICS.ordersActive,
-      adLeadsCount: REAL_STUDIO_METRICS.adLeadsCount,
-      conversionRate: REAL_STUDIO_METRICS.conversionRate,
+      totalRevenue: total,
+      ordersDelivered: deliveredCount,
+      ordersActive: activeCount,
+      adLeadsCount: 0,
+      conversionRate: deliveredCount + activeCount > 0 ? 100 : 0,
       currency: 'FCFA',
     };
   } catch {
-    return REAL_STUDIO_METRICS;
+    return {
+      totalRevenue: 0,
+      ordersDelivered: 0,
+      ordersActive: 0,
+      adLeadsCount: 0,
+      conversionRate: 0,
+      currency: 'FCFA',
+    };
   }
 }
 

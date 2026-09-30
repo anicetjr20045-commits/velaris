@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { 
   MessagesSquare, 
   Download, 
@@ -8,7 +8,8 @@ import {
   FileText,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  MessageCircle
 } from 'lucide-react';
 import type { ConversationItem } from '../types';
 import { 
@@ -16,23 +17,41 @@ import {
   REAL_CONVERSATION_MESSAGES 
 } from '../data/realProductionData';
 import { sendWahaTextMessage } from '../services/waha';
+import { useAuth } from '../hooks/useAuth';
+import { getLiveConversations } from '../services/supabase';
 
 interface ConversationsViewProps {
   onOpenOrderForStudio?: (name: string) => void;
 }
 
 export const ConversationsView: FC<ConversationsViewProps> = () => {
-  const [conversations] = useState<ConversationItem[]>(REAL_CONVERSATIONS);
-  const [selectedId, setSelectedId] = useState<string>(REAL_CONVERSATIONS[0].id);
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<ConversationItem[]>(() => {
+    return user ? [] : REAL_CONVERSATIONS;
+  });
+  const [selectedId, setSelectedId] = useState<string>(() => {
+    return user ? '' : (REAL_CONVERSATIONS[0]?.id || '');
+  });
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
   const [isSending, setIsSending] = useState<boolean>(false);
   const [sendFeedback, setSendFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
+  useEffect(() => {
+    getLiveConversations().then((live) => {
+      setConversations(live);
+      if (live.length > 0) {
+        setSelectedId((prev) => prev && live.some(c => c.id === prev) ? prev : live[0].id);
+      } else {
+        setSelectedId('');
+      }
+    });
+  }, [user]);
+
   // Historique des messages par conversation
   const [customMessages, setCustomMessages] = useState<Record<string, { role: string; body: string; time: string }[]>>({});
 
-  const selectedConv = conversations.find(c => c.id === selectedId) || conversations[0];
+  const selectedConv = conversations.find(c => c.id === selectedId) || conversations[0] || null;
 
   const filteredConversations = conversations.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,20 +60,20 @@ export const ConversationsView: FC<ConversationsViewProps> = () => {
   );
 
   // Messages initiaux réels pour cette conversation
-  const initialMessages = REAL_CONVERSATION_MESSAGES[selectedId] || [
+  const initialMessages = (selectedId && REAL_CONVERSATION_MESSAGES[selectedId]) || [
     {
       id: 'default-1',
       role: 'user',
       direction: 'inbound',
-      body: selectedConv.fullMessage || selectedConv.preview,
-      createdAt: selectedConv.lastExchange,
+      body: selectedConv ? (selectedConv.fullMessage || selectedConv.preview) : '',
+      createdAt: selectedConv ? selectedConv.lastExchange : 'Récemment',
     }
   ];
 
-  const currentExtraMessages = customMessages[selectedId] || [];
+  const currentExtraMessages = (selectedId && customMessages[selectedId]) || [];
 
   const handleSendReply = async () => {
-    if (!replyText.trim() || isSending) return;
+    if (!replyText.trim() || isSending || !selectedConv) return;
     const textToSend = replyText.trim();
     const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
@@ -105,7 +124,8 @@ export const ConversationsView: FC<ConversationsViewProps> = () => {
     URL.revokeObjectURL(url);
   };
 
-  const whatsappDirectUrl = `https://wa.me/${selectedConv.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(replyText || '')}`;
+  const cleanPhone = selectedConv ? selectedConv.phone.replace(/[^0-9]/g, '') : '';
+  const whatsappDirectUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(replyText || '')}` : '#';
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-16">
@@ -135,7 +155,7 @@ export const ConversationsView: FC<ConversationsViewProps> = () => {
       {/* Barre de recherche et compteur */}
       <div className="flex items-center justify-between gap-4">
         <div className="text-xs uppercase tracking-widest font-bold text-stone-400 font-mono">
-          2 292 CONVERSATIONS TOTALES
+          {conversations.length} CONVERSATION{conversations.length > 1 ? 'S' : ''} ACTIVE{conversations.length > 1 ? 'S' : ''}
         </div>
         <div className="relative w-48 sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400" />
@@ -151,46 +171,57 @@ export const ConversationsView: FC<ConversationsViewProps> = () => {
 
       {/* 2. Liste des conversations (Card master) */}
       <div className="rounded-2xl border border-white/[0.08] bg-[#0e0d0b] divide-y divide-white/[0.05] overflow-hidden shadow-xl max-h-[380px] overflow-y-auto">
-        {filteredConversations.map((conv) => {
-          const isSelected = conv.id === selectedId;
-          return (
-            <div
-              key={conv.id}
-              onClick={() => setSelectedId(conv.id)}
-              className={`p-4 sm:p-5 transition-all cursor-pointer relative ${
-                isSelected 
-                  ? 'bg-[#181612] border-l-4 border-[#c5a059]' 
-                  : 'hover:bg-[#14120f]'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm text-[#f3f4f6] truncate">
-                      {conv.name}
-                    </span>
-                    {conv.unread && (
-                      <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
-                    )}
-                    <span className="text-[10px] px-2 py-0.2 rounded-full bg-white/[0.06] text-stone-400 font-mono">
-                      {conv.status}
-                    </span>
+        {filteredConversations.length === 0 ? (
+          <div className="p-10 text-center space-y-2">
+            <MessageCircle className="h-6 w-6 text-stone-500 mx-auto" />
+            <p className="text-xs font-semibold text-stone-300">Aucune discussion WhatsApp active</p>
+            <p className="text-[11px] text-stone-500 max-w-sm mx-auto">
+              Dès qu'un client vous écrit sur votre numéro WhatsApp Studio, sa conversation et ses commandes s'afficheront ici en direct.
+            </p>
+          </div>
+        ) : (
+          filteredConversations.map((conv) => {
+            const isSelected = conv.id === selectedId;
+            return (
+              <div
+                key={conv.id}
+                onClick={() => setSelectedId(conv.id)}
+                className={`p-4 sm:p-5 transition-all cursor-pointer relative ${
+                  isSelected 
+                    ? 'bg-[#181612] border-l-4 border-[#c5a059]' 
+                    : 'hover:bg-[#14120f]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-[#f3f4f6] truncate">
+                        {conv.name}
+                      </span>
+                      {conv.unread && (
+                        <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                      )}
+                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-white/[0.06] text-stone-400 font-mono">
+                        {conv.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-400 mt-1 line-clamp-1 font-sans">
+                      {conv.preview}
+                    </p>
                   </div>
-                  <p className="text-xs text-stone-400 mt-1 line-clamp-1 font-sans">
-                    {conv.preview}
-                  </p>
-                </div>
 
-                <div className="text-[11px] text-stone-400 shrink-0 font-mono">
-                  {conv.lastExchange}
+                  <div className="text-[11px] text-stone-400 shrink-0 font-mono">
+                    {conv.lastExchange}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* 3. Volet d'inspection de la discussion active */}
+      {selectedConv && (
       <div className="rounded-2xl border border-white/[0.08] bg-[#12110e] p-5 shadow-2xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.06]">
           <div>
@@ -309,6 +340,7 @@ export const ConversationsView: FC<ConversationsViewProps> = () => {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 };

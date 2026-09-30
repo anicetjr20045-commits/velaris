@@ -112,7 +112,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: null, requiresEmailConfirmation: false };
       }
 
-      return { error: null, requiresEmailConfirmation: true };
+      // Connexion immédiate fluide sans frottement
+      const loginRes = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (!loginRes.error && loginRes.data.session) {
+        setAuthModalOpen(false);
+        setIsDemoMode(false);
+        return { error: null, requiresEmailConfirmation: false };
+      }
+
+      return { error: null, requiresEmailConfirmation: false };
     } catch (err: any) {
       return { error: err.message || 'Erreur lors de la création du compte' };
     }

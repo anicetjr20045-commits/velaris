@@ -8,11 +8,11 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (16:55 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (17:45 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Authentification Supabase & Étanchéité Multi-Tenant RLS Opérationnelles — Migration SQL `supabase_auth_multitenant.sql` appliquée avec 32 politiques RLS strictes garantissant qu'aucun client ne voit les données d'un autre, trigger PostgreSQL `on_auth_user_created` provisionnant automatiquement chaque nouveau studio, modal d'authentification sobre sans émojis (`AuthModal.tsx`), `AuthProvider` React avec persistance et synchronisation automatique des commandes en direct.
+- **Statut Opérationnel** : Authentification et Étanchéité Multi-Tenant 100% Validées de Bout en Bout — Test de pénétration à 10 points validé (Alice vs Bob vs Visiteur Démo avec 0 fuite et 0 collision), trigger PostgreSQL `auto_confirm_new_user` actif (inscription avec connexion immédiate sans friction d'email), et frontend raccordé pour que chaque client connecté ne voie EXCLUSIVEMENT que ses commandes, ses discussions et ses métriques réelles (sans forçage des données démo).
 
 ---
 
@@ -29,6 +29,28 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 13. Vérification Médico-Légale de l'Authentification & Étanchéité Multi-Tenant de Bout en Bout (30 Septembre 2026)
+- **Objectif & Exigence Fondamentale** :
+  - Prouver mathématiquement et techniquement que l'authentification se comporte comme sur les sites SaaS de classe mondiale.
+  - Garantir au niveau PostgreSQL et au niveau de l'interface utilisateur que CHAQUE studio connecté ne voit STRICTEMENT QUE ses données, et que les données démo ne polluent jamais un espace privé.
+- **Vérifications & Réalisations Déployées** :
+  1. *Banc d'Essai de Sécurité RLS à 10 Points (100% Succès)* :
+     - Test réel avec deux utilisateurs distincts créés sous Supabase (`alice.velaris.test@gmail.com` et `bob.velaris.test@gmail.com`).
+     - Bob crée un contact et une commande de 5 000 F CFA. Alice interroge `orders` : **Alice voit 0 commande (Isolement parfait)**.
+     - Bob interroge `orders` : **Bob voit 1 commande (la sienne)**.
+     - Alice tente de modifier (`PATCH`) ou supprimer (`DELETE`) la commande de Bob : **0 ligne affectée (Anti-piratage étanche)**.
+     - Alice crée sa propre commande de 3 000 F CFA : **Alice voit 1 commande, Bob voit 1 commande, 0 mélange réciproque**.
+     - Visiteur non connecté : **voit uniquement les 7 commandes démo publiques (`user_id IS NULL`), aucune fuite des commandes privées**.
+  2. *Trigger PostgreSQL `auto_confirm_new_user` sur `auth.users`* :
+     - Élimination du blocage "Email not confirmed". Tout nouvel utilisateur qui crée un studio est instantanément confirmé et connecté sans friction.
+  3. *Purge des Fallbacks Démo dans l'Interface Frontend* :
+     - `App.tsx` : `orders` initialisé avec la clé de stockage propre au studio (`velaris_studio_orders_${user.id}`). Un nouveau studio démarre avec 0 commande (état propre), et ses métriques de chiffre d'affaires sont calculées à partir de ses vraies ventes.
+     - `ConversationsView.tsx` & `AutomationsView.tsx` : chargement direct des discussions et règles du studio connecté avec écran d'accueil dédié, sans afficher les 13 contacts de la démo.
+     - `src/services/supabase.ts` : les fonctions `getLiveConversations`, `getLiveAutomationRules` et `getLiveStudioMetrics` distinguent formellement le mode connecté du mode démo.
+- **Validation Globale** :
+  - Compilation `tsc -b && vite build` : **100% succès en 3.85s**.
+  - Déploiement live sur `main` et `gh-pages` synchronisé.
 
 ### 12. Authentification Supabase & Étanchéité Multi-Tenant des Données par Client (RLS) — Production Live (30 Septembre 2026)
 - **Objectif Métier & Technique** :

@@ -16,8 +16,6 @@ import { useAuth } from './hooks/useAuth';
 import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 
-const STORAGE_KEY = 'velaris_studio_orders_v1';
-
 export function App() {
   const waha = useWahaSession('Test');
 
@@ -29,58 +27,78 @@ export function App() {
     return 'home';
   });
   
-  // Initialize orders with localStorage persistence
+  const { user, openAuthModal, isDemoMode } = useAuth();
+  const storageKey = user ? `velaris_studio_orders_${user.id}` : 'velaris_studio_orders_demo';
+
+  // Initialize orders with user-scoped or demo persistence
   const [orders, setOrders] = useState<Order[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_ORDERS;
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem('velaris_studio_orders_demo');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {
-      // ignore JSON parse error
+      // ignore
     }
     return INITIAL_ORDERS;
   });
 
   const [selectedOrderId, setSelectedOrderId] = useState<string>(() => orders[0]?.id || INITIAL_ORDERS[0].id);
   const [manualConnected, setManualConnected] = useState<boolean | null>(null);
-  const { user, openAuthModal, isDemoMode } = useAuth();
   const isWhatsAppConnected = manualConnected !== null ? manualConnected : waha.isOnline;
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
 
-  // Sync to localStorage
+  // Sync to user-specific or demo localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+      localStorage.setItem(storageKey, JSON.stringify(orders));
     } catch {
       // storage quota or private browsing
     }
-  }, [orders]);
+  }, [orders, storageKey]);
 
-  // Fetch user-specific orders from Supabase when logged in (isolated via RLS)
+  // Fetch strictly isolated orders from Supabase when logged in
   useEffect(() => {
     if (user) {
       getLiveOrders().then((live) => {
+        setOrders(live || []);
         if (live && live.length > 0) {
-          setOrders(live);
           setSelectedOrderId(live[0].id);
+        } else {
+          setSelectedOrderId('');
         }
       });
+    } else if (isDemoMode) {
+      setOrders(INITIAL_ORDERS);
+      setSelectedOrderId(INITIAL_ORDERS[0].id);
     }
-  }, [user]);
+  }, [user, isDemoMode]);
 
-  // Compute dynamic metrics from verified real production data
+  // Dynamic metrics: computed from user's live studio orders, or demo metrics if visitor
   const currentMetrics: StudioMetrics = useMemo(() => {
+    if (!user) {
+      return {
+        ...REAL_STUDIO_METRICS,
+        currency: 'FCFA',
+      };
+    }
+
+    const delivered = orders.filter((o) => o.status === 'livre');
+    const active = orders.filter((o) => o.status !== 'livre');
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+
     return {
-      ...REAL_STUDIO_METRICS,
-      totalRevenue: REAL_STUDIO_METRICS.totalRevenue,
+      totalRevenue,
+      ordersDelivered: delivered.length,
+      ordersActive: active.length,
+      adLeadsCount: 0,
+      conversionRate: orders.length > 0 ? Math.round((delivered.length / orders.length) * 100) : 0,
       currency: 'FCFA',
     };
-  }, []);
+  }, [user, orders]);
 
   // Switch to studio with a specific order
   const handleSelectOrderForStudio = (orderId: string) => {
