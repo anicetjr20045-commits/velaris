@@ -8,11 +8,11 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (18:25 UTC)
+- **Dernière mise à jour** : 30 Septembre 2026 (18:38 UTC)
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Passerelle WhatsApp WAHA ↔ VPS ↔ Supabase Multi-Tenant 100% Opérationnelle — Chaque studio client possède sa session WAHA dédiée (`studio_<user_id_prefix>`) auto-provisionnée, son QR code sécurisé isolé, son conteneur bridge webhook sur le VPS (`waha-bridge`) enregistrant les messages entrants/sortants avec `user_id` et RLS stricte, et configuration anti-déconnexion (`markOnline: false`, `WHATSAPP_RESTART_ALL_SESSIONS=true`, sessions persistées sur volumes Docker).
+- **Statut Opérationnel** : Copilot IA & Analyste Studio Déployé en Production — Moteur d'IA multi-outils connecté en temps réel aux données Supabase de chaque studio (analyse financière, recall des conversations WhatsApp par mot-clé/numéro, synthèse de briefs, ghostwriting de paroles, rédaction et envoi direct de relances WhatsApp en 1 clic).
 
 ---
 
@@ -29,6 +29,26 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 15. Déploiement du Copilot IA & Analyste Business Multi-Outils (30 Septembre 2026)
+- **Objectif & Demande Utilisateur** :
+  - Fournir à chaque client son propre employé/copilot IA personnel qui traque ses ventes, ses statistiques de caisse et ses discussions WhatsApp.
+  - Permettre à l'entrepreneur de lui demander de rappeler une conversation passée avec un client, de résumer ce qu'un client a dit (ou via son numéro), de rédiger les paroles de la chanson à composer, ou de rédiger et d'envoyer directement une réponse WhatsApp.
+- **Réalisations & Composants Déployés** :
+  1. *Service Moteur Intelligent Multi-Outils (`src/services/copilot.ts`)* :
+     - `get_studio_metrics` : calcule en direct le chiffre d'affaires total, les commandes livrées, le pipeline actif et le taux de closing.
+     - `search_studio_conversations` : effectue des recherches sémantiques dans les tables `contacts`, `conversations` et `messages` avec protection RLS stricte.
+     - `get_whatsapp_transcripts` : rassemble l'historique chronologique des messages échangés avec horodatages et diagnostic commercial.
+     - `generate_lyric_score` : compose des paroles structurées en 4 étapes (Couplet 1, Refrain, Couplet 2, Outro) personnalisées selon l'histoire du client.
+     - `sendCopilotWhatsAppMessage` : transmet les messages en direct sur WhatsApp via la passerelle WAHA en 1 clic.
+  2. *Composant Studio UI Haut-Artisanat (`src/components/StudioCopilotView.tsx`)* :
+     - Respect absolu des règles de design (Zéro émoji, palette graphite luxe `#07080a`, typographie architecturale, icônes Lucide fines).
+     - Badges d'exécution des outils de base de données en direct.
+     - Action Cards interactives avec boutons "Copier", "Injecter dans le Studio Suno", et "Envoyer sur WhatsApp (+226...)".
+     - Raccordé directement dans l'onglet **Analyste & Copilot IA** de `StudioAppLayout.tsx`.
+- **Validation Globale** :
+  - Compilation `tsc -b && vite build` : **100% succès en 3.82s**.
+  - Déploiement live sur `main` (`a50438a`) et `gh-pages` (`d0d9715`).
 
 ### 14. Architecture Multi-Tenant WhatsApp WAHA ↔ VPS ↔ Plateforme Velaris (30 Septembre 2026)
 - **Objectif & Exigences Fondamentales** :
