@@ -1,12 +1,4 @@
 import { useState, type FC } from 'react';
-import { 
-  Sparkles, 
-  CheckCircle2, 
-  GraduationCap, 
-  TrendingUp, 
-  ChevronDown, 
-  BookOpen
-} from 'lucide-react';
 import { LiquidSoundOrb } from './LiquidSoundOrb';
 import { StudioAudioShowcase } from './StudioAudioShowcase';
 
@@ -19,231 +11,225 @@ interface LandingPageProps {
 const MODULES = [
   {
     num: '01',
-    title: 'Fondations du Studio & Offres Irrésistibles',
-    duration: '45 min • 5 leçons',
-    desc: 'Configurer son WhatsApp Business de studio, structurer ses 3 formules (1 200 F / 3 000 F / 5 000 F) et positionner sa marque pour inspirer une confiance immédiate.',
+    title: 'Fondations du Studio & Grille Tarifaire',
+    duration: '45 min',
+    desc: 'Positionnement de marque, structuration des 3 offres (1 200 F / 3 000 F / 5 000 F) et configuration de la ligne WhatsApp professionnelle pour inspirer confiance.',
   },
   {
     num: '02',
-    title: 'Acquisition Ads Rentable (Facebook & TikTok)',
-    duration: '1h 15 min • 8 leçons',
-    desc: 'Lancer des campagnes publicitaires rentables avec seulement 5 000 F CFA de budget de test. Les visuels exacts, les ciblages ouest-africains et les accroches qui génèrent 30 à 50 leads WhatsApp qualifiés.',
+    title: 'Acquisition Publicitaire à Petit Budget',
+    duration: '1h 15 min',
+    desc: 'Lancer des campagnes rentables dès 5 000 FCFA sur TikTok et Facebook Ads. Créatifs exacts, ciblages géographiques ouest-africains et gestion des flux de messages entrants.',
   },
   {
     num: '03',
-    title: 'Scripts de Vente & Psychologie du Closing WhatsApp',
-    duration: '55 min • 6 leçons',
-    desc: 'Nos scripts mot-à-mot pour accueillir un lead ads, extraire son brief émotionnel en 2 questions et convertir 4 prospects sur 10 avec la promesse du texte gratuit avant paiement.',
+    title: 'Psychologie de Vente & Closing WhatsApp',
+    duration: '55 min',
+    desc: 'Protocoles de discussion mot-à-mot pour extraire le brief émotionnel en deux questions et sécuriser le paiement avant composition.',
   },
   {
     num: '04',
-    title: 'Production Musicale IA & Livraison en 18 Min',
-    duration: '1h 05 min • 7 leçons',
-    desc: 'Maîtriser le Studio OS : transcription automatique des vocaux, génération de rimes poétiques, styles studio (Afro, Acoustique, Rumba) et livraison vidéo karaoké.',
+    title: 'Production Musicale & Mastering Automatisé',
+    duration: '1h 05 min',
+    desc: 'Maîtrise complète de la suite logicielle : transcription des notes vocales, poétisation des rimes, arrangements multi-styles et livraison en 18 minutes.',
   },
 ];
 
 const FAQS = [
   {
-    q: 'Dois-je savoir chanter, jouer d’un instrument ou composer ?',
-    a: 'Absolument pas. Velaris Studio OS prend en charge l’intégralité de la chaîne musicale. Vous agissez comme le directeur artistique et le gérant de votre boutique : vous écoutez le besoin du client sur WhatsApp, l’outil rédige les paroles poétiques et produit le morceau audio HD masterisé en 1 clic.',
+    q: 'Faut-il des compétences en chant, en solfège ou en musique ?',
+    a: 'Aucune compétence musicale n’est requise. La suite logicielle Velaris prend en charge l’intégralité de la chaîne acoustique (paroles, mélodie, instrumentation, voix et mastering). Vous agissez en tant que directeur artistique et commerçant : vous recueillez l’histoire de votre client sur WhatsApp, et le système génère le morceau masterisé en 1 clic.',
   },
   {
-    q: 'Combien d’argent me faut-il pour démarrer ce business ?',
-    a: 'La barrière à l’entrée est quasiment nulle. Vous n’avez besoin d’aucun matériel coûteux (un smartphone ou un ordinateur suffit). Pour trouver vos premiers clients, un budget de 5 000 à 10 000 F CFA sur Facebook Ads est suffisant pour générer vos 20 à 40 premières conversations WhatsApp qualifiées.',
+    q: 'Quel est le budget nécessaire pour démarrer ce studio ?',
+    a: 'La barrière à l’entrée est minimale. Un simple smartphone ou un ordinateur suffit. Pour acquérir vos premiers clients, un budget de test publicitaire de 5 000 à 10 000 FCFA permet de générer entre 20 et 40 conversations qualifiées prêtes à commander.',
   },
   {
-    q: 'Comment et quand mes clients me paient-ils ?',
-    a: 'Vous encaissez 100% des fonds directement sur votre propre numéro Mobile Money (Wave, Orange Money, Moov Money, MTN). Les clients paient immédiatement après avoir validé le texte de leurs paroles que vous leur envoyez sur WhatsApp.',
+    q: 'Comment et à quel moment les clients paient-ils ?',
+    a: 'Les clients règlent directement sur vos propres comptes Mobile Money (Wave, Orange Money, Moov, MTN). Les fonds sont perçus dès la validation du texte des paroles que vous leur transmettez sur WhatsApp, éliminant tout risque d’impayé.',
   },
   {
-    q: 'Combien de temps faut-il pour traiter une commande de A à Z ?',
-    a: 'Entre la réception de la note vocale du client et la livraison du fichier final sur WhatsApp, il s’écoule généralement 15 à 20 minutes. Vous pouvez ainsi traiter 5 à 10 commandes par jour sur vos heures libres ou à plein temps.',
+    q: 'Quel est le temps moyen de traitement d’une commande ?',
+    a: 'Entre la note vocale initiale et la livraison du fichier audio haute définition au client sur WhatsApp, il s’écoule généralement 18 minutes. Cela permet de traiter 5 à 10 commandes par jour sur vos heures libres ou à plein temps.',
   },
   {
-    q: 'Quelle est la marge bénéficiaire réelle ?',
-    a: 'La marge brute est comprise entre 85% et 95%. Pour une chanson vendue 3 000 F CFA avec vidéo, votre coût de production avec nos outils est de quelques dizaines de francs. Le reste est votre marge nette directe.',
+    q: 'Quelle est la rentabilité nette constatée ?',
+    a: 'La marge brute moyenne oscille entre 85% et 95%. Pour une commande vendue 3 000 FCFA avec vidéo souvenir, le coût direct de génération logicielle est de quelques dizaines de francs. Le solde constitue votre bénéfice net immédiat.',
   },
 ];
 
 export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit, onOpenAcademy }) => {
-  const [dailyOrders, setDailyOrders] = useState<number>(4);
+  const [dailyOrders, setDailyOrders] = useState<number>(5);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  // Revenue simulator calculation (based on average basket of 3 000 FCFA)
+  // Unit economics calculation (average 3 000 FCFA per order)
   const averageBasket = 3000;
   const monthlyRevenue = dailyOrders * averageBasket * 30;
   const estimatedAdCost = Math.round(monthlyRevenue * 0.15);
   const netProfit = monthlyRevenue - estimatedAdCost;
 
   return (
-    <div className="space-y-32 sm:space-y-40 pb-36 text-[#e5e7eb] relative z-10">
-      {/* 1. HERO SECTION (LIQUID OBSIDIAN ELEGANCE) */}
-      <section className="relative pt-6 sm:pt-14 pb-4 max-w-5xl mx-auto text-center space-y-8">
-        {/* Subtle Tag Capsule */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-2xl px-4 py-1.5 text-xs font-medium text-white/80 shadow-sm">
-          <Sparkles className="h-3.5 w-3.5 text-white/70" />
-          <span>Plateforme & Académie • Studio Musical WhatsApp</span>
+    <div className="space-y-28 sm:space-y-36 pb-32 text-[#d1d5db] relative z-10">
+      {/* 1. HERO SECTION */}
+      <section className="pt-6 sm:pt-16 pb-4 max-w-5xl mx-auto text-center space-y-8">
+        {/* Subtle Architectural Tag */}
+        <div className="inline-block text-[11px] uppercase tracking-widest text-neutral-400 font-medium">
+          Suite logicielle de composition & Académie WhatsApp
         </div>
 
         {/* Master Monumental Headline */}
-        <div className="space-y-4">
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.08] max-w-4xl mx-auto font-['Plus_Jakarta_Sans',sans-serif]">
-            L'Infrastructure Complète pour Vendre vos Chansons sur WhatsApp.
+        <div className="space-y-5">
+          <h1 className="font-heading text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.04] max-w-4xl mx-auto">
+            L'Atelier de Création Musicale sur WhatsApp.
           </h1>
 
-          {/* Subtitle */}
-          <p className="text-sm sm:text-base lg:text-lg text-white/60 max-w-2xl mx-auto leading-relaxed font-normal">
-            La méthode et la suite logicielle pour créer, vendre et livrer des chansons personnalisées d'exception en moins de 18 minutes. Sans savoir chanter et en encaissant 100% directement sur Wave et Orange Money.
+          <p className="text-sm sm:text-base lg:text-lg text-neutral-400 max-w-2xl mx-auto leading-relaxed font-normal">
+            Une suite d'automatisation conçue pour les créateurs et entrepreneurs indépendants. De la note vocale WhatsApp au master studio en 18 minutes, avec encaissement direct sans intermédiaire.
           </p>
         </div>
 
-        {/* Action Buttons: Pure White Pill */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-1">
+        {/* Minimalist Action Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
           <button
             onClick={onOpenStudio}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full bg-white text-black hover:bg-neutral-200 px-8 py-3.5 text-sm font-semibold shadow-[0_0_35px_rgba(255,255,255,0.22)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-auto rounded-full bg-white text-black hover:bg-neutral-200 px-8 py-3.5 text-xs font-semibold tracking-tight transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.12)]"
           >
-            <span>Ouvrir l'Atelier Studio OS</span>
-            <span className="text-xs">↗</span>
+            Ouvrir l'atelier studio
           </button>
 
           <button
             onClick={onOpenCockpit}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-xl hover:bg-white/[0.08] px-6 py-3.5 text-sm font-medium text-white/80 hover:text-white transition-all"
+            className="w-full sm:w-auto rounded-full border border-white/15 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/30 px-7 py-3.5 text-xs font-medium text-neutral-300 hover:text-white transition-all"
           >
-            <TrendingUp className="h-4 w-4 text-white/60" />
-            <span>Cockpit des Ventes</span>
+            Cockpit des ventes
           </button>
         </div>
 
-        {/* THE 3D LIQUID SOUND ORB (BENCHMARK LIQUID BROKERS) */}
+        {/* 3D Liquid Sound Orb Central Asset */}
         <LiquidSoundOrb />
 
-        {/* Key Business Pillars (Hairline Minimalist Cards) */}
-        <div className="pt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl hover:border-white/12 p-4 transition-all">
-            <span className="text-[11px] text-white/40 block font-medium">Panier Moyen</span>
-            <span className="text-base sm:text-lg font-bold text-white mt-1 block font-['Plus_Jakarta_Sans',sans-serif]">1 200 à 5 000 F</span>
-            <span className="text-[10px] text-white/50">Par commande client</span>
+        {/* 4 Architectural Columns Strip */}
+        <div className="pt-8 border-t border-white/[0.08] grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-left">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+              Panier moyen
+            </div>
+            <div className="font-heading text-lg sm:text-xl font-bold text-white mt-1">
+              1 200 à 5 000 F
+            </div>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Par commande client</p>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl hover:border-white/12 p-4 transition-all">
-            <span className="text-[11px] text-white/40 block font-medium">Cadence Studio</span>
-            <span className="text-base sm:text-lg font-bold text-white mt-1 block font-['Plus_Jakarta_Sans',sans-serif]">~18 Minutes</span>
-            <span className="text-[10px] text-emerald-400">Livraison WhatsApp HD</span>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+              Cadence studio
+            </div>
+            <div className="font-heading text-lg sm:text-xl font-bold text-white mt-1">
+              18 minutes
+            </div>
+            <p className="text-[11px] text-neutral-400 mt-0.5">De la note au master HD</p>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl hover:border-white/12 p-4 transition-all">
-            <span className="text-[11px] text-white/40 block font-medium">Marge Nette</span>
-            <span className="text-base sm:text-lg font-bold text-white mt-1 block font-['Plus_Jakarta_Sans',sans-serif]">85% à 95%</span>
-            <span className="text-[10px] text-blue-400">Coûts de prod minimes</span>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+              Marge nette
+            </div>
+            <div className="font-heading text-lg sm:text-xl font-bold text-white mt-1">
+              85% à 95%
+            </div>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Coûts de calcul minimaux</p>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl hover:border-white/12 p-4 transition-all">
-            <span className="text-[11px] text-white/40 block font-medium">Encaissement</span>
-            <span className="text-base sm:text-lg font-bold text-white mt-1 block font-['Plus_Jakarta_Sans',sans-serif]">100% Direct</span>
-            <span className="text-[10px] text-emerald-400">Wave / Orange Money</span>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+              Encaissement
+            </div>
+            <div className="font-heading text-lg sm:text-xl font-bold text-white mt-1">
+              Direct & immédiat
+            </div>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Wave & Orange Money</p>
           </div>
         </div>
       </section>
 
-      {/* 2. AUDIO EXPERIENCE (HAUTE FIDÉLITÉ STUDIO) */}
-      <section className="space-y-6 max-w-5xl mx-auto pt-2">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-            Démonstration Audio
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-            Écoutez la puissance émotionnelle du studio
-          </h2>
-          <p className="text-xs sm:text-sm text-white/50">
-            Cliquez sur un style ci-dessous pour tester le rendu sonore haute définition généré par le Studio OS.
-          </p>
-        </div>
-
+      {/* 2. ACOUSTIC EXPERIENCE SHOWCASE */}
+      <section className="max-w-5xl mx-auto">
         <StudioAudioShowcase />
       </section>
 
-      {/* 3. THE BUSINESS MODEL BREAKDOWN (3 CLEAN PILLARS) */}
-      <section className="space-y-8 max-w-5xl mx-auto pt-2">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-            Opportunité de Marché
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-            Pourquoi le business des chansons personnalisées cartonne
+      {/* 3. BUSINESS FOUNDATIONS (ARCHITECTURAL 3-COLUMN EDITORIAL) */}
+      <section className="max-w-5xl mx-auto space-y-10">
+        <div className="max-w-xl space-y-2">
+          <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-medium">
+            Principes économiques
+          </div>
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Les trois piliers d'un studio rentabilisé dès le premier mois
           </h2>
-          <p className="text-xs sm:text-sm text-white/50">
-            L'émotion est le bien de consommation le plus rentable et le plus intemporel sur le marché africain et dans la diaspora.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl hover:border-white/15 p-6 space-y-3 transition-all">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white font-bold text-xs">
-              01
-            </div>
-            <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans',sans-serif]">
-              Une Demande Continue & Émotionnelle
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12 border-t border-white/[0.08] pt-8">
+          <div className="space-y-3">
+            <span className="text-xs font-mono text-neutral-400">01</span>
+            <h3 className="font-heading text-base font-bold text-white">
+              Une demande émotionnelle inépuisable
             </h3>
-            <p className="text-xs text-white/60 leading-relaxed">
-              Anniversaires, mariages, dots coutumières, hommages pour la fête des mères ou déclarations d'amour. Les gens cherchent désespérément un cadeau original qui fait pleurer de joie.
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Anniversaires, fiançailles, mariages, hommages familiaux. Les clients recherchent un cadeau intime qui suscite une émotion durable, rendant la sensibilité au prix secondaire.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl hover:border-white/15 p-6 space-y-3 transition-all">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white font-bold text-xs">
-              02
-            </div>
-            <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans',sans-serif]">
-              Zéro Barrière Musicale Technique
+          <div className="space-y-3">
+            <span className="text-xs font-mono text-neutral-400">02</span>
+            <h3 className="font-heading text-base font-bold text-white">
+              Suppression des barrières physiques
             </h3>
-            <p className="text-xs text-white/60 leading-relaxed">
-              Autrefois, il fallait un studio d'enregistrement, un ingénieur son et des musiciens. Aujourd'hui, notre Studio OS transforme une simple note vocale WhatsApp en hit masterisé en 18 minutes.
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Plus besoin de locaux d'enregistrement, d'ingénieurs du son ni de musiciens payés au cachet. La suite logicielle Velaris prend en charge l'arrangement musical et le mastering en 18 minutes.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl hover:border-white/15 p-6 space-y-3 transition-all">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-white font-bold text-xs">
-              03
-            </div>
-            <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans',sans-serif]">
-              Trésorerie Immédiate en Mobile Money
+          <div className="space-y-3">
+            <span className="text-xs font-mono text-neutral-400">03</span>
+            <h3 className="font-heading text-base font-bold text-white">
+              Trésorerie instantanée sans intermédiaire
             </h3>
-            <p className="text-xs text-white/60 leading-relaxed">
-              Vous êtes payé avant même la livraison studio. Les fonds arrivent immédiatement sur votre propre compte Wave, Orange Money ou Moov Money. Vous disposez de votre argent le jour même.
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Les fonds arrivent directement sur votre propre numéro Wave ou Orange Money dès validation des paroles. Vous disposez de vos bénéfices le jour même sans délai bancaire.
             </p>
           </div>
         </div>
       </section>
 
-      {/* 4. LIVE INTERACTIVE REVENUE SIMULATOR */}
-      <section className="rounded-3xl border border-white/[0.08] bg-[#07080a]/80 backdrop-blur-2xl p-6 sm:p-10 max-w-4xl mx-auto space-y-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.06]">
+      {/* 4. REVENUE SIMULATOR (CONSOLE FADER DESIGN) */}
+      <section className="max-w-4xl mx-auto border border-white/[0.08] bg-[#050608] rounded-xl p-6 sm:p-10 space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4 border-b border-white/[0.08] pb-6">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-white/50">Simulateur Financier</span>
-            <h2 className="text-xl sm:text-2xl font-bold text-white mt-1 tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-              Calculez votre potentiel de revenus mensuels
-            </h2>
-            <p className="text-xs text-white/50 mt-1">
-              Basé sur un panier moyen éprouvé de 3 000 FCFA (formule vidéo karaoké + MP3).
+            <div className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+              Simulation financière
+            </div>
+            <h3 className="font-heading text-xl sm:text-2xl font-bold text-white mt-1">
+              Potentiel de bénéfice net mensuel
+            </h3>
+            <p className="text-xs text-neutral-400 mt-1">
+              Basé sur un panier moyen de 3 000 FCFA (chanson complète + vidéo karaoké).
             </p>
           </div>
+
           <div className="text-left sm:text-right">
-            <span className="text-xs text-white/40 block">Bénéfice net estimé</span>
-            <span className="text-2xl sm:text-3xl font-extrabold text-white font-['Plus_Jakarta_Sans',sans-serif]">
-              {netProfit.toLocaleString()} F
+            <span className="text-xs text-neutral-400 block">Bénéfice net estimé</span>
+            <span className="font-heading text-2xl sm:text-3xl font-extrabold text-white">
+              {netProfit.toLocaleString()} FCFA
             </span>
-            <span className="text-[11px] text-emerald-400 font-medium block">/ mois net en poche</span>
+            <span className="text-[11px] text-neutral-400 block font-mono">/ mois en poche</span>
           </div>
         </div>
 
-        {/* Interactive Slider */}
+        {/* Mixing Console Slider */}
         <div className="space-y-4 pt-2">
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className="text-white/70">Commandes livrées par jour :</span>
-            <span className="rounded-full bg-white/[0.08] text-white px-3 py-1 font-bold text-sm">
+          <div className="flex items-center justify-between text-xs font-medium">
+            <span className="text-neutral-300">Volume de production quotidien :</span>
+            <span className="font-mono text-white text-sm bg-white/[0.06] border border-white/10 px-3 py-1 rounded">
               {dailyOrders} commande{dailyOrders > 1 ? 's' : ''} / jour
             </span>
           </div>
@@ -255,83 +241,77 @@ export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit,
             step={1}
             value={dailyOrders}
             onChange={(e) => setDailyOrders(Number(e.target.value))}
-            className="w-full h-2 bg-white/[0.08] rounded-lg appearance-none cursor-pointer accent-white"
+            className="w-full h-1.5 bg-neutral-800 rounded-none appearance-none cursor-pointer accent-white"
           />
 
-          <div className="flex justify-between text-[11px] text-white/40">
-            <span>1 commande (Débutant)</span>
-            <span>5 commandes (Rythme standard)</span>
-            <span>15 commandes (Studio Pro)</span>
+          <div className="flex justify-between text-[11px] text-neutral-400 font-mono">
+            <span>1 commande (Temps partiel)</span>
+            <span>5 commandes (Rythme établi)</span>
+            <span>15 commandes (Studio professionnel)</span>
           </div>
         </div>
 
-        {/* Detailed Financial Breakdown */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/[0.06]">
-          <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-4">
-            <span className="text-[11px] text-white/40 block font-medium">Chiffre d'Affaires Brut</span>
-            <span className="text-lg font-bold text-white mt-0.5 block font-['Plus_Jakarta_Sans',sans-serif]">
+        {/* Detailed Breakdown */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/[0.08] text-xs">
+          <div className="border border-white/[0.06] bg-white/[0.01] p-4 rounded-lg">
+            <span className="text-neutral-400 block text-[11px]">Chiffre d'affaires brut</span>
+            <span className="font-heading text-lg font-bold text-white mt-1 block">
               {monthlyRevenue.toLocaleString()} FCFA
             </span>
-            <span className="text-[10px] text-white/40">{dailyOrders * 30} ventes / mois</span>
+            <span className="text-neutral-400 text-[10px] mt-0.5 block">{dailyOrders * 30} commandes / mois</span>
           </div>
 
-          <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-4">
-            <span className="text-[11px] text-white/40 block font-medium">Budget Pubs Estimé (15%)</span>
-            <span className="text-lg font-bold text-white/70 mt-0.5 block font-['Plus_Jakarta_Sans',sans-serif]">
+          <div className="border border-white/[0.06] bg-white/[0.01] p-4 rounded-lg">
+            <span className="text-neutral-400 block text-[11px]">Budget publicitaire (15%)</span>
+            <span className="font-heading text-lg font-bold text-neutral-300 mt-1 block">
               -{estimatedAdCost.toLocaleString()} FCFA
             </span>
-            <span className="text-[10px] text-white/40">Facebook & TikTok Ads</span>
+            <span className="text-neutral-400 text-[10px] mt-0.5 block">TikTok & Facebook Ads</span>
           </div>
 
-          <div className="rounded-2xl bg-emerald-500/[0.08] border border-emerald-500/20 p-4">
-            <span className="text-[11px] text-emerald-400 block font-medium">Bénéfice Net Retirable</span>
-            <span className="text-lg font-bold text-white mt-0.5 block font-['Plus_Jakarta_Sans',sans-serif]">
+          <div className="border border-white/[0.15] bg-white/[0.04] p-4 rounded-lg">
+            <span className="text-white block text-[11px] font-semibold">Bénéfice net retirable</span>
+            <span className="font-heading text-lg font-extrabold text-white mt-1 block">
               {netProfit.toLocaleString()} FCFA
             </span>
-            <span className="text-[10px] text-emerald-400 font-medium">Directement sur Wave / OM</span>
+            <span className="text-neutral-300 text-[10px] mt-0.5 block">Directement sur vos comptes Wave/OM</span>
           </div>
         </div>
       </section>
 
-      {/* 5. THE TWO CORE PILLARS (ACADEMY + STUDIO OS) */}
-      <section className="space-y-8 max-w-5xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-            L'Écosystème Velaris
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-            Deux piliers pour réussir votre lancement
+      {/* 5. THE TWO PILLARS (ACADEMY + ENGINE) */}
+      <section className="max-w-5xl mx-auto space-y-10">
+        <div className="max-w-xl space-y-2">
+          <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-medium">
+            L'Écosystème
+          </div>
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Deux fondations indissociables pour réussir
           </h2>
-          <p className="text-xs sm:text-sm text-white/60">
-            Une formation pas-à-pas pour maîtriser la vente et une suite logicielle pour automatiser la production.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-          {/* Pillar 1: L'Académie */}
-          <div className="rounded-3xl border border-white/[0.08] bg-[#07080a]/80 backdrop-blur-2xl p-7 space-y-6 flex flex-col justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+          {/* Pillar 1: Syllabus Académie */}
+          <div className="border border-white/[0.08] bg-[#050608] rounded-xl p-7 space-y-6 flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.08] border border-white/10 text-white font-bold">
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">Pilier 1</span>
-                  <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans',sans-serif]">L'Académie du Studio</h3>
-                </div>
+              <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+                Volet 01 • Formation & Méthode
               </div>
-
-              <p className="text-xs text-white/70 leading-relaxed">
-                Apprenez à structurer vos offres, lancer des publicités rentables à petit budget et closer vos prospects sur WhatsApp avec nos scripts éprouvés.
+              <h3 className="font-heading text-xl font-bold text-white">
+                L'Académie du Studio
+              </h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Le parcours pas-à-pas pour positionner vos offres, maîtriser la publicité rentable à petit budget et convertir vos prospects sur WhatsApp avec nos scripts de closing.
               </p>
 
-              <div className="space-y-2.5 pt-2 border-t border-white/[0.06]">
+              <div className="divide-y divide-white/[0.06] border-t border-white/[0.06] pt-2">
                 {MODULES.map((mod) => (
-                  <div key={mod.num} className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-3 text-xs">
-                    <div className="flex items-center justify-between font-semibold text-white">
-                      <span>Module {mod.num} — {mod.title}</span>
-                      <span className="text-[10px] text-white/40">{mod.duration.split('•')[0]}</span>
+                  <div key={mod.num} className="py-3 text-xs flex items-baseline justify-between gap-4">
+                    <div>
+                      <span className="font-mono text-neutral-400 mr-2">{mod.num}</span>
+                      <span className="font-semibold text-white">{mod.title}</span>
                     </div>
+                    <span className="font-mono text-[11px] text-neutral-400 shrink-0">{mod.duration}</span>
                   </div>
                 ))}
               </div>
@@ -339,162 +319,136 @@ export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit,
 
             <button
               onClick={onOpenAcademy || onOpenCockpit}
-              className="w-full flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] py-3 text-xs font-semibold text-white transition-all"
+              className="w-full rounded-full border border-white/15 bg-white/[0.02] hover:bg-white/[0.06] py-3 text-xs font-semibold text-white transition-colors"
             >
-              <BookOpen className="h-4 w-4 text-white/70" />
-              <span>Consulter les Modules de Formation</span>
+              Consulter le programme détaillé
             </button>
           </div>
 
-          {/* Pillar 2: Le Studio OS */}
-          <div className="rounded-3xl border border-white/[0.1] bg-white/[0.03] backdrop-blur-2xl p-7 space-y-6 flex flex-col justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          {/* Pillar 2: Studio OS */}
+          <div className="border border-white/[0.12] bg-[#07080a] rounded-xl p-7 space-y-6 flex flex-col justify-between">
             <div className="space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black font-bold">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-white/50">Pilier 2</span>
-                  <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans',sans-serif]">La Suite Logicielle Studio OS</h3>
-                </div>
+              <div className="text-[10px] uppercase font-mono tracking-wider text-neutral-400">
+                Volet 02 • Suite Logicielle
               </div>
-
-              <p className="text-xs text-white/60 leading-relaxed">
-                L'atelier complet pour produire vos chansons en 1 clic. Vous n'avez qu'à coller le vocal du client, valider les paroles et lancer le studio.
+              <h3 className="font-heading text-xl font-bold text-white">
+                Le Studio OS
+              </h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                L'atelier complet de fabrication : de la transcription de l'audio WhatsApp à l'arrangement et au rendu acoustique 24-bit en 1 clic.
               </p>
 
-              <div className="space-y-3 pt-2 border-t border-white/[0.06]">
-                <div className="flex items-start gap-3 text-xs">
-                  <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-white font-semibold">Transcription Vocale IA :</strong>
-                    <span className="text-white/60 ml-1">Analyse des souvenirs et émotions depuis les notes vocales WhatsApp.</span>
-                  </div>
+              <div className="space-y-3 pt-2 border-t border-white/[0.06] text-xs">
+                <div className="py-2 border-b border-white/[0.04]">
+                  <strong className="text-white block font-medium">Transcription vocale assistée</strong>
+                  <span className="text-neutral-400">Analyse des sentiments, prénoms et anecdotes depuis la note audio du client.</span>
                 </div>
 
-                <div className="flex items-start gap-3 text-xs">
-                  <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-white font-semibold">Générateur de Paroles Poétiques :</strong>
-                    <span className="text-white/60 ml-1">Écriture instantanée de couplets et refrains en rimes riches, modifiables en direct.</span>
-                  </div>
+                <div className="py-2 border-b border-white/[0.04]">
+                  <strong className="text-white block font-medium">Composition de paroles poétiques</strong>
+                  <span className="text-neutral-400">Couplets et refrains structurés en rimes riches, modifiables en direct.</span>
                 </div>
 
-                <div className="flex items-start gap-3 text-xs">
-                  <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-white font-semibold">Moteur Musical Multi-Styles :</strong>
-                    <span className="text-white/60 ml-1">Afro-Love, Guitare Acoustique, Rumba Congolaise, Zouk et Gospel avec choix de voix.</span>
-                  </div>
+                <div className="py-2 border-b border-white/[0.04]">
+                  <strong className="text-white block font-medium">Arrangements acoustiques multi-styles</strong>
+                  <span className="text-neutral-400">Afro-Love, Guitare & Voix, Rumba, Zouk et Gospel avec sélection de timbre vocal.</span>
                 </div>
 
-                <div className="flex items-start gap-3 text-xs">
-                  <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-white font-semibold">Liaison WhatsApp Directe :</strong>
-                    <span className="text-white/60 ml-1">Exportation des paroles et envoi du fichier audio au client en 1 clic.</span>
-                  </div>
+                <div className="py-2">
+                  <strong className="text-white block font-medium">Liaison WhatsApp directe</strong>
+                  <span className="text-neutral-400">Envoi du texte et du master musical directement dans la conversation client.</span>
                 </div>
               </div>
             </div>
 
             <button
               onClick={onOpenStudio}
-              className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-3 text-xs font-bold text-black transition-all shadow-md hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full rounded-full bg-white hover:bg-neutral-200 py-3 text-xs font-semibold text-black transition-all active:scale-95"
             >
-              <span>Tester l'Atelier Studio 1-Clic</span>
-              <span className="text-xs">↗</span>
+              Accéder à l'atelier de composition
             </button>
           </div>
         </div>
       </section>
 
-      {/* 6. TESTIMONIALS FROM STUDIO CREATORS */}
-      <section className="space-y-6 max-w-5xl mx-auto pt-2">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-            Retours d'Expérience
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-            Ils ont lancé leur studio avec Velaris
+      {/* 6. TESTIMONIALS & CASE STUDIES */}
+      <section className="max-w-5xl mx-auto space-y-8">
+        <div className="max-w-xl space-y-2">
+          <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-medium">
+            Retours d'expérience
+          </div>
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Créateurs en activité
           </h2>
-          <p className="text-xs sm:text-sm text-white/50">
-            Des entrepreneurs ordinaires qui génèrent un revenu quotidien grâce aux chansons personnalisées.
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl hover:border-white/15 p-6 space-y-3 transition-all">
-            <p className="text-xs text-white/70 leading-relaxed italic">
-              « En 2 semaines après avoir appliqué le module sur Facebook Ads, j'ai rentabilisé mes premiers tests. Je tourne à 4-5 chansons livrées par jour. Le Studio 1-clic me fait gagner des heures de travail. »
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-white/[0.08] pt-8 text-xs">
+          <div className="space-y-4">
+            <p className="text-neutral-300 leading-relaxed italic">
+              « Deux semaines après avoir suivi le module d'acquisition, mes campagnes étaient amorties. Je maintiens une cadence de 4 à 5 livraisons quotidiennes. L'atelier me fait gagner plusieurs heures par morceau. »
             </p>
-            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+            <div className="border-t border-white/[0.06] pt-3 flex items-baseline justify-between">
               <div>
                 <span className="font-semibold text-white block">Patrick K.</span>
-                <span className="text-[10px] text-white/40">Abidjan, Côte d'Ivoire</span>
+                <span className="text-[11px] text-neutral-400">Abidjan, Côte d'Ivoire</span>
               </div>
-              <span className="text-[11px] font-bold text-emerald-400">~450k F / mois</span>
+              <span className="font-mono text-white text-[11px]">~450k F / mois</span>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl hover:border-white/15 p-6 space-y-3 transition-all">
-            <p className="text-xs text-white/70 leading-relaxed italic">
-              « Je n’avais jamais touché à la musique. Les scripts WhatsApp de closing sont redoutables : le fait de donner le texte gratuitement rassure tout le monde. Dès que le client lit les paroles, la vente est pliée. »
+          <div className="space-y-4">
+            <p className="text-neutral-300 leading-relaxed italic">
+              « Je n'avais aucune notion musicale. Le protocole de vente gratuit sur WhatsApp rassure les clients les plus hésitants. Dès que le texte est validé, l'encaissement se fait sans négociation. »
             </p>
-            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+            <div className="border-t border-white/[0.06] pt-3 flex items-baseline justify-between">
               <div>
                 <span className="font-semibold text-white block">Idrissa S.</span>
-                <span className="text-[10px] text-white/40">Ouagadougou, Burkina</span>
+                <span className="text-[11px] text-neutral-400">Ouagadougou, Burkina Faso</span>
               </div>
-              <span className="text-[11px] font-bold text-emerald-400">~380k F / mois</span>
+              <span className="font-mono text-white text-[11px]">~380k F / mois</span>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl hover:border-white/15 p-6 space-y-3 transition-all">
-            <p className="text-xs text-white/70 leading-relaxed italic">
-              « La formule vidéo à 3 000 F cartonne avec les anniversaires de mamans et les mariages. Mes clients partagent la vidéo sur leur statut WhatsApp et leurs amis me contactent directement. »
+          <div className="space-y-4">
+            <p className="text-neutral-300 leading-relaxed italic">
+              « La formule 3 000 FCFA avec vidéo souvenir est plébiscitée pour les célébrations familiales. Les clients partagent la vidéo sur leur statut WhatsApp, générant un bouche-à-oreille continu sans surcoût publicitaire. »
             </p>
-            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+            <div className="border-t border-white/[0.06] pt-3 flex items-baseline justify-between">
               <div>
                 <span className="font-semibold text-white block">Fatoumata B.</span>
-                <span className="text-[10px] text-white/40">Dakar, Sénégal</span>
+                <span className="text-[11px] text-neutral-400">Dakar, Sénégal</span>
               </div>
-              <span className="text-[11px] font-bold text-emerald-400">~620k F / mois</span>
+              <span className="font-mono text-white text-[11px]">~620k F / mois</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 7. FAQ (ENTREPRENEUR-FOCUSED) */}
-      <section className="space-y-6 max-w-3xl mx-auto pt-2">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-white/50">
-            Questions Fréquentes
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-            Tout ce que vous devez savoir avant de commencer
+      {/* 7. ARCHITECTURAL FAQ ACCORDION */}
+      <section className="max-w-3xl mx-auto space-y-8">
+        <div className="space-y-2">
+          <div className="text-[11px] uppercase tracking-widest text-neutral-400 font-medium">
+            Précisions
+          </div>
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Questions fréquentes
           </h2>
         </div>
 
-        <div className="space-y-3">
+        <div className="divide-y divide-white/[0.08] border-t border-b border-white/[0.08]">
           {FAQS.map((faq, index) => (
-            <div
-              key={index}
-              className="rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl overflow-hidden transition-all"
-            >
+            <div key={index} className="py-4">
               <button
                 onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
-                className="w-full flex items-center justify-between p-4 text-left text-xs sm:text-sm font-semibold text-white hover:text-white/80 transition-colors"
+                className="w-full flex items-baseline justify-between text-left text-xs sm:text-sm font-semibold text-white hover:text-neutral-300 transition-colors gap-4"
               >
                 <span>{faq.q}</span>
-                <ChevronDown
-                  className={`h-4 w-4 text-white/50 transition-transform ${
-                    openFaqIndex === index ? 'rotate-180 text-white' : ''
-                  }`}
-                />
+                <span className="font-mono text-sm text-neutral-400 shrink-0">
+                  {openFaqIndex === index ? '−' : '+'}
+                </span>
               </button>
               {openFaqIndex === index && (
-                <div className="px-4 pb-4 text-xs text-white/60 leading-relaxed border-t border-white/[0.04] pt-3">
+                <div className="mt-3 text-xs text-neutral-400 leading-relaxed max-w-2xl">
                   {faq.a}
                 </div>
               )}
@@ -504,47 +458,50 @@ export const LandingPage: FC<LandingPageProps> = ({ onOpenStudio, onOpenCockpit,
       </section>
 
       {/* 8. FINAL CALL TO ACTION */}
-      <section className="rounded-3xl border border-white/[0.08] bg-[#07080a]/80 backdrop-blur-2xl p-8 sm:p-12 text-center max-w-4xl mx-auto space-y-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+      <section className="max-w-4xl mx-auto text-center border-t border-white/[0.08] pt-16 space-y-6">
         <div className="space-y-3">
-          <h2 className="text-2xl sm:text-4xl font-bold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
-            Prêt à lancer votre propre studio musical rentable ?
+          <h2 className="font-heading text-3xl sm:text-5xl font-bold text-white tracking-tight">
+            Prêt à lancer votre studio ?
           </h2>
-          <p className="text-xs sm:text-sm text-white/60 max-w-xl mx-auto">
-            Accédez immédiatement à l'Atelier Studio OS et découvrez comment produire votre premier morceau en moins de 18 minutes.
+          <p className="text-xs sm:text-sm text-neutral-400 max-w-lg mx-auto">
+            Accédez à la suite logicielle et découvrez comment composer et livrer un morceau complet en moins de 18 minutes.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
           <button
             onClick={onOpenStudio}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-8 py-3.5 text-sm font-semibold text-black shadow-[0_0_35px_rgba(255,255,255,0.2)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full sm:w-auto rounded-full bg-white text-black hover:bg-neutral-200 px-8 py-3.5 text-xs font-semibold tracking-tight transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
           >
-            <span>Démarrer avec l'Atelier Studio OS</span>
-            <span className="text-xs">↗</span>
+            Ouvrir l'atelier studio
           </button>
 
           <button
             onClick={onOpenCockpit}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] backdrop-blur-xl px-6 py-3.5 text-xs font-medium text-white/80 hover:bg-white/[0.08] transition-all"
+            className="w-full sm:w-auto rounded-full border border-white/15 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/30 px-7 py-3.5 text-xs font-medium text-neutral-300 hover:text-white transition-all"
           >
-            <span>Accéder au Cockpit des Ventes</span>
+            Consulter le cockpit des ventes
           </button>
         </div>
       </section>
 
-      {/* 9. FOOTER */}
-      <footer className="pt-8 border-t border-white/[0.06] text-center text-xs text-white/40 space-y-2">
-        <div className="flex items-center justify-center gap-2">
-          <span className="font-semibold text-white tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">Velaris</span>
-          <span>—</span>
-          <span>Académie & Suite Logicielle Studio</span>
+      {/* 9. FOOTER COLOPHON */}
+      <footer className="pt-12 border-t border-white/[0.08] text-xs text-neutral-400 space-y-4">
+        <div className="flex flex-col sm:flex-row items-baseline justify-between gap-4">
+          <div className="flex items-baseline gap-2">
+            <span className="font-heading font-bold text-white tracking-tight text-sm">VELARIS</span>
+            <span className="text-[10px] uppercase tracking-widest text-neutral-400">Studio OS</span>
+          </div>
+
+          <p className="text-[11px] text-neutral-400">
+            Plateforme de composition & d'automatisation commerciale sur WhatsApp.
+          </p>
         </div>
-        <p className="text-[11px] text-white/40">
-          Plateforme dédiée aux créateurs et entrepreneurs indépendants sur WhatsApp.
-        </p>
-        <p className="text-[10px] text-white/30 pt-1">
-          © 2026 Velaris Platform. Tous droits réservés.
-        </p>
+
+        <div className="flex flex-col sm:flex-row items-baseline justify-between gap-2 text-[10px] text-neutral-400 border-t border-white/[0.04] pt-4">
+          <span>© 2026 Velaris Platform. Tous droits réservés.</span>
+          <span>Abidjan • Ouagadougou • Dakar</span>
+        </div>
       </footer>
     </div>
   );

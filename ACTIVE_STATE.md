@@ -30,6 +30,24 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 6. Éradication Totale des Tics IA, Typographie Studio Haut de Gamme (Syne + Inter) & Mise en Page Éditoriale Suisse (30 Septembre 2026)
+- **Typographie Architectural & Studio d'Élite (`index.html`, `index.css`)** :
+  - Intégration de `Syne` pour les titres et la signature visuelle (prestige, label de musique, caractère unique).
+  - Intégration d'`Inter` pour une lisibilité suisse chirurgicale des métriques et du corps de texte.
+  - Déploiement d'`Instrument Serif` pour les touches éditoriales raffinées.
+- **Purge Intégrale des Emojis & Tics IA (`LandingPage.tsx`, `Navbar.tsx`, `StudioAudioShowcase.tsx`)** :
+  - Suppression totale de tous les emojis décoratifs parasites (🎵, ✨, 💛, 🏷️, ↗, 🚀).
+  - Élimination des encadrés squircles gris répétitifs (`rounded-xl bg-white/[0.06] border border-white/10`) contenant des icônes isolées.
+  - Remplacement des boutons clichés par de véritables boutons studio architecturaux sobres et contrastés.
+- **Grille Éditoriale & Asymétrie Professionnelle** :
+  - Découpage architectural en colonnes fines avec séparateurs hairlines (`border-white/[0.08]`).
+  - Console d'écoute sonore redessinée sous forme de rack audio professionnel (style Nagra / Braun / Teenage Engineering).
+  - Fader de mixage sobre pour le simulateur de rentabilité.
+- **Validation Globale** :
+  - Linter : `oxlint` **0 erreur, 0 avertissement** sur 15 fichiers.
+  - Compilation : `tsc -b && vite build` **100% au vert en 2.53s**.
+  - Déploiement synchronisé sur GitHub Pages (`gh-pages`).
+
 ### 5. Design Haute Couture Épuré (Benchmark Liquid Brokers) : Orbe 3D Liquide, Stardust Cosmique & Démonstration Audio (`LiquidSoundOrb.tsx`, `CosmicBackground.tsx`, `StudioAudioShowcase.tsx`) (30 Septembre 2026)
 - **Orbe 3D Liquide Chromatique & Parallaxe Interactif (`LiquidSoundOrb.tsx`)** :
   - Sphère liquide sonore avec ondes caustiques procédurales animées sur canvas.

@@ -492,8 +492,8 @@ export const StudioView: FC<StudioViewProps> = ({
                 /* Standard Display Mode */
                 <div className="space-y-4 rounded-2xl border border-white/[0.06] bg-[#07080c] p-4 font-sans text-xs leading-relaxed max-h-[360px] overflow-y-auto">
                   <div className="text-center pb-2 border-b border-white/[0.06]">
-                    <span className="font-['Space_Grotesk'] text-sm font-bold text-[#e5c158] uppercase tracking-wider">
-                      🎵 {currentOrder.lyrics.title}
+                    <span className="font-heading text-sm font-bold text-white tracking-wider">
+                      {currentOrder.lyrics.title}
                     </span>
                   </div>
 
@@ -594,7 +594,7 @@ export const StudioView: FC<StudioViewProps> = ({
                   >
                     <Music className="h-4 w-4" />
                     <span>
-                      {isLaunchingProduction ? 'Studio en Cours...' : '🎵 Produire & Livrer'}
+                      {isLaunchingProduction ? 'Production en cours...' : 'Produire & Livrer'}
                     </span>
                   </button>
                 </div>
