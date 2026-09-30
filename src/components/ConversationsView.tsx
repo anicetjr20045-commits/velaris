@@ -90,11 +90,12 @@ export const ConversationsView: FC<ConversationsViewProps> = () => {
     setSendFeedback(null);
 
     try {
-      const res = await sendWahaTextMessage(selectedConv.phone, textToSend, 'Test');
+      const sessionName = user ? `studio_${user.id.slice(0, 8)}` : 'Test';
+      const res = await sendWahaTextMessage(selectedConv.phone, textToSend, sessionName);
       if (res.success) {
         setSendFeedback({
           success: true,
-          message: `Envoyé sur WhatsApp (${selectedConv.phone}) via la session Alex !`,
+          message: `Envoyé sur WhatsApp (${selectedConv.phone}) via la session Studio !`,
         });
       } else {
         setSendFeedback({

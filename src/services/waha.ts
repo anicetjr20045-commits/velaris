@@ -91,6 +91,56 @@ export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.default
 }
 
 /**
+ * Assure qu'une session existe sur WAHA (la provisionne et la démarre si inexistante)
+ */
+export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<WahaSession | null> {
+  try {
+    const existing = await fetchWahaSession(sessionName);
+    if (existing) {
+      if (existing.status === 'STOPPED' || existing.status === 'FAILED') {
+        await startWahaSession(sessionName);
+      }
+      return existing;
+    }
+
+    // Création de la session avec configuration haute stabilité (anti-déconnexion)
+    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sessions`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        name: sessionName,
+        start: true,
+        config: {
+          noweb: {
+            markOnline: false,
+            store: {
+              enabled: true,
+              fullSync: false,
+            },
+          },
+          webhooks: [
+            {
+              url: 'http://waha-bridge:3001/webhook',
+              events: ['message', 'message.any', 'session.status'],
+            },
+          ],
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[WAHA] Failed to provision session ${sessionName}: HTTP ${res.status}`);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error(`[WAHA] ensureWahaSession(${sessionName}) error:`, err);
+    return null;
+  }
+}
+
+/**
  * Démarre ou relance une session WAHA
  */
 export async function startWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {

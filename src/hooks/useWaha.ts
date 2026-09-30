@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   WAHA_CONFIG, 
   fetchWahaSession, 
+  ensureWahaSession,
   startWahaSession, 
   stopWahaSession, 
   sendWahaTextMessage, 
@@ -9,6 +10,7 @@ import {
   type WahaSession,
   type WahaSendTextResponse
 } from '../services/waha';
+import { supabase } from '../services/supabase';
 
 export interface UseWahaReturn {
   session: WahaSession | null;
@@ -34,11 +36,32 @@ export function useWahaSession(sessionName: string = WAHA_CONFIG.defaultSession)
 
   const refresh = useCallback(async () => {
     try {
-      const data = await fetchWahaSession(sessionName);
+      let data = await fetchWahaSession(sessionName);
+      if (!data && sessionName.startsWith('studio_')) {
+        // Auto-provisioning de la session studio si elle n'existe pas encore sur WAHA
+        data = await ensureWahaSession(sessionName);
+      }
+
       if (data) {
         setSession(data);
         setStatus(data.status || 'UNKNOWN');
         setError(null);
+
+        // Si la session est connectée, synchronisation dans Supabase
+        if (data.status === 'WORKING') {
+          const { data: { session: authSession } } = await supabase.auth.getSession();
+          if (authSession?.user) {
+            const rawPhone = data.me?.id ? data.me.id.split('@')[0] : null;
+            await supabase
+              .from('wa_sessions')
+              .update({
+                status: 'connected',
+                phone_number: rawPhone,
+                last_seen_at: new Date().toISOString(),
+              })
+              .eq('user_id', authSession.user.id);
+          }
+        }
       } else {
         setStatus('FAILED');
       }
@@ -53,7 +76,13 @@ export function useWahaSession(sessionName: string = WAHA_CONFIG.defaultSession)
   const restart = useCallback(async () => {
     setIsLoading(true);
     setStatus('STARTING');
-    const ok = await startWahaSession(sessionName);
+    let ok = false;
+    if (sessionName.startsWith('studio_')) {
+      const data = await ensureWahaSession(sessionName);
+      ok = !!data;
+    } else {
+      ok = await startWahaSession(sessionName);
+    }
     setQrNonce(prev => prev + 1);
     await new Promise(r => setTimeout(r, 2000));
     await refresh();

@@ -17,7 +17,9 @@ import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 
 export function App() {
-  const waha = useWahaSession('Test');
+  const { user, openAuthModal, isDemoMode } = useAuth();
+  const sessionName = user ? (`studio_${user.id.slice(0, 8)}`) : 'Test';
+  const waha = useWahaSession(sessionName);
 
   // Support #decouvrir or default to home
   const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir'>(() => {
@@ -27,7 +29,6 @@ export function App() {
     return 'home';
   });
   
-  const { user, openAuthModal, isDemoMode } = useAuth();
   const storageKey = user ? `velaris_studio_orders_${user.id}` : 'velaris_studio_orders_demo';
 
   // Initialize orders with user-scoped or demo persistence
@@ -223,6 +224,7 @@ export function App() {
       <QrConnectModal
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
+        sessionName={sessionName}
         isWhatsAppConnected={isWhatsAppConnected}
         setIsWhatsAppConnected={setManualConnected}
       />
