@@ -9,8 +9,10 @@
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
 - **Dernière mise à jour** : 30 Septembre 2026
-- **Branche Git** : `main`
-- **Statut Opérationnel** : Initialisation & Socle Studio OS — Design Haute Couture
+- **Branche Git** : `main` & `gh-pages`
+- **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
+- **Lien Live Permanent** : https://anicetjr20045-commits.github.io/velaris/
+- **Statut Opérationnel** : Socle Studio OS Déployé — Design Haute Couture Live
 
 ---
 
