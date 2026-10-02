@@ -52,7 +52,7 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.1] bg-[#0c0d14] p-6 shadow-2xl">
+      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#3A3022] bg-[#141210] p-6 shadow-2xl">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -80,7 +80,7 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
 
         {/* Unauthenticated State: Call to Action to sign in first */}
         {!user ? (
-          <div className="my-2 space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center">
+          <div className="my-2 space-y-4 rounded-2xl border border-[#2D261E] bg-white/[0.02] p-5 text-center">
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-stone-300">
               <Lock className="h-5 w-5" />
             </div>
@@ -107,7 +107,7 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-xl border border-white/[0.08] py-2 text-xs font-medium text-stone-400 hover:text-white cursor-pointer"
+                className="w-full rounded-xl border border-[#2D261E] py-2 text-xs font-medium text-stone-400 hover:text-white cursor-pointer"
               >
                 Continuer en exploration démo
               </button>
@@ -171,7 +171,7 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
             </div>
 
             {/* Instruction Steps */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-stone-300 space-y-1.5">
+            <div className="rounded-2xl border border-[#2D261E] bg-white/[0.02] p-3 text-xs text-stone-300 space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#d4af37] text-black font-bold text-[9px]">
                   01

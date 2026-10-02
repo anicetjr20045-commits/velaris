@@ -5,11 +5,22 @@
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-heading: 'Syne', -apple-system, sans-serif;
     --font-serif: 'Instrument Serif', Georgia, serif;
+    --font-display: 'Playfair Display', 'Instrument Serif', Georgia, serif;
 
-    /* Surfaces */
-    --vx-void: #050608;
-    --vx-surface: #08090C;
-    --vx-elevated: #0E1015;
+    /* Surfaces : obsidienne chaude */
+    --vx-void: #0C0A09;
+    --vx-surface: #13110E;
+    --vx-card: #171512;
+    --vx-elevated: #1A1713;
+    --vx-line: #2D261E;
+    --vx-line-strong: #3A3022;
+
+    /* Or champagne */
+    --vx-gold: #E5B54F;
+    --vx-gold-soft: #F0C068;
+    --vx-gold-text: #F3CA75;
+    --vx-gold-rule: #D4A347;
+    --vx-muted: #A8A29E;
 
     /* Courbes de mouvement */
     --ease-luxury: cubic-bezier(0.16, 1, 0.3, 1);
@@ -18,8 +29,8 @@
   }
 
   body {
-    background-color: #050608;
-    color: #dedede;
+    background-color: #0C0A09;
+    color: #E7E5E4;
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
     -webkit-tap-highlight-color: transparent;
@@ -35,6 +46,12 @@
     font-family: var(--font-serif);
   }
 
+  /* Grands titres de section (Playfair, graisse réelle 700) */
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
@@ -46,14 +63,14 @@
   height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: #050608;
+  background: #0C0A09;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(229, 181, 79, 0.18);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(229, 181, 79, 0.35);
 }
 
 .no-scrollbar {
@@ -89,8 +106,8 @@
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(60rem 28rem at 78% -8%, rgba(214, 170, 96, 0.07), transparent 60%),
-    radial-gradient(48rem 30rem at 18% 110%, rgba(99, 102, 241, 0.06), transparent 60%);
+    radial-gradient(60rem 28rem at 78% -8%, rgba(229, 181, 79, 0.07), transparent 60%),
+    radial-gradient(48rem 30rem at 18% 110%, rgba(180, 110, 50, 0.05), transparent 60%);
 }
 
 /* Fin filet lumineux sur le bord supérieur d'une carte */
@@ -105,7 +122,44 @@
   top: 0;
   height: 1px;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  background: linear-gradient(90deg, transparent, rgba(240, 192, 104, 0.28), transparent);
+}
+
+/* Interrupteur or champagne (role="switch", aria-checked) */
+.vx-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 26px;
+  width: 46px;
+  border-radius: 9999px;
+  background: #2A241D;
+  border: 1px solid #3A3022;
+  cursor: pointer;
+  transition: background-color 240ms var(--ease-luxury), border-color 240ms var(--ease-luxury);
+}
+.vx-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 20px;
+  width: 20px;
+  border-radius: 9999px;
+  background: #A8A29E;
+  transition: transform 280ms var(--ease-luxury), background-color 240ms var(--ease-luxury);
+}
+.vx-switch[aria-checked='true'] {
+  background: #E5B54F;
+  border-color: #F0C068;
+}
+.vx-switch[aria-checked='true']::after {
+  transform: translate3d(20px, 0, 0);
+  background: #0C0A09;
+}
+.vx-switch:focus-visible {
+  outline: 2px solid #F0C068;
+  outline-offset: 2px;
 }
 
 /* Reflet spéculaire qui suit le pointeur (--mx / --my posés en JS) */
@@ -122,7 +176,7 @@
   transition: opacity 360ms var(--ease-luxury);
   background: radial-gradient(
     22rem circle at var(--mx, 50%) var(--my, 0%),
-    rgba(255, 255, 255, 0.07),
+    rgba(240, 192, 104, 0.08),
     transparent 45%
   );
 }
@@ -338,7 +392,7 @@
   left: 0;
   width: 40%;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(214, 170, 96, 0.09), rgba(255, 255, 255, 0.06), transparent);
+  background: linear-gradient(90deg, transparent, rgba(229, 181, 79, 0.09), rgba(255, 255, 255, 0.06), transparent);
   animation: vx-sheen 1.5s var(--ease-luxury) 120ms both;
 }
 
@@ -353,7 +407,7 @@
   height: 1em;
   margin-left: 2px;
   vertical-align: -0.12em;
-  background: #D6AA60;
+  background: #E5B54F;
   animation: vx-caret 0.9s steps(1) infinite;
 }
 
@@ -397,7 +451,9 @@
   .vx-fill {
     animation: none !important;
   }
-  .vx-spotlight::before {
+  .vx-spotlight::before,
+  .vx-switch,
+  .vx-switch::after {
     transition: none;
   }
 }

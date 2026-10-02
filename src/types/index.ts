@@ -63,6 +63,8 @@ export interface PipelineLead {
   stage: 'nouveau' | 'en_discussion' | 'paiement' | 'livre';
   tag?: string;
   summary?: string;
+  /** Horodatage ISO du dernier échange (filtres temporels) */
+  lastExchangeAt?: string;
 }
 
 export interface AutomationRule {
@@ -77,7 +79,7 @@ export interface AutomationLog {
   id: string;
   ruleName: string;
   recipient: string;
-  status: 'Envoyé' | 'Échoué';
+  status: 'Envoyé' | 'Échoué' | 'Activée' | 'Coupée';
   date: string;
 }
 

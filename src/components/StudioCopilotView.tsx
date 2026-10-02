@@ -13,24 +13,36 @@ import {
   MessagesSquare,
   Music,
   PenLine,
+  Phone,
+  Radio,
   RotateCcw,
   Send,
   TrendingUp,
   UserRoundSearch,
+  Wallet,
   type LucideIcon
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import {
   askCopilot,
+  extractPhoneFragment,
+  planCopilotTools,
   sendCopilotWhatsAppMessage,
   type CopilotMessage
 } from '../services/copilot';
+import { getLiveStudioMetrics } from '../services/supabase';
+import { useStudioLive } from '../hooks/useStudioLive';
+import type { Order, StudioMetrics } from '../types';
+import { REAL_STUDIO_METRICS } from '../data/realProductionData';
 import { SonarGlyph, SonarMascot } from './SonarMascot';
 import { SONAR_STATE_LABEL, type SonarState } from './sonarState';
 
 interface StudioCopilotViewProps {
   sessionName?: string;
   onNavigateToStudio?: () => void;
+  /** Commandes du studio (mêmes données que la Caisse) pour le suivi des ventes */
+  orders?: Order[];
+  metrics?: StudioMetrics;
 }
 
 /* ------------------------------------------------------------------ */
@@ -62,30 +74,16 @@ const TOOL_META: Record<string, ToolMeta> = {
   get_whatsapp_transcripts: { label: 'Lecture des transcriptions vocales', icon: FileText, kind: 'search', source: 'whatsapp' },
   query_velaris_knowledge_base: { label: 'Consultation de la méthode Velaris', icon: BookOpen, kind: 'search', source: 'knowledge' },
   sync_studio_database: { label: 'Base studio synchronisée', icon: Database, kind: 'search', source: 'orders' },
+  detect_phone_number: { label: 'Détection du numéro', icon: Phone, kind: 'search', source: 'whatsapp' },
+  lookup_contact_by_phone: { label: 'Recherche du contact par numéro', icon: UserRoundSearch, kind: 'search', source: 'whatsapp' },
+  summarize_conversation: { label: 'Résumé de la discussion', icon: FileText, kind: 'write', source: 'whatsapp' },
+  track_live_sales: { label: 'Suivi des ventes en direct', icon: Wallet, kind: 'search', source: 'orders' },
+  compose_whatsapp_reply: { label: 'Rédaction du message WhatsApp', icon: Send, kind: 'write', source: 'whatsapp' },
   waha_gateway_ready: { label: 'Passerelle WAHA prête', icon: MessagesSquare, kind: 'search', source: 'whatsapp' },
 };
 
 const toolMeta = (id: string): ToolMeta =>
   TOOL_META[id] ?? { label: id.replace(/_/g, ' '), icon: Database, kind: 'search', source: 'knowledge' };
-
-const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-
-/* Même aiguillage que services/copilot.ts : annonce les outils pendant le calcul */
-const predictTools = (query: string): string[] => {
-  const n = normalize(query);
-  const finance =
-    ['chiffre', 'encaisse', 'revenu', 'stat', 'vente', 'performance', 'taux de conversion'].some(k => n.includes(k)) ||
-    (n.includes('combien') && (n.includes('gagne') || n.includes('fait')));
-  if (finance) return ['get_studio_metrics', 'get_live_orders'];
-  if (['parole', 'ecris la chanson', 'redige la chanson', 'texte de la chanson', 'chanson pour'].some(k => n.includes(k))) {
-    return ['search_client_context', 'generate_lyric_score'];
-  }
-  const recall =
-    ['rappelle', 'resume', 'discute', 'parle', 'client', 'historique', 'conversation'].some(k => n.includes(k)) ||
-    /\+?[0-9]{8,15}/.test(query);
-  if (recall) return ['search_studio_conversations', 'get_whatsapp_transcripts'];
-  return ['query_velaris_knowledge_base'];
-};
 
 const STEP_MS = 700;
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -119,9 +117,9 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
         {current.items.map((item, i) => (
           <li key={i} className="flex gap-2.5">
             {current.ordered ? (
-              <span className="font-mono text-[11px] text-[#D6AA60] pt-[3px] shrink-0 w-4">{item.marker}</span>
+              <span className="font-mono text-[12.5px] text-[#E5B54F] pt-[3px] shrink-0 w-4">{item.marker}</span>
             ) : (
-              <span className="mt-[9px] h-px w-2.5 bg-[#D6AA60]/70 shrink-0" />
+              <span className="mt-[9px] h-px w-2.5 bg-[#E5B54F]/70 shrink-0" />
             )}
             <span>{renderInline(item.body)}</span>
           </li>
@@ -136,18 +134,18 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
     if (!table) return;
     const [head, ...rows] = table;
     blocks.push(
-      <div key={`t${blocks.length}`} className="overflow-x-auto rounded-xl border border-white/[0.07]">
+      <div key={`t${blocks.length}`} className="overflow-x-auto rounded-xl border border-[#2D261E]">
         <table className="w-full text-left text-[12.5px]">
           <thead>
-            <tr className="border-b border-white/[0.07] bg-white/[0.02]">
+            <tr className="border-b border-[#2D261E] bg-white/[0.02]">
               {head.map((cell, i) => (
-                <th key={i} className="px-3.5 py-2 font-normal text-[11px] text-neutral-500">{cell.replace(/\*\*/g, '')}</th>
+                <th key={i} className="px-3.5 py-2 font-normal text-[12.5px] text-neutral-500">{cell.replace(/\*\*/g, '')}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, r) => (
-              <tr key={r} className="border-b border-white/[0.05] last:border-0">
+              <tr key={r} className="border-b border-[#2D261E] last:border-0">
                 {row.map((cell, c) => (
                   <td
                     key={c}
@@ -196,7 +194,7 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
     const heading = line.match(/^#{1,4}\s+(.*)$/);
     if (heading) {
       blocks.push(
-        <h3 key={idx} className="font-heading text-[15px] sm:text-base font-semibold text-white tracking-tight">
+        <h3 key={idx} className="font-display text-lg sm:text-xl font-bold text-white">
           {renderInline(heading[1])}
         </h3>
       );
@@ -208,7 +206,7 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
   flushTable();
 
   return (
-    <div className="space-y-2.5 text-[13px] sm:text-sm leading-relaxed text-neutral-300">
+    <div className="space-y-2.5 text-[15px] leading-relaxed text-[#D6D3D1]">
       {blocks}
       {caret && <span className="vx-caret" aria-hidden="true" />}
     </div>
@@ -220,7 +218,7 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
 /* ------------------------------------------------------------------ */
 
 const ToolTrace: FC<{ tools: string[]; step: number }> = ({ tools, step }) => (
-  <div className="vx-fade-in rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-4 space-y-1">
+  <div className="vx-fade-in rounded-2xl border border-[#2D261E] bg-[#141210] p-4 space-y-1">
     {tools.map((id, i) => {
       const meta = toolMeta(id);
       const Icon = meta.icon;
@@ -237,21 +235,21 @@ const ToolTrace: FC<{ tools: string[]; step: number }> = ({ tools, step }) => (
               status === 'done'
                 ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
                 : status === 'active'
-                  ? 'border-[#D6AA60]/40 bg-[#D6AA60]/10 text-[#E9CC94]'
-                  : 'border-white/[0.08] bg-white/[0.02] text-neutral-600'
+                  ? 'border-[#E5B54F]/40 bg-[#E5B54F]/10 text-[#F3CA75]'
+                  : 'border-[#2D261E] bg-white/[0.02] text-neutral-600'
             }`}
           >
             {status === 'done' ? <Check className="h-3.5 w-3.5" strokeWidth={2} /> : <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />}
           </span>
-          <span className={`flex-1 text-xs transition-colors duration-300 ${status === 'pending' ? 'text-neutral-600' : 'text-neutral-200'}`}>
+          <span className={`flex-1 text-[13px] transition-colors duration-300 ${status === 'pending' ? 'text-neutral-600' : 'text-neutral-200'}`}>
             {meta.label}
           </span>
-          <span className="font-mono text-[10px] text-neutral-500 shrink-0">
+          <span className="font-mono text-[11.5px] text-neutral-500 shrink-0">
             {status === 'done' ? 'ok' : status === 'active' ? 'en cours' : 'en file'}
           </span>
           {status === 'active' && (
             <span className="absolute bottom-0 left-0 right-0 h-px overflow-hidden">
-              <span className="vx-scan block h-full w-full bg-gradient-to-r from-transparent via-[#D6AA60] to-transparent" />
+              <span className="vx-scan block h-full w-full bg-gradient-to-r from-transparent via-[#E5B54F] to-transparent" />
             </span>
           )}
         </div>
@@ -272,23 +270,27 @@ const WELCOME: CopilotMessage = {
 Votre analyste et assistant de production. Je lis en direct :
 - **Vos encaissements et commandes** enregistrés dans la base du studio.
 - **Vos conversations WhatsApp et briefs clients** captés par la passerelle WAHA.
-- **Vos tarifs et automatisations** (1 200 F, 3 000 F, 5 000 F).
+- **Tout le site Velaris** : tarifs, délais, lignes WhatsApp, automatisations, académie.
 
-Demandez-moi un chiffre, retrouvez un client, ou laissez-moi écrire des paroles et vos messages de relance.`,
+Tapez simplement un **numéro** (même partiel, ex. *5835*) pour retrouver une discussion complète, ou demandez un chiffre, des paroles, une relance.`,
   timestamp: 'En direct',
   toolsExecuted: ['sync_studio_database', 'waha_gateway_ready'],
 };
 
 const SUGGESTIONS: { label: string; hint: string; icon: LucideIcon; query: string }[] = [
-  { label: 'Synthèse des encaissements', hint: 'Chiffre d’affaires, livraisons, panier moyen', icon: TrendingUp, query: "Combien ai-je encaissé cette semaine et quel est mon chiffre d'affaires total ?" },
-  { label: 'Dernier brief client', hint: 'Ce que le client a demandé sur WhatsApp', icon: MessagesSquare, query: 'Rappelle-moi la discussion avec le dernier client WhatsApp et ce qu’il a demandé.' },
-  { label: 'Écrire des paroles', hint: 'Anniversaire romantique, voix douce', icon: Music, query: "Rédige les paroles d'une chanson d'anniversaire romantique pour une cliente." },
-  { label: 'Relancer un indécis', hint: 'Message WhatsApp prêt à envoyer', icon: ArrowUpRight, query: 'Rédige-moi un message WhatsApp persuasif pour relancer un client qui hésite.' },
+  { label: 'Ventes en direct', hint: 'CA cumulé, Wave / Orange Money, marge', icon: TrendingUp, query: "Combien ai-je encaissé et quelle est la répartition Wave / Orange Money ?" },
+  { label: 'Retrouver par numéro', hint: 'Discussion complète et résumé', icon: Phone, query: 'Que m’a dit le 79 29 64 99 ?' },
+  { label: 'Dernier brief client', hint: 'Ce que le client a demandé sur WhatsApp', icon: MessagesSquare, query: 'Rappelle-moi la discussion avec le dernier client WhatsApp.' },
+  { label: 'Écrire des paroles', hint: 'Anniversaire, voix douce', icon: Music, query: "Écris les paroles pour l'anniversaire d'Orokiatou, style Afro Love." },
+  { label: 'Relancer un indécis', hint: 'Message prêt à envoyer', icon: ArrowUpRight, query: 'Relance le 05 44 91 20 qui hésite à payer.' },
+  { label: 'Connaître Velaris', hint: 'Tarifs, délais, QR WhatsApp', icon: BookOpen, query: 'Quels sont les tarifs et les délais de livraison ?' },
 ];
 
 export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
   sessionName: propSessionName,
-  onNavigateToStudio
+  onNavigateToStudio,
+  orders = [],
+  metrics
 }) => {
   const { user } = useAuth();
   const sessionName = propSessionName || (user ? `studio_${user.id.slice(0, 8)}` : 'Test');
@@ -306,6 +308,21 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  /* Ventes en direct : Realtime Supabase sur les commandes (studio connecté) */
+  const { data: liveMetrics, syncedAt: metricsSyncedAt } = useStudioLive<StudioMetrics>(
+    getLiveStudioMetrics,
+    metrics ?? REAL_STUDIO_METRICS,
+    ['orders'],
+    [user?.id],
+    { enabled: !!user }
+  );
+  const sumBy = (re: RegExp) => orders.filter(o => re.test(o.paymentMethod)).reduce((acc, o) => acc + (Number(o.amount) || 0), 0);
+  const waveTotal = sumBy(/wave/i);
+  const omTotal = sumBy(/orange|moov|mtn/i);
+  const wavePct = waveTotal + omTotal > 0 ? Math.round((waveTotal / (waveTotal + omTotal)) * 100) : 0;
+
+  const detectedPhone = extractPhoneFragment(inputPrompt);
 
   const tracing = trace !== null;
   const traceStep = trace?.step;
@@ -355,14 +372,14 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
     setInputPrompt('');
     setReveal(null);
 
-    const tools = predictTools(query);
+    const tools = planCopilotTools(query);
     setTrace({ tools, step: 0 });
 
     let response: CopilotMessage;
     try {
       /* La trace reste visible le temps de dérouler chaque outil */
       [response] = await Promise.all([
-        askCopilot(query, history, sessionName, user),
+        askCopilot(query, history, sessionName, user, { orders, metrics }),
         wait(prefersReducedMotion() ? 0 : tools.length * STEP_MS + 250),
       ]);
     } catch {
@@ -436,15 +453,15 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
   return (
     <div className="max-w-6xl mx-auto vx-view-enter">
       {/* En-tête */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 mb-5 border-b border-[#2D261E]">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Copilot & analyste</h1>
-          <p className="text-sm text-neutral-400 mt-1.5 max-w-xl">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Copilot & analyste</h1>
+          <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed max-w-xl">
             Sonar lit vos ventes, vos conversations WhatsApp et vos briefs, puis rédige à votre place.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[11px] text-neutral-400">
+          <div className="flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A8A29E]">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
             <span>Passerelle</span>
             <span className="font-mono text-white">{sessionName}</span>
@@ -454,7 +471,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
             onClick={handleReset}
             title="Nouvelle conversation"
             aria-label="Nouvelle conversation"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#2D261E] bg-white/[0.02] text-[#A8A29E] hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
           >
             <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
@@ -464,31 +481,74 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-5 items-start">
         {/* Rail : mascotte + instruments */}
         <aside className="space-y-4 lg:sticky lg:top-20">
-          <div className="vx-hairline relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#08090C] p-4 lg:p-6 flex lg:flex-col items-center gap-4 lg:gap-2">
+          <div className="vx-hairline relative overflow-hidden rounded-2xl border border-[#2D261E] bg-[#13110E] p-4 lg:p-6 flex lg:flex-col items-center gap-4 lg:gap-2">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(18rem_12rem_at_50%_0%,rgba(214,170,96,0.10),transparent_70%)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(18rem_12rem_at_50%_0%,rgba(229,181,79,0.10),transparent_70%)]"
             />
             <SonarMascot state={sonarState} pulse={keyPulse} trackPointer size={168} className="relative hidden lg:block" />
             <SonarMascot state={sonarState} pulse={keyPulse} size={76} className="relative lg:hidden shrink-0" />
             <div className="relative lg:text-center min-w-0">
               <div className="font-serif text-2xl text-white leading-none">Sonar</div>
-              <div className="mt-2 flex lg:justify-center items-center gap-2 text-xs text-neutral-200" aria-live="polite">
+              <div className="mt-2 flex lg:justify-center items-center gap-2 text-[13px] text-neutral-200" aria-live="polite">
                 <span
                   className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                    sonarState === 'idle' ? 'bg-neutral-500' : sonarState === 'listening' ? 'bg-emerald-400' : 'bg-[#D6AA60] vx-breathe'
+                    sonarState === 'idle' ? 'bg-neutral-500' : sonarState === 'listening' ? 'bg-emerald-400' : 'bg-[#E5B54F] vx-breathe'
                   }`}
                 />
                 <span>{SONAR_STATE_LABEL[sonarState]}</span>
               </div>
-              <p className="mt-1.5 text-[11px] text-neutral-500 leading-relaxed lg:max-w-[200px] lg:mx-auto truncate lg:whitespace-normal">
+              <p className="mt-1.5 text-[12.5px] text-neutral-500 leading-relaxed lg:max-w-[200px] lg:mx-auto truncate lg:whitespace-normal">
                 {statusCaption[sonarState]}
               </p>
             </div>
           </div>
 
-          <div className="hidden lg:block rounded-2xl border border-white/[0.08] bg-[#08090C] p-2">
-            <div className="px-2.5 pt-2 pb-2.5 text-[11px] text-neutral-500">Sources de données</div>
+          <div className="rounded-2xl border border-[#2D261E] bg-[#171512] p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Radio className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.6} />
+                Ventes en direct
+              </span>
+              <span className="flex items-center gap-1.5 text-xs tabular-nums text-[#A8A29E]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E] vx-breathe" />
+                {metricsSyncedAt ? metricsSyncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '…'}
+              </span>
+            </div>
+            <div>
+              <div className="text-xs text-[#A8A29E]">Chiffre d'affaires cumulé</div>
+              <div className="mt-0.5 font-mono text-2xl font-bold tracking-tight text-[#F3CA75] whitespace-nowrap">
+                {Math.round(liveMetrics.totalRevenue || 0).toLocaleString('fr-FR')}
+                <span className="ml-1 text-sm font-medium text-[#A8A29E]">F</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {[
+                { label: 'Livrées', value: liveMetrics.ordersDelivered },
+                { label: 'En cours', value: liveMetrics.ordersActive },
+                { label: 'Marge', value: '92,4 %' },
+              ].map(k => (
+                <div key={k.label} className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] px-2 py-2">
+                  <div className="font-mono text-base font-semibold text-white">{k.value}</div>
+                  <div className="text-[11.5px] text-[#A8A29E]">{k.label}</div>
+                </div>
+              ))}
+            </div>
+            {waveTotal + omTotal > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex h-1.5 overflow-hidden rounded-full bg-[#2A241D]">
+                  <span className="vx-fill block h-full bg-[#E5B54F]" style={{ width: `${wavePct}%` }} />
+                </div>
+                <div className="flex justify-between text-xs text-[#A8A29E]">
+                  <span>Wave {wavePct} %</span>
+                  <span>Orange Money {100 - wavePct} %</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="hidden lg:block rounded-2xl border border-[#2D261E] bg-[#13110E] p-2">
+            <div className="px-2.5 pt-2 pb-2.5 text-[12.5px] text-neutral-500">Sources de données</div>
             {SOURCES.map((s) => {
               const Icon = s.icon;
               const live = activeTool?.source === s.id;
@@ -497,26 +557,26 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                 <div
                   key={s.id}
                   className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 border transition-colors duration-300 ${
-                    live ? 'border-[#D6AA60]/30 bg-[#D6AA60]/[0.06]' : 'border-transparent'
+                    live ? 'border-[#E5B54F]/30 bg-[#E5B54F]/[0.06]' : 'border-transparent'
                   }`}
                 >
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-300 ${
-                      live ? 'border-[#D6AA60]/40 text-[#E9CC94]' : 'border-white/[0.08] text-neutral-400'
+                      live ? 'border-[#E5B54F]/40 text-[#F3CA75]' : 'border-[#2D261E] text-[#A8A29E]'
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-xs text-neutral-200 truncate">{s.label}</span>
-                    <span className="block text-[11px] text-neutral-500 truncate">{s.detail}</span>
+                    <span className="block text-[13px] text-neutral-200 truncate">{s.label}</span>
+                    <span className="block text-[12.5px] text-neutral-500 truncate">{s.detail}</span>
                   </span>
                   {live ? (
                     <span className="vx-wave-live flex items-center gap-[2px] h-4" aria-label="Lecture en cours">
                       {[0, 1, 2, 3].map(i => (
                         <span
                           key={i}
-                          className="vx-wave-bar block w-[2px] h-full rounded-full bg-[#D6AA60]"
+                          className="vx-wave-bar block w-[2px] h-full rounded-full bg-[#E5B54F]"
                           style={{ animationDelay: `${i * -0.18}s` }}
                         />
                       ))}
@@ -533,7 +593,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
         </aside>
 
         {/* Fil de discussion */}
-        <section className="rounded-2xl border border-white/[0.08] bg-[#08090C] flex flex-col overflow-hidden lg:h-[calc(100dvh-16rem)] lg:min-h-[560px]">
+        <section className="rounded-2xl border border-[#2D261E] bg-[#13110E] flex flex-col overflow-hidden lg:h-[calc(100dvh-16rem)] lg:min-h-[560px]">
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-7 max-h-[64vh] lg:max-h-none">
             {messages.map((m) => {
               const isUser = m.role === 'user';
@@ -543,10 +603,10 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
               if (isUser) {
                 return (
                   <div key={m.id} className="flex flex-col items-end gap-1.5 vx-fade-in">
-                    <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-br-md bg-white px-4 py-3 text-[13px] sm:text-sm leading-relaxed text-black font-medium shadow-[0_8px_30px_rgba(255,255,255,0.06)]">
+                    <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-br-md bg-[#E5B54F] px-4 py-3 text-[15px] leading-relaxed text-[#0C0A09] font-medium shadow-[0_8px_30px_-8px_rgba(229,181,79,0.35)]">
                       {m.text}
                     </div>
-                    <span className="font-mono text-[10px] text-neutral-600 px-1">{m.timestamp}</span>
+                    <span className="font-mono text-[11.5px] text-neutral-600 px-1">{m.timestamp}</span>
                   </div>
                 );
               }
@@ -558,14 +618,14 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                   </div>
                   <div className="min-w-0 flex-1 max-w-[680px] space-y-3">
                     <div
-                      className={`vx-hairline rounded-2xl rounded-tl-md border border-white/[0.08] bg-gradient-to-b from-[#0F1117] to-[#0A0B0F] p-4 sm:p-5 ${
+                      className={`vx-hairline rounded-2xl rounded-tl-md border border-[#2D261E] bg-gradient-to-b from-[#1A1713] to-[#141210] p-4 sm:p-5 ${
                         m.id !== WELCOME.id ? 'vx-sheen' : ''
                       }`}
                     >
                       <RichText text={shownText} caret={isRevealing} />
 
                       {m.toolsExecuted && m.toolsExecuted.length > 0 && !isRevealing && (
-                        <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap items-center gap-1.5">
+                        <div className="mt-4 pt-3 border-t border-[#2D261E] flex flex-wrap items-center gap-1.5">
                           {m.toolsExecuted.map((t, i) => {
                             const meta = toolMeta(t);
                             const Icon = meta.icon;
@@ -573,7 +633,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               <span
                                 key={t}
                                 style={{ '--i': i } as CSSProperties}
-                                className="vx-stagger inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-[10px] text-neutral-400"
+                                className="vx-stagger inline-flex items-center gap-1.5 rounded-full border border-[#2D261E] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-[#A8A29E]"
                               >
                                 <Icon className="h-3 w-3 text-emerald-400/80" strokeWidth={1.5} />
                                 {meta.label}
@@ -585,14 +645,14 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                     </div>
 
                     {m.actionCard && !isRevealing && (
-                      <div className="vx-view-enter vx-sheen relative overflow-hidden rounded-2xl border border-[#D6AA60]/25 bg-[#0C0D11] shadow-[0_24px_60px_-20px_rgba(214,170,96,0.18)]">
+                      <div className="vx-view-enter vx-sheen relative overflow-hidden rounded-2xl border border-[#E5B54F]/25 bg-[#141210] shadow-[0_24px_60px_-20px_rgba(229,181,79,0.18)]">
                         <div
                           aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 bg-[radial-gradient(24rem_10rem_at_0%_0%,rgba(214,170,96,0.10),transparent_70%)]"
+                          className="pointer-events-none absolute inset-0 bg-[radial-gradient(24rem_10rem_at_0%_0%,rgba(229,181,79,0.10),transparent_70%)]"
                         />
-                        <div className="relative flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-white/[0.06]">
+                        <div className="relative flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#2D261E]">
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#D6AA60]/30 bg-[#D6AA60]/10 text-[#E9CC94]">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5B54F]/30 bg-[#E5B54F]/10 text-[#F3CA75]">
                               {m.actionCard.type === 'lyrics' ? (
                                 <Music className="h-3.5 w-3.5" strokeWidth={1.5} />
                               ) : m.actionCard.type === 'client_brief' ? (
@@ -601,10 +661,10 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                                 <TrendingUp className="h-3.5 w-3.5" strokeWidth={1.5} />
                               )}
                             </span>
-                            <span className="text-sm font-semibold text-white truncate">{m.actionCard.title}</span>
+                            <span className="text-base font-semibold text-white truncate">{m.actionCard.title}</span>
                           </div>
                           {m.actionCard.phone && (
-                            <span className="font-mono text-[11px] text-emerald-300 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-2.5 py-1 shrink-0">
+                            <span className="font-mono text-[12.5px] text-emerald-300 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-2.5 py-1 shrink-0">
                               {m.actionCard.phone}
                             </span>
                           )}
@@ -618,11 +678,11 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               { label: 'En cours', value: String(m.actionCard.metadata.active ?? 0), unit: '' },
                               { label: 'Closing', value: String(m.actionCard.metadata.convRate ?? 0).replace('.', ','), unit: '%' },
                             ].map((k, i) => (
-                              <div key={k.label} style={{ '--i': i } as CSSProperties} className="vx-stagger bg-[#0C0D11] px-4 sm:px-5 py-4">
-                                <div className="text-[11px] text-neutral-500">{k.label}</div>
+                              <div key={k.label} style={{ '--i': i } as CSSProperties} className="vx-stagger bg-[#141210] px-4 sm:px-5 py-4">
+                                <div className="text-[12.5px] text-neutral-500">{k.label}</div>
                                 <div className="mt-1.5 font-mono text-xl font-bold tracking-tight text-white whitespace-nowrap">
                                   {k.value}
-                                  {k.unit && <span className="ml-1 text-xs font-medium text-neutral-500">{k.unit}</span>}
+                                  {k.unit && <span className="ml-1 text-[13px] font-medium text-neutral-500">{k.unit}</span>}
                                 </div>
                               </div>
                             ))}
@@ -632,18 +692,18 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                           className={`relative px-4 sm:px-5 py-4 max-h-64 overflow-y-auto whitespace-pre-wrap ${
                             m.actionCard.type === 'lyrics'
                               ? 'font-serif text-[17px] leading-[1.65] text-[#F1E6CF]'
-                              : 'font-mono text-xs leading-relaxed text-neutral-300'
+                              : 'font-mono text-[13px] leading-relaxed text-neutral-300'
                           }`}
                         >
                           {m.actionCard.content}
                         </div>
                         )}
 
-                        <div className="relative flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3.5 border-t border-white/[0.06] bg-black/20">
+                        <div className="relative flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3.5 border-t border-[#2D261E] bg-black/20">
                           <button
                             type="button"
                             onClick={() => handleCopyText(m.id, m.actionCard!.content)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium text-neutral-200 hover:bg-white/[0.07] hover:border-white/30 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-neutral-200 hover:bg-white/[0.07] hover:border-white/30 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
                           >
                             {copiedId === m.id ? (
                               <>
@@ -665,7 +725,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               onClick={() =>
                                 handleDirectWhatsAppSend(m.id, m.actionCard?.phone, m.actionCard?.content, m.actionCard?.metadata?.convId)
                               }
-                              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_0_24px_rgba(255,255,255,0.10)]"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-[#E5B54F] px-4 py-2 text-sm font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_0_24px_-6px_rgba(229,181,79,0.5)]"
                             >
                               {sendingMessageMap[m.id] ? (
                                 <>
@@ -686,11 +746,23 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                             </button>
                           )}
 
+                          {m.actionCard.metadata?.waLink && (
+                            <a
+                              href={m.actionCard.metadata.waLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#22C55E]/40 bg-[#22C55E]/[0.08] px-4 py-2 text-sm font-semibold text-[#4ADE80] hover:bg-[#22C55E]/[0.14] active:scale-[0.97] transition-all duration-150 ease-press"
+                            >
+                              <MessagesSquare className="h-3.5 w-3.5" strokeWidth={1.8} />
+                              <span>Ouvrir WhatsApp</span>
+                            </a>
+                          )}
+
                           {m.actionCard.type === 'lyrics' && onNavigateToStudio && (
                             <button
                               type="button"
                               onClick={onNavigateToStudio}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-[#D6AA60] px-4 py-1.5 text-xs font-semibold text-black hover:bg-[#E2BC7A] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-[#E5B54F] px-4 py-1.5 text-[13px] font-semibold text-black hover:bg-[#F0C068] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
                             >
                               <span>Envoyer à l'Atelier</span>
                               <ArrowUpRight className="h-3.5 w-3.5" />
@@ -700,7 +772,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                       </div>
                     )}
 
-                    <div className="font-mono text-[10px] text-neutral-600 px-1">{m.timestamp}</div>
+                    <div className="font-mono text-[11.5px] text-neutral-600 px-1">{m.timestamp}</div>
                   </div>
                 </div>
               );
@@ -727,14 +799,14 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                       type="button"
                       onClick={() => handleSendMessage(s.query)}
                       style={{ '--i': i + 2 } as CSSProperties}
-                      className="vx-stagger group flex items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.015] p-3.5 text-left hover:border-white/[0.18] hover:bg-white/[0.035] active:scale-[0.99] transition-all duration-200 ease-luxury cursor-pointer"
+                      className="vx-stagger group flex items-start gap-3 rounded-2xl border border-[#2D261E] bg-white/[0.015] p-3.5 text-left hover:border-white/[0.18] hover:bg-white/[0.035] active:scale-[0.99] transition-all duration-200 ease-luxury cursor-pointer"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] text-neutral-400 group-hover:text-[#E9CC94] group-hover:border-[#D6AA60]/30 transition-colors duration-200">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#2D261E] text-[#A8A29E] group-hover:text-[#F3CA75] group-hover:border-[#E5B54F]/30 transition-colors duration-200">
                         <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] font-medium text-neutral-100">{s.label}</span>
-                        <span className="block mt-0.5 text-[11px] text-neutral-500">{s.hint}</span>
+                        <span className="block text-sm font-medium text-neutral-100">{s.label}</span>
+                        <span className="block mt-0.5 text-[12.5px] text-neutral-500">{s.hint}</span>
                       </span>
                       <ArrowUpRight className="h-3.5 w-3.5 text-neutral-600 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-200" />
                     </button>
@@ -745,7 +817,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
           </div>
 
           {/* Compositeur */}
-          <div className="border-t border-white/[0.08] bg-[#07080B] p-3 sm:p-4 space-y-2.5">
+          <div className="border-t border-[#2D261E] bg-[#0E0C0A] p-3 sm:p-4 space-y-2.5">
             {!isFresh && (
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                 {SUGGESTIONS.map((s) => {
@@ -756,7 +828,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                       type="button"
                       disabled={tracing}
                       onClick={() => handleSendMessage(s.query)}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[11px] text-neutral-400 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer disabled:opacity-40"
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A8A29E] hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer disabled:opacity-40"
                     >
                       <Icon className="h-3 w-3" strokeWidth={1.5} />
                       {s.label}
@@ -766,13 +838,22 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
               </div>
             )}
 
+            {detectedPhone && !tracing && (
+              <div className="vx-fade-in flex items-center gap-2 rounded-xl border border-[#E5B54F]/35 bg-[#E5B54F]/[0.07] px-3 py-2 text-sm text-[#F3CA75]">
+                <Phone className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                <span className="truncate">
+                  Numéro détecté <span className="font-mono font-semibold">{detectedPhone}</span> : Entrée pour retrouver la discussion complète
+                </span>
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSendMessage();
               }}
               className={`flex items-end gap-2 rounded-2xl border bg-white/[0.025] p-1.5 pl-4 transition-colors duration-200 ${
-                inputFocused ? 'border-[#D6AA60]/45' : 'border-white/[0.08]'
+                inputFocused ? 'border-[#E5B54F]/45' : 'border-[#2D261E]'
               }`}
             >
               <textarea
@@ -791,26 +872,26 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                     handleSendMessage();
                   }
                 }}
-                placeholder="Demandez un chiffre, un client, des paroles…"
+                placeholder="Un numéro (+226…, 07…, 5835), un prénom, un chiffre, des paroles…"
                 disabled={tracing}
                 aria-label="Message pour Sonar"
-                className="flex-1 resize-none bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none max-h-32 disabled:opacity-50"
+                className="flex-1 resize-none bg-transparent py-2.5 text-[15px] text-white placeholder:text-[#78716C] outline-none max-h-32 disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={!inputPrompt.trim() || tracing}
                 aria-label="Envoyer"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5B54F] text-[#0C0A09] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {tracing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" strokeWidth={2} />}
               </button>
             </form>
-            <div className="flex items-center justify-between px-1 text-[11px] text-neutral-600">
+            <div className="flex items-center justify-between px-1 text-[12.5px] text-neutral-600">
               <span>
-                <kbd className="font-mono text-neutral-400">Entrée</kbd> pour envoyer,{' '}
-                <kbd className="font-mono text-neutral-400">Maj + Entrée</kbd> pour une nouvelle ligne
+                <kbd className="font-mono text-[#A8A29E]">Entrée</kbd> pour envoyer,{' '}
+                <kbd className="font-mono text-[#A8A29E]">Maj + Entrée</kbd> pour une nouvelle ligne
               </span>
-              <span className="hidden sm:inline font-mono">Velaris Intelligence 2.4</span>
+              <span className="hidden sm:inline font-mono">Velaris Intelligence 2.5</span>
             </div>
           </div>
         </section>

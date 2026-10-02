@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FC, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type FC, type ReactNode } from 'react';
 import {
   LayoutGrid,
   Wallet,
@@ -33,7 +33,9 @@ import { WhatsAppLinesView } from './WhatsAppLinesView';
 import { VentesCaisseView } from './VentesCaisseView';
 import { StudioCopilotView } from './StudioCopilotView';
 import { VelarisMark } from './VelarisMark';
-import { REAL_STUDIO_METRICS } from '../data/realProductionData';
+import { REAL_CONVERSATIONS, REAL_STUDIO_METRICS } from '../data/realProductionData';
+import { getLiveConversations } from '../services/supabase';
+import { useStudioLive } from '../hooks/useStudioLive';
 
 export type StudioTab =
   | 'revenus'
@@ -62,7 +64,7 @@ interface StudioAppLayoutProps {
 }
 
 /* Marque Velaris : sillons de vinyle + tête de lecture */
-const panelClass = 'rounded-2xl border border-white/[0.08] bg-[#08090C] vx-hairline';
+const panelClass = 'rounded-2xl border border-[#2D261E] bg-[#13110E] vx-hairline';
 
 export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   initialTab = 'revenus',
@@ -86,28 +88,37 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
     setCurrentTab(initialTab);
   }
 
-  const ruleRef = useRef<HTMLSpanElement | null>(null);
-  const itemRefs = useRef<Partial<Record<StudioTab, HTMLButtonElement | null>>>({});
-
   const userDisplayName = (user?.user_metadata?.studio_name as string) ||
     (user?.user_metadata?.full_name as string) ||
     (user?.email ? user.email.split('@')[0] : 'Studio Invité');
   const userInitials = (userDisplayName.slice(0, 2) || 'ST').toUpperCase();
 
-  const navGroups = [
+  // Non-lus WhatsApp : Realtime Supabase + polling de secours
+  const { data: liveConversations } = useStudioLive(
+    getLiveConversations,
+    user ? [] : REAL_CONVERSATIONS,
+    ['conversations', 'messages'],
+    [user?.id]
+  );
+  const unreadCount = liveConversations.filter((c) => c.unread).length;
+
+  const navGroups: {
+    title: string;
+    items: { id: StudioTab; label: string; icon: typeof LayoutGrid; count?: number }[];
+  }[] = [
     {
-      title: 'Pilotage',
+      title: 'Mon business',
       items: [
-        { id: 'revenus' as StudioTab, label: 'Cockpit', icon: LayoutGrid },
+        { id: 'revenus' as StudioTab, label: 'Mes revenus', icon: LayoutGrid },
         { id: 'ventes' as StudioTab, label: 'Ventes & Caisse', icon: Wallet },
-        { id: 'conversations' as StudioTab, label: 'Discussions WhatsApp', icon: MessagesSquare, badge: 'Direct' },
+        { id: 'conversations' as StudioTab, label: 'Discussions WhatsApp', icon: MessagesSquare, count: unreadCount },
         { id: 'pipeline' as StudioTab, label: 'Suivi clients', icon: Columns3 },
         { id: 'couts' as StudioTab, label: 'Coûts & marges', icon: Percent },
         { id: 'analyste' as StudioTab, label: 'Analyste & Copilot IA', icon: TrendingUp },
       ]
     },
     {
-      title: 'Connectivité & règles',
+      title: 'Paramètres studio',
       items: [
         { id: 'whatsapp' as StudioTab, label: 'Lignes WhatsApp', icon: Smartphone },
         { id: 'automations' as StudioTab, label: 'Automatisations', icon: Zap },
@@ -115,11 +126,11 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
       ]
     },
     {
-      title: 'Atelier & académie',
+      title: 'Supervision & administration',
       items: [
         { id: 'studio_ai' as StudioTab, label: 'Atelier Studio IA', icon: Music2 },
         { id: 'academy' as StudioTab, label: 'Académie Studio', icon: GraduationCap },
-        { id: 'admin' as StudioTab, label: 'Supervision Système', icon: Crown },
+        { id: 'admin' as StudioTab, label: 'Console Admin', icon: Crown },
       ]
     }
   ];
@@ -138,16 +149,6 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
     handleTabClick('studio_ai');
   };
 
-  // Réglet actif : un seul indicateur qui glisse d'un item à l'autre (transform uniquement)
-  useLayoutEffect(() => {
-    const rule = ruleRef.current;
-    const target = itemRefs.current[currentTab];
-    if (!rule || !target) return;
-    rule.style.transform = `translate3d(0, ${target.offsetTop + 8}px, 0)`;
-    rule.style.height = `${target.offsetHeight - 16}px`;
-    rule.style.opacity = '1';
-  }, [currentTab]);
-
   // Fermeture du tiroir mobile au clavier
   useEffect(() => {
     if (!isMobileDrawerOpen) return;
@@ -159,9 +160,9 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   }, [isMobileDrawerOpen]);
 
   return (
-    <div className="vx-halo min-h-screen bg-[#050608] text-[#E5E7EB] flex flex-col md:flex-row relative selection:bg-white/20 selection:text-white">
+    <div className="vx-halo min-h-screen bg-[#0C0A09] text-[#E7E5E4] flex flex-col md:flex-row relative selection:bg-[#E5B54F]/30 selection:text-white">
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 w-full flex items-center justify-between px-4 py-3 bg-[#08090C]/85 border-b border-white/[0.08] backdrop-blur-xl">
+      <header className="md:hidden sticky top-0 z-40 w-full flex items-center justify-between px-4 py-3 bg-[#13110E]/85 border-b border-[#2D261E] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
@@ -196,30 +197,30 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
 
       {/* Left Sidebar (Desktop & Mobile Drawer) */}
       <aside
-        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-30 w-72 shrink-0 flex flex-col bg-[#08090C]/95 md:bg-[#08090C]/70 backdrop-blur-xl border-r border-white/[0.08] transition-transform duration-[360ms] ease-luxury ${
+        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-30 w-72 shrink-0 flex flex-col bg-[#0E0C0A]/95 md:bg-[#0E0C0A]/80 backdrop-blur-xl border-r border-[#2D261E] transition-transform duration-[360ms] ease-luxury ${
           isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         } h-screen`}
       >
         {/* Brand Header */}
-        <div className="px-5 h-16 border-b border-white/[0.06] flex items-center justify-between">
+        <div className="px-5 py-5 border-b border-[#2D261E] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative h-9 w-9 rounded-xl bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/[0.1] flex items-center justify-center text-white shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="relative h-11 w-11 rounded-full bg-[radial-gradient(circle_at_35%_30%,#2D261E,#0C0A09_70%)] border border-[#3A3022] flex items-center justify-center text-[#F3CA75] shrink-0">
               <VelarisMark className="h-5 w-5" />
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-heading font-bold text-[15px] tracking-tight text-white">
-                  Velaris
+                <span className="font-display font-bold text-[19px] tracking-wide text-white">
+                  VELARIS
                 </span>
-                <span className="text-[9px] font-mono tracking-widest px-1.5 py-px rounded border border-white/10 bg-white/[0.04] text-neutral-400">
-                  STUDIO OS
+                <span className="text-[10px] font-semibold tracking-[0.14em] px-1.5 py-[1px] rounded-[4px] bg-[#E5B54F] text-[#0C0A09]">
+                  STUDIO
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  Atelier actif · 24/7
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E] vx-breathe" />
+                <span className="text-[11px] font-semibold tracking-[0.12em] text-[#22C55E]">
+                  ATELIER ACTIF 24/7
                 </span>
               </div>
             </div>
@@ -238,7 +239,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         <div className="px-3 pt-3">
           <button
             onClick={onReturnToHome}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-400 hover:text-white hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-200 ease-luxury cursor-pointer group"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] text-[#A8A29E] hover:text-white hover:bg-[#E5B54F]/[0.05] border border-[#2D261E] hover:border-[#3A3022] transition-all duration-200 ease-luxury cursor-pointer group"
           >
             <span className="flex items-center gap-2">
               <ArrowLeft className="h-3.5 w-3.5 text-neutral-500 group-hover:text-white group-hover:-translate-x-0.5 transition-all duration-200 ease-luxury" />
@@ -249,17 +250,10 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         </div>
 
         {/* Navigation Sections */}
-        <nav className="relative flex-1 px-3 py-4 space-y-6 overflow-y-auto no-scrollbar">
-          {/* Réglet actif glissant */}
-          <span
-            ref={ruleRef}
-            aria-hidden="true"
-            className="absolute left-3 top-0 w-[2px] rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.45)] opacity-0 transition-[transform,height,opacity] duration-[360ms] ease-luxury"
-          />
-
+        <nav className="relative flex-1 px-3 py-5 space-y-6 overflow-y-auto no-scrollbar">
           {navGroups.map((group) => (
-            <div key={group.title} className="space-y-0.5">
-              <div className="px-3 pb-1.5 text-[11px] font-medium text-neutral-500">
+            <div key={group.title} className="space-y-1">
+              <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#78716C]">
                 {group.title}
               </div>
 
@@ -269,26 +263,27 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                 return (
                   <button
                     key={item.id}
-                    ref={(el) => { itemRefs.current[item.id] = el; }}
                     onClick={() => handleTabClick(item.id)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-full group relative flex items-center justify-between rounded-lg pl-4 pr-3 py-2 text-[13px] font-medium transition-colors duration-150 ease-press text-left cursor-pointer ${
+                    className={`w-full group relative flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-[15px] transition-[color,background-color,border-color] duration-200 ease-luxury text-left cursor-pointer ${
                       isActive
-                        ? 'bg-white/[0.06] text-white'
-                        : 'text-neutral-400 hover:bg-white/[0.03] hover:text-neutral-200'
+                        ? 'border-[#E5B54F]/55 border-l-2 border-l-[#E5B54F] bg-gradient-to-r from-[#E5B54F]/[0.16] via-[#E5B54F]/[0.05] to-transparent text-[#F3CA75] font-semibold shadow-[0_0_24px_-8px_rgba(229,181,79,0.45)]'
+                        : 'border-transparent text-[#A8A29E] font-medium hover:bg-[#E5B54F]/[0.04] hover:text-[#E7E5E4]'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon strokeWidth={1.5} className={`h-4 w-4 shrink-0 transition-colors duration-150 ${
-                        isActive ? 'text-white' : 'text-neutral-500 group-hover:text-neutral-300'
+                    <div className="flex items-center gap-3 truncate">
+                      <Icon strokeWidth={1.6} className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 ${
+                        isActive ? 'text-[#E5B54F]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'
                       }`} />
                       <span className="truncate">{item.label}</span>
                     </div>
 
-                    {item.badge && (
-                      <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-emerald-300/90 bg-emerald-400/[0.06] border border-emerald-400/15">
-                        <span className="h-1 w-1 rounded-full bg-emerald-400 vx-breathe" />
-                        {item.badge}
+                    {!!item.count && (
+                      <span
+                        aria-label={`${item.count} non lus`}
+                        className="ml-2 inline-flex min-w-[22px] h-[22px] items-center justify-center rounded-full bg-[#E11D48] px-1.5 text-[11px] font-bold tabular-nums text-white shadow-[0_0_12px_rgba(225,29,72,0.45)]"
+                      >
+                        {item.count > 99 ? '99+' : item.count}
                       </span>
                     )}
                   </button>
@@ -299,15 +294,15 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         </nav>
 
         {/* Footer User Profile (Multi-Tenant Auth) */}
-        <div className="p-3 border-t border-white/[0.06]">
+        <div className="p-3 border-t border-[#2D261E]">
           {user ? (
-            <div className="rounded-xl border border-white/[0.08] bg-[#0E1015] p-3 flex items-center justify-between gap-2.5">
+            <div className="rounded-xl border border-[#2D261E] bg-[#1A1713] p-3 flex items-center justify-between gap-2.5">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-b from-white/[0.12] to-white/[0.04] border border-white/[0.1] flex items-center justify-center text-[11px] font-mono font-bold text-white shrink-0">
+                <div className="h-9 w-9 rounded-full bg-[#E5B54F]/[0.12] border border-[#E5B54F]/40 flex items-center justify-center text-xs font-bold text-[#F3CA75] shrink-0">
                   {userInitials}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-medium text-white truncate">
+                  <div className="text-sm font-semibold text-white truncate">
                     {userDisplayName}
                   </div>
                   <div className="text-[10px] text-emerald-400/90 truncate flex items-center gap-1 font-mono">
@@ -330,7 +325,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border border-white/[0.08] bg-[#0E1015] p-3 space-y-2">
+            <div className="rounded-xl border border-[#2D261E] bg-[#1A1713] p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 vx-breathe" />
@@ -342,7 +337,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               </p>
               <button
                 onClick={() => openAuthModal('login')}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#E5B54F] px-3 py-2 text-[13px] font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
               >
                 <LogIn className="h-3.5 w-3.5" />
                 <span>Mon espace studio</span>
@@ -355,7 +350,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
       {/* Main Column */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Fil d'Ariane (desktop) */}
-        <div className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-between px-8 lg:px-10 border-b border-white/[0.06] bg-[#050608]/70 backdrop-blur-xl">
+        <div className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-between px-8 lg:px-10 border-b border-[#2D261E] bg-[#0C0A09]/70 backdrop-blur-xl">
           <nav aria-label="Fil d'Ariane" className="flex items-center gap-1.5 text-[13px] min-w-0">
             <button
               onClick={() => handleTabClick('revenus')}
@@ -378,7 +373,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
           </nav>
 
           <div className="flex items-center gap-3 shrink-0">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1 text-[11px] font-mono text-neutral-400">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1 text-[11px] font-mono text-neutral-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
               WAHA · Suno · Supabase
             </span>
@@ -435,8 +430,8 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             {currentTab === 'couts' && (
               <div className="max-w-4xl mx-auto space-y-6">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Coûts & marges studio</h1>
-                  <p className="text-sm text-neutral-400 mt-1.5">Structure unitaire de rentabilité et cashflow net par commande.</p>
+                  <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Coûts & marges studio</h1>
+                  <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed">Structure unitaire de rentabilité et cashflow net par commande.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -455,7 +450,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
 
                 <div className={`${panelClass} p-6 space-y-4`}>
                   <div className="text-sm font-medium text-white">Grille analytique des dépenses</div>
-                  <div className="divide-y divide-white/[0.06] font-mono text-xs">
+                  <div className="divide-y divide-[#2D261E] font-mono text-xs">
                     {[
                       ['Abonnement Suno IA Pro / Premier', '12 000 F CFA / mois'],
                       ['Hébergement serveur WAHA (VPS dédié)', '3 500 F CFA / mois'],
@@ -472,14 +467,18 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             )}
 
             {currentTab === 'analyste' && (
-              <StudioCopilotView onNavigateToStudio={() => handleTabClick('studio_ai')} />
+              <StudioCopilotView
+                orders={orders}
+                metrics={metrics ?? { ...REAL_STUDIO_METRICS, currency: 'FCFA' }}
+                onNavigateToStudio={() => handleTabClick('studio_ai')}
+              />
             )}
 
             {currentTab === 'tarifs' && (
               <div className="max-w-4xl mx-auto space-y-6">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Tarifs & formules studio</h1>
-                  <p className="text-sm text-neutral-400 mt-1.5">Formules étalonnées pour maximiser le taux de closing WhatsApp.</p>
+                  <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Tarifs & formules studio</h1>
+                  <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed">Formules étalonnées pour maximiser le taux de closing WhatsApp.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -493,8 +492,8 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                       style={{ '--i': i } as CSSProperties}
                       className={`vx-stagger relative rounded-2xl border p-6 space-y-3 vx-hairline transition-colors duration-300 ease-luxury ${
                         plan.featured
-                          ? 'border-white/20 bg-[#0E1015] shadow-[0_24px_60px_-20px_rgba(214,170,96,0.18)]'
-                          : 'border-white/[0.08] bg-[#08090C] hover:border-white/[0.16]'
+                          ? 'border-white/20 bg-[#1A1713] shadow-[0_24px_60px_-20px_rgba(229,181,79,0.18)]'
+                          : 'border-[#2D261E] bg-[#13110E] hover:border-white/[0.16]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -505,7 +504,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                       </div>
                       <div className="font-mono text-3xl font-bold tracking-tight text-white">{plan.price}</div>
                       <p className="text-xs text-neutral-400 leading-relaxed">{plan.desc}</p>
-                      <div className={`pt-3 border-t border-white/[0.06] text-[11px] font-mono ${plan.featured ? 'text-[#D6AA60]' : 'text-neutral-500'}`}>
+                      <div className={`pt-3 border-t border-[#2D261E] text-[11px] font-mono ${plan.featured ? 'text-[#E5B54F]' : 'text-neutral-500'}`}>
                         Délai moyen · {plan.delay}
                       </div>
                     </div>
@@ -517,11 +516,11 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             {currentTab === 'admin' && (
               <div className="max-w-4xl mx-auto space-y-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white">
+                  <div className="h-10 w-10 rounded-xl bg-white/[0.04] border border-[#2D261E] flex items-center justify-center text-white">
                     <Server className="h-4 w-4" strokeWidth={1.5} />
                   </div>
                   <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Console système & passerelles</h1>
+                    <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Console système & passerelles</h1>
                     <p className="text-sm text-neutral-400 mt-0.5">Statut des nœuds d'exécution et microservices.</p>
                   </div>
                 </div>
@@ -537,7 +536,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                       <div
                         key={label}
                         style={{ '--i': i } as CSSProperties}
-                        className="vx-stagger p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between"
+                        className="vx-stagger p-4 rounded-xl bg-white/[0.02] border border-[#2D261E] flex items-center justify-between"
                       >
                         <div className="flex items-center gap-2.5 text-neutral-300">
                           <Icon className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.5} />

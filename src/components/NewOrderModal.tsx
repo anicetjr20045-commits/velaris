@@ -85,18 +85,18 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-[#07080B] p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div className="relative w-full max-w-2xl rounded-2xl border border-[#2D261E] bg-[#0E0C0A] p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[90vh]">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
+          className="absolute top-6 right-6 flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] border border-[#2D261E] text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
         >
           <X className="h-4 w-4" />
         </button>
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.08] text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04] border border-[#2D261E] text-white">
             <Plus className="h-5 w-5" />
           </div>
           <div>
@@ -124,7 +124,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="Ex: Ibrahim Traoré"
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-sans"
+                className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-sans"
               />
             </div>
 
@@ -138,7 +138,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 value={clientPhone}
                 onChange={(e) => setClientPhone(e.target.value)}
                 placeholder="Ex: +225 07 12 34 56 78"
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-mono"
+                className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-mono"
               />
             </div>
           </div>
@@ -155,7 +155,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
                 placeholder="Ex: Fadila, Awa, Maman..."
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-sans"
+                className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all font-sans"
               />
             </div>
 
@@ -167,7 +167,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
               <select
                 value={occasion}
                 onChange={(e) => setOccasion(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-sans cursor-pointer"
+                className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-sans cursor-pointer"
               >
                 {OCCASIONS.map((occ) => (
                   <option key={occ} value={occ}>
@@ -187,7 +187,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-sans cursor-pointer"
+                className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-sans cursor-pointer"
               >
                 {STYLES.map((st) => (
                   <option key={st.id} value={st.id}>
@@ -205,7 +205,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
               <select
                 value={amount}
                 onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-mono cursor-pointer"
+                className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2 text-xs text-white focus:border-white/30 focus:outline-none transition-all font-mono cursor-pointer"
               >
                 {PACKS.map((pk) => (
                   <option key={pk.amount} value={pk.amount}>
@@ -230,7 +230,7 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
                   className={`rounded-lg border py-2 text-xs font-mono transition-all cursor-pointer ${
                     paymentMethod === method
                       ? 'border-white bg-white text-black font-semibold shadow-sm'
-                      : 'border-white/[0.06] bg-[#0D0F14] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
+                      : 'border-[#2D261E] bg-[#1A1713] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
                   }`}
                 >
                   {method}
@@ -264,12 +264,12 @@ export const NewOrderModal: FC<NewOrderModalProps> = ({ isOpen, onClose, onAddOr
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               placeholder="Racontez l'histoire : comment ils se sont rencontrés, les surnoms doux, les souvenirs marquants..."
-              className="w-full rounded-lg border border-white/[0.08] bg-[#0D0F14] px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all resize-none font-sans"
+              className="w-full rounded-lg border border-[#2D261E] bg-[#1A1713] px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:border-white/30 focus:outline-none transition-all resize-none font-sans"
             />
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/[0.06]">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2D261E]">
             <button
               type="button"
               onClick={onClose}

@@ -18,7 +18,7 @@ const VOICE_BARS = [6, 10, 15, 20, 15, 10, 6];
 /* Satellites : WhatsApp, commandes, paroles */
 const SATELLITES = [
   { cx: 188, cy: 100, fill: '#34D399' },
-  { cx: 56, cy: 176.2, fill: '#D6AA60' },
+  { cx: 56, cy: 176.2, fill: '#E5B54F' },
   { cx: 56, cy: 23.8, fill: '#F5F5F4' },
 ];
 
@@ -86,23 +86,23 @@ export const SonarMascot: FC<SonarMascotProps> = ({
     >
       <defs>
         <radialGradient id={`${uid}-body`} cx="38%" cy="30%" r="78%">
-          <stop offset="0%" stopColor="#262833" />
-          <stop offset="55%" stopColor="#0E1015" />
-          <stop offset="100%" stopColor="#050608" />
+          <stop offset="0%" stopColor="#2D261E" />
+          <stop offset="55%" stopColor="#1A1713" />
+          <stop offset="100%" stopColor="#0C0A09" />
         </radialGradient>
         <linearGradient id={`${uid}-rim`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#F3DDAE" />
-          <stop offset="45%" stopColor="#D6AA60" />
+          <stop offset="45%" stopColor="#E5B54F" />
           <stop offset="100%" stopColor="#5E4419" />
         </linearGradient>
         <radialGradient id={`${uid}-glow`}>
-          <stop offset="0%" stopColor="#D6AA60" stopOpacity="0.32" />
-          <stop offset="60%" stopColor="#D6AA60" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#D6AA60" stopOpacity="0" />
+          <stop offset="0%" stopColor="#E5B54F" stopOpacity="0.32" />
+          <stop offset="60%" stopColor="#E5B54F" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="#E5B54F" stopOpacity="0" />
         </radialGradient>
         <linearGradient id={`${uid}-sweep`} gradientUnits="userSpaceOnUse" x1="150" y1="112" x2="146" y2="40">
-          <stop offset="0%" stopColor="#D6AA60" stopOpacity="0.38" />
-          <stop offset="100%" stopColor="#D6AA60" stopOpacity="0" />
+          <stop offset="0%" stopColor="#E5B54F" stopOpacity="0.38" />
+          <stop offset="100%" stopColor="#E5B54F" stopOpacity="0" />
         </linearGradient>
       </defs>
 
@@ -119,7 +119,7 @@ export const SonarMascot: FC<SonarMascotProps> = ({
           cy="100"
           r="62"
           fill="none"
-          stroke="#D6AA60"
+          stroke="#E5B54F"
           strokeWidth="1"
         />
       ))}
@@ -127,7 +127,7 @@ export const SonarMascot: FC<SonarMascotProps> = ({
       {/* Balayage radar (état recherche) */}
       <g className="vx-sonar-sweep">
         <path d="M100 100 L188 100 A88 88 0 0 0 167.4 43.4 Z" fill={`url(#${uid}-sweep)`} />
-        <line x1="100" y1="100" x2="188" y2="100" stroke="#D6AA60" strokeOpacity="0.55" strokeWidth="1" />
+        <line x1="100" y1="100" x2="188" y2="100" stroke="#E5B54F" strokeOpacity="0.55" strokeWidth="1" />
       </g>
 
       {/* Orbite et satellites de données */}
@@ -159,7 +159,7 @@ export const SonarMascot: FC<SonarMascotProps> = ({
                 width="3"
                 height={h}
                 rx="1.5"
-                fill="#D6AA60"
+                fill="#E5B54F"
               />
             ))}
           </g>
@@ -172,9 +172,9 @@ export const SonarMascot: FC<SonarMascotProps> = ({
 /* Version statique miniature pour les avatars de messages */
 export const SonarGlyph: FC<{ size?: number }> = ({ size = 28 }) => (
   <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true">
-    <circle cx="16" cy="16" r="15" fill="#0E1015" stroke="#D6AA60" strokeOpacity="0.7" strokeWidth="1" />
+    <circle cx="16" cy="16" r="15" fill="#1A1713" stroke="#E5B54F" strokeOpacity="0.7" strokeWidth="1" />
     <rect x="11" y="11" width="3" height="6" rx="1.5" fill="#F4E7CC" />
     <rect x="18" y="11" width="3" height="6" rx="1.5" fill="#F4E7CC" />
-    <path d="M11.5 21.5h1M14 20.5v2M16 20v3M18 20.5v2M20.5 21.5h-1" stroke="#D6AA60" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M11.5 21.5h1M14 20.5v2M16 20v3M18 20.5v2M20.5 21.5h-1" stroke="#E5B54F" strokeWidth="1.2" strokeLinecap="round" />
   </svg>
 );

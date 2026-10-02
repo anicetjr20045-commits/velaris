@@ -51,7 +51,7 @@ export const AuthModal: FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0d11] shadow-2xl p-6 sm:p-8 space-y-6"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#2D261E] bg-[#141210] shadow-2xl p-6 sm:p-8 space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Subtle Ambient Glow */}
@@ -88,7 +88,7 @@ export const AuthModal: FC = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex rounded-xl bg-white/[0.03] p-1 border border-white/[0.04]">
+        <div className="flex rounded-xl bg-white/[0.03] p-1 border border-[#2D261E]/60">
           <button
             type="button"
             onClick={() => {
@@ -149,7 +149,7 @@ export const AuthModal: FC = () => {
                   value={studioName}
                   onChange={(e) => setStudioName(e.target.value)}
                   placeholder="Ex: Studio Mélodie Sahel"
-                  className="w-full rounded-xl border border-white/[0.08] bg-[#121318] pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
+                  className="w-full rounded-xl border border-[#2D261E] bg-[#1A1713] pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
                 />
               </div>
             </div>
@@ -167,7 +167,7 @@ export const AuthModal: FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="contact@monstudio.com"
-                className="w-full rounded-xl border border-white/[0.08] bg-[#121318] pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
+                className="w-full rounded-xl border border-[#2D261E] bg-[#1A1713] pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
               />
             </div>
           </div>
@@ -185,7 +185,7 @@ export const AuthModal: FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full rounded-xl border border-white/[0.08] bg-[#121318] pl-9 pr-10 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
+                className="w-full rounded-xl border border-[#2D261E] bg-[#1A1713] pl-9 pr-10 py-2 text-xs text-white placeholder-neutral-500 focus:border-white/40 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
               />
               <button
                 type="button"
@@ -217,7 +217,7 @@ export const AuthModal: FC = () => {
         </form>
 
         {/* Demo Mode Fallback Footer */}
-        <div className="pt-2 border-t border-white/[0.06] text-center space-y-2">
+        <div className="pt-2 border-t border-[#2D261E] text-center space-y-2">
           <p className="text-[11px] text-neutral-400">
             Vous souhaitez simplement explorer le logiciel ?
           </p>

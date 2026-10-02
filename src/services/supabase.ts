@@ -4,7 +4,7 @@ import {
   REAL_AUTOMATION_RULES, 
   REAL_STUDIO_METRICS 
 } from '../data/realProductionData';
-import type { ConversationItem, AutomationRule, StudioMetrics } from '../types';
+import type { ConversationItem, AutomationRule, PipelineLead, StudioMetrics } from '../types';
 
 export const SUPABASE_CONFIG = {
   projectId: import.meta.env.VITE_SUPABASE_PROJECT_ID || 'dnwlqgsftauqsyjwhoza',
@@ -121,6 +121,87 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
   } catch {
     return [];
   }
+}
+
+const STAGE_TO_FUNNEL: Record<PipelineLead['stage'], string> = {
+  nouveau: 'new',
+  en_discussion: 'qualifying',
+  paiement: 'paid',
+  livre: 'delivered',
+};
+
+/**
+ * Pipeline de closing du studio connecté, construit sur les conversations WhatsApp réelles
+ */
+export async function getLivePipelineLeads(): Promise<PipelineLead[]> {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('id, funnel_stage, summary, last_message_at, contacts(name, phone, occasion)')
+      .order('last_message_at', { ascending: false })
+      .limit(500);
+    if (error || !data) return [];
+    return data.map((c: any) => {
+      const ct = Array.isArray(c.contacts) ? c.contacts[0] : c.contacts;
+      const status = mapFunnelStage(c.funnel_stage);
+      return {
+        id: c.id,
+        name: ct?.name || ct?.phone || 'Client WhatsApp',
+        phone: ct?.phone || undefined,
+        lastExchange: c.last_message_at
+          ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+          : 'Récent',
+        lastExchangeAt: c.last_message_at || undefined,
+        stage: status === 'devis' ? 'paiement' : status,
+        tag: ct?.occasion || undefined,
+        summary: c.summary || undefined,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function updateLeadStage(conversationId: string, stage: PipelineLead['stage']): Promise<boolean> {
+  const { error } = await supabase
+    .from('conversations')
+    .update({ funnel_stage: STAGE_TO_FUNNEL[stage], updated_at: new Date().toISOString() })
+    .eq('id', conversationId);
+  return !error;
+}
+
+/**
+ * Écritures des règles d'automatisation (RLS : uniquement les règles du studio connecté)
+ */
+export async function setAutomationRuleEnabled(id: string, enabled: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('automation_rules')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  return !error;
+}
+
+export async function setAllAutomationRulesEnabled(enabled: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('automation_rules')
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .neq('enabled', enabled);
+  return !error;
+}
+
+export async function saveAutomationRule(rule: { id?: string; name: string; emoji: string; action: string; active: boolean }): Promise<string | null> {
+  const row = { name: rule.name, trigger_type: 'reaction', trigger_value: rule.emoji, text_body: rule.action, enabled: rule.active };
+  if (rule.id) {
+    const { error } = await supabase.from('automation_rules').update({ ...row, updated_at: new Date().toISOString() }).eq('id', rule.id);
+    return error ? null : rule.id;
+  }
+  const { data, error } = await supabase.from('automation_rules').insert(row).select('id').single();
+  return error || !data ? null : data.id;
+}
+
+export async function deleteAutomationRule(id: string): Promise<boolean> {
+  const { error } = await supabase.from('automation_rules').delete().eq('id', id);
+  return !error;
 }
 
 /**
@@ -359,6 +440,83 @@ export async function searchStudioData(term: string): Promise<{
   } catch {
     return { contacts: [], orders: [], conversations: [], messages: [] };
   }
+}
+
+export type StudioLiveTable = 'messages' | 'conversations' | 'orders' | 'automation_rules' | 'contacts';
+
+/**
+ * Abonnement Realtime Supabase aux tables du studio (RLS appliquée côté serveur).
+ * Retourne la fonction de désabonnement.
+ */
+export function subscribeStudioRealtime(
+  tables: StudioLiveTable[],
+  onChange: (table: StudioLiveTable) => void
+): () => void {
+  let channel = supabase.channel(`studio-live-${tables.join('-')}-${Math.random().toString(36).slice(2, 8)}`);
+  for (const table of tables) {
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table));
+  }
+  channel.subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Recherche une conversation complète par numéro de téléphone (fragment accepté : +226…, 07…, 5835…)
+ * Compare sur les chiffres uniquement, avec ou sans indicatif.
+ */
+export async function findConversationByPhone(fragment: string): Promise<{
+  contact: any | null;
+  conversation: any | null;
+  messages: any[];
+  orders: any[];
+}> {
+  const digits = fragment.replace(/\D/g, '');
+  const empty = { contact: null, conversation: null, messages: [], orders: [] };
+  if (digits.length < 4) return empty;
+  try {
+    const { data: contacts } = await supabase
+      .from('contacts')
+      .select('id, name, phone, occasion, price_quoted_cents, notes, created_at');
+    const contact = (contacts || []).find((c: any) => phoneMatches(c.phone, digits)) || null;
+    if (!contact) return empty;
+
+    const [convRes, ordersRes] = await Promise.all([
+      supabase
+        .from('conversations')
+        .select('id, funnel_stage, summary, last_message_at')
+        .eq('contact_id', contact.id)
+        .order('last_message_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('orders')
+        .select('id, amount_cents, status, payment_method, created_at')
+        .eq('contact_id', contact.id)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    const conversation = convRes.data || null;
+    const messages = conversation ? await getLiveMessages(conversation.id) : [];
+    return { contact, conversation, messages, orders: ordersRes.data || [] };
+  } catch {
+    return empty;
+  }
+}
+
+/**
+ * Compare deux numéros sur leurs chiffres : correspondance si l'un contient l'autre
+ * (gère l'indicatif +225 / +226 et les numéros locaux 07…).
+ */
+export function phoneMatches(phone: string | null | undefined, digits: string): boolean {
+  if (!phone || !digits) return false;
+  const p = phone.replace(/\D/g, '');
+  if (!p) return false;
+  if (p.includes(digits)) return true;
+  // Numéro local avec 0 initial (ex. 07 88 12 43) contre numéro international
+  const local = digits.replace(/^0+/, '');
+  return local.length >= 4 && p.includes(local);
 }
 
 /**
