@@ -4,7 +4,7 @@ import {
   REAL_AUTOMATION_RULES, 
   REAL_STUDIO_METRICS 
 } from '../data/realProductionData';
-import type { ConversationItem, AutomationRule, PipelineLead, StudioMetrics } from '../types';
+import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLead, StudioMetrics } from '../types';
 
 export const SUPABASE_CONFIG = {
   projectId: import.meta.env.VITE_SUPABASE_PROJECT_ID || 'dnwlqgsftauqsyjwhoza',
@@ -100,7 +100,7 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
 
     const { data, error } = await supabase
       .from('automation_rules')
-      .select('id, name, trigger_value, text_body, enabled')
+      .select('id, name, trigger_value, action_type, text_body, media_path, caption, enabled')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -115,8 +115,11 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
       id: r.id,
       name: r.name,
       emoji: r.trigger_value || '⚡',
-      action: r.text_body,
+      action: r.text_body || r.caption || '',
       active: !!r.enabled,
+      kind: actionTypeToKind(r.action_type, r.media_path),
+      mediaPath: r.media_path || undefined,
+      mediaName: r.media_path ? mediaNameOf(r.media_path) : undefined,
     }));
   } catch {
     return [];
@@ -126,9 +129,22 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
 const STAGE_TO_FUNNEL: Record<PipelineLead['stage'], string> = {
   nouveau: 'new',
   en_discussion: 'qualifying',
-  paiement: 'paid',
+  devis: 'presenting',
+  studio: 'paid',
   livre: 'delivered',
 };
+
+/* Enum funnel_stage : new, qualifying, presenting, objection, payment_pending, paid, delivered, lost */
+function funnelToPipelineStage(stage: string | null): PipelineLead['stage'] {
+  switch ((stage || '').toLowerCase()) {
+    case 'new': return 'nouveau';
+    case 'presenting':
+    case 'payment_pending': return 'devis';
+    case 'paid': return 'studio';
+    case 'delivered': return 'livre';
+    default: return 'en_discussion';
+  }
+}
 
 /**
  * Pipeline de closing du studio connecté, construit sur les conversations WhatsApp réelles
@@ -143,7 +159,6 @@ export async function getLivePipelineLeads(): Promise<PipelineLead[]> {
     if (error || !data) return [];
     return data.map((c: any) => {
       const ct = Array.isArray(c.contacts) ? c.contacts[0] : c.contacts;
-      const status = mapFunnelStage(c.funnel_stage);
       return {
         id: c.id,
         name: ct?.name || ct?.phone || 'Client WhatsApp',
@@ -152,7 +167,7 @@ export async function getLivePipelineLeads(): Promise<PipelineLead[]> {
           ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
           : 'Récent',
         lastExchangeAt: c.last_message_at || undefined,
-        stage: status === 'devis' ? 'paiement' : status,
+        stage: funnelToPipelineStage(c.funnel_stage),
         tag: ct?.occasion || undefined,
         summary: c.summary || undefined,
       };
@@ -189,8 +204,67 @@ export async function setAllAutomationRulesEnabled(enabled: boolean): Promise<bo
   return !error;
 }
 
-export async function saveAutomationRule(rule: { id?: string; name: string; emoji: string; action: string; active: boolean }): Promise<string | null> {
-  const row = { name: rule.name, trigger_type: 'reaction', trigger_value: rule.emoji, text_body: rule.action, enabled: rule.active };
+/* Le moteur velaris-agent envoie send_media via WAHA /api/sendFile : la vidéo se distingue par son extension */
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm|3gp)$/i;
+
+function actionTypeToKind(actionType: string | null, mediaPath: string | null): AutomationMediaKind {
+  if (actionType === 'send_voice') return 'voice';
+  if (actionType === 'send_media') return mediaPath && VIDEO_EXT.test(mediaPath) ? 'video' : 'document';
+  return 'text';
+}
+
+/* '<uid>/automations/1727000000000-grille.pdf' -> 'grille.pdf' */
+export function mediaNameOf(path: string): string {
+  return (path.split('/').pop() || path).replace(/^\d{10,}-/, '');
+}
+
+export const AUTOMATION_MEDIA_BUCKET = 'product-files';
+export const AUTOMATION_MEDIA_MAX_BYTES = 16 * 1024 * 1024;
+
+/**
+ * Dépose un média d'automatisation dans le dossier privé du studio (RLS storage : <uid>/…)
+ */
+export async function uploadAutomationMedia(file: Blob, filename: string): Promise<{ path: string } | { error: string }> {
+  if (file.size > AUTOMATION_MEDIA_MAX_BYTES) return { error: 'Fichier trop lourd (16 Mo maximum).' };
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) return { error: 'Connectez-vous pour enregistrer un média.' };
+  const safe = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]/g, '_').slice(-80);
+  const path = `${session.user.id}/automations/${Date.now()}-${safe}`;
+  // Type sans paramètre de codec : le moteur choisit alors la conversion WAHA adaptée
+  const contentType = (file.type || 'application/octet-stream').split(';')[0];
+  const { error } = await supabase.storage.from(AUTOMATION_MEDIA_BUCKET).upload(path, file, { contentType, upsert: false });
+  return error ? { error: error.message } : { path };
+}
+
+export async function getAutomationMediaUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(AUTOMATION_MEDIA_BUCKET).createSignedUrl(path, 3600);
+  return error || !data ? null : data.signedUrl;
+}
+
+export async function removeAutomationMedia(path: string): Promise<void> {
+  await supabase.storage.from(AUTOMATION_MEDIA_BUCKET).remove([path]);
+}
+
+export async function saveAutomationRule(rule: {
+  id?: string;
+  name: string;
+  emoji: string;
+  action: string;
+  active: boolean;
+  kind?: AutomationMediaKind;
+  mediaPath?: string;
+}): Promise<string | null> {
+  const kind = rule.kind ?? 'text';
+  const row = {
+    name: rule.name,
+    trigger_type: 'reaction',
+    trigger_value: rule.emoji,
+    action_type: kind === 'text' ? 'send_text' : kind === 'voice' ? 'send_voice' : 'send_media',
+    text_body: kind === 'text' ? rule.action : null,
+    media_path: kind === 'text' ? null : rule.mediaPath ?? null,
+    caption: kind === 'document' || kind === 'video' ? rule.action || null : null,
+    enabled: rule.active,
+  };
   if (rule.id) {
     const { error } = await supabase.from('automation_rules').update({ ...row, updated_at: new Date().toISOString() }).eq('id', rule.id);
     return error ? null : rule.id;
@@ -365,15 +439,16 @@ export async function getLiveMessages(conversationId?: string): Promise<any[]> {
     let query = supabase
       .from('messages')
       .select('id, role, direction, body, created_at, conversation_id, conversations(contact_id, contacts(name, phone))')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (conversationId) {
       query = query.eq('conversation_id', conversationId);
     }
 
+    // Les 50 plus récents, rendus dans l'ordre chronologique
     const { data, error } = await query.limit(50);
     if (error || !data) return [];
-    return data;
+    return data.reverse();
   } catch {
     return [];
   }

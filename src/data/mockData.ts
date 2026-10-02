@@ -341,7 +341,7 @@ export const MOCK_PIPELINE_LEADS: PipelineLead[] = [
     name: 'DEMARVEL',
     phone: '+225 07 99 88 77',
     lastExchange: '29 sept., 13:16',
-    stage: 'paiement',
+    stage: 'devis',
     tag: 'anniversaire 25 ans',
     summary: 'Paroles approuvées. Facture émise 3 000 FCFA Wave en attente de reçu.',
   },

@@ -1,32 +1,52 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FC, type MouseEvent } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
   ArrowUp,
+  Check,
   CheckCheck,
   CheckCircle2,
+  Clock3,
   Download,
   ExternalLink,
   FileText,
+  Hand,
   Loader2,
+  Mail,
+  MailOpen,
   MessageCircle,
   Mic,
-  Pause,
-  Play,
-  Search,
-  WandSparkles,
-  type LucideIcon,
   Receipt,
-  Tags
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Tags,
+  Truck,
+  WandSparkles,
+  type LucideIcon
 } from 'lucide-react';
 import type { ConversationItem } from '../types';
 import {
   REAL_CONVERSATIONS,
   REAL_CONVERSATION_MESSAGES
 } from '../data/realProductionData';
-import { sendWahaTextMessage } from '../services/waha';
+import {
+  WAHA_CONFIG,
+  fetchWahaMessageAcks,
+  markWahaChatSeen,
+  sendWahaTextMessage,
+  sendWahaVoiceMessage,
+  wahaSessionNameFor,
+  type WahaAck,
+  type WahaLinkState
+} from '../services/waha';
 import { useAuth } from '../hooks/useAuth';
-import { getLiveConversations } from '../services/supabase';
+import { useStudioLive } from '../hooks/useStudioLive';
+import { useWahaHeartbeat } from '../hooks/useWaha';
+import { getLiveConversations, getLiveMessages, recordOutboundMessage } from '../services/supabase';
+import { applyReadState, setConversationUnread, useReadState } from '../services/readState';
+import { WaveformPlayer } from './WaveformPlayer';
+import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 
 interface ConversationsViewProps {
   onOpenOrderForStudio?: (name: string) => void;
@@ -53,22 +73,11 @@ const initials = (name: string) => {
   return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase();
 };
 
-/* Hash stable pour générer une forme d'onde propre à chaque note */
-const hashString = (s: string) => {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
-};
-
-/* Forme d'onde pseudo-aléatoire mais stable pour une même note */
-const waveformFor = (seed: string, count = 32) => {
-  let h = hashString(seed);
-  return Array.from({ length: count }, (_, i) => {
-    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-    const envelope = Math.sin((i / (count - 1)) * Math.PI) * 0.55 + 0.35;
-    return Math.max(0.18, Math.min(1, envelope * (0.55 + ((h % 1000) / 1000) * 0.75)));
-  });
-};
+/* '30 sept. 10:38' : même format pour l'historique démo, Supabase et les envois locaux */
+const stampOf = (d: Date) =>
+  `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+const dayOf = (createdAt: string) => createdAt.replace(/,?\s*\d{1,2}:\d{2}$/, '').trim();
+const timeOf = (createdAt: string) => createdAt.match(/\d{1,2}:\d{2}$/)?.[0] ?? createdAt;
 
 const Monogram: FC<{ name: string; unread?: boolean; size?: 'sm' | 'md' }> = ({ name, unread, size = 'md' }) => (
   <span
@@ -82,119 +91,122 @@ const Monogram: FC<{ name: string; unread?: boolean; size?: 'sm' | 'md' }> = ({ 
 );
 
 /* ------------------------------------------------------------------ */
-/* Note vocale : lecture simulée, ondes qui se remplissent            */
+/* Accusés de lecture WhatsApp                                        */
 /* ------------------------------------------------------------------ */
 
-const VoiceNote: FC<{
-  id: string;
-  transcript: string;
-  playing: boolean;
-  onToggle: () => void;
-}> = ({ id, transcript, playing, onToggle }) => {
-  const seconds = Math.min(58, Math.max(9, Math.round(transcript.length / 4.5)));
-  const bars = useMemo(() => waveformFor(id + transcript), [id, transcript]);
-  const onEnded = useEffectEvent(() => onToggle());
+type ReceiptState = 'pending' | 'sent' | 'delivered' | 'read' | 'played' | 'failed';
 
-  const [progress, setProgress] = useState(0);
-  const progressRef = useRef(0);
+const RECEIPT_FROM_ACK: Record<WahaAck, ReceiptState> = { [-1]: 'failed', 0: 'pending', 1: 'sent', 2: 'delivered', 3: 'read', 4: 'played' };
+const RECEIPT_RANK: Record<ReceiptState, number> = { failed: -1, pending: 0, sent: 1, delivered: 2, read: 3, played: 4 };
 
-  useEffect(() => {
-    if (!playing) return;
-    let frame = 0;
-    let last = performance.now();
-    const tick = (now: number) => {
-      progressRef.current = Math.min(1, progressRef.current + (now - last) / (seconds * 1000));
-      last = now;
-      setProgress(progressRef.current);
-      if (progressRef.current >= 1) {
-        progressRef.current = 0;
-        setProgress(0);
-        onEnded();
-        return;
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [playing, seconds]);
+const RECEIPT_LABEL: Record<ReceiptState, string> = {
+  pending: 'En cours d’envoi',
+  sent: 'Envoyé',
+  delivered: 'Remis',
+  read: 'Lu',
+  played: 'Écouté',
+  failed: 'Échec de l’envoi',
+};
 
-  const elapsed = Math.round(progress * seconds);
-  const shown = playing || progress > 0 ? elapsed : seconds;
-
+const Ticks: FC<{ receipt: ReceiptState }> = ({ receipt }) => {
+  const label = RECEIPT_LABEL[receipt];
+  const common = 'h-3.5 w-3.5 shrink-0';
+  const icon =
+    receipt === 'pending' ? <Clock3 className={`${common} text-neutral-400`} strokeWidth={2} />
+    : receipt === 'sent' ? <Check className={`${common} text-neutral-400`} strokeWidth={2.2} />
+    : receipt === 'delivered' ? <CheckCheck className={`${common} text-neutral-400`} strokeWidth={2.2} />
+    : receipt === 'failed' ? <AlertCircle className={`${common} text-rose-500`} strokeWidth={2} />
+    : <CheckCheck className={`${common} text-sky-500`} strokeWidth={2.2} />;
   return (
-    <div className="space-y-2.5">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={playing ? 'Mettre en pause la note vocale' : 'Écouter la note vocale'}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-press active:scale-95 cursor-pointer ${
-            playing ? 'bg-[#E5B54F] text-black' : 'bg-white text-black hover:bg-neutral-200'
-          }`}
-        >
-          {playing ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5 translate-x-px" fill="currentColor" />}
-        </button>
-        <div className="flex h-8 flex-1 items-center gap-[2px]" aria-hidden="true">
-          {bars.map((b, i) => {
-            const filled = i / bars.length < progress;
-            return (
-              <span
-                key={i}
-                className={`block w-[3px] rounded-full transition-colors duration-150 ${filled ? 'bg-[#E5B54F]' : 'bg-white/25'}`}
-                style={{ height: `${b * 100}%` }}
-              />
-            );
-          })}
-        </div>
-        <span className="font-mono text-[12.5px] text-[#A8A29E] shrink-0 w-9 text-right">
-          0:{String(shown).padStart(2, '0')}
-        </span>
-      </div>
-      <div className="flex gap-2 border-t border-[#2D261E] pt-2">
-        <FileText className="h-3 w-3 mt-[3px] shrink-0 text-neutral-500" strokeWidth={1.5} />
-        <p className="text-[12.5px] leading-relaxed text-neutral-300">{transcript}</p>
-      </div>
-    </div>
+    <span title={label} className="inline-flex">
+      {icon}
+      <span className="sr-only">{label}</span>
+    </span>
   );
 };
 
 /* ------------------------------------------------------------------ */
-/* Vue                                                                */
+/* État du flux WAHA                                                  */
 /* ------------------------------------------------------------------ */
 
+const LINK_META: Record<WahaLinkState, { label: string; dot: string }> = {
+  connecting: { label: 'Connexion au flux', dot: 'bg-neutral-500' },
+  online: { label: 'Flux WhatsApp actif', dot: 'bg-emerald-400 vx-breathe' },
+  scan: { label: 'Scan QR requis', dot: 'bg-[#E5B54F]' },
+  reconnecting: { label: 'Reconnexion', dot: 'bg-[#E5B54F] vx-breathe' },
+  offline: { label: 'Flux interrompu', dot: 'bg-rose-500' },
+};
+
+/* ------------------------------------------------------------------ */
+/* Fil                                                                */
+/* ------------------------------------------------------------------ */
+
+interface ThreadMessage {
+  id: string;
+  inbound: boolean;
+  body: string;
+  createdAt: string;
+  receipt?: ReceiptState;
+  voice?: { url?: string; durationSec?: number; peaks?: number[] };
+}
+
+interface OutgoingMessage extends ThreadMessage {
+  waId?: string;
+  sentAt: number;
+}
+
 const SNIPPETS: { label: string; icon: LucideIcon; text: string }[] = [
-  { label: 'Demander le brief vocal', icon: Mic, text: "Pour démarrer l'écriture de votre chanson sur-mesure, envoyez-nous une note vocale ou décrivez l'occasion et le prénom du destinataire." },
+  { label: 'Accueil', icon: Hand, text: "Bonjour et bienvenue au Studio. Nous composons des chansons sur-mesure pour vos moments importants. Pour qui souhaitez-vous la chanson, et pour quelle occasion ?" },
+  { label: 'Brief vocal', icon: Mic, text: "Pour démarrer l'écriture de votre chanson, envoyez-nous une note vocale : le prénom du destinataire, l'occasion et deux ou trois souvenirs qui vous tiennent à cœur." },
   { label: 'Formule 3 000 F', icon: Tags, text: 'Notre formule à 3 000 FCFA comprend les paroles sur-mesure, 2 masters audio HD et la livraison en 18 minutes.' },
-  { label: 'Confirmer le paiement', icon: Receipt, text: 'Paiement bien reçu. Votre commande passe immédiatement en production studio. Livraison du morceau dans 18 minutes.' },
+  { label: 'Paiement', icon: Receipt, text: 'Vous pouvez régler par Wave ou Orange Money. Envoyez la capture du paiement ici et la production démarre aussitôt.' },
+  { label: 'Paiement reçu', icon: CheckCircle2, text: 'Paiement bien reçu, merci. Votre commande passe immédiatement en production studio. Livraison du morceau dans 18 minutes.' },
+  { label: 'Livraison', icon: Truck, text: 'Votre chanson est prête. Écoutez-la et dites-nous ce que vous en pensez. Merci pour votre confiance.' },
 ];
+
+const ACK_POLL_MS = 5000;
+const ACK_WATCH_MS = 3 * 60 * 1000;
 
 export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForStudio }) => {
   const { user } = useAuth();
-  const [conversations, setConversations] = useState<ConversationItem[]>(() => (user ? [] : REAL_CONVERSATIONS));
-  const [selectedId, setSelectedId] = useState<string>(() => (user ? '' : REAL_CONVERSATIONS[0]?.id || ''));
+  const sessionName = wahaSessionNameFor(user?.id);
+
+  const { data: rawConversations, syncedAt } = useStudioLive<ConversationItem[]>(
+    getLiveConversations,
+    user ? [] : REAL_CONVERSATIONS,
+    ['conversations', 'messages'],
+    [user?.id]
+  );
+  const readState = useReadState();
+  const conversations = useMemo(() => applyReadState(rawConversations, readState), [rawConversations, readState]);
+
+  const [selectedId, setSelectedId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendFeedback, setSendFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [customMessages, setCustomMessages] = useState<Record<string, { body: string; time: string }[]>>({});
+  const [recorderOpen, setRecorderOpen] = useState(false);
+  const [outgoing, setOutgoing] = useState<Record<string, OutgoingMessage[]>>({});
+
+  const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
 
   const threadRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    getLiveConversations().then((live) => {
-      setConversations(live);
-      if (live.length > 0) {
-        setSelectedId((prev) => (prev && live.some(c => c.id === prev) ? prev : live[0].id));
-      } else {
-        setSelectedId('');
-      }
-    });
-  }, [user]);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedConv = conversations.find(c => c.id === selectedId) || conversations[0] || null;
+  const activeId = selectedConv?.id ?? '';
+
+  /* Historique réel du studio connecté (Realtime + polling) */
+  const { data: liveMessages } = useStudioLive<any[]>(
+    () => getLiveMessages(activeId),
+    [],
+    ['messages'],
+    [activeId],
+    { enabled: !!user && !!activeId, pollMs: 15000 }
+  );
 
   const term = searchTerm.toLowerCase();
   const searched = conversations.filter(c =>
@@ -211,61 +223,210 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     { id: 'devis', label: 'Devis', count: searched.filter(c => c.status === 'devis').length },
   ];
 
-  const initialMessages = (selectedId && REAL_CONVERSATION_MESSAGES[selectedId]) || [
-    {
-      id: 'default-1',
-      role: 'user',
-      direction: 'inbound',
-      body: selectedConv ? (selectedConv.fullMessage || selectedConv.preview) : '',
-      createdAt: selectedConv ? selectedConv.lastExchange : 'Récemment',
+  const history: ThreadMessage[] = useMemo(() => {
+    if (!selectedConv) return [];
+    if (user && liveMessages.length > 0) {
+      return liveMessages.map((m) => ({
+        id: m.id,
+        inbound: m.direction === 'inbound',
+        body: m.body || '',
+        createdAt: m.created_at ? stampOf(new Date(m.created_at)) : 'Récent',
+        receipt: m.direction === 'inbound' ? undefined : 'delivered',
+      }));
     }
-  ];
-  const currentExtraMessages = (selectedId && customMessages[selectedId]) || [];
+    const seed = REAL_CONVERSATION_MESSAGES[selectedConv.id];
+    if (seed) {
+      return seed.map((m, i) => {
+        const inbound = m.role === 'user' || m.direction === 'inbound';
+        return { id: m.id || `m${i}`, inbound, body: m.body, createdAt: m.createdAt, receipt: inbound ? undefined : 'read' };
+      });
+    }
+    return [{ id: 'default-1', inbound: true, body: selectedConv.fullMessage || selectedConv.preview, createdAt: selectedConv.lastExchange }];
+  }, [selectedConv, user, liveMessages]);
 
-  /* Séparateurs de jour : '30 sept. 10:38' -> '30 sept.' */
-  const dayOf = (createdAt: string) => createdAt.replace(/,?\s*\d{1,2}:\d{2}$/, '').trim();
-  const timeOf = (createdAt: string) => createdAt.match(/\d{1,2}:\d{2}$/)?.[0] ?? createdAt;
+  /* Un envoi local disparaît dès que Supabase le renvoie (même corps sortant) */
+  const pending = (outgoing[activeId] || []).filter(
+    o => o.voice || !history.some(h => !h.inbound && h.body === o.body)
+  );
+  const thread = [...history, ...pending];
 
   useEffect(() => {
     const el = threadRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [selectedId, currentExtraMessages.length]);
+  }, [activeId, thread.length]);
 
-  const selectConversation = (id: string) => {
-    setSelectedId(id);
-    setPlayingId(null);
-    setMobileThreadOpen(true);
-    setConversations(prev => prev.map(c => (c.id === id ? { ...c, unread: false } : c)));
+  /* Accusés WhatsApp des messages envoyés depuis cette vue : polling tant qu'ils ne sont pas lus */
+  const watched = (outgoing[activeId] || []).filter(
+    o => o.waId && RECEIPT_RANK[o.receipt ?? 'pending'] < RECEIPT_RANK.read && Date.now() - o.sentAt < ACK_WATCH_MS
+  );
+  const watchKey = watched.map(o => `${o.waId}:${o.receipt}`).join('|');
+  const phone = selectedConv?.phone ?? '';
+
+  useEffect(() => {
+    if (!watchKey || !phone) return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      const acks = await fetchWahaMessageAcks(phone, sessionName);
+      if (cancelled || Object.keys(acks).length === 0) return;
+      setOutgoing(prev => {
+        const list = prev[activeId];
+        if (!list) return prev;
+        let changed = false;
+        const next = list.map(o => {
+          const ack = o.waId ? acks[o.waId] : undefined;
+          if (ack === undefined) return o;
+          const receipt = RECEIPT_FROM_ACK[ack];
+          if (RECEIPT_RANK[receipt] <= RECEIPT_RANK[o.receipt ?? 'pending'] && receipt !== 'failed') return o;
+          changed = true;
+          return { ...o, receipt };
+        });
+        return changed ? { ...prev, [activeId]: next } : prev;
+      });
+    }, ACK_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [watchKey, phone, sessionName, activeId]);
+
+  const showFeedback = (fb: { success: boolean; message: string }) => {
+    setSendFeedback(fb);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    feedbackTimer.current = setTimeout(() => setSendFeedback(null), 5000);
+  };
+  useEffect(() => () => {
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+  }, []);
+
+  const markRead = (conv: ConversationItem) => {
+    if (!conv.unread) return;
+    setConversationUnread(conv, false);
+    // Coches bleues côté client : uniquement pour le studio connecté
+    if (user && conv.phone) markWahaChatSeen(conv.phone, sessionName);
   };
 
-  const handleSendReply = async () => {
-    if (!replyText.trim() || isSending || !selectedConv) return;
-    const textToSend = replyText.trim();
-    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const toggleUnread = (conv: ConversationItem, e?: MouseEvent) => {
+    e?.stopPropagation();
+    if (conv.unread) markRead(conv);
+    else setConversationUnread(conv, true);
+  };
 
-    setCustomMessages(prev => ({
+  const selectConversation = (conv: ConversationItem) => {
+    setSelectedId(conv.id);
+    setMobileThreadOpen(true);
+    setRecorderOpen(false);
+    markRead(conv);
+  };
+
+  const patchOutgoing = (convId: string, localId: string, patch: Partial<OutgoingMessage>) =>
+    setOutgoing(prev => ({
       ...prev,
-      [selectedId]: [...(prev[selectedId] || []), { body: textToSend, time }]
+      [convId]: (prev[convId] || []).map(o => (o.id === localId ? { ...o, ...patch } : o)),
     }));
+
+  const pushOutgoing = (convId: string, msg: OutgoingMessage) =>
+    setOutgoing(prev => ({ ...prev, [convId]: [...(prev[convId] || []), msg] }));
+
+  const sendText = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || isSending || !selectedConv) return;
+    const conv = selectedConv;
+    const localId = `out-${Date.now()}`;
+    pushOutgoing(conv.id, { id: localId, inbound: false, body: text, createdAt: stampOf(new Date()), receipt: 'pending', sentAt: Date.now() });
     setReplyText('');
     setIsSending(true);
     setSendFeedback(null);
 
-    try {
-      const sessionName = user ? `studio_${user.id.slice(0, 8)}` : 'Test';
-      const res = await sendWahaTextMessage(selectedConv.phone, textToSend, sessionName);
-      setSendFeedback(
-        res.success
-          ? { success: true, message: `Envoyé sur WhatsApp à ${selectedConv.phone}.` }
-          : { success: false, message: res.error || 'La passerelle WAHA ne répond pas. Ouvrez WhatsApp pour envoyer manuellement.' }
-      );
-    } catch (err: any) {
-      setSendFeedback({ success: false, message: err.message || 'Impossible de joindre le serveur WAHA.' });
-    } finally {
+    if (!user) {
+      // Sécurité Mode Démo : simule l'envoi sans solliciter le numéro réel du client
+      setTimeout(() => patchOutgoing(conv.id, localId, { receipt: 'delivered', sentAt: Date.now() }), 700);
       setIsSending(false);
-      setTimeout(() => setSendFeedback(null), 5000);
+      showFeedback({ success: true, message: `[Mode Démo] Message simulé avec succès pour ${conv.phone}. Connectez-vous pour émettre sur votre ligne réelle.` });
+      return;
     }
+
+    const res = await sendWahaTextMessage(conv.phone, text, sessionName);
+    patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
+    if (res.success) recordOutboundMessage(conv.id, text);
+    if (!res.success) {
+      showFeedback({ success: false, message: res.error || 'La passerelle WAHA ne répond pas. Ouvrez WhatsApp pour envoyer manuellement.' });
+    }
+    setIsSending(false);
   };
+
+  const sendVoice = async (rec: VoiceRecording) => {
+    if (!selectedConv) return;
+    const conv = selectedConv;
+    const localId = `voice-${Date.now()}`;
+    pushOutgoing(conv.id, {
+      id: localId,
+      inbound: false,
+      body: 'Note vocale',
+      createdAt: stampOf(new Date()),
+      receipt: 'pending',
+      sentAt: Date.now(),
+      voice: { url: rec.url, durationSec: rec.durationSec, peaks: rec.peaks },
+    });
+    setRecorderOpen(false);
+
+    if (!user) {
+      setTimeout(() => patchOutgoing(conv.id, localId, { receipt: 'delivered', sentAt: Date.now() }), 700);
+      showFeedback({ success: true, message: `[Mode Démo] Note vocale simulée avec succès pour ${conv.phone}. Connectez-vous pour émettre sur votre ligne réelle.` });
+      return;
+    }
+
+    const res = await sendWahaVoiceMessage(conv.phone, rec.blob, sessionName);
+    patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
+    showFeedback(
+      res.success
+        ? { success: true, message: `Note vocale envoyée à ${conv.phone}.` }
+        : { success: false, message: res.error || "La note vocale n'a pas pu partir. Vérifiez la session WAHA." }
+    );
+  };
+
+  /* Insère le snippet au curseur ; Maj+clic l'envoie directement */
+  const insertSnippet = (text: string, sendNow = false) => {
+    if (sendNow) return sendText(text);
+    const el = composerRef.current;
+    if (!el || !replyText) {
+      setReplyText(text);
+    } else {
+      const start = el.selectionStart ?? replyText.length;
+      const end = el.selectionEnd ?? replyText.length;
+      const before = replyText.slice(0, start);
+      const sep = before && !/\s$/.test(before) ? ' ' : '';
+      setReplyText(before + sep + text + replyText.slice(end));
+    }
+    requestAnimationFrame(() => {
+      const box = composerRef.current;
+      if (!box) return;
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    });
+  };
+
+  /* Alt+1…6 : snippets depuis n'importe où dans la vue */
+  const insertRef = useRef(insertSnippet);
+  insertRef.current = insertSnippet;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.metaKey || e.ctrlKey) return;
+      const idx = Number(e.code.replace('Digit', '')) - 1;
+      if (Number.isInteger(idx) && idx >= 0 && idx < SNIPPETS.length) {
+        e.preventDefault();
+        insertRef.current(SNIPPETS[idx].text);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  /* Les URLs de prévisualisation des vocaux envoyés sont libérées en quittant la vue */
+  const outgoingRef = useRef(outgoing);
+  outgoingRef.current = outgoing;
+  useEffect(() => () => {
+    Object.values(outgoingRef.current).flat().forEach(o => o.voice?.url && URL.revokeObjectURL(o.voice.url));
+  }, []);
 
   const handleExport = () => {
     const data = JSON.stringify(conversations, null, 2);
@@ -281,6 +442,14 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const cleanPhone = selectedConv ? selectedConv.phone.replace(/[^0-9]/g, '') : '';
   const whatsappDirectUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(replyText || '')}` : '#';
   const unreadTotal = conversations.filter(c => c.unread).length;
+  const linkMeta = LINK_META[link.state];
+  const secure = WAHA_CONFIG.baseUrl.startsWith('https://');
+  const beatTitle = [
+    `Session ${sessionName}`,
+    link.sessionStatus ? `statut WAHA ${link.sessionStatus}` : null,
+    link.lastBeatAt ? `dernier battement ${new Date(link.lastBeatAt).toLocaleTimeString('fr-FR')}` : null,
+    secure ? 'transport chiffré TLS' : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="max-w-6xl mx-auto pb-16 space-y-5 vx-view-enter">
@@ -292,10 +461,30 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
             Répondez aux prospects de vos publicités et suivez les relances de l'IA, au même endroit.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <span
+            title={beatTitle}
+            className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A8A29E]"
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
+            <span className="text-neutral-200">{linkMeta.label}</span>
+            {link.state === 'online' && link.latencyMs !== null && (
+              <span className="font-mono tabular-nums text-neutral-500">{link.latencyMs} ms</span>
+            )}
+            {secure && <ShieldCheck className="h-3 w-3 text-neutral-500" strokeWidth={1.75} aria-label="Transport chiffré" />}
+          </span>
+          {user && (link.state === 'offline' || link.state === 'scan') && (
+            <button
+              type="button"
+              onClick={link.reconnect}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+            >
+              <RefreshCw className="h-3 w-3" strokeWidth={2} />
+              Reconnecter
+            </button>
+          )}
           <span className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A8A29E]">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
-            <span className="font-mono text-white">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
+            <span className="font-mono tabular-nums text-white">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
           </span>
           <button
             type="button"
@@ -334,7 +523,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   }`}
                 >
                   {f.label}
-                  <span className={`font-mono text-[11.5px] ${filter === f.id ? 'text-neutral-600' : 'text-neutral-600'}`}>{f.count}</span>
+                  <span className="font-mono text-[11.5px] text-neutral-600">{f.count}</span>
                 </button>
               ))}
             </div>
@@ -355,38 +544,58 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 const voice = isVoice(conv.fullMessage);
                 const status = STATUS_META[conv.status] ?? STATUS_META.en_discussion;
                 return (
-                  <button
+                  <div
                     key={conv.id}
-                    type="button"
-                    onClick={() => selectConversation(conv.id)}
                     style={{ '--i': Math.min(i, 8) } as CSSProperties}
-                    className={`vx-stagger relative w-full text-left flex gap-3 px-3.5 py-3 border-b border-[#2D261E]/60 transition-colors duration-200 cursor-pointer ${
+                    className={`vx-stagger group relative border-b border-[#2D261E]/60 transition-colors duration-200 ${
                       isSelected ? 'bg-white/[0.05]' : 'hover:bg-white/[0.02]'
                     }`}
                   >
-                    {isSelected && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r bg-white" />}
-                    <Monogram name={conv.name} unread={conv.unread} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className={`truncate text-sm ${conv.unread ? 'font-semibold text-white' : 'font-medium text-neutral-200'}`}>
-                          {conv.name}
+                    <button
+                      type="button"
+                      onClick={() => selectConversation(conv)}
+                      className="w-full text-left flex gap-3 px-3.5 py-3 cursor-pointer"
+                    >
+                      {isSelected && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r bg-white" />}
+                      <Monogram name={conv.name} unread={conv.unread} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className={`truncate text-sm ${conv.unread ? 'font-semibold text-white' : 'font-medium text-neutral-200'}`}>
+                            {conv.name}
+                          </span>
+                          <span className={`font-mono text-[11.5px] shrink-0 ${conv.unread ? 'text-emerald-400' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
                         </span>
-                        <span className="font-mono text-[11.5px] text-neutral-500 shrink-0">{conv.lastExchange}</span>
+                        <span className="mt-1 flex items-center gap-1.5 text-[13px] text-[#A8A29E]">
+                          {voice && <Mic className="h-3 w-3 shrink-0 text-[#E5B54F]" strokeWidth={1.75} />}
+                          <span className={`truncate ${conv.unread ? 'text-neutral-200' : ''}`}>{voice ? 'Note vocale' : conv.preview}</span>
+                        </span>
+                        <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-neutral-500">
+                          <span className={`h-1 w-1 rounded-full ${status.dot}`} />
+                          {status.label}
+                        </span>
                       </span>
-                      <span className="mt-1 flex items-center gap-1.5 text-[13px] text-[#A8A29E]">
-                        {voice && <Mic className="h-3 w-3 shrink-0 text-[#E5B54F]" strokeWidth={1.75} />}
-                        <span className="truncate">{voice ? 'Note vocale' : conv.preview}</span>
-                      </span>
-                      <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-neutral-500">
-                        <span className={`h-1 w-1 rounded-full ${status.dot}`} />
-                        {status.label}
-                      </span>
-                    </span>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => toggleUnread(conv, e)}
+                      title={conv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
+                      aria-label={conv.unread ? `Marquer ${conv.name} comme lu` : `Marquer ${conv.name} comme non lu`}
+                      className="absolute right-2.5 bottom-2.5 flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/[0.06] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 cursor-pointer"
+                    >
+                      {conv.unread ? <MailOpen className="h-3.5 w-3.5" strokeWidth={1.6} /> : <Mail className="h-3.5 w-3.5" strokeWidth={1.6} />}
+                    </button>
+                  </div>
                 );
               })
             )}
           </div>
+
+          {syncedAt && (
+            <div className="hidden lg:flex items-center gap-1.5 border-t border-[#2D261E] px-3.5 py-2 font-mono text-[11px] text-neutral-600">
+              <span className="h-1 w-1 rounded-full bg-emerald-400/70" />
+              Synchro {syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </div>
+          )}
         </div>
 
         {/* Fil */}
@@ -408,6 +617,15 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   <div className="font-mono text-[12.5px] text-neutral-500">{selectedConv.phone}</div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => toggleUnread(selectedConv)}
+                    title={selectedConv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#3A3022] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
+                  >
+                    {selectedConv.unread ? <MailOpen className="h-3 w-3" strokeWidth={1.5} /> : <Mail className="h-3 w-3" strokeWidth={1.5} />}
+                    <span className="hidden md:inline">{selectedConv.unread ? 'Marquer lu' : 'Non lu'}</span>
+                  </button>
                   {onOpenOrderForStudio && (
                     <button
                       type="button"
@@ -447,14 +665,12 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 key={selectedConv.id}
                 className="vx-fade-in flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-2.5 min-h-[320px] max-h-[56vh] lg:max-h-none bg-[radial-gradient(40rem_20rem_at_100%_0%,rgba(255,255,255,0.025),transparent_70%)]"
               >
-                {initialMessages.map((m, idx, all) => {
-                  const inbound = m.role === 'user' || m.direction === 'inbound';
-                  const voice = inbound && isVoice(m.body);
+                {thread.map((m, idx, all) => {
+                  const voiceIn = m.inbound && isVoice(m.body);
                   const day = dayOf(m.createdAt);
                   const showDay = idx === 0 || day !== dayOf(all[idx - 1].createdAt);
-                  const msgId = m.id || `m${idx}`;
                   return (
-                    <div key={msgId}>
+                    <div key={m.id}>
                       {showDay && (
                         <div className="flex items-center gap-3 py-3">
                           <span className="h-px flex-1 bg-white/[0.06]" />
@@ -462,55 +678,50 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                           <span className="h-px flex-1 bg-white/[0.06]" />
                         </div>
                       )}
-                      <div className={`flex ${inbound ? 'justify-start' : 'justify-end'}`}>
+                      <div className={`flex ${m.inbound ? 'justify-start' : 'justify-end'} ${idx >= history.length ? 'vx-view-enter' : ''}`}>
                         <div
                           className={`max-w-[86%] sm:max-w-[72%] rounded-2xl px-3.5 py-2.5 ${
-                            inbound
-                              ? `rounded-bl-md border bg-[#1A1713] text-neutral-200 ${voice ? 'border-[#E5B54F]/20 w-[300px] sm:w-[340px]' : 'border-[#2D261E]'}`
-                              : 'rounded-br-md bg-white text-black shadow-[0_8px_24px_-12px_rgba(255,255,255,0.25)]'
+                            m.inbound
+                              ? `rounded-bl-md border bg-[#1A1713] text-neutral-200 ${voiceIn ? 'border-[#E5B54F]/20 w-[300px] sm:w-[340px]' : 'border-[#2D261E]'}`
+                              : `rounded-br-md bg-white text-black shadow-[0_8px_24px_-12px_rgba(255,255,255,0.25)] ${m.voice ? 'w-[280px] sm:w-[320px]' : ''}`
                           }`}
                         >
-                          {voice ? (
-                            <VoiceNote
-                              id={msgId}
-                              transcript={stripVoice(m.body)}
-                              playing={playingId === msgId}
-                              onToggle={() => setPlayingId(p => (p === msgId ? null : msgId))}
-                            />
+                          {voiceIn ? (
+                            <div className="space-y-2.5">
+                              <WaveformPlayer seed={m.id + m.body} durationHint={Math.min(58, Math.max(9, Math.round(stripVoice(m.body).length / 4.5)))} />
+                              <div className="flex gap-2 border-t border-[#2D261E] pt-2">
+                                <FileText className="h-3 w-3 mt-[3px] shrink-0 text-neutral-500" strokeWidth={1.5} />
+                                <p className="text-[12.5px] leading-relaxed text-neutral-300">
+                                  <span className="sr-only">Transcription : </span>
+                                  {stripVoice(m.body)}
+                                </p>
+                              </div>
+                            </div>
+                          ) : m.voice ? (
+                            <WaveformPlayer seed={m.id} src={m.voice.url} peaks={m.voice.peaks} durationHint={m.voice.durationSec} tone="light" />
                           ) : (
                             <p className="whitespace-pre-line text-sm leading-relaxed">{m.body}</p>
                           )}
-                          <div className={`mt-1.5 flex items-center justify-end gap-1 font-mono text-[11.5px] ${inbound ? 'text-neutral-500' : 'text-neutral-500'}`}>
-                            {voice && <span className="mr-auto inline-flex items-center gap-1 text-[#E5B54F]"><Mic className="h-2.5 w-2.5" />Note vocale</span>}
+                          <div className="mt-1.5 flex items-center justify-end gap-1 font-mono text-[11.5px] text-neutral-500">
+                            {(voiceIn || m.voice) && (
+                              <span className={`mr-auto inline-flex items-center gap-1 ${m.inbound ? 'text-[#E5B54F]' : 'text-[#8A6420]'}`}>
+                                <Mic className="h-2.5 w-2.5" />Note vocale
+                              </span>
+                            )}
                             <span>{timeOf(m.createdAt)}</span>
-                            {!inbound && <CheckCheck className="h-3 w-3 text-sky-600" />}
+                            {!m.inbound && m.receipt && <Ticks receipt={m.receipt} />}
                           </div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
-
-                {currentExtraMessages.map((em, eidx) => (
-                  <div key={`extra-${eidx}`} className="flex justify-end vx-view-enter">
-                    <div className="max-w-[86%] sm:max-w-[72%] rounded-2xl rounded-br-md bg-white px-3.5 py-2.5 text-black shadow-[0_8px_24px_-12px_rgba(255,255,255,0.25)]">
-                      <p className="whitespace-pre-line text-sm leading-relaxed">{em.body}</p>
-                      <div className="mt-1.5 flex items-center justify-end gap-1 font-mono text-[11.5px] text-neutral-500">
-                        <span>{em.time}</span>
-                        {isSending && eidx === currentExtraMessages.length - 1 ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <CheckCheck className="h-3 w-3 text-sky-600" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
 
               {/* Retour d'envoi */}
               {sendFeedback && (
                 <div
+                  role="status"
                   className={`vx-fade-in mx-4 sm:mx-5 mb-2 rounded-xl px-3 py-2 text-[12.5px] flex items-center gap-2 border ${
                     sendFeedback.success
                       ? 'border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300'
@@ -525,16 +736,16 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               {/* Dock de réponses rapides + compositeur */}
               <div className="border-t border-[#2D261E] bg-[#0E0C0A] p-3 sm:p-4 space-y-2.5">
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                  {SNIPPETS.map((snip) => {
+                  {SNIPPETS.map((snip, i) => {
                     const Icon = snip.icon;
                     const active = replyText === snip.text;
                     return (
                       <button
                         key={snip.label}
                         type="button"
-                        onClick={() => setReplyText(snip.text)}
-                        title={snip.text}
-                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] transition-colors duration-200 cursor-pointer ${
+                        onClick={(e) => insertSnippet(snip.text, e.shiftKey)}
+                        title={`${snip.text}\n\nAlt+${i + 1} pour insérer · Maj+clic pour envoyer directement`}
+                        className={`group/snip inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] transition-colors duration-200 cursor-pointer ${
                           active
                             ? 'border-[#E5B54F]/40 bg-[#E5B54F]/10 text-[#F1DDB4]'
                             : 'border-[#2D261E] bg-white/[0.02] text-[#A8A29E] hover:text-white hover:border-white/20'
@@ -542,35 +753,59 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                       >
                         <Icon className="h-3 w-3" strokeWidth={1.5} />
                         {snip.label}
+                        <span className="hidden lg:inline font-mono text-[10.5px] text-neutral-600 group-hover/snip:text-neutral-500">{i + 1}</span>
                       </button>
                     );
                   })}
                 </div>
-                <div className="flex items-end gap-2 rounded-2xl border border-[#2D261E] bg-white/[0.025] p-1.5 pl-4 focus-within:border-white/25 transition-colors duration-200">
-                  <textarea
-                    rows={1}
-                    placeholder={`Répondre à ${selectedConv.name}`}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendReply();
-                      }
-                    }}
-                    aria-label="Réponse WhatsApp"
-                    className="flex-1 resize-none bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none max-h-28"
+
+                {recorderOpen ? (
+                  <VoiceNoteRecorder
+                    autoStart
+                    confirmLabel="Envoyer le vocal"
+                    onComplete={sendVoice}
+                    onCancel={() => setRecorderOpen(false)}
                   />
-                  <button
-                    type="button"
-                    onClick={handleSendReply}
-                    disabled={!replyText.trim() || isSending}
-                    aria-label="Envoyer sur WhatsApp"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" strokeWidth={2} />}
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-end gap-2 rounded-2xl border border-[#2D261E] bg-white/[0.025] p-1.5 pl-4 focus-within:border-white/25 transition-colors duration-200">
+                    <textarea
+                      ref={composerRef}
+                      rows={1}
+                      placeholder={`Répondre à ${selectedConv.name}`}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendText(replyText);
+                        }
+                      }}
+                      aria-label="Réponse WhatsApp"
+                      className="flex-1 resize-none bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none max-h-28"
+                    />
+                    {replyText.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => sendText(replyText)}
+                        disabled={isSending}
+                        aria-label="Envoyer sur WhatsApp"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" strokeWidth={2} />}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setRecorderOpen(true)}
+                        aria-label="Enregistrer une note vocale WhatsApp"
+                        title="Note vocale WhatsApp"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5B54F] text-[#0C0A09] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer"
+                      >
+                        <Mic className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           ) : (

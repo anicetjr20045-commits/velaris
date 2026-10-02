@@ -446,7 +446,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     keys: ['marge', 'cout', 'depense', 'rentab', 'suno', 'abonnement'],
     title: 'Coûts & marges',
     body:
-      `- **Marge brute moyenne** : 92,4 %\n- **Coût IA** : environ 150 F CFA par composition\n- **Suno Pro** : 12 000 F / mois\n- **VPS WAHA** : 3 500 F / mois\n- **Retraits Mobile Money** : 1 % fixe\n\nDétail complet dans l’onglet *Coûts & marges*.`,
+      `- **Marge brute moyenne** : 92,4 %\n- **Coût IA** : environ 150 F CFA par composition\n- **Suno Pro** : 12 000 F / mois\n- **VPS WAHA** : 3 500 F / mois\n- **Retraits Mobile Money** : 1 % fixe\n\nSuivi détaillé dans l’onglet *Ventes & Caisse*.`,
   },
   {
     keys: ['qr', 'scanner', 'connecter whatsapp', 'ligne', 'waha', 'deconnex', 'session'],

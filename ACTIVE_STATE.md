@@ -8,7 +8,7 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 1er Octobre 2026
+- **Dernière mise à jour** : 2 Octobre 2026
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
@@ -29,6 +29,33 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 21. Mission Complète Suite — Vague 2 (2 Octobre 2026)
+- **Source** : `MISSION_COMPLETE_SUITE.md` (points 4, 5, 9, 11, 12, 17 bonus enregistreur).
+- **`services/waha.ts`** : `wahaFetch` borné dans le temps (AbortController) pour tous les appels ; `startWahaHeartbeat` (sonde 15 s, backoff exponentiel plafonné à 60 s, veille onglet caché, reprise sur `online`/`visibilitychange`, relance auto STOPPED/FAILED limitée à 3 tentatives, états `connecting/online/scan/reconnecting/offline`, latence) ; `sendWahaVoiceMessage` (PTT `/api/sendVoice`, OGG tel quel sinon `convert: true` → WAHA Plus + ffmpeg requis) ; `markWahaChatSeen` (`/api/sendSeen`) ; `fetchWahaMessageAcks` (ack 0-4) ; `wahaSessionNameFor`, `toChatId`. Hook `useWahaHeartbeat` dans `hooks/useWaha.ts` (reconnexion auto désactivée en démo).
+- **`ConversationsView.tsx`** : liste live via `useStudioLive` ; historique Supabase réel pour un studio connecté (50 derniers messages ; `getLiveMessages` renvoie désormais les plus récents) ; pastille d'état du flux WAHA + latence + bouton Reconnecter ; coches WhatsApp (horloge / simple grise / double grise / double bleue / échec) avec polling des accusés réels 5 s pendant 3 min ; bascule lu/non-lu (liste + en-tête) partagée avec la pastille de navigation via `services/readState.ts` (localStorage, liée au dernier échange) ; `sendSeen` côté client au passage en lu (studio connecté uniquement) ; 6 snippets (insertion au curseur, Alt+1…6, Maj+clic = envoi direct) ; bouton micro → envoi de vocal PTT ; envois texte enregistrés dans Supabase (`recordOutboundMessage`).
+- **`WaveformPlayer.tsx` (nouveau)** : lecteur d'onde partagé (audio réel ou aperçu temporel), un seul lecteur actif, seek clic/flèches, vitesse 1x/1.5x/2x.
+- **`VoiceNoteRecorder.tsx` (nouveau)** : MediaRecorder (ogg/opus si supporté, sinon webm/opus ou mp4), visualiseur canvas temps réel (AnalyserNode, niveaux 50 ms), limite 2 min, réécoute, recommencer/supprimer, erreurs micro traduites, libération micro/AudioContext/URLs.
+- **Pipeline** : 5 étapes `nouveau → en_discussion → devis → studio → livre` alignées sur l'enum `funnel_stage` (new / qualifying+objection+lost / presenting+payment_pending / paid / delivered). `services/pipelineAutopilot.ts` : inférence par statut de commande (prioritaire, rapprochement téléphone/nom) et signaux du résumé IA ; jamais de recul. `PipelineView` : interrupteur « Pilote automatique » persistant, déplacement manuel = fiche verrouillée (« rendre au pilote »), journal des mouvements de la session, raison affichée sur la carte, mini-progression 5 segments. `orders` passé par `StudioAppLayout`.
+- **Automatisations** : 4 types (Texte / Note vocale / Document / Vidéo) compatibles moteur `velaris-agent` (`action_type` send_text/send_voice/send_media, `media_path` dans le bucket privé `product-files` sous `<uid>/automations/`, `caption`). Enregistrement micro ou import audio, aperçu côté client, URLs signées 1 h, nettoyage du média remplacé/supprimé, 16 Mo max. Correctif : `saveAutomationRule` envoie maintenant `action_type` (colonne NOT NULL — l'insertion échouait avant).
+- **`AcademyView.tsx`** : cursus rédigé (26 chapitres, 3 points clés chacun), lecteur « résumé guidé » (~18 s/chapitre, points révélés, lecture/pause, chapitre précédent/suivant, vitesse, clavier Espace/flèches, avance auto, module validé en fin de cursus ; `<video>` si `videoUrl` est fourni), progression persistée (localStorage) + barre studio segmentée par module, boîte à outils filtrable (9 ressources) personnalisée par Prénom/Occasion avec copie 1 clic (repli `execCommand`).
+- **Validation** : `tsc -p tsconfig.app.json --noEmit` → 0 erreur ; `vite build` → succès en 2.84s (avertissement bundle > 500 kB préexistant). Pas de test navigateur réel (micro, WAHA) effectué.
+- **Points d'attention** : en mode démo (non connecté), l'envoi texte/vocal part réellement via la session `Test` vers les numéros des données réelles (comportement hérité) ; la conversion des vocaux webm (Chrome) dépend de WAHA Plus ; clé API WAHA toujours embarquée dans le bundle client.
+- **Non commité** (en attente de validation visuelle).
+
+### 20. Mission Complète Suite — Vague 1 (2 Octobre 2026)
+- **Source** : `MISSION_COMPLETE_SUITE.md` (points 1, 2, 6, 7, 13, 15, 16, 17).
+- **`StudioAppLayout.tsx`** : onglets `couts` et `tarifs` supprimés (type `StudioTab`, `navGroups`, rendus). Nouvel onglet `profile` (Paramètres studio) ; `admin` branché sur `AdminConsoleView`. Barre de navigation mobile inférieure (< 768px) : Cockpit, Discussions (pastille rouge non-lus), Atelier IA, Copilot, Plus (ouvre le tiroir). Cibles tactiles 44px dans l'en-tête mobile, fermeture du tiroir par balayage gauche. Bouton de recherche `⌘K / Ctrl K` dans le fil d'Ariane desktop et loupe dans l'en-tête mobile. La carte profil du bas de la sidebar ouvre l'onglet Profil.
+- **`AdminConsoleView.tsx` (nouveau)** : KPI du parc (studios connectés WAHA, CA consolidé, conversations/non-lus, conversion) ; santé des 4 nœuds avec sondage réel toutes les 30 s (WAHA `/ping`, Supabase `/auth/v1/health`, latence + histogramme 24 points) et états déduits signalés comme tels (Suno via commandes, Webhook Bridge via sessions WAHA actives) ; réseau des sessions WAHA avec numéros masqués ; posture de sécurité ; journal de sécurité/télémétrie filtrable (Tout / Alertes).
+- **`AuthModal.tsx` + `AuthContext`** : modes `login` / `signup` / `reset` / `recovery`. Mot de passe oublié via `resetPasswordForEmail` (réponse identique que le compte existe ou non), retour du lien email → événement `PASSWORD_RECOVERY` → saisie du nouveau mot de passe (`updateUser`). Inscription : `requiresEmailConfirmation` maintenant correct + écran « Vérifiez vos emails » avec renvoi (`auth.resend`, délai 45 s). Messages Supabase traduits, verrouillage local 30 s après 5 échecs, jauge de robustesse, mots de passe effacés à la fermeture, Échap / clic hors modal, `autocomplete` corrects. `emailRedirectTo` / `redirectTo` = origine + chemin (compatible GitHub Pages `/velaris/`).
+- **`StudioProfileView.tsx` (nouveau)** : nom du studio modifiable (assaini, `updateUser`), email, identifiant, dates, session WAHA `studio_<id>` copiable, statut RLS / email confirmé / expiration du jeton, Reconnecter (`refreshSession`), lien mot de passe, Se déconnecter (reste sur le profil qui propose la reconnexion).
+- **`CommandPalette.tsx` (nouveau)** : Cmd+K / Ctrl+K, recherche floue insensible aux accents, tous les onglets + actions (nouvelle commande, QR WhatsApp, connexion/déconnexion, vitrine), navigation clavier complète, rôles ARIA combobox/listbox.
+- **`index.css`** : `.vx-view-enter` = fondu + glissé 6px (320 ms) ; styles `.vx-bottom-nav*` (safe-area iOS) ; `.vx-palette*`, `.vx-kbd` ; ajout au bloc `prefers-reduced-motion`.
+- **`copilot.ts`** : la réponse « Coûts & marges » renvoie désormais vers *Ventes & Caisse* (onglet supprimé).
+- **Validation** : `tsc -p tsconfig.app.json --noEmit` → 0 erreur ; `vite build` → succès en 3.90s (seul l'avertissement préexistant bundle > 500 kB). ESLint absent de `node_modules`, non exécuté.
+- **Non commité** (en attente de validation visuelle).
+- **Point de sécurité relevé** : la clé API WAHA est dans le bundle client (`waha.ts`) — à migrer vers une Edge Function (signalé dans la Console Admin).
+- **Prochaine étape** : Vague 2 livrée (jalon 21). Restent hors périmètre des deux vagues : points 3 (palette), 8 (Copilot/Sonar), 10 (cache Supabase de secours), 14 (audit sécurité).
 
 ### 19. Palette Warm Obsidian & Champagne Gold + Moteur Temps Réel (2 Octobre 2026)
 - **Source** : `MISSION_GOLD_LUXURY_REALTIME.md` + `ref_images/ref_image_1.jpg` (Automatisations) & `ref_image_2.jpg` (Suivi clients).

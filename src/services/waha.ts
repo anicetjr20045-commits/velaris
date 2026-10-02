@@ -30,6 +30,20 @@ export interface WahaSendTextResponse {
 }
 
 /**
+ * Nom de session WAHA isolé par studio (multi-tenant) ; 'Test' en démo
+ */
+export function wahaSessionNameFor(userId?: string | null): string {
+  return userId ? `studio_${userId.slice(0, 8)}` : WAHA_CONFIG.defaultSession;
+}
+
+/**
+ * Normalisation du chatId WhatsApp (ex: 22656240533@c.us)
+ */
+export function toChatId(phoneOrChatId: string): string {
+  return phoneOrChatId.includes('@') ? phoneOrChatId : `${phoneOrChatId.replace(/[^0-9]/g, '')}@c.us`;
+}
+
+/**
  * En-têtes standards pour les requêtes WAHA
  */
 function getHeaders(): HeadersInit {
@@ -41,14 +55,24 @@ function getHeaders(): HeadersInit {
 }
 
 /**
+ * fetch borné dans le temps : un serveur WAHA figé ne doit jamais bloquer l'interface
+ */
+async function wahaFetch(path: string, init: RequestInit = {}, timeoutMs = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(`${WAHA_CONFIG.baseUrl}${path}`, { ...init, headers: getHeaders(), signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Ping du serveur WAHA
  */
 export async function pingWaha(): Promise<boolean> {
   try {
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/ping`, {
-      method: 'GET',
-      headers: getHeaders(),
-    });
+    const res = await wahaFetch('/ping', { method: 'GET' }, 6000);
     return res.ok;
   } catch (err) {
     console.warn('[WAHA] Ping failed:', err);
@@ -61,9 +85,8 @@ export async function pingWaha(): Promise<boolean> {
  */
 export async function fetchWahaSessions(): Promise<WahaSession[]> {
   try {
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sessions`, {
+    const res = await wahaFetch(`/api/sessions`, {
       method: 'GET',
-      headers: getHeaders(),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
@@ -78,9 +101,8 @@ export async function fetchWahaSessions(): Promise<WahaSession[]> {
  */
 export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<WahaSession | null> {
   try {
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sessions/${sessionName}`, {
+    const res = await wahaFetch(`/api/sessions/${sessionName}`, {
       method: 'GET',
-      headers: getHeaders(),
     });
     if (!res.ok) return null;
     return await res.json();
@@ -104,9 +126,8 @@ export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaul
     }
 
     // Création de la session avec configuration haute stabilité (anti-déconnexion)
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sessions`, {
+    const res = await wahaFetch(`/api/sessions`, {
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify({
         name: sessionName,
         start: true,
@@ -145,9 +166,8 @@ export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaul
  */
 export async function startWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
   try {
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sessions/${sessionName}/start`, {
+    const res = await wahaFetch(`/api/sessions/${sessionName}/start`, {
       method: 'POST',
-      headers: getHeaders(),
     });
     return res.ok;
   } catch (err) {
@@ -161,9 +181,8 @@ export async function startWahaSession(sessionName: string = WAHA_CONFIG.default
  */
 export async function stopWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
   try {
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sessions/${sessionName}/stop`, {
+    const res = await wahaFetch(`/api/sessions/${sessionName}/stop`, {
       method: 'POST',
-      headers: getHeaders(),
     });
     return res.ok;
   } catch (err) {
@@ -188,39 +207,233 @@ export async function sendWahaTextMessage(
   text: string,
   sessionName: string = WAHA_CONFIG.defaultSession
 ): Promise<WahaSendTextResponse> {
+  return postSend('/api/sendText', {
+    session: sessionName,
+    chatId: toChatId(chatId),
+    text: text,
+  });
+}
+
+/* WAHA renvoie l'identifiant sous plusieurs formes selon le moteur (WEBJS / NOWEB) */
+function extractMessageId(data: any): string | undefined {
+  const id = data?.id ?? data?.messageId ?? data?.key?.id;
+  if (typeof id === 'string') return id;
+  if (id && typeof id === 'object') return id._serialized ?? id.id;
+  return undefined;
+}
+
+async function postSend(path: string, body: Record<string, unknown>): Promise<WahaSendTextResponse> {
   try {
-    // Normalisation du chatId WhatsApp (ex: 22656240533@c.us)
-    const normalizedChatId = chatId.includes('@') 
-      ? chatId 
-      : `${chatId.replace(/[^0-9]/g, '')}@c.us`;
-
-    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/sendText`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        session: sessionName,
-        chatId: normalizedChatId,
-        text: text,
-      }),
-    });
-
+    const res = await wahaFetch(path, { method: 'POST', body: JSON.stringify(body) }, 30000);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return {
-        success: false,
-        error: data.message || `Erreur WAHA (${res.status})`,
-      };
+      return { success: false, error: data.message || `Erreur WAHA (${res.status})` };
     }
-
-    return {
-      success: true,
-      messageId: data.id || data.messageId,
-    };
+    return { success: true, messageId: extractMessageId(data) };
   } catch (err: any) {
-    console.error('[WAHA] sendTextMessage error:', err);
+    console.error(`[WAHA] ${path} error:`, err);
     return {
       success: false,
-      error: err.message || 'Impossible de joindre le serveur WAHA',
+      error: err?.name === 'AbortError' ? 'Le serveur WAHA met trop de temps à répondre' : err?.message || 'Impossible de joindre le serveur WAHA',
     };
   }
+}
+
+const blobToBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+/**
+ * Envoie une note vocale native WhatsApp (PTT).
+ * OGG/Opus part tel quel ; les autres formats (webm Chrome, mp4 Safari)
+ * sont convertis par WAHA (`convert: true`, nécessite WAHA Plus + ffmpeg).
+ */
+export async function sendWahaVoiceMessage(
+  chatId: string,
+  audio: Blob,
+  sessionName: string = WAHA_CONFIG.defaultSession
+): Promise<WahaSendTextResponse> {
+  const mime = audio.type || 'audio/ogg';
+  const isOgg = mime.includes('ogg');
+  const data = await blobToBase64(audio);
+  return postSend('/api/sendVoice', {
+    session: sessionName,
+    chatId: toChatId(chatId),
+    convert: !isOgg,
+    file: {
+      mimetype: isOgg ? 'audio/ogg; codecs=opus' : mime.split(';')[0],
+      filename: isOgg ? 'voice.ogg' : `voice.${mime.includes('mp4') ? 'm4a' : 'webm'}`,
+      data,
+    },
+  });
+}
+
+/**
+ * Marque la discussion comme lue côté WhatsApp (coches bleues chez le client)
+ */
+export async function markWahaChatSeen(chatId: string, sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
+  try {
+    const res = await wahaFetch('/api/sendSeen', {
+      method: 'POST',
+      body: JSON.stringify({ session: sessionName, chatId: toChatId(chatId) }),
+    }, 8000);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Accusés WhatsApp : 0 en attente, 1 serveur, 2 remis, 3 lu, 4 écouté
+ */
+export type WahaAck = -1 | 0 | 1 | 2 | 3 | 4;
+
+/**
+ * Récupère les accusés des derniers messages d'une discussion (id -> ack)
+ */
+export async function fetchWahaMessageAcks(
+  chatId: string,
+  sessionName: string = WAHA_CONFIG.defaultSession,
+  limit = 20
+): Promise<Record<string, WahaAck>> {
+  try {
+    const chat = encodeURIComponent(toChatId(chatId));
+    const res = await wahaFetch(`/api/${sessionName}/chats/${chat}/messages?limit=${limit}&downloadMedia=false`, { method: 'GET' }, 8000);
+    if (!res.ok) return {};
+    const list = await res.json();
+    const acks: Record<string, WahaAck> = {};
+    if (Array.isArray(list)) {
+      for (const m of list) {
+        const id = extractMessageId(m);
+        if (id && typeof m.ack === 'number') acks[id] = m.ack as WahaAck;
+      }
+    }
+    return acks;
+  } catch {
+    return {};
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Heartbeat & reconnexion automatique                                */
+/* ------------------------------------------------------------------ */
+
+export type WahaLinkState = 'connecting' | 'online' | 'scan' | 'reconnecting' | 'offline';
+
+export interface WahaHeartbeat {
+  state: WahaLinkState;
+  /** Statut brut WAHA de la session */
+  sessionStatus: string | null;
+  latencyMs: number | null;
+  lastBeatAt: number | null;
+  failures: number;
+  reconnectAttempts: number;
+}
+
+interface HeartbeatOptions {
+  intervalMs?: number;
+  maxReconnectAttempts?: number;
+  onChange: (hb: WahaHeartbeat) => void;
+}
+
+/**
+ * Battement régulier sur la session WAHA :
+ * - sonde l'état toutes les `intervalMs` (espacement exponentiel en cas d'échec, plafonné à 60 s),
+ * - relance la session si WAHA la signale STOPPED / FAILED (tentatives bornées),
+ * - se met en veille quand l'onglet est caché et repart immédiatement au retour réseau / onglet.
+ * Retourne une fonction d'arrêt et de relance manuelle.
+ */
+export function startWahaHeartbeat(
+  sessionName: string,
+  { intervalMs = 15000, maxReconnectAttempts = 3, onChange }: HeartbeatOptions
+): { stop: () => void; beatNow: () => void; reconnect: () => Promise<void> } {
+  let hb: WahaHeartbeat = { state: 'connecting', sessionStatus: null, latencyMs: null, lastBeatAt: null, failures: 0, reconnectAttempts: 0 };
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+  let inFlight = false;
+
+  const emit = (patch: Partial<WahaHeartbeat>) => {
+    hb = { ...hb, ...patch };
+    if (!stopped) onChange(hb);
+  };
+
+  const schedule = () => {
+    if (stopped) return;
+    if (timer) clearTimeout(timer);
+    const delay = hb.failures === 0 ? intervalMs : Math.min(60000, intervalMs * 2 ** Math.min(hb.failures, 3));
+    timer = setTimeout(beat, delay);
+  };
+
+  const reconnect = async () => {
+    emit({ state: 'reconnecting', reconnectAttempts: hb.reconnectAttempts + 1 });
+    const ok = sessionName.startsWith('studio_') ? !!(await ensureWahaSession(sessionName)) : await startWahaSession(sessionName);
+    if (!ok) emit({ state: 'offline' });
+  };
+
+  async function beat() {
+    if (stopped || inFlight) return;
+    if (typeof document !== 'undefined' && document.hidden) return schedule();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      emit({ state: 'offline', failures: hb.failures + 1 });
+      return schedule();
+    }
+    inFlight = true;
+    const t0 = performance.now();
+    try {
+      const res = await wahaFetch(`/api/sessions/${sessionName}`, { method: 'GET' }, 8000);
+      const latencyMs = Math.round(performance.now() - t0);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const session: WahaSession = await res.json();
+      const status = session.status;
+      if (status === 'WORKING') {
+        emit({ state: 'online', sessionStatus: status, latencyMs, lastBeatAt: Date.now(), failures: 0, reconnectAttempts: 0 });
+      } else if (status === 'SCAN_QR_CODE') {
+        emit({ state: 'scan', sessionStatus: status, latencyMs, lastBeatAt: Date.now(), failures: 0 });
+      } else if (status === 'STARTING') {
+        emit({ state: 'reconnecting', sessionStatus: status, latencyMs, lastBeatAt: Date.now(), failures: 0 });
+      } else {
+        emit({ sessionStatus: status, latencyMs, lastBeatAt: Date.now(), failures: hb.failures + 1 });
+        if (hb.reconnectAttempts < maxReconnectAttempts) await reconnect();
+        else emit({ state: 'offline' });
+      }
+    } catch {
+      emit({ state: hb.failures >= 1 ? 'offline' : 'reconnecting', latencyMs: null, failures: hb.failures + 1 });
+    } finally {
+      inFlight = false;
+      schedule();
+    }
+  }
+
+  const beatNow = () => {
+    if (timer) clearTimeout(timer);
+    beat();
+  };
+  const onVisible = () => {
+    if (!document.hidden) beatNow();
+  };
+
+  window.addEventListener('online', beatNow);
+  window.addEventListener('offline', beatNow);
+  document.addEventListener('visibilitychange', onVisible);
+  beat();
+
+  return {
+    stop: () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('online', beatNow);
+      window.removeEventListener('offline', beatNow);
+      document.removeEventListener('visibilitychange', onVisible);
+    },
+    beatNow,
+    reconnect: async () => {
+      emit({ reconnectAttempts: 0 });
+      await reconnect();
+      beatNow();
+    },
+  };
 }

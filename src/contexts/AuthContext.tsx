@@ -1,7 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
-import { AuthContext } from './authContextDef';
+import { AuthContext, type AuthModalMode } from './authContextDef';
+
+// Lien de retour des emails Supabase (respecte le sous-chemin GitHub Pages /velaris/)
+const authRedirectUrl = () => `${window.location.origin}${window.location.pathname}`;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -16,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
 
   useEffect(() => {
     // 1. Initial Session Check
@@ -29,8 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // 2. Auth State Change Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      // Retour depuis l'email de réinitialisation : saisie du nouveau mot de passe
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthModalMode('recovery');
+        setAuthModalOpen(true);
+      }
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user) {
@@ -48,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const openAuthModal = (mode: 'login' | 'signup' = 'login') => {
+  const openAuthModal = (mode: AuthModalMode = 'login') => {
     setAuthModalMode(mode);
     setAuthModalOpen(true);
   };
@@ -95,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
         options: {
+          emailRedirectTo: authRedirectUrl(),
           data: {
             studio_name: studioName?.trim() || 'Mon Studio Velaris',
             full_name: studioName?.trim() || email.split('@')[0],
@@ -124,7 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: null, requiresEmailConfirmation: false };
       }
 
-      return { error: null, requiresEmailConfirmation: false };
+      // Pas de session possible tant que l'adresse n'est pas confirmée
+      return { error: null, requiresEmailConfirmation: true };
     } catch (err: any) {
       return { error: err.message || 'Erreur lors de la création du compte' };
     }
@@ -138,6 +148,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setSession(null);
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: authRedirectUrl(),
+      });
+      return { error: error ? error.message : null };
+    } catch (err: any) {
+      return { error: err.message || 'Impossible d\'envoyer le lien de réinitialisation' };
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) return { error: error.message };
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Impossible de mettre à jour le mot de passe' };
+    }
+  };
+
+  const resendConfirmation = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+        options: { emailRedirectTo: authRedirectUrl() },
+      });
+      return { error: error ? error.message : null };
+    } catch (err: any) {
+      return { error: err.message || 'Impossible de renvoyer l\'email de confirmation' };
+    }
   };
 
   return (
@@ -155,6 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        resetPassword,
+        updatePassword,
+        resendConfirmation,
       }}
     >
       {children}

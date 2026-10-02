@@ -41,6 +41,8 @@ export interface AcademyModule {
   description: string;
   icon: string;
   completed?: boolean;
+  /** Vidéo du cours si elle est hébergée ; sinon le lecteur propose le résumé guidé */
+  videoUrl?: string;
 }
 
 export interface ConversationItem {
@@ -60,19 +62,30 @@ export interface PipelineLead {
   name: string;
   phone?: string;
   lastExchange: string;
-  stage: 'nouveau' | 'en_discussion' | 'paiement' | 'livre';
+  /** nouveau -> en discussion -> devis -> en studio (payé) -> livré */
+  stage: 'nouveau' | 'en_discussion' | 'devis' | 'studio' | 'livre';
   tag?: string;
   summary?: string;
   /** Horodatage ISO du dernier échange (filtres temporels) */
   lastExchangeAt?: string;
 }
 
+/** Type de réponse envoyée par une règle (texte, vocal PTT, document/PDF, vidéo) */
+export type AutomationMediaKind = 'text' | 'voice' | 'document' | 'video';
+
 export interface AutomationRule {
   id: string;
   name: string;
   emoji: string;
+  /** Texte envoyé (règle texte) ou légende du média */
   action: string;
   active: boolean;
+  kind?: AutomationMediaKind;
+  /** Chemin du média dans le bucket Supabase `product-files` */
+  mediaPath?: string;
+  /** URL de lecture (objet local en démo, URL signée pour un studio connecté) */
+  mediaUrl?: string;
+  mediaName?: string;
 }
 
 export interface AutomationLog {

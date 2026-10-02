@@ -1,14 +1,12 @@
-import { useEffect, useState, type CSSProperties, type FC, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC, type ReactNode } from 'react';
 import {
   LayoutGrid,
   Wallet,
   MessagesSquare,
   Columns3,
-  Percent,
   TrendingUp,
   Smartphone,
   Zap,
-  Tag,
   Crown,
   Music2,
   GraduationCap,
@@ -18,10 +16,14 @@ import {
   Menu,
   X,
   ArrowLeft,
-  Server,
-  Activity,
-  Cpu,
-  ChevronRight
+  ChevronRight,
+  UserRound,
+  Search,
+  Sparkles,
+  Ellipsis,
+  QrCode,
+  Plus,
+  Home
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
@@ -33,20 +35,23 @@ import { WhatsAppLinesView } from './WhatsAppLinesView';
 import { VentesCaisseView } from './VentesCaisseView';
 import { StudioCopilotView } from './StudioCopilotView';
 import { VelarisMark } from './VelarisMark';
+import { AdminConsoleView } from './AdminConsoleView';
+import { StudioProfileView } from './StudioProfileView';
+import { CommandPalette, isMacPlatform, type PaletteCommand } from './CommandPalette';
 import { REAL_CONVERSATIONS, REAL_STUDIO_METRICS } from '../data/realProductionData';
 import { getLiveConversations } from '../services/supabase';
 import { useStudioLive } from '../hooks/useStudioLive';
+import { applyReadState, useReadState } from '../services/readState';
 
 export type StudioTab =
   | 'revenus'
   | 'ventes'
   | 'conversations'
   | 'pipeline'
-  | 'couts'
   | 'analyste'
   | 'whatsapp'
   | 'automations'
-  | 'tarifs'
+  | 'profile'
   | 'admin'
   | 'studio_ai'
   | 'academy';
@@ -63,8 +68,13 @@ interface StudioAppLayoutProps {
   onOpenNewOrderModal?: () => void;
 }
 
-/* Marque Velaris : sillons de vinyle + tête de lecture */
-const panelClass = 'rounded-2xl border border-[#2D261E] bg-[#13110E] vx-hairline';
+/* Accès directs de la barre mobile ; « Plus » ouvre le tiroir complet */
+const BOTTOM_TABS: { id: StudioTab; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'revenus', label: 'Cockpit', icon: LayoutGrid },
+  { id: 'conversations', label: 'Discussions', icon: MessagesSquare },
+  { id: 'studio_ai', label: 'Atelier IA', icon: Music2 },
+  { id: 'analyste', label: 'Copilot', icon: Sparkles }
+];
 
 export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   initialTab = 'revenus',
@@ -80,6 +90,8 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   const { user, signOut, openAuthModal } = useAuth();
   const [currentTab, setCurrentTab] = useState<StudioTab>(initialTab);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const drawerTouchX = useRef<number | null>(null);
 
   // Resynchronise l'onglet quand le parent change de vue (ex. #studio après sélection de commande)
   const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
@@ -94,12 +106,15 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   const userInitials = (userDisplayName.slice(0, 2) || 'ST').toUpperCase();
 
   // Non-lus WhatsApp : Realtime Supabase + polling de secours
-  const { data: liveConversations } = useStudioLive(
+  const { data: rawConversations } = useStudioLive(
     getLiveConversations,
     user ? [] : REAL_CONVERSATIONS,
     ['conversations', 'messages'],
     [user?.id]
   );
+  // Bascules lu / non-lu faites dans la boîte de réception
+  const readState = useReadState();
+  const liveConversations = useMemo(() => applyReadState(rawConversations, readState), [rawConversations, readState]);
   const unreadCount = liveConversations.filter((c) => c.unread).length;
 
   const navGroups: {
@@ -113,7 +128,6 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         { id: 'ventes' as StudioTab, label: 'Ventes & Caisse', icon: Wallet },
         { id: 'conversations' as StudioTab, label: 'Discussions WhatsApp', icon: MessagesSquare, count: unreadCount },
         { id: 'pipeline' as StudioTab, label: 'Suivi clients', icon: Columns3 },
-        { id: 'couts' as StudioTab, label: 'Coûts & marges', icon: Percent },
         { id: 'analyste' as StudioTab, label: 'Analyste & Copilot IA', icon: TrendingUp },
       ]
     },
@@ -122,7 +136,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
       items: [
         { id: 'whatsapp' as StudioTab, label: 'Lignes WhatsApp', icon: Smartphone },
         { id: 'automations' as StudioTab, label: 'Automatisations', icon: Zap },
-        { id: 'tarifs' as StudioTab, label: 'Tarifs & Formules', icon: Tag },
+        { id: 'profile' as StudioTab, label: 'Mon profil studio', icon: UserRound },
       ]
     },
     {
@@ -149,6 +163,44 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
     handleTabClick('studio_ai');
   };
 
+  // Palette Cmd+K : tous les onglets + actions rapides
+  const paletteCommands = useMemo<PaletteCommand[]>(() => {
+    const go = navGroups.flatMap((g) =>
+      g.items.map((item) => ({
+        id: `tab-${item.id}`,
+        label: item.label,
+        group: 'Aller à',
+        icon: item.icon,
+        keywords: g.title,
+        hint: item.count ? `${item.count} non lu${item.count > 1 ? 's' : ''}` : undefined,
+        run: () => handleTabClick(item.id)
+      }))
+    );
+    const actions: PaletteCommand[] = [];
+    if (onOpenNewOrderModal) {
+      actions.push({ id: 'new-order', label: 'Nouvelle commande', group: 'Actions', icon: Plus, keywords: 'créer brief client chanson', run: onOpenNewOrderModal });
+    }
+    actions.push({
+      id: 'connect-wa',
+      label: 'Connecter WhatsApp (QR code)',
+      group: 'Actions',
+      icon: QrCode,
+      keywords: 'waha scanner ligne session',
+      run: onOpenQrModal ?? (() => handleTabClick('whatsapp'))
+    });
+    actions.push(
+      user
+        ? { id: 'sign-out', label: 'Se déconnecter', group: 'Compte', icon: LogOut, keywords: 'logout quitter', run: () => void signOut() }
+        : { id: 'sign-in', label: 'Se connecter à mon studio', group: 'Compte', icon: LogIn, keywords: 'login connexion compte', run: () => openAuthModal('login') }
+    );
+    actions.push({ id: 'home', label: 'Retour à la vitrine', group: 'Compte', icon: Home, keywords: 'accueil site public landing', run: onReturnToHome });
+    return [...go, ...actions];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unreadCount, user, onOpenNewOrderModal, onOpenQrModal, onReturnToHome]);
+
+  const isBottomTab = BOTTOM_TABS.some((t) => t.id === currentTab);
+  const shortcutLabel = isMacPlatform() ? '⌘K' : 'Ctrl K';
+
   // Fermeture du tiroir mobile au clavier
   useEffect(() => {
     if (!isMobileDrawerOpen) return;
@@ -166,7 +218,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 ease-press"
+            className="-ml-2 h-11 w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.05] transition-colors duration-150 ease-press"
             aria-label="Ouvrir le menu"
           >
             <Menu className="h-5 w-5" strokeWidth={1.5} />
@@ -176,15 +228,24 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             <VelarisMark className="h-5 w-5 text-white" />
             <span className="font-heading font-bold text-sm tracking-tight text-white">Velaris</span>
             {activeItem && (
-              <span className="text-xs text-neutral-500 truncate max-w-[9rem]">/ {activeItem.label}</span>
+              <span key={activeItem.id} className="vx-fade-in text-xs text-neutral-500 truncate max-w-[9rem]">/ {activeItem.label}</span>
             )}
           </div>
         </div>
 
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
-          <span className="text-[10px] text-emerald-400 font-mono tracking-wider">En ligne</span>
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="flex items-center gap-1.5 pr-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
+            <span className="text-[10px] text-emerald-400 font-mono tracking-wider">En ligne</span>
+          </span>
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="-mr-2 h-11 w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+            aria-label="Rechercher dans le studio"
+          >
+            <Search className="h-[18px] w-[18px]" strokeWidth={1.6} />
+          </button>
+        </div>
       </header>
 
       {/* Drawer Overlay for Mobile */}
@@ -197,6 +258,16 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
 
       {/* Left Sidebar (Desktop & Mobile Drawer) */}
       <aside
+        onTouchStart={(e) => {
+          drawerTouchX.current = e.touches[0].clientX;
+        }}
+        onTouchEnd={(e) => {
+          // Balayage vers la gauche pour refermer le tiroir
+          if (drawerTouchX.current !== null && e.changedTouches[0].clientX - drawerTouchX.current < -60) {
+            setIsMobileDrawerOpen(false);
+          }
+          drawerTouchX.current = null;
+        }}
         className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-30 w-72 shrink-0 flex flex-col bg-[#0E0C0A]/95 md:bg-[#0E0C0A]/80 backdrop-blur-xl border-r border-[#2D261E] transition-transform duration-[360ms] ease-luxury ${
           isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         } h-screen`}
@@ -228,7 +299,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
 
           <button
             onClick={() => setIsMobileDrawerOpen(false)}
-            className="md:hidden p-1.5 text-neutral-400 hover:text-white transition-colors"
+            className="md:hidden -mr-2 h-11 w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white transition-colors"
             aria-label="Fermer le menu"
           >
             <X className="h-4 w-4" />
@@ -297,7 +368,11 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         <div className="p-3 border-t border-[#2D261E]">
           {user ? (
             <div className="rounded-xl border border-[#2D261E] bg-[#1A1713] p-3 flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                onClick={() => handleTabClick('profile')}
+                title="Mon profil studio"
+                className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
+              >
                 <div className="h-9 w-9 rounded-full bg-[#E5B54F]/[0.12] border border-[#E5B54F]/40 flex items-center justify-center text-xs font-bold text-[#F3CA75] shrink-0">
                   {userInitials}
                 </div>
@@ -310,7 +385,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                     <span>Poste RLS privé</span>
                   </div>
                 </div>
-              </div>
+              </button>
 
               <button
                 onClick={async () => {
@@ -373,7 +448,15 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
           </nav>
 
           <div className="flex items-center gap-3 shrink-0">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1 text-[11px] font-mono text-neutral-400">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="group inline-flex items-center gap-2.5 h-9 rounded-full border border-[#2D261E] bg-white/[0.02] pl-3 pr-1.5 text-[13px] text-neutral-500 hover:text-neutral-200 hover:border-[#3A3022] transition-colors duration-200 ease-luxury cursor-pointer"
+            >
+              <Search className="h-3.5 w-3.5" strokeWidth={1.8} />
+              <span className="hidden lg:inline">Aller à…</span>
+              <kbd className="vx-kbd">{shortcutLabel}</kbd>
+            </button>
+            <span className="hidden lg:inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1 text-[11px] font-mono text-neutral-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
               WAHA · Suno · Supabase
             </span>
@@ -412,6 +495,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
 
             {currentTab === 'pipeline' && (
               <PipelineView
+                orders={orders}
                 onSelectLeadForStudio={(leadId) => {
                   const matched = orders.find(o => o.id === leadId);
                   openOrderInStudio(matched ? matched.id : orders[0]?.id || 'ORD-9821');
@@ -427,45 +511,6 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               <WhatsAppLinesView />
             )}
 
-            {currentTab === 'couts' && (
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div>
-                  <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Coûts & marges studio</h1>
-                  <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed">Structure unitaire de rentabilité et cashflow net par commande.</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { label: 'Marge brute moyenne', value: '92,4 %', accent: 'text-emerald-400', note: 'Coût moyen de génération IA Suno : ~150 F CFA par composition.' },
-                    { label: 'Coût par lead WhatsApp', value: '65 F CFA', accent: 'text-white', note: 'Taux de conversion moyen : 1 closing pour 4 à 6 prospects entrants.' },
-                    { label: 'Bénéfice net réalisé', value: '3 367 000 F', accent: 'text-white', note: 'Sur 3 644 400 F CFA encaissés directement sur Wave & Orange Money.' },
-                  ].map((card, i) => (
-                    <div key={card.label} style={{ '--i': i } as CSSProperties} className={`${panelClass} p-6 space-y-2 vx-stagger`}>
-                      <div className="text-xs text-neutral-400">{card.label}</div>
-                      <div className={`font-mono text-3xl font-bold tracking-tight ${card.accent}`}>{card.value}</div>
-                      <p className="text-xs text-neutral-500 leading-relaxed">{card.note}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className={`${panelClass} p-6 space-y-4`}>
-                  <div className="text-sm font-medium text-white">Grille analytique des dépenses</div>
-                  <div className="divide-y divide-[#2D261E] font-mono text-xs">
-                    {[
-                      ['Abonnement Suno IA Pro / Premier', '12 000 F CFA / mois'],
-                      ['Hébergement serveur WAHA (VPS dédié)', '3 500 F CFA / mois'],
-                      ['Frais de transfert Mobile Money (retraits)', '1,0 % fixe'],
-                    ].map(([label, value]) => (
-                      <div key={label} className="flex items-center justify-between py-3">
-                        <span className="text-neutral-400">{label}</span>
-                        <span className="text-white font-semibold">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {currentTab === 'analyste' && (
               <StudioCopilotView
                 orders={orders}
@@ -474,91 +519,58 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               />
             )}
 
-            {currentTab === 'tarifs' && (
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div>
-                  <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Tarifs & formules studio</h1>
-                  <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed">Formules étalonnées pour maximiser le taux de closing WhatsApp.</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { name: 'Découverte', price: '1 200 F', desc: '1 chanson personnalisée, 1 voix studio, livraison master audio direct.', delay: '15 minutes', featured: false },
-                    { name: 'Complète', price: '3 000 F', desc: 'Paroles sur-mesure + 2 versions audio masterisées + pochette carrée souvenir.', delay: '18 minutes', featured: true },
-                    { name: 'Prestige / Mariage', price: '5 000 F', desc: 'Duo de voix, arrangements personnalisés, livret de paroles HD pour impression.', delay: '25 minutes', featured: false },
-                  ].map((plan, i) => (
-                    <div
-                      key={plan.name}
-                      style={{ '--i': i } as CSSProperties}
-                      className={`vx-stagger relative rounded-2xl border p-6 space-y-3 vx-hairline transition-colors duration-300 ease-luxury ${
-                        plan.featured
-                          ? 'border-white/20 bg-[#1A1713] shadow-[0_24px_60px_-20px_rgba(229,181,79,0.18)]'
-                          : 'border-[#2D261E] bg-[#13110E] hover:border-white/[0.16]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-neutral-300">{plan.name}</div>
-                        {plan.featured && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-black">Best-seller</span>
-                        )}
-                      </div>
-                      <div className="font-mono text-3xl font-bold tracking-tight text-white">{plan.price}</div>
-                      <p className="text-xs text-neutral-400 leading-relaxed">{plan.desc}</p>
-                      <div className={`pt-3 border-t border-[#2D261E] text-[11px] font-mono ${plan.featured ? 'text-[#E5B54F]' : 'text-neutral-500'}`}>
-                        Délai moyen · {plan.delay}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {currentTab === 'profile' && (
+              <StudioProfileView onOpenWhatsApp={() => handleTabClick('whatsapp')} />
             )}
 
             {currentTab === 'admin' && (
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-white/[0.04] border border-[#2D261E] flex items-center justify-center text-white">
-                    <Server className="h-4 w-4" strokeWidth={1.5} />
-                  </div>
-                  <div>
-                    <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Console système & passerelles</h1>
-                    <p className="text-sm text-neutral-400 mt-0.5">Statut des nœuds d'exécution et microservices.</p>
-                  </div>
-                </div>
-
-                <div className={`${panelClass} p-2`}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                    {[
-                      { icon: Activity, label: 'Passerelle WAHA VPS', status: 'WORKING' },
-                      { icon: Cpu, label: 'Moteur audio Suno', status: '18 MIN READY' },
-                      { icon: ShieldCheck, label: 'PostgreSQL & RLS', status: 'ISOLÉ PAR STUDIO' },
-                      { icon: Zap, label: 'Webhook Bridge VPS', status: 'PORT 3001 OK' },
-                    ].map(({ icon: Icon, label, status }, i) => (
-                      <div
-                        key={label}
-                        style={{ '--i': i } as CSSProperties}
-                        className="vx-stagger p-4 rounded-xl bg-white/[0.02] border border-[#2D261E] flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2.5 text-neutral-300">
-                          <Icon className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.5} />
-                          <span>{label}</span>
-                        </div>
-                        <span className="flex items-center gap-1.5 text-emerald-400 font-semibold text-[11px]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
-                          {status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <AdminConsoleView
+                orders={orders}
+                metrics={metrics ?? { ...REAL_STUDIO_METRICS, currency: 'FCFA' }}
+                conversations={liveConversations}
+              />
             )}
 
             {currentTab === 'studio_ai' && renderStudioAI()}
 
             {currentTab === 'academy' && renderAcademy()}
           </div>
+          <div className="vx-bottom-nav-spacer" aria-hidden />
         </main>
       </div>
+
+      {/* Barre de navigation mobile inférieure (< 768px) */}
+      <nav className="vx-bottom-nav" aria-label="Navigation principale">
+        <div className="vx-bottom-nav-bar">
+          {BOTTOM_TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => handleTabClick(id)}
+              aria-current={currentTab === id && !isMobileDrawerOpen ? 'page' : undefined}
+              className="vx-bottom-nav-item"
+            >
+              <Icon className="h-5 w-5" strokeWidth={1.6} />
+              <span>{label}</span>
+              {id === 'conversations' && unreadCount > 0 && (
+                <span className="vx-bottom-nav-badge" aria-label={`${unreadCount} non lus`}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            onClick={() => setIsMobileDrawerOpen(true)}
+            aria-current={isMobileDrawerOpen || !isBottomTab ? 'page' : undefined}
+            aria-label="Plus d'onglets"
+            className="vx-bottom-nav-item"
+          >
+            <Ellipsis className="h-5 w-5" strokeWidth={1.6} />
+            <span>Plus</span>
+          </button>
+        </div>
+      </nav>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={paletteCommands} />
     </div>
   );
 };

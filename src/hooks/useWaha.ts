@@ -7,10 +7,42 @@ import {
   stopWahaSession, 
   sendWahaTextMessage, 
   getWahaQrCodeUrl,
+  startWahaHeartbeat,
+  type WahaHeartbeat,
   type WahaSession,
   type WahaSendTextResponse
 } from '../services/waha';
 import { supabase } from '../services/supabase';
+
+/**
+ * Battement de cœur WAHA (état du flux, latence, reconnexion automatique et manuelle)
+ */
+export function useWahaHeartbeat(
+  sessionName: string,
+  { enabled = true, autoReconnect = true }: { enabled?: boolean; autoReconnect?: boolean } = {}
+) {
+  const [hb, setHb] = useState<WahaHeartbeat>({
+    state: 'connecting', sessionStatus: null, latencyMs: null, lastBeatAt: null, failures: 0, reconnectAttempts: 0,
+  });
+  const ctrlRef = useRef<ReturnType<typeof startWahaHeartbeat> | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    // Sans reconnexion automatique (mode démo), le battement reste en lecture seule
+    const ctrl = startWahaHeartbeat(sessionName, { onChange: setHb, maxReconnectAttempts: autoReconnect ? 3 : 0 });
+    ctrlRef.current = ctrl;
+    return () => {
+      ctrl.stop();
+      ctrlRef.current = null;
+    };
+  }, [sessionName, enabled, autoReconnect]);
+
+  const reconnect = useCallback(async () => {
+    await ctrlRef.current?.reconnect();
+  }, []);
+
+  return { ...hb, reconnect };
+}
 
 export interface UseWahaReturn {
   session: WahaSession | null;

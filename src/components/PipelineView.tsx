@@ -1,24 +1,29 @@
-import { useMemo, useState, type CSSProperties, type DragEvent, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FC } from 'react';
 import {
+  Bot,
   CalendarDays,
   ChevronDown,
   ChevronRight,
   Clock3,
   ExternalLink,
+  Hand,
   IdCard,
   Package,
   Search,
   SlidersHorizontal,
   SquareKanban
 } from 'lucide-react';
-import type { PipelineLead } from '../types';
+import type { Order, PipelineLead } from '../types';
 import { REAL_PIPELINE_LEADS } from '../data/realProductionData';
 import { useAuth } from '../hooks/useAuth';
 import { useStudioLive } from '../hooks/useStudioLive';
 import { getLivePipelineLeads, updateLeadStage } from '../services/supabase';
+import { STAGE_ORDER, inferLeadStage, stageRank } from '../services/pipelineAutopilot';
 
 interface PipelineViewProps {
   onSelectLeadForStudio?: (leadId: string) => void;
+  /** Commandes du studio : signal le plus fiable pour faire avancer une fiche */
+  orders?: Order[];
 }
 
 type Stage = PipelineLead['stage'];
@@ -27,9 +32,40 @@ type Period = 'today' | '7d' | '30d' | 'all' | 'custom';
 const STAGES: { id: Stage; title: string }[] = [
   { id: 'nouveau', title: 'Nouveau prospect' },
   { id: 'en_discussion', title: 'En discussion' },
-  { id: 'paiement', title: 'Devis & paiement' },
-  { id: 'livre', title: 'En studio / livré' },
+  { id: 'devis', title: 'Devis envoyé' },
+  { id: 'studio', title: 'En studio' },
+  { id: 'livre', title: 'Livré' },
 ];
+const STAGE_TITLE = Object.fromEntries(STAGES.map(s => [s.id, s.title])) as Record<Stage, string>;
+
+interface AutoMove {
+  id: string;
+  leadId: string;
+  leadName: string;
+  from: Stage;
+  to: Stage;
+  reason: string;
+  at: Date;
+}
+
+const AUTOPILOT_KEY = 'velaris.pipeline.autopilot.v1';
+const MANUAL_KEY = 'velaris.pipeline.manual.v1';
+
+const readJson = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const writeJson = (key: string, value: unknown) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* stockage indisponible : réglage conservé pour la session */
+  }
+};
 
 const PERIODS: { id: Exclude<Period, 'custom'>; label: string }[] = [
   { id: 'today', label: "Aujourd'hui" },
@@ -64,7 +100,9 @@ const waLink = (phone?: string) => {
   return digits ? `https://wa.me/${digits}` : null;
 };
 
-export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) => {
+const NO_ORDERS: Order[] = [];
+
+export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, orders = NO_ORDERS }) => {
   const { user } = useAuth();
   const { data: leads, setData: setLeads, syncedAt } = useStudioLive<PipelineLead[]>(
     getLivePipelineLeads,
@@ -81,9 +119,14 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
 
-  const moveLead = (leadId: string, stage: Stage) => {
-    const previous = leads.find(l => l.id === leadId)?.stage;
-    if (!previous || previous === stage) return;
+  const [autopilot, setAutopilot] = useState<boolean>(() => readJson(AUTOPILOT_KEY, true));
+  const [manualIds, setManualIds] = useState<string[]>(() => readJson(MANUAL_KEY, []));
+  const [moves, setMoves] = useState<AutoMove[]>([]);
+  const [autoReasons, setAutoReasons] = useState<Record<string, string>>({});
+  // Avancées déjà tentées (lead -> étape) : un refus serveur ne relance pas la même écriture en boucle
+  const attemptedRef = useRef<Map<string, Stage>>(new Map());
+
+  const persistStage = (leadId: string, stage: Stage, previous: Stage) => {
     setLeads(prev => prev.map(l => (l.id === leadId ? { ...l, stage } : l)));
     if (user) {
       updateLeadStage(leadId, stage).then(ok => {
@@ -91,6 +134,62 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
       });
     }
   };
+
+  /* Un déplacement manuel prime : le pilote automatique laisse ensuite la fiche tranquille */
+  const moveLead = (leadId: string, stage: Stage) => {
+    const previous = leads.find(l => l.id === leadId)?.stage;
+    if (!previous || previous === stage) return;
+    persistStage(leadId, stage, previous);
+    if (!manualIds.includes(leadId)) {
+      const next = [...manualIds, leadId];
+      setManualIds(next);
+      writeJson(MANUAL_KEY, next);
+    }
+    setAutoReasons(r => {
+      const { [leadId]: _drop, ...rest } = r;
+      return rest;
+    });
+  };
+
+  const releaseLead = (leadId: string) => {
+    const next = manualIds.filter(id => id !== leadId);
+    setManualIds(next);
+    writeJson(MANUAL_KEY, next);
+    attemptedRef.current.delete(leadId);
+  };
+
+  const toggleAutopilot = () => {
+    setAutopilot(on => {
+      writeJson(AUTOPILOT_KEY, !on);
+      return !on;
+    });
+  };
+
+  /* Pilote automatique : à chaque synchro, chaque fiche avance jusqu'à l'étape que ses interactions justifient */
+  useEffect(() => {
+    if (!autopilot) return;
+    const found: AutoMove[] = [];
+    for (const lead of leads) {
+      if (manualIds.includes(lead.id)) continue;
+      const inference = inferLeadStage(lead, orders);
+      if (!inference || attemptedRef.current.get(lead.id) === inference.stage) continue;
+      attemptedRef.current.set(lead.id, inference.stage);
+      found.push({
+        id: `${lead.id}-${inference.stage}-${Date.now()}`,
+        leadId: lead.id,
+        leadName: lead.name,
+        from: lead.stage,
+        to: inference.stage,
+        reason: inference.reason,
+        at: new Date(),
+      });
+    }
+    if (found.length === 0) return;
+    for (const m of found) persistStage(m.leadId, m.to, m.from);
+    setAutoReasons(r => ({ ...r, ...Object.fromEntries(found.map(m => [m.leadId, m.reason])) }));
+    setMoves(prev => [...found, ...prev].slice(0, 12));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leads, orders, autopilot, manualIds]);
 
   const filteredLeads = useMemo(() => {
     const today = startOfDay(new Date());
@@ -138,7 +237,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
     }`;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="space-y-6 max-w-6xl 2xl:max-w-[88rem] mx-auto pb-16">
       {/* En-tête */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5 pb-6 border-b border-[#2D261E]">
         <div>
@@ -150,16 +249,23 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
             Chaque client avance automatiquement, du premier message à la livraison.
           </p>
         </div>
-        <div className="flex items-start gap-2 max-w-[13rem] text-sm leading-snug text-[#22C55E]">
-          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#22C55E] vx-breathe" />
-          <span>
-            Fiches enrichies automatiquement chaque soir
-            {syncedAt && (
-              <span className="block text-xs text-[#78716C] mt-0.5 tabular-nums">
-                Synchro {syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-          </span>
+        <div className="flex items-center gap-3 rounded-2xl border border-[#2D261E] bg-[#0E0C0A] px-4 py-3 self-start">
+          <Bot className={`h-5 w-5 shrink-0 ${autopilot ? 'text-[#E5B54F]' : 'text-[#78716C]'}`} strokeWidth={1.6} />
+          <div className="min-w-0">
+            <div className="text-[15px] font-semibold text-white">Pilote automatique</div>
+            <div className="text-xs text-[#78716C] tabular-nums">
+              {autopilot ? 'Les fiches avancent seules' : 'Déplacements manuels uniquement'}
+              {syncedAt && ` · synchro ${syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autopilot}
+            aria-label={autopilot ? 'Couper le pilote automatique' : 'Activer le pilote automatique'}
+            onClick={toggleAutopilot}
+            className="vx-switch ml-2 shrink-0"
+          />
         </div>
       </div>
 
@@ -234,15 +340,41 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
         </button>
         {isGuideOpen && (
           <p className="vx-fade-in px-5 pb-5 -mt-1 text-[15px] leading-relaxed text-[#A8A29E] max-w-3xl">
-            L'IA accueille chaque contact WhatsApp et extrait l'occasion, le prénom du destinataire et le brief émotionnel. Brief complet : la fiche passe
-            en « En discussion ». Paiement Wave ou Orange Money reçu : « Devis & paiement ». Génération lancée : « En studio / livré ».
-            Vous pouvez aussi glisser une fiche ou changer son étape à la main.
+            L'IA accueille chaque contact WhatsApp et extrait l'occasion, le prénom du destinataire et le brief émotionnel. Brief en cours : la fiche
+            passe en « En discussion ». Prix annoncé ou paroles prêtes : « Devis envoyé ». Paiement Wave ou Orange Money confirmé : « En studio ».
+            Chanson remise au client : « Livré ». Le pilote ne fait jamais reculer une fiche ; si vous la déplacez à la main, il la laisse
+            ensuite tranquille jusqu'à ce que vous la lui rendiez.
           </p>
         )}
       </div>
 
+      {/* Mouvements automatiques */}
+      {moves.length > 0 && (
+        <section className="vx-fade-in rounded-2xl border border-[#2D261E] bg-[#0E0C0A] px-5 py-4" aria-live="polite">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Bot className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.8} />
+            Mouvements automatiques
+            <span className="font-normal text-[#78716C]">· cette session</span>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {moves.slice(0, 5).map(m => (
+              <li key={m.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+                <span className="font-mono text-xs tabular-nums text-[#78716C]">
+                  {m.at.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="font-medium text-white">{m.leadName}</span>
+                <span className="text-[#A8A29E]">
+                  {STAGE_TITLE[m.from]} <span aria-hidden="true">→</span><span className="sr-only">vers</span> <span className="text-[#F3CA75]">{STAGE_TITLE[m.to]}</span>
+                </span>
+                <span className="text-[#78716C]">· {m.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Kanban */}
-      <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex xl:grid xl:grid-cols-4 gap-4 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2 items-start">
+      <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex 2xl:grid 2xl:grid-cols-5 gap-4 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2 items-start">
         {STAGES.map((col) => {
           const colLeads = filteredLeads.filter(l => l.stage === col.id);
           const isOver = overStage === col.id && dragId !== null;
@@ -257,7 +389,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) setOverStage(null);
               }}
               onDrop={(e) => onDrop(e, col.id)}
-              className={`snap-start shrink-0 w-[82vw] sm:w-[330px] xl:w-auto rounded-[22px] border p-3 transition-colors duration-200 ${
+              className={`snap-start shrink-0 w-[82vw] sm:w-[300px] 2xl:w-auto rounded-[22px] border p-3 transition-colors duration-200 ${
                 isOver ? 'border-[#E5B54F]/60 bg-[#E5B54F]/[0.04]' : 'border-[#2D261E] bg-[#13110E]'
               }`}
             >
@@ -278,6 +410,9 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
                 )}
                 {colLeads.map((lead, i) => {
                   const wa = waLink(lead.phone);
+                  const manual = manualIds.includes(lead.id);
+                  const autoReason = autoReasons[lead.id];
+                  const rank = stageRank(lead.stage);
                   return (
                     <article
                       key={`${lead.id}-${lead.stage}`}
@@ -343,6 +478,30 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio }) =
                           {lead.summary}
                         </p>
                       )}
+
+                      {/* Progression dans le parcours client */}
+                      <div className="mt-3.5 flex gap-1" aria-label={`Étape ${rank + 1} sur ${STAGE_ORDER.length}`}>
+                        {STAGE_ORDER.map((s, si) => (
+                          <span key={s} className={`h-1 flex-1 rounded-full ${si <= rank ? 'bg-[#E5B54F]' : 'bg-white/[0.07]'}`} />
+                        ))}
+                      </div>
+
+                      {manual ? (
+                        <button
+                          type="button"
+                          onClick={() => releaseLead(lead.id)}
+                          title="Rendre cette fiche au pilote automatique"
+                          className="mt-2.5 inline-flex items-center gap-1.5 text-xs text-[#A8A29E] hover:text-[#F3CA75] transition-colors cursor-pointer"
+                        >
+                          <Hand className="h-3.5 w-3.5" strokeWidth={1.6} />
+                          Suivi manuel · rendre au pilote
+                        </button>
+                      ) : autoReason ? (
+                        <div className="vx-fade-in mt-2.5 flex items-center gap-1.5 text-xs text-[#F3CA75]">
+                          <Bot className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
+                          <span className="truncate">Avancée auto · {autoReason}</span>
+                        </div>
+                      ) : null}
 
                       <div className="relative mt-3.5">
                         <select

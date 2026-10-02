@@ -204,8 +204,20 @@
   to { opacity: 1; }
 }
 
+/* Changement d'onglet : fondu + glissé de 6px, GPU uniquement */
+@keyframes vx-view {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .vx-view-enter {
-  animation: vx-rise 380ms var(--ease-luxury) both;
+  animation: vx-view 320ms var(--ease-luxury) both;
 }
 
 /* Cascade : poser style={{ '--i': index }} sur chaque élément */
@@ -434,6 +446,140 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Barre de navigation mobile inférieure (< 768px)                    */
+/* ------------------------------------------------------------------ */
+
+.vx-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+.vx-bottom-nav-bar {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 6px;
+  border-radius: 22px;
+  border: 1px solid #2D261E;
+  background: rgba(19, 17, 14, 0.88);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(243, 202, 117, 0.06);
+}
+.vx-bottom-nav-item {
+  position: relative;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 16px;
+  color: #78716C;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 200ms var(--ease-luxury), background-color 200ms var(--ease-luxury), transform 120ms var(--ease-press);
+}
+.vx-bottom-nav-item:active {
+  transform: scale(0.94);
+}
+.vx-bottom-nav-item[aria-current='page'] {
+  color: #F3CA75;
+  background: rgba(229, 181, 79, 0.1);
+}
+/* Filet doré au-dessus de l'onglet actif */
+.vx-bottom-nav-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 18px;
+  height: 2px;
+  margin-left: -9px;
+  border-radius: 2px;
+  background: #E5B54F;
+  animation: vx-fade 240ms var(--ease-luxury) both;
+}
+.vx-bottom-nav-badge {
+  position: absolute;
+  top: 5px;
+  left: calc(50% + 6px);
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #E11D48;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px #13110E, 0 0 10px rgba(225, 29, 72, 0.5);
+}
+/* Réserve l'espace de la barre sous le contenu */
+.vx-bottom-nav-spacer {
+  height: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .vx-bottom-nav,
+  .vx-bottom-nav-spacer {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Palette de commandes (Cmd+K / Ctrl+K)                              */
+/* ------------------------------------------------------------------ */
+
+@keyframes vx-palette-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.vx-palette-backdrop {
+  animation: vx-fade 180ms var(--ease-luxury) both;
+}
+.vx-palette {
+  animation: vx-palette-in 240ms var(--ease-luxury) both;
+  transform-origin: top center;
+}
+.vx-palette-item {
+  transition: background-color 120ms var(--ease-press), color 120ms var(--ease-press);
+}
+.vx-palette-item[aria-selected='true'] {
+  background: linear-gradient(90deg, rgba(229, 181, 79, 0.14), rgba(229, 181, 79, 0.03));
+  color: #F3CA75;
+}
+.vx-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid #3A3022;
+  background: rgba(255, 255, 255, 0.03);
+  color: #A8A29E;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Accessibilité : mouvement réduit                                   */
 /* ------------------------------------------------------------------ */
 
@@ -448,8 +594,15 @@
   .vx-sonar *,
   .vx-sheen::after,
   .vx-caret,
-  .vx-fill {
+  .vx-fill,
+  .vx-palette,
+  .vx-palette-backdrop,
+  .vx-bottom-nav-item::before {
     animation: none !important;
+  }
+  .vx-bottom-nav-item,
+  .vx-palette-item {
+    transition: none;
   }
   .vx-spotlight::before,
   .vx-switch,
