@@ -1,40 +1,28 @@
 /**
- * Service d'intégration Kie.ai (Moteur Suno v3.5 / v5)
- * Automatisation de la génération musicale et livraison WhatsApp Studio
- * Clé API : 9c8965ca1c39ef43b6835599b42c8951
+ * Service d'intégration Kie.ai (moteur Suno) et livraison WhatsApp
+ *
+ * Studio connecté : la génération passe par l'Edge Function `kie-generate`
+ * (clé API côté serveur, crédit débité atomiquement et remboursé si Kie.ai échoue).
+ * Mode démo : aucune requête réelle, aucun morceau envoyé à un client.
+ *
+ * Règle absolue : on ne livre JAMAIS au client un morceau qui n'a pas été
+ * réellement produit pour lui (pas de piste de démonstration de substitution).
  */
 
 import type { KieSongGenerationRequest, KieSongResult } from '../types/billing';
-import { debitSongCredit } from './billing';
-import { sendWahaVoiceMessage, sendWahaTextMessage } from './waha';
+import { debitDemoSongCredit, refreshBilling } from './billing';
+import { sendWahaTextMessage, sendWahaVoiceMessage } from './waha';
+import { supabase } from './supabase';
 
 export const KIE_CONFIG = {
-  apiKey: '9c8965ca1c39ef43b6835599b42c8951',
-  baseUrl: 'https://api.kie.ai/api/v1',
-  callbackUrl: 'https://velaris.money/api/public/melody/kie-callback',
+  publicHost: 'api.kie.ai',
   model: 'V3_5',
+  maxLyrics: 3000,
+  maxStyle: 200,
+  maxTitle: 80,
 };
 
 const KIE_GENERATIONS_KEY = 'velaris_kie_generations_v1';
-
-// Morceaux de démonstration audio haute fidélité pour le mode preview / solde Kie à 0
-const DEMO_STUDIO_TRACKS = [
-  {
-    title: 'Chanson pour Mariam (Afro-Love Acoustique)',
-    url: 'https://d3gk2c5xim1je2.cloudfront.net/demos/mariam_afrolove.mp3',
-    duration: 184,
-  },
-  {
-    title: 'Anniversaire Ibrahim (Rumba & Guitare)',
-    url: 'https://d3gk2c5xim1je2.cloudfront.net/demos/ibrahim_rumba.mp3',
-    duration: 210,
-  },
-  {
-    title: 'Déclaration Amour (Zouk Douceur)',
-    url: 'https://d3gk2c5xim1je2.cloudfront.net/demos/declaration_zouk.mp3',
-    duration: 195,
-  }
-];
 
 export function getKieGenerationsHistory(): KieSongResult[] {
   try {
@@ -48,265 +36,194 @@ export function getKieGenerationsHistory(): KieSongResult[] {
 export function saveKieGeneration(item: KieSongResult): void {
   try {
     const list = getKieGenerationsHistory();
-    const existingIndex = list.findIndex(g => g.taskId === item.taskId || (g.orderId && g.orderId === item.orderId));
-    let updated: KieSongResult[];
-    if (existingIndex >= 0) {
-      updated = [...list];
-      updated[existingIndex] = item;
-    } else {
-      updated = [item, ...list].slice(0, 50);
-    }
+    const idx = list.findIndex(g => g.taskId === item.taskId);
+    const updated = idx >= 0 ? list.map((g, i) => (i === idx ? item : g)) : [item, ...list].slice(0, 50);
     localStorage.setItem(KIE_GENERATIONS_KEY, JSON.stringify(updated));
-  } catch (err) {
-    console.warn('[kie] Failed to save generation', err);
+  } catch {
+    // stockage indisponible
   }
 }
 
 /**
- * Génère une chanson via Kie.ai Suno
- * Débite automatiquement 1 crédit (85 F CFA)
- * Gère gracieusement le solde nul de la clé Kie (code 402) sans bloquer le studio.
+ * Met des paroles rédigées au format attendu par Suno :
+ * sections entre crochets ([Verse 1], [Chorus]…), métadonnées retirées, longueur bornée.
  */
-export async function generateKieSong(req: KieSongGenerationRequest, options?: {
-  skipCreditDebit?: boolean;
-  isNewClient?: boolean;
-}): Promise<{
+export function formatLyricsForSuno(raw: string): string {
+  const SECTION: [RegExp, string][] = [
+    [/^\(?\s*couplet\s*(\d*)\s*\)?$/i, 'Verse'],
+    [/^\(?\s*refrain\s*\)?$/i, 'Chorus'],
+    [/^\(?\s*pont\s*\)?$/i, 'Bridge'],
+    [/^\(?\s*outro\s*\)?$/i, 'Outro'],
+    [/^\(?\s*intro\s*\)?$/i, 'Intro'],
+  ];
+  return raw
+    .split('\n')
+    .filter(line => !/^\[(titre|style)\s*:/i.test(line.trim()))
+    .map(line => {
+      const t = line.trim();
+      for (const [re, tag] of SECTION) {
+        const m = re.exec(t);
+        if (m) return `[${tag}${m[1] ? ` ${m[1]}` : ''}]`;
+      }
+      return line;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, KIE_CONFIG.maxLyrics);
+}
+
+async function readFunctionError(error: unknown, data: any): Promise<string> {
+  if (data?.error) return data.error;
+  try {
+    const ctx = (error as { context?: Response }).context;
+    const body = ctx ? await ctx.json() : null;
+    if (body?.error) return body.error;
+  } catch {
+    // corps illisible
+  }
+  return (error as Error)?.message || 'Moteur Kie.ai indisponible';
+}
+
+/**
+ * Lance une génération. Retourne une tâche `pending` à suivre avec `pollKieSongStatus`
+ * (studio connecté) ou une simulation explicite (démo).
+ */
+export async function generateKieSong(req: KieSongGenerationRequest, options?: { isNewClient?: boolean }): Promise<{
   success: boolean;
   result?: KieSongResult;
   error?: string;
-  isZeroKieBalance?: boolean;
 }> {
-  // 1. Débiter 1 crédit studio
-  if (!options?.skipCreditDebit) {
-    const debit = debitSongCredit(req.clientName, req.title, req.orderId);
-    if (!debit.success) {
-      return { success: false, error: debit.error };
-    }
-  }
+  const lyrics = formatLyricsForSuno(req.lyrics || req.prompt);
+  const title = req.title.slice(0, KIE_CONFIG.maxTitle);
+  const style = req.style.slice(0, KIE_CONFIG.maxStyle);
+  const orderId = req.orderId || `ORD-${Date.now().toString(36).toUpperCase()}`;
+  const common = {
+    orderId,
+    clientName: req.clientName,
+    clientPhone: req.clientPhone,
+    isNewClient: options?.isNewClient ?? true,
+    title,
+    style,
+    createdAt: new Date().toISOString(),
+  };
 
-  const promptContent = (req.lyrics || req.prompt).trim();
-  const taskId = `kie_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const orderId = req.orderId || `ORD-${Date.now().toString().slice(-4)}`;
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // 2. Appel de l'API Kie.ai
-  try {
-    const response = await fetch(`${KIE_CONFIG.baseUrl}/generate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${KIE_CONFIG.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        prompt: promptContent,
-        customMode: req.customMode ?? true,
-        style: req.style,
-        title: req.title,
-        instrumental: req.instrumental ?? false,
-        model: KIE_CONFIG.model,
-        callBackUrl: KIE_CONFIG.callbackUrl
-      })
-    });
-
-    const json = await response.json().catch(() => null);
-
-    // 3. Gestion du cas spécifique : Clé Kie avec solde nul (code 402)
-    if (response.status === 402 || json?.code === 402) {
-      const demoTrack = DEMO_STUDIO_TRACKS[Math.floor(Math.random() * DEMO_STUDIO_TRACKS.length)];
-      const simResult: KieSongResult = {
-        taskId,
-        orderId,
-        clientName: req.clientName,
-        clientPhone: req.clientPhone,
-        isNewClient: options?.isNewClient ?? true,
-        title: req.title,
-        style: req.style,
-        status: 'success',
-        audioUrl: demoTrack.url,
-        streamAudioUrl: demoTrack.url,
-        duration: demoTrack.duration,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        isSimulation: true,
-        notice: 'Génération Studio Studio-Ready (Clé Kie.ai configurée avec succès, solde Kie temporairement à 0 crédits). Recharger vos crédits Kie.ai pour activer la production GPU en continu.'
-      };
-
-      saveKieGeneration(simResult);
-      return {
-        success: true,
-        result: simResult,
-        isZeroKieBalance: true
-      };
-    }
-
-    if (!response.ok || (json?.code !== 200 && json?.code !== 0) || !json?.data?.taskId) {
-      const errMsg = json?.msg || json?.message || `Erreur Kie.ai (HTTP ${response.status})`;
-      // En cas d'erreur de clé, proposer quand même le résultat studio avec notification
-      const demoTrack = DEMO_STUDIO_TRACKS[0];
-      const fallbackResult: KieSongResult = {
-        taskId,
-        orderId,
-        clientName: req.clientName,
-        clientPhone: req.clientPhone,
-        isNewClient: options?.isNewClient ?? true,
-        title: req.title,
-        style: req.style,
-        status: 'success',
-        audioUrl: demoTrack.url,
-        duration: demoTrack.duration,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        isSimulation: true,
-        notice: `API Kie.ai : ${errMsg}. Morceau studio prêt pour test client.`
-      };
-      saveKieGeneration(fallbackResult);
-      return {
-        success: true,
-        result: fallbackResult,
-        error: errMsg
-      };
-    }
-
-    // Succès réel de l'API Kie
-    const realTaskId = json.data.taskId;
-    const initialResult: KieSongResult = {
-      taskId: realTaskId,
-      orderId,
-      clientName: req.clientName,
-      clientPhone: req.clientPhone,
-      isNewClient: options?.isNewClient ?? true,
-      title: req.title,
-      style: req.style,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-    saveKieGeneration(initialResult);
-
-    return {
-      success: true,
-      result: initialResult
-    };
-  } catch (err: any) {
-    // Si fetch est bloqué (ex: offline), fallback gracieux
-    const demoTrack = DEMO_STUDIO_TRACKS[0];
-    const offlineResult: KieSongResult = {
-      taskId,
-      orderId,
-      clientName: req.clientName,
-      clientPhone: req.clientPhone,
-      isNewClient: options?.isNewClient ?? true,
-      title: req.title,
-      style: req.style,
+  if (!session) {
+    const debit = debitDemoSongCredit(req.clientName, title, orderId);
+    if (!debit.success) return { success: false, error: debit.error };
+    const sim: KieSongResult = {
+      ...common,
+      taskId: `demo_${Date.now()}`,
       status: 'success',
-      audioUrl: demoTrack.url,
-      duration: demoTrack.duration,
-      createdAt: new Date().toISOString(),
+      duration: 180,
       completedAt: new Date().toISOString(),
       isSimulation: true,
-      notice: 'Connexion Kie.ai simulée avec succès.'
+      notice: 'Mode démo : aucune génération réelle ni envoi WhatsApp. Connectez votre studio pour produire le morceau.',
     };
-    saveKieGeneration(offlineResult);
-    return {
-      success: true,
-      result: offlineResult
-    };
+    saveKieGeneration(sim);
+    return { success: true, result: sim };
   }
+
+  const { data, error } = await supabase.functions.invoke('kie-generate', {
+    body: { action: 'generate', title, style, lyrics, clientName: req.clientName, clientPhone: req.clientPhone, orderRef: orderId },
+  });
+  void refreshBilling();
+
+  if (error || !data?.taskId) {
+    const message = await readFunctionError(error, data);
+    return { success: false, error: `${message}. Aucun crédit n'a été conservé pour cette tentative.` };
+  }
+
+  const pending: KieSongResult = { ...common, taskId: String(data.taskId), status: 'pending' };
+  saveKieGeneration(pending);
+  return { success: true, result: pending };
 }
 
 /**
- * Vérifie le statut d'une tâche Kie.ai via l'endpoint record-info
+ * Statut d'une tâche (le serveur rembourse automatiquement une tâche échouée)
  */
 export async function pollKieSongStatus(taskId: string): Promise<{
   status: 'pending' | 'success' | 'failed';
   audioUrl?: string;
-  streamAudioUrl?: string;
   duration?: number;
   error?: string;
 }> {
-  if (taskId.startsWith('kie_')) {
-    // Tâche locale / simulée déjà prête
-    return { status: 'success', audioUrl: DEMO_STUDIO_TRACKS[0].url, duration: 180 };
-  }
-
-  try {
-    const res = await fetch(`${KIE_CONFIG.baseUrl}/generate/record-info?taskId=${encodeURIComponent(taskId)}`, {
-      headers: {
-        'Authorization': `Bearer ${KIE_CONFIG.apiKey}`
-      }
-    });
-    const json = await res.json().catch(() => null);
-
-    if (!res.ok || json?.code !== 200) {
-      return { status: 'failed', error: json?.msg || `HTTP ${res.status}` };
-    }
-
-    const sunoData = json?.data?.response?.sunoData || json?.data?.sunoData;
-    if (Array.isArray(sunoData) && sunoData.length > 0) {
-      const track = sunoData[0];
-      const audioUrl = track.audioUrl || track.streamAudioUrl;
-      return {
-        status: 'success',
-        audioUrl,
-        streamAudioUrl: track.streamAudioUrl,
-        duration: track.duration
-      };
-    }
-
-    const state = json?.data?.status;
-    if (state === 'CREATE_TASK_FAILED' || state === 'GENERATE_AUDIO_FAILED' || state === 'fail') {
-      return { status: 'failed', error: json?.data?.errorMessage || 'Échec de la génération Suno' };
-    }
-
-    return { status: 'pending' };
-  } catch (err: any) {
-    return { status: 'pending', error: err.message };
-  }
+  if (taskId.startsWith('demo_')) return { status: 'success', duration: 180 };
+  const { data, error } = await supabase.functions.invoke('kie-generate', { body: { action: 'status', taskId } });
+  if (error || !data?.status) return { status: 'pending', error: data?.error || error?.message };
+  if (data.status === 'failed') void refreshBilling();
+  return { status: data.status, audioUrl: data.audioUrl || undefined, duration: data.duration ?? undefined, error: data.error };
 }
 
 /**
- * Envoie automatiquement la chanson finie au client sur WhatsApp
+ * Attend la fin d'une génération (Suno produit en 1 à 4 minutes en moyenne)
+ */
+export async function waitForKieSong(
+  song: KieSongResult,
+  { timeoutMs = 6 * 60_000, intervalMs = 10_000, onTick }: { timeoutMs?: number; intervalMs?: number; onTick?: (elapsedMs: number) => void } = {}
+): Promise<KieSongResult> {
+  if (song.status !== 'pending') return song;
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    await new Promise(r => setTimeout(r, intervalMs));
+    onTick?.(Date.now() - started);
+    const s = await pollKieSongStatus(song.taskId);
+    if (s.status !== 'pending') {
+      const done: KieSongResult = {
+        ...song,
+        status: s.status,
+        audioUrl: s.audioUrl,
+        duration: s.duration,
+        completedAt: new Date().toISOString(),
+        notice: s.status === 'failed' ? `Échec de production : ${s.error || 'Kie.ai'} (crédit remboursé)` : undefined,
+      };
+      saveKieGeneration(done);
+      return done;
+    }
+  }
+  return { ...song, notice: 'Production toujours en cours : le morceau apparaîtra dès que Kie.ai l’aura terminé.' };
+}
+
+/**
+ * Envoie la chanson terminée au client sur WhatsApp : message d'accompagnement,
+ * puis le fichier audio en note vocale (lien de secours si la conversion échoue).
  */
 export async function deliverSongToWhatsApp(
   song: KieSongResult,
-  sessionName: string = 'Test'
+  sessionName: string
 ): Promise<{ success: boolean; message: string }> {
-  if (!song.clientPhone) {
-    return { success: false, message: 'Numéro de téléphone du client manquant.' };
-  }
+  if (song.isSimulation) return { success: false, message: 'Morceau de démonstration : rien n’est envoyé au client.' };
+  if (!song.clientPhone) return { success: false, message: 'Numéro de téléphone du client manquant.' };
+  if (song.status !== 'success' || !song.audioUrl) return { success: false, message: 'Le morceau n’est pas encore prêt.' };
 
-  const audioToSend = song.audioUrl || song.streamAudioUrl;
   const greeting = song.isNewClient ? 'Bonjour' : 'Ravi de vous retrouver';
-  const deliveryCaption = `${greeting} ${song.clientName} !\n\nVotre chanson personnalisée « *${song.title}* » (${song.style}) vient tout juste de sortir du Studio Velaris !\n\nÉcoutez votre master audio ci-dessous. Nous espérons qu’elle touchera votre destinataire en plein cœur.\n\n— *L’équipe Velaris Studio*`;
+  const caption = `${greeting} ${song.clientName} !\n\nVotre chanson personnalisée « *${song.title}* » (${song.style}) vient de sortir du studio.\n\nÉcoutez-la ci-dessous. Nous espérons qu’elle touchera votre destinataire en plein cœur.`;
 
+  const text = await sendWahaTextMessage(song.clientPhone, caption, sessionName);
+  if (!text.success) return { success: false, message: text.error || 'Échec de transmission WhatsApp.' };
+
+  let audioSent = false;
   try {
-    // 1. Envoyer le message explicatif
-    await sendWahaTextMessage(song.clientPhone, deliveryCaption, sessionName);
-
-    // 2. Si on a l'URL audio, envoyer aussi la note audio / fichier audio
-    if (audioToSend) {
-      try {
-        const audioBlob = await fetch(audioToSend).then(r => r.blob()).catch(() => null);
-        if (audioBlob) {
-          await sendWahaVoiceMessage(song.clientPhone, audioBlob, sessionName);
-        } else {
-          await sendWahaTextMessage(song.clientPhone, `Écoutez et téléchargez votre chanson master : ${audioToSend}`, sessionName);
-        }
-      } catch {
-        await sendWahaTextMessage(song.clientPhone, `Écoutez et téléchargez votre chanson master : ${audioToSend}`, sessionName);
-      }
+    const res = await fetch(song.audioUrl);
+    if (res.ok) {
+      const blob = await res.blob();
+      audioSent = (await sendWahaVoiceMessage(song.clientPhone, blob, sessionName)).success;
     }
-
-    // Mettre à jour l'enregistrement
-    song.completedAt = new Date().toISOString();
-    saveKieGeneration(song);
-
-    return {
-      success: true,
-      message: `Chanson « ${song.title} » livrée avec succès sur WhatsApp au ${song.clientPhone} !`
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: err.message || 'Échec de transmission WhatsApp.'
-    };
+  } catch {
+    // CORS ou réseau : lien de secours ci-dessous
   }
+  if (!audioSent) {
+    const link = await sendWahaTextMessage(song.clientPhone, `Écoutez et téléchargez votre chanson : ${song.audioUrl}`, sessionName);
+    if (!link.success) return { success: false, message: 'Message envoyé, mais le fichier audio n’a pas pu partir. Renvoyez-le depuis Discussions.' };
+  }
+
+  saveKieGeneration({ ...song, completedAt: new Date().toISOString() });
+  return {
+    success: true,
+    message: audioSent
+      ? `Chanson « ${song.title} » livrée en note vocale au ${song.clientPhone}.`
+      : `Chanson « ${song.title} » livrée par lien au ${song.clientPhone}.`,
+  };
 }

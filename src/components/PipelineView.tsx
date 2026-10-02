@@ -232,28 +232,28 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
   const pill = (active: boolean) =>
     `inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[15px] transition-colors duration-200 cursor-pointer ${
       active
-        ? 'border-[#E5B54F] bg-[#E5B54F] text-[#0C0A09] font-semibold shadow-[0_6px_24px_-10px_rgba(229,181,79,0.7)]'
-        : 'border-[#2D261E] bg-[#0E0C0A] text-[#E7E5E4] hover:border-[#E5B54F]/40'
+        ? 'border-[#E5B54F] bg-[#E5B54F] text-[#050608] font-semibold shadow-[0_6px_24px_-10px_rgba(229,181,79,0.7)]'
+        : 'border-white/[0.08] bg-[#08090C] text-[#E5E5E5] hover:border-[#E5B54F]/40'
     }`;
 
   return (
     <div className="space-y-6 max-w-6xl 2xl:max-w-[88rem] mx-auto pb-16">
       {/* En-tête */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5 pb-6 border-b border-[#2D261E]">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5 pb-6 border-b border-white/[0.08]">
         <div>
           <div className="flex items-center gap-3">
             <SquareKanban className="h-8 w-8 text-[#E5B54F]" strokeWidth={1.6} />
             <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Suivi clients</h1>
           </div>
-          <p className="mt-2 max-w-lg text-sm sm:text-base leading-relaxed text-[#A8A29E]">
+          <p className="mt-2 max-w-lg text-sm sm:text-base leading-relaxed text-[#A3A3A3]">
             Chaque client avance automatiquement, du premier message à la livraison.
           </p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl border border-[#2D261E] bg-[#0E0C0A] px-4 py-3 self-start">
-          <Bot className={`h-5 w-5 shrink-0 ${autopilot ? 'text-[#E5B54F]' : 'text-[#78716C]'}`} strokeWidth={1.6} />
+        <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-[#08090C] px-4 py-3 self-start">
+          <Bot className={`h-5 w-5 shrink-0 ${autopilot ? 'text-[#E5B54F]' : 'text-[#737373]'}`} strokeWidth={1.6} />
           <div className="min-w-0">
             <div className="text-[15px] font-semibold text-white">Pilote automatique</div>
-            <div className="text-xs text-[#78716C] tabular-nums">
+            <div className="text-xs text-[#737373] tabular-nums">
               {autopilot ? 'Les fiches avancent seules' : 'Déplacements manuels uniquement'}
               {syncedAt && ` · synchro ${syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
             </div>
@@ -277,13 +277,13 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
         </div>
 
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[#A8A29E]" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[#A3A3A3]" />
           <input
             type="text"
             placeholder="Nom, numéro, occasion ou offre…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-2xl border border-[#2D261E] bg-[#0E0C0A] pl-11 pr-4 py-3 text-base text-white placeholder:text-[#78716C] outline-none focus:border-[#E5B54F]/60 transition-colors"
+            className="w-full rounded-2xl border border-white/[0.08] bg-[#08090C] pl-11 pr-4 py-3 text-base text-white placeholder:text-[#737373] outline-none focus:border-[#E5B54F]/60 transition-colors"
           />
         </div>
 
@@ -300,14 +300,14 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
         </div>
 
         {period === 'custom' && (
-          <div className="vx-fade-in flex flex-wrap items-center gap-3 text-sm text-[#A8A29E]">
+          <div className="vx-fade-in flex flex-wrap items-center gap-3 text-sm text-[#A3A3A3]">
             <label className="flex items-center gap-2">
               Du
               <input
                 type="date"
                 value={range.from}
                 onChange={e => setRange(r => ({ ...r, from: e.target.value }))}
-                className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] px-3 py-2 text-white [color-scheme:dark] outline-none focus:border-[#E5B54F]/60"
+                className="rounded-xl border border-white/[0.08] bg-[#08090C] px-3 py-2 text-white [color-scheme:dark] outline-none focus:border-[#E5B54F]/60"
               />
             </label>
             <label className="flex items-center gap-2">
@@ -316,19 +316,19 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
                 type="date"
                 value={range.to}
                 onChange={e => setRange(r => ({ ...r, to: e.target.value }))}
-                className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] px-3 py-2 text-white [color-scheme:dark] outline-none focus:border-[#E5B54F]/60"
+                className="rounded-xl border border-white/[0.08] bg-[#08090C] px-3 py-2 text-white [color-scheme:dark] outline-none focus:border-[#E5B54F]/60"
               />
             </label>
           </div>
         )}
 
-        <p className="text-[15px] text-[#A8A29E]">
+        <p className="text-[15px] text-[#A3A3A3]">
           <span className="font-bold text-white tabular-nums">{filteredLeads.length}</span> clients dans cette période
         </p>
       </section>
 
       {/* Guide */}
-      <div className="rounded-2xl border border-[#3A3022] bg-[#171512]">
+      <div className="rounded-2xl border border-white/[0.12] bg-[#0E1015]">
         <button
           type="button"
           onClick={() => setIsGuideOpen(o => !o)}
@@ -339,7 +339,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
           Comment ça marche ? (tout avance automatiquement)
         </button>
         {isGuideOpen && (
-          <p className="vx-fade-in px-5 pb-5 -mt-1 text-[15px] leading-relaxed text-[#A8A29E] max-w-3xl">
+          <p className="vx-fade-in px-5 pb-5 -mt-1 text-[15px] leading-relaxed text-[#A3A3A3] max-w-3xl">
             L'IA accueille chaque contact WhatsApp et extrait l'occasion, le prénom du destinataire et le brief émotionnel. Brief en cours : la fiche
             passe en « En discussion ». Prix annoncé ou paroles prêtes : « Devis envoyé ». Paiement Wave ou Orange Money confirmé : « En studio ».
             Chanson remise au client : « Livré ». Le pilote ne fait jamais reculer une fiche ; si vous la déplacez à la main, il la laisse
@@ -350,23 +350,23 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
 
       {/* Mouvements automatiques */}
       {moves.length > 0 && (
-        <section className="vx-fade-in rounded-2xl border border-[#2D261E] bg-[#0E0C0A] px-5 py-4" aria-live="polite">
+        <section className="vx-fade-in rounded-2xl border border-white/[0.08] bg-[#08090C] px-5 py-4" aria-live="polite">
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
             <Bot className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.8} />
             Mouvements automatiques
-            <span className="font-normal text-[#78716C]">· cette session</span>
+            <span className="font-normal text-[#737373]">· cette session</span>
           </div>
           <ul className="mt-3 space-y-2">
             {moves.slice(0, 5).map(m => (
               <li key={m.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-                <span className="font-mono text-xs tabular-nums text-[#78716C]">
+                <span className="font-mono text-xs tabular-nums text-[#737373]">
                   {m.at.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span className="font-medium text-white">{m.leadName}</span>
-                <span className="text-[#A8A29E]">
+                <span className="text-[#A3A3A3]">
                   {STAGE_TITLE[m.from]} <span aria-hidden="true">→</span><span className="sr-only">vers</span> <span className="text-[#F3CA75]">{STAGE_TITLE[m.to]}</span>
                 </span>
-                <span className="text-[#78716C]">· {m.reason}</span>
+                <span className="text-[#737373]">· {m.reason}</span>
               </li>
             ))}
           </ul>
@@ -390,12 +390,12 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
               }}
               onDrop={(e) => onDrop(e, col.id)}
               className={`snap-start shrink-0 w-[82vw] sm:w-[300px] 2xl:w-auto rounded-[22px] border p-3 transition-colors duration-200 ${
-                isOver ? 'border-[#E5B54F]/60 bg-[#E5B54F]/[0.04]' : 'border-[#2D261E] bg-[#13110E]'
+                isOver ? 'border-[#E5B54F]/60 bg-[#E5B54F]/[0.04]' : 'border-white/[0.08] bg-[#0B0C10]'
               }`}
             >
               <header className="flex items-center justify-between gap-2 px-2 pt-2 pb-4">
                 <h3 className="truncate text-[15px] font-bold uppercase tracking-[0.04em] text-white">{col.title}</h3>
-                <span className="rounded-full bg-[#2A241D] px-2.5 py-0.5 text-sm font-semibold tabular-nums text-[#D6D3D1]">
+                <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-sm font-semibold tabular-nums text-[#D6D3D1]">
                   {colLeads.length}
                 </span>
               </header>
@@ -403,7 +403,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
               <div className="space-y-3 min-h-[200px]">
                 {colLeads.length === 0 && (
                   <div className={`flex h-24 items-center justify-center rounded-2xl border border-dashed text-sm transition-colors ${
-                    isOver ? 'border-[#E5B54F]/50 text-[#F3CA75]' : 'border-[#2D261E] text-[#78716C]'
+                    isOver ? 'border-[#E5B54F]/50 text-[#F3CA75]' : 'border-white/[0.08] text-[#737373]'
                   }`}>
                     Déposez une fiche ici
                   </div>
@@ -427,7 +427,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
                         setOverStage(null);
                       }}
                       style={{ '--i': i } as CSSProperties}
-                      className={`vx-stagger rounded-2xl border border-[#2D261E] bg-[#171512] p-4 cursor-grab active:cursor-grabbing transition-[border-color,opacity] duration-200 ease-luxury hover:border-[#3A3022] ${
+                      className={`vx-stagger rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 cursor-grab active:cursor-grabbing transition-[border-color,opacity] duration-200 ease-luxury hover:border-white/[0.12] ${
                         dragId === lead.id ? 'opacity-40' : ''
                       }`}
                     >
@@ -441,7 +441,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
                               rel="noreferrer"
                               title={`Ouvrir WhatsApp ${lead.phone}`}
                               aria-label={`Ouvrir la discussion WhatsApp de ${lead.name}`}
-                              className="shrink-0 text-[#A8A29E] hover:text-[#F3CA75] transition-colors"
+                              className="shrink-0 text-[#A3A3A3] hover:text-[#F3CA75] transition-colors"
                             >
                               <ExternalLink className="h-4 w-4" strokeWidth={1.6} />
                             </a>
@@ -460,7 +460,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
                         )}
                       </div>
 
-                      <div className="mt-3 space-y-1.5 text-sm text-[#A8A29E]">
+                      <div className="mt-3 space-y-1.5 text-sm text-[#A3A3A3]">
                         <div className="flex items-center gap-2">
                           <Clock3 className="h-4 w-4 shrink-0" strokeWidth={1.6} />
                           <span className="truncate">Dernier échange {lead.lastExchange}</span>
@@ -491,7 +491,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
                           type="button"
                           onClick={() => releaseLead(lead.id)}
                           title="Rendre cette fiche au pilote automatique"
-                          className="mt-2.5 inline-flex items-center gap-1.5 text-xs text-[#A8A29E] hover:text-[#F3CA75] transition-colors cursor-pointer"
+                          className="mt-2.5 inline-flex items-center gap-1.5 text-xs text-[#A3A3A3] hover:text-[#F3CA75] transition-colors cursor-pointer"
                         >
                           <Hand className="h-3.5 w-3.5" strokeWidth={1.6} />
                           Suivi manuel · rendre au pilote
@@ -508,13 +508,13 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
                           value={lead.stage}
                           onChange={(e) => moveLead(lead.id, e.target.value as Stage)}
                           aria-label={`Étape de ${lead.name}`}
-                          className="w-full appearance-none rounded-xl border border-[#2D261E] bg-[#0E0C0A] pl-3.5 pr-9 py-2.5 text-[15px] text-white outline-none focus:border-[#E5B54F]/60 cursor-pointer"
+                          className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#08090C] pl-3.5 pr-9 py-2.5 text-[15px] text-white outline-none focus:border-[#E5B54F]/60 cursor-pointer"
                         >
                           {STAGES.map(s => (
                             <option key={s.id} value={s.id}>{s.title}</option>
                           ))}
                         </select>
-                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A8A29E]" />
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#A3A3A3]" />
                       </div>
                     </article>
                   );

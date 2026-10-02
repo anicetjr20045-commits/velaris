@@ -12,7 +12,7 @@
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Refonte Intégrale de l'Intérieur du Studio OS Déployée — Design System d'Élite (Linear / Stripe / Liquid Brokers) appliqué sur l'ensemble des 11 composants internes : élimination totale des émojis, palettes graphite architecturales (`#050608`, `#07080B`, `#0D0F14`), micro-bordures en verre dépoli, chiffres tabulaires monospace, dual-pane WhatsApp inbox et consoles matérielles.
+- **Statut Opérationnel** : Jalon 26 (Overhaul Claude Opus 5.5) codé et compilé, **non commité, non déployé**. Paiements, Kie.ai et WAHA passent désormais par des Edge Functions : la migration SQL et le déploiement des fonctions sont requis avant toute mise en ligne (voir `RAPPORT_CLAUDE_OPUS.md` § 10).
 
 ---
 
@@ -29,6 +29,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 26. Overhaul complet Claude Opus 5.5 — sécurité, paiements, WAHA, console de direction (2 Octobre 2026)
+- **Source** : `CLAUDE_MISSION.md` (8 points). Rapport complet : `RAPPORT_CLAUDE_OPUS.md`.
+- **Secrets** : plus aucune clé SasPay / Kie.ai / WAHA dans le code client. Nouvelles Edge Functions : `saspay-checkout`, `kie-generate`, `waha-proxy`, `admin-health` (+ `_shared/http.ts`) ; `saspay-webhook` réécrit (secret obligatoire, HMAC temps constant, 300 s, idempotent).
+- **Migration** `supabase/migrations/20261002_billing_admin_hardening.sql` : profil auto à l'inscription (15 crédits), grand livre à référence unique, RPC atomiques `velaris_consume_credits[_for]` / `velaris_refund_credits` / `velaris_apply_payment`, table `song_generations`, `profiles.is_admin`, RPC `velaris_admin_kpis|studios|transactions`, index unique des déclencheurs actifs, politiques `wa_sessions`.
+- **Paiements** : solde lu en base (plus de `localStorage` pour un studio connecté), crédit uniquement via webhook signé, plus de crédits/abonnement accordés avant paiement, vérification au retour SasPay ; « Résilier » devient « Ne pas renouveler » (paiements ponctuels).
+- **Kie.ai** : débit serveur + remboursement automatique, suivi de tâche réel, suppression des morceaux de démonstration livrés comme vrais.
+- **WAHA** : proxy authentifié (un studio = sa session), `anicet2` en lecture seule partout, QR en Blob (clé hors URL), file d'envoi 2 parallèles + reprise sur 429/502/503, heartbeat avec gigue et relance STARTING bloqué, plus de sondage pour les visiteurs anonymes, écriture `wa_sessions` seulement au changement.
+- **Quotas** : recherche Copilot côté Postgres, listes bornées, `useStudioLive` une requête en vol + backoff.
+- **Automatisations** : sélecteur de réactions à icônes (aucun emoji UI), interdiction de deux règles actives sur la même réaction, test à blanc sans débit ni envoi.
+- **Copilot** : intentions sur début de mot, négation, validation humaine avant production, paroles personnalisées (pont tiré des messages du client), micro-crédit débité après réponse, envoi simulé en démo.
+- **Console de direction** reconstruite : MRR, encaissé cumulé/30 j, crédits vendus/consommés/en circulation, conversion brief → chanson, entonnoir, télémétrie serveur des 4 nœuds, table des studios, audit des transactions + CSV, posture de sécurité, journal. Accès par `is_admin`.
+- **Design** : palette graphite (`#050608`, `#08090C`, `#0B0C10`, `#0E1015`, bordures `white/[0.08]`) sur 17 composants internes ; or conservé comme accent unique.
+- **Étude point 8** : architecture agent WhatsApp autonome par studio (file/verrou par conversation, état de commande en base, FSM, compréhension structurée, outils validés, garde-fous de sortie, passation humaine) — `RAPPORT_CLAUDE_OPUS.md` § 9.
+- **Validation** : `tsc -p tsconfig.app.json --noEmit` → 0 erreur ; `npm run build` (tsc -b + vite) → succès en 2.99 s, 0 erreur (avertissement préexistant bundle > 500 kB) ; aucune clé secrète dans `dist/`. Aucun test navigateur, aucune fonction déployée, migration non appliquée.
+- **Actions requises** : révoquer les clés SasPay live, Kie.ai et WAHA (présentes dans l'historique Git) ; appliquer la migration ; `update profiles set is_admin = true where email = …` ; `supabase secrets set …` ; déployer les 5 fonctions (`saspay-webhook --no-verify-jwt`).
+- **Non commité** (en attente de validation).
 
 ### 25. Stabilisation WAHA, QR Code Instantané, Protection Quotas Supabase & Claude Code VPS (2 Octobre 2026)
 - **Résolution Définitive du Scan QR Code WhatsApp** (`src/services/waha.ts`, `src/hooks/useWaha.ts`, `src/components/QrConnectModal.tsx`, `src/components/WhatsAppLinesView.tsx`) :
@@ -86,7 +103,7 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ### 22. Système d'Abonnement SasPay, Crédits Permanents & Automatisation Chansons Kie.ai (2 Octobre 2026)
 - **Intégration Moteur Kie.ai (Suno GPU)** (`src/services/kie.ts`) :
-  - Clé API : `9c8965ca1c39ef43b6835599b42c8951`, endpoints `/generate` et `/generate/record-info`.
+  - Clé API : [retirée — exposée, à régénérer, désormais secret Edge Function `KIE_API_KEY`], endpoints `/generate` et `/generate/record-info`.
   - Gestion gracieuse du solde nul (code HTTP 402) sans bloquer l'application : génération studio échantillonnée avec notification claire pour tests et prévisualisations.
   - Détection automatique Nouveaux vs Anciens clients (dossier client) et traçabilité multi-commandes (Order ID unique).
   - Livraison automatique du master audio sur la ligne WhatsApp du client (`deliverSongToWhatsApp`).
@@ -96,7 +113,7 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
   - **Validité permanente** : Les crédits **n'expirent JAMAIS**.
   - Grand livre d'audit de toutes les transactions avec solde en temps réel et persistance.
 - **Passerelle de Paiement SasPay Live & Abonnements** (`src/services/saspay.ts`) :
-  - Clé API Live : `sk_live_zlZ6VKJ75jNB0NcI8I6-BssNMZCm6eU8Hfe0dvdkAYc`.
+  - Clé API Live : [retirée — exposée, à révoquer, désormais secret Edge Function `SASPAY_API_KEY`].
   - Pass Studio Mensuel : **3 000 F CFA / mois**.
   - Pass Studio Trimestriel (3 mois) : **7 000 F CFA / 3 mois** (2 000 F d'économie).
   - Création de sessions de checkout hébergées SasPay réelles (Mobile Money Wave, Orange Money, MTN, Moov, Carte).

@@ -1,310 +1,339 @@
 /**
- * Service de gestion des Crédits et des Abonnements Studio Velaris
- * - Facturation : 1 crédit = 1 génération chanson = 85 F CFA
- * - Requêtes IA Copilot : 0.05 crédit par échange (~4.25 F CFA, économique)
- * - Règle absolue : Les crédits N'EXPIRENT JAMAIS
- * - Abonnements : Mensuel (3 000 F CFA) & 3 Mois (7 000 F CFA)
- * - Sécurité anti-fraude avec vérification des transactions
+ * Crédits et abonnements Studio Velaris
+ * - 1 crédit = 1 génération chanson = 85 F CFA ; Copilot : 0.05 crédit par échange
+ * - Les crédits n'expirent jamais
+ * - Abonnements : Mensuel (3 000 F CFA) & Trimestriel (7 000 F CFA)
+ *
+ * Source de vérité :
+ * - studio connecté : table `profiles` + grand livre `credit_transactions` (Supabase).
+ *   Le navigateur ne fait que LIRE ; crédits et débits passent par le webhook signé
+ *   SasPay et les fonctions SQL atomiques (velaris_apply_payment / consume / refund).
+ * - visiteur en démo : simulation locale (localStorage), clairement marquée comme telle.
  */
 
 import type { CreditTransaction, StudioCredits, SubscriptionInfo, SubscriptionPlanId } from '../types/billing';
-import { SASPAY_CONFIG, getSasPaySessionStatus } from './saspay';
+import { SASPAY_CONFIG } from './saspay';
+import { supabase } from './supabase';
 
-const CREDITS_STORAGE_KEY = 'velaris_studio_credits_v1';
-const SUBSCRIPTION_STORAGE_KEY = 'velaris_studio_subscription_v1';
+const DEMO_CREDITS_KEY = 'velaris_studio_credits_v1';
+const DEMO_SUBSCRIPTION_KEY = 'velaris_studio_subscription_v1';
+const RENEWAL_PREF_KEY = 'velaris_subscription_autorenew_v1';
 
-// Initial state for new studio
-const DEFAULT_CREDITS: StudioCredits = {
-  balance: 15.0, // 15 crédits offerts à l'ouverture du studio
-  songCostCredits: 1.0,
-  aiPromptCostCredits: 0.05,
-  cfaPerCredit: 85,
-  history: [
-    {
-      id: 'tx_init_001',
-      type: 'initial_grant',
-      amount: 15.0,
-      balanceAfter: 15.0,
-      reason: 'Dotation studio offerte de bienvenue (15 chansons IA)',
-      date: new Date(Date.now() - 3600000 * 24 * 7).toISOString(),
-      reference: 'GRANT-WELCOME-15'
-    }
-  ]
+const SONG_COST = 1;
+const AI_PROMPT_COST = 0.05;
+
+const base = (balance: number, history: CreditTransaction[], source: StudioCredits['source']): StudioCredits => ({
+  balance,
+  songCostCredits: SONG_COST,
+  aiPromptCostCredits: AI_PROMPT_COST,
+  cfaPerCredit: SASPAY_CONFIG.rates.cfaPerCredit,
+  history,
+  source,
+});
+
+const DEMO_CREDITS: StudioCredits = base(15, [
+  {
+    id: 'tx_init_001',
+    type: 'initial_grant',
+    amount: 15,
+    balanceAfter: 15,
+    reason: 'Dotation studio offerte de bienvenue (15 chansons IA)',
+    date: new Date(Date.now() - 3600000 * 24 * 7).toISOString(),
+    reference: 'GRANT-WELCOME-15'
+  }
+], 'demo');
+
+const NO_SUBSCRIPTION: SubscriptionInfo = {
+  planId: 'free',
+  planName: 'Aucun pass actif',
+  priceXOF: 0,
+  status: 'inactive',
+  startedAt: '',
+  expiresAt: null,
+  autoRenew: false,
 };
 
-const DEFAULT_SUBSCRIPTION: SubscriptionInfo = {
+const DEMO_SUBSCRIPTION: SubscriptionInfo = {
   planId: 'monthly',
-  planName: 'Pass Studio Mensuel',
+  planName: SASPAY_CONFIG.plans.monthly.name,
   priceXOF: 3000,
   status: 'active',
   startedAt: new Date(Date.now() - 3600000 * 24 * 5).toISOString(),
-  expiresAt: new Date(Date.now() + 3600000 * 24 * 25).toISOString(), // expire dans 25 jours
+  expiresAt: new Date(Date.now() + 3600000 * 24 * 25).toISOString(),
   autoRenew: true,
-  lastPaymentRef: 'TXN-SASPAY-2026-0891',
+  lastPaymentRef: 'DEMO-SASPAY',
   lastPaymentMethod: 'Wave'
 };
 
-const listeners = new Set<() => void>();
+/* ------------------------------------------------------------------ */
+/* État partagé                                                       */
+/* ------------------------------------------------------------------ */
 
-function notifyListeners() {
+interface BillingState {
+  userId: string | null;
+  credits: StudioCredits | null;
+  subscription: SubscriptionInfo | null;
+  error: string | null;
+}
+
+const state: BillingState = { userId: null, credits: null, subscription: null, error: null };
+const listeners = new Set<() => void>();
+let authWatched = false;
+let loading: Promise<void> | null = null;
+
+function notify() {
   listeners.forEach(fn => fn());
 }
 
 export function subscribeToBilling(fn: () => void): () => void {
   listeners.add(fn);
+  watchAuth();
   return () => {
     listeners.delete(fn);
   };
 }
 
+function watchAuth() {
+  if (authWatched) return;
+  authWatched = true;
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    state.userId = session?.user?.id ?? null;
+    if (state.userId) void refreshBilling();
+    else notify();
+  });
+  supabase.auth.onAuthStateChange((_event, session) => {
+    const next = session?.user?.id ?? null;
+    if (next === state.userId) return;
+    state.userId = next;
+    state.credits = null;
+    state.subscription = null;
+    if (next) void refreshBilling();
+    else notify();
+  });
+}
+
+const KIND_TO_TYPE: Record<string, CreditTransaction['type']> = {
+  purchase: 'purchase',
+  subscription: 'purchase',
+  song_generation: 'song_generation',
+  ai_prompt: 'ai_prompt',
+  refund: 'refund',
+  initial_grant: 'initial_grant',
+};
+
+function mapSubscription(p: any, lastPayment?: any): SubscriptionInfo {
+  if (!p?.subscription_plan || p.subscription_plan === 'free' || !p.subscription_expires_at) return NO_SUBSCRIPTION;
+  const plan = p.subscription_plan === 'quarterly' ? SASPAY_CONFIG.plans.quarterly : SASPAY_CONFIG.plans.monthly;
+  const expired = new Date(p.subscription_expires_at).getTime() < Date.now();
+  const renew = readRenewalPref();
+  return {
+    planId: plan.id,
+    planName: plan.name,
+    priceXOF: plan.priceXOF,
+    status: expired ? 'expired' : p.subscription_status === 'CANCELED' || !renew ? 'canceled' : 'active',
+    startedAt: new Date(new Date(p.subscription_expires_at).getTime() - plan.durationDays * 86400000).toISOString(),
+    expiresAt: p.subscription_expires_at,
+    autoRenew: renew && !expired,
+    lastPaymentRef: lastPayment?.transaction_ref || undefined,
+    lastPaymentMethod: lastPayment ? 'SasPay Mobile Money' : undefined,
+  };
+}
+
 /**
- * Récupère le solde et l'historique des crédits
+ * Recharge le solde et l'abonnement depuis Supabase (studio connecté).
+ * Les appels concurrents sont fusionnés en un seul aller-retour.
+ */
+export function refreshBilling(): Promise<void> {
+  if (!state.userId) return Promise.resolve();
+  if (loading) return loading;
+  const userId = state.userId;
+  loading = (async () => {
+    try {
+      const [profileRes, txRes] = await Promise.all([
+        supabase.from('profiles').select('credits, subscription_status, subscription_plan, subscription_expires_at').eq('id', userId).maybeSingle(),
+        supabase
+          .from('credit_transactions')
+          .select('id, kind, credits_added, amount_cfa, balance_after, reason, transaction_ref, created_at')
+          .order('created_at', { ascending: false })
+          .limit(50),
+      ]);
+      if (state.userId !== userId) return;
+      if (profileRes.error) throw profileRes.error;
+
+      const rows = txRes.data || [];
+      const history: CreditTransaction[] = rows.map((t: any) => ({
+        id: t.id,
+        type: KIND_TO_TYPE[t.kind] || 'purchase',
+        amount: Number(t.credits_added),
+        balanceAfter: t.balance_after === null ? NaN : Number(t.balance_after),
+        reason: t.reason || (Number(t.amount_cfa) > 0 ? `Paiement de ${Number(t.amount_cfa).toLocaleString('fr-FR')} F CFA` : 'Mouvement de crédits'),
+        date: t.created_at,
+        reference: t.transaction_ref || undefined,
+      }));
+      state.credits = base(Number(profileRes.data?.credits ?? 0), history, 'server');
+      state.subscription = mapSubscription(profileRes.data, rows.find((t: any) => t.kind === 'subscription'));
+      state.error = null;
+    } catch (err: any) {
+      state.error = err?.message || 'Solde indisponible';
+    } finally {
+      loading = null;
+      notify();
+    }
+  })();
+  return loading;
+}
+
+export function getBillingError(): string | null {
+  return state.error;
+}
+
+/* ------------------------------------------------------------------ */
+/* Lecture                                                            */
+/* ------------------------------------------------------------------ */
+
+function readDemoCredits(): StudioCredits {
+  try {
+    const raw = localStorage.getItem(DEMO_CREDITS_KEY);
+    if (!raw) return DEMO_CREDITS;
+    const parsed = JSON.parse(raw);
+    return base(
+      typeof parsed.balance === 'number' ? parsed.balance : DEMO_CREDITS.balance,
+      Array.isArray(parsed.history) ? parsed.history : DEMO_CREDITS.history,
+      'demo'
+    );
+  } catch {
+    return DEMO_CREDITS;
+  }
+}
+
+function saveDemoCredits(credits: StudioCredits): void {
+  try {
+    localStorage.setItem(DEMO_CREDITS_KEY, JSON.stringify({ balance: credits.balance, history: credits.history }));
+  } catch {
+    // stockage indisponible
+  }
+  notify();
+}
+
+/**
+ * Solde et historique des crédits (instantané ; s'abonner pour les mises à jour)
  */
 export function getStudioCredits(): StudioCredits {
+  if (state.userId) return state.credits ?? base(0, [], 'pending');
+  return readDemoCredits();
+}
+
+/**
+ * Abonnement du studio
+ */
+export function getStudioSubscription(): SubscriptionInfo {
+  if (state.userId) return state.subscription ?? NO_SUBSCRIPTION;
   try {
-    const raw = localStorage.getItem(CREDITS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(CREDITS_STORAGE_KEY, JSON.stringify(DEFAULT_CREDITS));
-      return DEFAULT_CREDITS;
-    }
-    const parsed = JSON.parse(raw);
-    return {
-      balance: typeof parsed.balance === 'number' ? parsed.balance : DEFAULT_CREDITS.balance,
-      songCostCredits: 1.0,
-      aiPromptCostCredits: 0.05,
-      cfaPerCredit: 85,
-      history: Array.isArray(parsed.history) ? parsed.history : DEFAULT_CREDITS.history
-    };
+    const raw = localStorage.getItem(DEMO_SUBSCRIPTION_KEY);
+    const parsed: SubscriptionInfo = raw ? JSON.parse(raw) : DEMO_SUBSCRIPTION;
+    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) parsed.status = 'expired';
+    return parsed;
   } catch {
-    return DEFAULT_CREDITS;
+    return DEMO_SUBSCRIPTION;
   }
 }
 
-/**
- * Sauvegarde les crédits
- */
-function saveStudioCredits(credits: StudioCredits): void {
-  try {
-    localStorage.setItem(CREDITS_STORAGE_KEY, JSON.stringify(credits));
-    notifyListeners();
-  } catch (err) {
-    console.warn('[billing] Failed to save credits to localStorage', err);
-  }
+/* ------------------------------------------------------------------ */
+/* Écritures                                                          */
+/* ------------------------------------------------------------------ */
+
+function pushDemoTx(delta: number, type: CreditTransaction['type'], reason: string, extra: Partial<CreditTransaction> = {}) {
+  const current = readDemoCredits();
+  const balance = Math.max(0, Math.round((current.balance + delta) * 100) / 100);
+  const tx: CreditTransaction = {
+    id: `tx_${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    type,
+    amount: delta,
+    balanceAfter: balance,
+    reason,
+    date: new Date().toISOString(),
+    ...extra,
+  };
+  saveDemoCredits({ ...current, balance, history: [tx, ...current.history].slice(0, 100) });
+  return balance;
 }
 
 /**
- * Débite des crédits pour une génération de chanson (1 crédit)
+ * Débit simulé d'une chanson en mode démo (le studio connecté est débité par le serveur)
  */
-export function debitSongCredit(clientName: string, songTitle: string, orderId?: string): {
+export function debitDemoSongCredit(clientName: string, songTitle: string, orderId?: string): {
   success: boolean;
   newBalance: number;
   error?: string;
 } {
-  const current = getStudioCredits();
-  if (current.balance < current.songCostCredits) {
-    return {
-      success: false,
-      newBalance: current.balance,
-      error: `Solde insuffisant (${current.balance.toFixed(2)} crédit(s)). Rechargez vos crédits (85 F CFA / chanson).`
-    };
+  const current = readDemoCredits();
+  if (current.balance < SONG_COST) {
+    return { success: false, newBalance: current.balance, error: `Solde insuffisant (${current.balance.toFixed(2)} crédit). Rechargez vos crédits (85 F CFA / chanson).` };
   }
-
-  const newBalance = Math.round((current.balance - current.songCostCredits) * 100) / 100;
-  const transaction: CreditTransaction = {
-    id: `tx_song_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    type: 'song_generation',
-    amount: -current.songCostCredits,
-    balanceAfter: newBalance,
-    reason: `Génération Chanson IA « ${songTitle} » pour ${clientName}`,
-    date: new Date().toISOString(),
-    orderId
-  };
-
-  const updated: StudioCredits = {
-    ...current,
-    balance: newBalance,
-    history: [transaction, ...current.history].slice(0, 100)
-  };
-
-  saveStudioCredits(updated);
+  const newBalance = pushDemoTx(-SONG_COST, 'song_generation', `Génération « ${songTitle} » pour ${clientName} (démo)`, { orderId });
   return { success: true, newBalance };
 }
 
 /**
- * Débite des micro-crédits pour l'utilisation de l'IA Copilot (0.05 crédit)
+ * Micro-débit Copilot (0.05 crédit). Studio connecté : fonction SQL atomique,
+ * sans bloquer la réponse si le solde est vide (tolérance de courtoisie).
  */
-export function debitAiPromptCredit(reason: string = 'Requête Copilot IA Studio'): {
-  success: boolean;
-  newBalance: number;
-} {
-  const current = getStudioCredits();
-  // Permet toujours l'IA si solde > 0, sinon tolérance de courtoisie jusqu'à 0
-  const cost = current.aiPromptCostCredits;
-  const newBalance = Math.max(0, Math.round((current.balance - cost) * 100) / 100);
-
-  const transaction: CreditTransaction = {
-    id: `tx_ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    type: 'ai_prompt',
-    amount: -cost,
-    balanceAfter: newBalance,
-    reason,
-    date: new Date().toISOString()
-  };
-
-  // Ne journaliser qu'une transaction sur 5 ou si le solde diminue pour éviter d'inonder l'historique
-  const updated: StudioCredits = {
-    ...current,
-    balance: newBalance,
-    history: [transaction, ...current.history].slice(0, 100)
-  };
-
-  saveStudioCredits(updated);
-  return { success: true, newBalance };
+export function debitAiPromptCredit(reason: string = 'Requête Copilot IA Studio'): void {
+  if (!state.userId) {
+    pushDemoTx(-AI_PROMPT_COST, 'ai_prompt', reason);
+    return;
+  }
+  void supabase
+    .rpc('velaris_consume_credits', { p_amount: AI_PROMPT_COST, p_kind: 'ai_prompt', p_reason: reason.slice(0, 120) })
+    .then(({ error }) => {
+      if (!error) void refreshBilling();
+    });
 }
 
-/**
- * Recharge des crédits suite à un paiement SasPay validé
- * Règle d'or : Les crédits ajoutés n'expirent jamais.
- */
-export function rechargeCredits(
-  creditsToAdd: number,
-  paymentReference: string,
-  paymentMethod: string = 'SasPay Mobile Money'
-): { success: boolean; newBalance: number } {
-  if (creditsToAdd <= 0) return { success: false, newBalance: getStudioCredits().balance };
+/* ------------------------------------------------------------------ */
+/* Renouvellement                                                     */
+/* ------------------------------------------------------------------ */
 
-  const current = getStudioCredits();
-  const newBalance = Math.round((current.balance + creditsToAdd) * 100) / 100;
-  const costXOF = Math.round(creditsToAdd * current.cfaPerCredit);
-
-  const transaction: CreditTransaction = {
-    id: `tx_topup_${Date.now()}`,
-    type: 'purchase',
-    amount: creditsToAdd,
-    balanceAfter: newBalance,
-    reason: `Recharge de ${creditsToAdd} crédits (${costXOF.toLocaleString('fr-FR')} F CFA via ${paymentMethod})`,
-    date: new Date().toISOString(),
-    reference: paymentReference
-  };
-
-  const updated: StudioCredits = {
-    ...current,
-    balance: newBalance,
-    history: [transaction, ...current.history].slice(0, 100)
-  };
-
-  saveStudioCredits(updated);
-  return { success: true, newBalance };
-}
-
-/**
- * Récupère les données d'abonnement du studio
- */
-export function getStudioSubscription(): SubscriptionInfo {
+function readRenewalPref(): boolean {
   try {
-    const raw = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(DEFAULT_SUBSCRIPTION));
-      return DEFAULT_SUBSCRIPTION;
-    }
-    const parsed = JSON.parse(raw);
-    // Vérification de la date d'expiration
-    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) {
-      parsed.status = 'expired';
-    }
-    return parsed;
+    return localStorage.getItem(`${RENEWAL_PREF_KEY}:${state.userId ?? 'demo'}`) !== 'off';
   } catch {
-    return DEFAULT_SUBSCRIPTION;
+    return true;
   }
 }
 
 /**
- * Sauvegarde l'abonnement
- */
-function saveStudioSubscription(sub: SubscriptionInfo): void {
-  try {
-    localStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify(sub));
-    notifyListeners();
-  } catch (err) {
-    console.warn('[billing] Failed to save subscription', err);
-  }
-}
-
-/**
- * Active ou renouvelle un abonnement après confirmation SasPay
- */
-export function activateSubscription(
-  planId: SubscriptionPlanId,
-  paymentRef: string,
-  paymentMethod: string = 'SasPay Mobile Money'
-): SubscriptionInfo {
-  const planConfig = planId === 'quarterly' ? SASPAY_CONFIG.plans.quarterly : SASPAY_CONFIG.plans.monthly;
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + planConfig.durationDays * 24 * 3600 * 1000).toISOString();
-
-  const sub: SubscriptionInfo = {
-    planId,
-    planName: planConfig.name,
-    priceXOF: planConfig.priceXOF,
-    status: 'active',
-    startedAt: now.toISOString(),
-    expiresAt,
-    autoRenew: true,
-    lastPaymentRef: paymentRef,
-    lastPaymentMethod: paymentMethod
-  };
-
-  saveStudioSubscription(sub);
-  return sub;
-}
-
-/**
- * Résilie l'abonnement en cours (l'accès reste actif jusqu'à la date d'expiration)
+ * Résiliation : SasPay encaisse des paiements ponctuels, il n'y a donc aucun
+ * prélèvement automatique à annuler. On mémorise simplement le choix de ne pas
+ * renouveler ; l'accès reste actif jusqu'à l'échéance déjà payée.
  */
 export function cancelSubscription(): { success: boolean; subscription: SubscriptionInfo } {
-  const current = getStudioSubscription();
-  const updated: SubscriptionInfo = {
-    ...current,
-    status: 'canceled',
-    autoRenew: false
-  };
-  saveStudioSubscription(updated);
-  return { success: true, subscription: updated };
+  try {
+    localStorage.setItem(`${RENEWAL_PREF_KEY}:${state.userId ?? 'demo'}`, 'off');
+  } catch {
+    // stockage indisponible
+  }
+  if (state.userId && state.subscription) {
+    state.subscription = { ...state.subscription, status: 'canceled', autoRenew: false };
+  } else if (!state.userId) {
+    try {
+      localStorage.setItem(DEMO_SUBSCRIPTION_KEY, JSON.stringify({ ...getStudioSubscription(), status: 'canceled', autoRenew: false }));
+    } catch {
+      // stockage indisponible
+    }
+  }
+  notify();
+  return { success: true, subscription: getStudioSubscription() };
 }
 
-/**
- * Vérification anti-fraude stricte pour valider un paiement SasPay et créditer le compte
- */
-export async function verifyAndApplySasPayPayment(sessionId: string): Promise<{
-  success: boolean;
-  message: string;
-  type?: 'subscription' | 'credits';
-}> {
-  const statusRes = await getSasPaySessionStatus(sessionId);
-  if (!statusRes.success) {
-    return { success: false, message: statusRes.error || 'Session introuvable auprès de SasPay.' };
+export function resumeSubscriptionRenewal(): void {
+  try {
+    localStorage.removeItem(`${RENEWAL_PREF_KEY}:${state.userId ?? 'demo'}`);
+  } catch {
+    // stockage indisponible
   }
-
-  if (statusRes.status !== 'PAID') {
-    return {
-      success: false,
-      message: `Paiement non confirmé (statut actuel : ${statusRes.status || 'EN ATTENTE'}).`
-    };
-  }
-
-  // Vérifier qu'on n'a pas déjà crédité cette session
-  const currentCredits = getStudioCredits();
-  const alreadyProcessed = currentCredits.history.some(tx => tx.reference === sessionId);
-  if (alreadyProcessed) {
-    return { success: true, message: 'Ce paiement a déjà été validé et appliqué à votre compte.' };
-  }
-
-  // Appliquer le paiement
-  const ref = statusRes.transactionId || sessionId;
-  rechargeCredits(50, ref, 'SasPay Mobile Money');
-  return {
-    success: true,
-    message: 'Paiement SasPay certifié avec succès. 50 crédits ajoutés à vie.',
-    type: 'credits'
-  };
+  if (state.userId) void refreshBilling();
+  else notify();
 }
+
+export type { SubscriptionPlanId };

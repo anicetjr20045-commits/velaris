@@ -1,31 +1,36 @@
 /**
- * Service d'Automatisation de Génération & Livraison de Chansons
- * - Réaction emoji WhatsApp (ex: 🎵) -> Déclenchement automatique de la génération Kie.ai
+ * Automatisation Génération & Livraison de Chansons
+ * - Réaction emoji WhatsApp (ex. note de musique) sur un brief -> génération Kie.ai
  * - Reconnaissance anciens vs nouveaux clients
- * - Multi-commandes par client avec suivi par Order ID
- * - Livraison instantanée du master audio sur la ligne WhatsApp du client
+ * - Une commande = un identifiant : un même brief ne peut pas être produit deux fois en parallèle
+ * - Livraison du master audio sur la ligne WhatsApp du client, uniquement s'il a été réellement produit
+ *
+ * Le déclenchement par réaction reçue sur WhatsApp est exécuté par le moteur serveur
+ * (velaris-agent) ; ce module sert au déclenchement depuis le Studio et au test à blanc.
  */
 
 import type { Order } from '../types';
 import type { SongAutomationConfig, KieSongResult } from '../types/billing';
-import { generateKieSong, deliverSongToWhatsApp } from './kie';
+import { generateKieSong, deliverSongToWhatsApp, waitForKieSong } from './kie';
+import { getStudioCredits } from './billing';
 import { phoneMatches } from './supabase';
 
 const AUTOMATION_CONFIG_KEY = 'velaris_song_automation_config_v1';
 
+export const SONG_TRIGGER_DEFAULT = '\u{1F3B5}'; // note de musique
+
 const DEFAULT_CONFIG: SongAutomationConfig = {
   enabled: true,
-  reactionEmoji: '🎵',
+  reactionEmoji: SONG_TRIGGER_DEFAULT,
   autoDeliverWhatsApp: true,
   notifyOnComplete: true,
-  ordersCreatedCount: 14,
-  lastTriggeredAt: new Date(Date.now() - 3600000 * 2).toISOString()
+  ordersCreatedCount: 0,
 };
 
 export function getSongAutomationConfig(): SongAutomationConfig {
   try {
     const raw = localStorage.getItem(AUTOMATION_CONFIG_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_CONFIG;
+    return raw ? { ...DEFAULT_CONFIG, ...JSON.parse(raw) } : DEFAULT_CONFIG;
   } catch {
     return DEFAULT_CONFIG;
   }
@@ -34,9 +39,15 @@ export function getSongAutomationConfig(): SongAutomationConfig {
 export function saveSongAutomationConfig(cfg: SongAutomationConfig): void {
   try {
     localStorage.setItem(AUTOMATION_CONFIG_KEY, JSON.stringify(cfg));
-  } catch (err) {
-    console.warn('[songAutomation] Failed to save config', err);
+  } catch {
+    // stockage indisponible
   }
+}
+
+/* Compare deux emojis en ignorant les sélecteurs de variante et teintes de peau */
+export function sameEmoji(a?: string | null, b?: string | null): boolean {
+  const norm = (s?: string | null) => (s || '').replace(/[\u{FE0E}\u{FE0F}\u{1F3FB}-\u{1F3FF}]/gu, '').trim();
+  return !!norm(a) && norm(a) === norm(b);
 }
 
 /**
@@ -48,28 +59,16 @@ export function checkClientStatus(phone: string, existingOrders: Order[]): {
   lastOrder?: Order;
 } {
   const digits = phone.replace(/\D/g, '');
-  const matches = existingOrders.filter(o => phoneMatches(o.clientPhone, digits));
-  return {
-    isNewClient: matches.length <= 1, // 0 ou 1 commande en cours
-    orderCount: matches.length,
-    lastOrder: matches[0]
-  };
+  const matches = digits ? existingOrders.filter(o => phoneMatches(o.clientPhone, digits)) : [];
+  // Un client déjà livré au moins une fois est un client fidèle
+  const delivered = matches.filter(o => o.status === 'livre').length;
+  return { isNewClient: delivered === 0, orderCount: matches.length, lastOrder: matches[0] };
 }
 
-/**
- * Déclenche l'automatisation suite à une réaction emoji ou demande directe
- */
-export async function triggerSongAutomation({
-  emoji,
-  clientName,
-  clientPhone,
-  title,
-  lyrics,
-  style,
-  orderId,
-  existingOrders = [],
-  sessionName = 'Test'
-}: {
+/* Commandes en cours de production : une réaction posée deux fois ne lance pas deux chansons */
+const inFlight = new Set<string>();
+
+export interface SongTriggerInput {
   emoji?: string;
   clientName: string;
   clientPhone: string;
@@ -78,63 +77,76 @@ export async function triggerSongAutomation({
   style: string;
   orderId?: string;
   existingOrders?: Order[];
-  sessionName?: string;
-}): Promise<{
+  sessionName: string;
+  /** Test à blanc : vérifie toute la chaîne sans appel réseau, sans débit, sans envoi */
+  dryRun?: boolean;
+}
+
+export interface SongTriggerResult {
   triggered: boolean;
   reason?: string;
+  steps?: string[];
   result?: KieSongResult;
   deliverySuccess?: boolean;
-}> {
+}
+
+export async function triggerSongAutomation(input: SongTriggerInput): Promise<SongTriggerResult> {
   const config = getSongAutomationConfig();
+  const steps: string[] = [];
 
-  if (!config.enabled) {
-    return { triggered: false, reason: 'Automatisation désactivée dans les paramètres.' };
+  if (!config.enabled) return { triggered: false, reason: 'Automatisation désactivée dans les paramètres.' };
+  if (input.emoji && !sameEmoji(input.emoji, config.reactionEmoji)) {
+    return { triggered: false, reason: 'La réaction reçue ne correspond pas au déclencheur configuré.' };
+  }
+  steps.push('Réaction reconnue');
+
+  if (input.lyrics.trim().length < 40) return { triggered: false, reason: 'Paroles absentes ou trop courtes : validez le texte avant de lancer la production.', steps };
+  steps.push('Paroles validées');
+
+  const credits = getStudioCredits();
+  if (credits.source !== 'pending' && credits.balance < credits.songCostCredits) {
+    return { triggered: false, reason: `Solde insuffisant (${credits.balance.toFixed(2)} crédit). Rechargez depuis le Profil.`, steps };
+  }
+  steps.push(`Solde suffisant (${credits.balance.toFixed(2)} crédit)`);
+
+  const client = checkClientStatus(input.clientPhone, input.existingOrders || []);
+  steps.push(client.isNewClient ? 'Nouveau client' : `Client fidèle (${client.orderCount} commande(s))`);
+
+  const orderId = input.orderId || `ORD-${Date.now().toString(36).toUpperCase()}`;
+  if (inFlight.has(orderId)) return { triggered: false, reason: `La commande ${orderId} est déjà en production.`, steps };
+
+  if (input.dryRun) {
+    steps.push(config.autoDeliverWhatsApp ? `Livraison automatique prévue sur ${input.sessionName}` : 'Livraison manuelle');
+    return { triggered: false, reason: 'Test à blanc réussi : la chaîne est prête, rien n’a été débité ni envoyé.', steps };
   }
 
-  if (emoji && emoji !== config.reactionEmoji) {
-    return { triggered: false, reason: `Emoji ${emoji} ne correspond pas au déclencheur ${config.reactionEmoji}.` };
-  }
+  inFlight.add(orderId);
+  try {
+    const gen = await generateKieSong(
+      {
+        prompt: input.lyrics,
+        lyrics: input.lyrics,
+        style: input.style || 'Afro-Love acoustique',
+        title: input.title || `Chanson pour ${input.clientName}`,
+        clientName: input.clientName,
+        clientPhone: input.clientPhone,
+        orderId,
+      },
+      { isNewClient: client.isNewClient }
+    );
+    if (!gen.success || !gen.result) return { triggered: false, reason: gen.error || 'Échec de la génération Kie.ai.', steps };
+    steps.push('Production lancée');
 
-  // 1. Détection nouveau vs ancien client
-  const clientStatus = checkClientStatus(clientPhone, existingOrders);
-
-  // 2. Lancer la génération Kie
-  const genResponse = await generateKieSong(
-    {
-      prompt: lyrics,
-      lyrics,
-      style: style || 'Afro-Love acoustique',
-      title: title || `Chanson pour ${clientName}`,
-      clientName,
-      clientPhone,
-      orderId: orderId || `ORD-${Date.now().toString().slice(-4)}`
-    },
-    {
-      isNewClient: clientStatus.isNewClient
+    const result = await waitForKieSong(gen.result);
+    let deliverySuccess = false;
+    if (result.status === 'success' && config.autoDeliverWhatsApp && !result.isSimulation) {
+      deliverySuccess = (await deliverSongToWhatsApp(result, input.sessionName)).success;
+      steps.push(deliverySuccess ? 'Livrée sur WhatsApp' : 'Livraison WhatsApp échouée');
     }
-  );
 
-  if (!genResponse.success || !genResponse.result) {
-    return { triggered: false, reason: genResponse.error || 'Échec de la génération Kie.ai.' };
+    saveSongAutomationConfig({ ...config, ordersCreatedCount: config.ordersCreatedCount + 1, lastTriggeredAt: new Date().toISOString() });
+    return { triggered: true, result, deliverySuccess, steps };
+  } finally {
+    inFlight.delete(orderId);
   }
-
-  const result = genResponse.result;
-
-  // 3. Si livraison automatique activée, expédier vers WhatsApp
-  let deliverySuccess = false;
-  if (config.autoDeliverWhatsApp && (result.audioUrl || result.streamAudioUrl)) {
-    const delivery = await deliverSongToWhatsApp(result, sessionName);
-    deliverySuccess = delivery.success;
-  }
-
-  // Mettre à jour les statistiques de l'automatisation
-  config.ordersCreatedCount += 1;
-  config.lastTriggeredAt = new Date().toISOString();
-  saveSongAutomationConfig(config);
-
-  return {
-    triggered: true,
-    result,
-    deliverySuccess
-  };
 }

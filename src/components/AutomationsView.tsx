@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FC, type FormEvent } from 'react';
 import {
+  Zap,
   Check,
   ExternalLink,
   FileText,
@@ -14,9 +15,11 @@ import {
   Video,
   X,
   Music2,
-  Sparkles,
-  Send,
+  FlaskConical,
   CheckCircle2,
+  CircleAlert,
+  ChevronDown,
+  ArrowRight,
   type LucideIcon
 } from 'lucide-react';
 import type { AutomationLog, AutomationMediaKind, AutomationRule } from '../types';
@@ -37,6 +40,8 @@ import {
 import { WaveformPlayer } from './WaveformPlayer';
 import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 import { getSongAutomationConfig, saveSongAutomationConfig, triggerSongAutomation } from '../services/songAutomation';
+import { wahaSessionNameFor } from '../services/waha';
+import { REACTION_TRIGGERS, findReactionTrigger, reactionCodepoint, sameReaction } from '../data/reactionTriggers';
 
 const MAX_LOGS = 50;
 
@@ -47,14 +52,14 @@ const stamp = () => {
 };
 
 const STATUS_STYLE: Record<AutomationLog['status'], string> = {
-  Envoyé: 'bg-[#E5B54F] text-[#0C0A09]',
+  Envoyé: 'bg-[#E5B54F] text-[#050608]',
   Activée: 'bg-[#E5B54F]/[0.14] text-[#F3CA75] border border-[#E5B54F]/40',
-  Coupée: 'bg-white/[0.05] text-[#A8A29E] border border-[#3A3022]',
+  Coupée: 'bg-white/[0.05] text-[#A3A3A3] border border-white/[0.12]',
   Échoué: 'bg-[#E11D48]/15 text-[#FDA4AF] border border-[#E11D48]/40',
 };
 
 const inputClass =
-  'w-full rounded-xl border border-[#3A3022] bg-[#0E0C0A] px-3.5 py-2.5 text-[15px] text-white placeholder:text-[#78716C] outline-none focus:border-[#E5B54F]/60 transition-colors';
+  'w-full rounded-xl border border-white/[0.12] bg-[#08090C] px-3.5 py-2.5 text-[15px] text-white placeholder:text-[#737373] outline-none focus:border-[#E5B54F]/60 transition-colors';
 
 const MEDIA_KINDS: { id: AutomationMediaKind; label: string; pill: string; icon: LucideIcon; accept?: string; hint: string }[] = [
   { id: 'text', label: 'Texte', pill: 'Envoyer un texte', icon: Type, hint: 'Message écrit personnalisé.' },
@@ -101,40 +106,55 @@ interface Draft {
   media?: DraftMedia;
 }
 
-const EMPTY_DRAFT: Draft = { name: '', emoji: '⚡', kind: 'text', action: '' };
+const DEFAULT_TRIGGER = REACTION_TRIGGERS[0].value;
+const EMPTY_DRAFT: Draft = { name: '', emoji: DEFAULT_TRIGGER, kind: 'text', action: '' };
+
+const trigger = (label: string) => REACTION_TRIGGERS.find(t => t.label === label)!.value;
 
 const AUTOMATION_PRESETS: { name: string; emoji: string; kind: AutomationMediaKind; action: string }[] = [
   {
     name: 'Formules & Tarifs (1 200 F / 3 000 F / 5 000 F)',
-    emoji: '💰',
+    emoji: trigger('Sac d’argent'),
     kind: 'text',
     action: `Bonjour ! Voici nos formules de création de chanson personnalisée :
 
-🎵 Formule Émotion (1 200 F CFA) : Paroles personnalisées & mélodie acoustique.
-⭐ Formule Studio Or (3 000 F CFA) : Production complète, voix studio & mixage pro.
-👑 Formule Prestige (5 000 F CFA) : Production master, vidéo souvenir & livraison en 18 minutes.
+- Formule Émotion (1 200 F CFA) : paroles personnalisées et mélodie acoustique.
+- Formule Studio (3 000 F CFA) : production complète, voix studio et mixage pro.
+- Formule Prestige (5 000 F CFA) : production master, vidéo souvenir, livraison en 18 minutes.
 
 Quelle formule correspond le mieux à votre projet ?`
   },
   {
     name: 'Délai de Livraison Express (18 min)',
-    emoji: '⏱️',
+    emoji: trigger('Chronomètre'),
     kind: 'text',
     action: `Votre chanson est prête et livrée en 18 minutes chrono après validation de votre brief ! Envoyez-nous simplement une note vocale ou un texte avec les prénoms et détails.`
   },
   {
     name: 'Demande de Note Vocale du Client',
-    emoji: '🎤',
+    emoji: trigger('Micro'),
     kind: 'text',
     action: `Pour que votre chanson soit chargée d'émotion, envoyez-nous une note vocale de 30 secondes en nous racontant votre plus belle histoire ou vos souvenirs avec la personne !`
   },
   {
     name: 'Paiement Wave / Orange Money',
-    emoji: '💳',
+    emoji: trigger('Carte de paiement'),
     kind: 'text',
     action: `Pour valider votre commande et lancer immédiatement la production en studio, vous pouvez régler par Wave ou Orange Money au numéro de notre studio.`
   }
 ];
+
+/* Déclencheur affiché par son icône et son nom, jamais par le glyphe */
+const TriggerChip: FC<{ value: string; className?: string }> = ({ value, className = '' }) => {
+  const t = findReactionTrigger(value);
+  const Icon = t?.icon ?? Zap;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm font-medium text-white ${className}`}>
+      <Icon className="h-3.5 w-3.5 text-neutral-300" strokeWidth={1.6} />
+      {t ? t.label : <span className="font-mono text-xs text-neutral-300">{reactionCodepoint(value)}</span>}
+    </span>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Aperçu du média tel que reçu par le client                         */
@@ -162,22 +182,22 @@ const MediaPreview: FC<{ kind: AutomationMediaKind; url?: string; name?: string;
   }
   if (kind === 'video') {
     return url ? (
-      <video src={url} controls preload="metadata" playsInline className="w-full max-w-sm rounded-xl border border-[#2D261E] bg-black" />
+      <video src={url} controls preload="metadata" playsInline className="w-full max-w-sm rounded-xl border border-white/[0.08] bg-black" />
     ) : (
-      <div className="flex max-w-sm items-center gap-2.5 rounded-xl border border-[#2D261E] bg-[#0E0C0A] px-3.5 py-3 text-sm text-[#A8A29E]">
+      <div className="flex max-w-sm items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#08090C] px-3.5 py-3 text-sm text-[#A3A3A3]">
         <Video className="h-4 w-4 shrink-0 text-[#E5B54F]" strokeWidth={1.6} />
         <span className="truncate">{name || 'Vidéo'}</span>
       </div>
     );
   }
   return (
-    <div className="flex max-w-sm items-center gap-3 rounded-xl border border-[#2D261E] bg-[#0E0C0A] px-3.5 py-3">
-      <span className="flex h-10 w-9 shrink-0 items-center justify-center rounded-md border border-[#3A3022] bg-[#171512] font-mono text-[10px] uppercase text-[#F3CA75]">
+    <div className="flex max-w-sm items-center gap-3 rounded-xl border border-white/[0.08] bg-[#08090C] px-3.5 py-3">
+      <span className="flex h-10 w-9 shrink-0 items-center justify-center rounded-md border border-white/[0.12] bg-[#0E1015] font-mono text-[10px] uppercase text-[#F3CA75]">
         {(name?.split('.').pop() || 'doc').slice(0, 4)}
       </span>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-white">{name || 'Document'}</div>
-        {size !== undefined && <div className="font-mono text-xs tabular-nums text-[#78716C]">{formatBytes(size)}</div>}
+        {size !== undefined && <div className="font-mono text-xs tabular-nums text-[#737373]">{formatBytes(size)}</div>}
       </div>
       {url && (
         <a
@@ -185,7 +205,7 @@ const MediaPreview: FC<{ kind: AutomationMediaKind; url?: string; name?: string;
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`Ouvrir ${name || 'le document'}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#A8A29E] hover:text-[#F3CA75] hover:bg-[#E5B54F]/[0.08] transition-colors"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#A3A3A3] hover:text-[#F3CA75] hover:bg-[#E5B54F]/[0.08] transition-colors"
         >
           <ExternalLink className="h-4 w-4" strokeWidth={1.6} />
         </a>
@@ -210,7 +230,8 @@ export const AutomationsView: FC = () => {
   const [recording, setRecording] = useState(false);
   const [songAutoConfig, setSongAutoConfig] = useState(getSongAutomationConfig());
   const [testingSongAuto, setTestingSongAuto] = useState(false);
-  const [songAutoNotice, setSongAutoNotice] = useState<string | null>(null);
+  const [songAutoNotice, setSongAutoNotice] = useState<{ ok: boolean; text: string; steps: string[] } | null>(null);
+  const [customTrigger, setCustomTrigger] = useState(false);
 
   const handleToggleSongAuto = () => {
     const updated = { ...songAutoConfig, enabled: !songAutoConfig.enabled };
@@ -228,22 +249,21 @@ export const AutomationsView: FC = () => {
   const handleTestSongAutomation = async () => {
     setTestingSongAuto(true);
     setSongAutoNotice(null);
-    const trigger = await triggerSongAutomation({
+    // Test à blanc : toute la chaîne est vérifiée sans débit, sans appel Kie.ai ni envoi WhatsApp
+    const res = await triggerSongAutomation({
       emoji: songAutoConfig.reactionEmoji,
-      clientName: 'Mariam Diallo',
-      clientPhone: '+226 79 29 64 99',
-      title: 'Chanson pour Mariam',
-      lyrics: 'Mariam, lumière de ma vie, chaque instant avec toi est une mélodie...',
+      clientName: 'Client test',
+      clientPhone: '',
+      title: 'Chanson de test',
+      lyrics: 'Couplet de test pour vérifier la chaîne de production du studio, sans rien envoyer au client.',
       style: 'Afro-Love acoustique',
-      orderId: `ORD-${Date.now().toString().slice(-4)}`
+      sessionName: wahaSessionNameFor(user?.id),
+      dryRun: true,
     });
     setTestingSongAuto(false);
-    if (trigger.triggered) {
-      setSongAutoNotice('Succès : Réaction emoji 🎵 détectée → Chanson Kie.ai générée (1 crédit débité) → Expédiée sur WhatsApp au +226 79 29 64 99 !');
-      pushLog('Génération Chanson Kie.ai', 'Envoyé', '+226 79 29 64 99');
-    } else {
-      setSongAutoNotice(`Information : ${trigger.reason || 'Simulation terminée'}`);
-    }
+    const ok = !res.triggered && !!res.steps && res.reason?.startsWith('Test à blanc');
+    setSongAutoNotice({ ok: !!ok, text: res.reason || 'Test terminé', steps: res.steps || [] });
+    pushLog('Test chaîne Kie.ai', ok ? 'Activée' : 'Échoué');
   };
 
   /* URLs signées des médias en base (path -> url), valables une heure */
@@ -290,6 +310,11 @@ export const AutomationsView: FC = () => {
 
   const handleToggleRule = (rule: AutomationRule) => {
     const next = !rule.active;
+    const clash = next && rules.find(r => r.id !== rule.id && r.active && sameReaction(r.emoji, rule.emoji));
+    if (clash) {
+      setError(`Impossible d'activer « ${rule.name} » : « ${clash.name} » répond déjà à ce déclencheur.`);
+      return;
+    }
     setRules(prev => prev.map(r => (r.id === rule.id ? { ...r, active: next } : r)));
     pushLog(rule.name, next ? 'Activée' : 'Coupée');
     persist(
@@ -375,12 +400,19 @@ export const AutomationsView: FC = () => {
       return;
     }
 
+    const finalTrigger = draft.emoji.trim() || DEFAULT_TRIGGER;
+    const clash = rules.find(r => r.id !== draft.id && r.active && sameReaction(r.emoji, finalTrigger));
+    if (clash) {
+      setError(`La règle « ${clash.name} » utilise déjà ce déclencheur : un même geste enverrait deux réponses au client. Choisissez une autre réaction ou coupez l'autre règle.`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     const existing = draft.id ? rules.find(r => r.id === draft.id) : undefined;
     const media = draft.kind === 'text' ? undefined : draft.media;
     const finalName = draft.name.trim() || (draft.kind === 'voice' ? 'Note vocale automatique' : 'Réponse automatique');
-    const finalEmoji = draft.emoji.trim() || '⚡';
+    const finalEmoji = finalTrigger;
 
     const rule: AutomationRule = {
       id: draft.id ?? `auto-${Date.now()}`,
@@ -442,7 +474,7 @@ export const AutomationsView: FC = () => {
     if (d.kind === 'text') {
       return (
         <label className="block space-y-1.5">
-          <span className="text-sm text-[#A8A29E]">Texte envoyé au client</span>
+          <span className="text-sm text-[#A3A3A3]">Texte envoyé au client</span>
           <textarea
             rows={3}
             placeholder="Nous faisons la chanson à 1 200 F…"
@@ -457,16 +489,16 @@ export const AutomationsView: FC = () => {
 
     return (
       <div className="space-y-3">
-        <div className="text-sm text-[#A8A29E]">{meta.hint}</div>
+        <div className="text-sm text-[#A3A3A3]">{meta.hint}</div>
 
         {d.media ? (
           <div className="space-y-2.5">
-            <div className="text-xs uppercase tracking-[0.08em] text-[#78716C]">Aperçu côté client</div>
+            <div className="text-xs uppercase tracking-[0.08em] text-[#737373]">Aperçu côté client</div>
             <MediaPreview kind={d.kind} url={d.media.url} name={d.media.name} size={d.media.size} durationSec={d.media.durationSec} peaks={d.media.peaks} seed={d.media.name} />
             <button
               type="button"
               onClick={() => setDraft({ ...d, media: undefined })}
-              className="inline-flex items-center gap-1.5 text-[13px] text-[#A8A29E] hover:text-[#FB7185] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-[13px] text-[#A3A3A3] hover:text-[#FB7185] transition-colors cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
               Retirer ce média
@@ -480,7 +512,7 @@ export const AutomationsView: FC = () => {
               <button
                 type="button"
                 onClick={() => setRecording(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-4 py-2.5 text-sm font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-4 py-2.5 text-sm font-semibold text-[#050608] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
               >
                 <Mic className="h-4 w-4" strokeWidth={2} />
                 Enregistrer au micro
@@ -489,7 +521,7 @@ export const AutomationsView: FC = () => {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#3A3022] px-4 py-2.5 text-sm font-medium text-[#E7E5E4] hover:border-[#E5B54F]/40 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.12] px-4 py-2.5 text-sm font-medium text-[#E5E5E5] hover:border-[#E5B54F]/40 transition-colors cursor-pointer"
             >
               <Upload className="h-4 w-4" strokeWidth={1.8} />
               {d.kind === 'voice' ? 'Importer un audio' : d.kind === 'video' ? 'Choisir une vidéo' : 'Choisir un fichier'}
@@ -500,7 +532,7 @@ export const AutomationsView: FC = () => {
 
         {(d.kind === 'document' || d.kind === 'video') && (
           <label className="block space-y-1.5">
-            <span className="text-sm text-[#A8A29E]">Légende (facultatif)</span>
+            <span className="text-sm text-[#A3A3A3]">Légende (facultatif)</span>
             <input
               type="text"
               placeholder={d.kind === 'video' ? 'Voici un exemple de clip livré…' : 'Notre grille tarifaire'}
@@ -511,7 +543,7 @@ export const AutomationsView: FC = () => {
           </label>
         )}
 
-        {!user && <p className="text-xs text-[#78716C]">Mode démo : le média reste dans ce navigateur et n'est pas envoyé au studio.</p>}
+        {!user && <p className="text-xs text-[#737373]">Mode démo : le média reste dans ce navigateur et n'est pas envoyé au studio.</p>}
       </div>
     );
   };
@@ -520,18 +552,18 @@ export const AutomationsView: FC = () => {
     draft && (
       <form
         onSubmit={handleSave}
-        className="vx-view-enter rounded-[22px] border border-[#E5B54F]/40 bg-[#171512] p-6 space-y-5 shadow-[0_24px_60px_-24px_rgba(229,181,79,0.25)]"
+        className="vx-view-enter rounded-[22px] border border-[#E5B54F]/40 bg-[#0E1015] p-6 space-y-5 shadow-[0_24px_60px_-24px_rgba(229,181,79,0.25)]"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">{isEdit ? 'Modifier la règle' : 'Nouvelle règle d’automatisation'}</h2>
-            <p className="text-xs text-[#A8A29E] mt-0.5">Posez un emoji sur WhatsApp pour envoyer automatiquement cette réponse.</p>
+            <p className="text-xs text-neutral-400 mt-0.5">Posez la réaction choisie sur un message WhatsApp pour envoyer cette réponse.</p>
           </div>
           <button
             type="button"
             onClick={closeForm}
             aria-label="Fermer"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#A8A29E] hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[#A3A3A3] hover:text-white hover:bg-white/[0.05] transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -539,9 +571,9 @@ export const AutomationsView: FC = () => {
 
         {/* Modèles prêts à l'emploi (1 clic) */}
         {!isEdit && (
-          <div className="space-y-2 p-3.5 rounded-xl border border-white/5 bg-white/[0.02]">
-            <div className="text-xs font-semibold text-[#F3CA75]">
-              Modèles rapides prêts à l'emploi (remplissage en 1 clic) :
+          <div className="space-y-2.5 p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-neutral-400">
+              Modèles prêts à l'emploi
             </div>
             <div className="flex flex-wrap gap-2">
               {AUTOMATION_PRESETS.map(preset => (
@@ -559,9 +591,12 @@ export const AutomationsView: FC = () => {
                     });
                     setError(null);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#3A3022] bg-[#0E0C0A] hover:border-[#E5B54F]/50 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-[#08090C] hover:border-white/20 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer"
                 >
-                  <span>{preset.emoji}</span>
+                  {(() => {
+                    const Icon = findReactionTrigger(preset.emoji)?.icon ?? Zap;
+                    return <Icon className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.6} />;
+                  })()}
                   <span>{preset.name.split('(')[0].trim()}</span>
                 </button>
               ))}
@@ -569,49 +604,75 @@ export const AutomationsView: FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-4">
-          <label className="block space-y-1.5">
-            <span className="text-sm text-[#A8A29E]">Nom de la règle</span>
-            <input
-              type="text"
-              autoFocus
-              placeholder="Ex. Formules & Tarifs"
-              value={draft.name}
-              onChange={e => setDraft({ ...draft, name: e.target.value })}
-              className={inputClass}
-            />
-          </label>
-          <div className="space-y-1.5">
-            <label className="block space-y-1.5">
-              <span className="text-sm text-[#A8A29E]">Emoji déclencheur</span>
+        <label className="block space-y-1.5">
+          <span className="text-sm text-neutral-400">Nom de la règle</span>
+          <input
+            type="text"
+            autoFocus
+            placeholder="Ex. Formules & Tarifs"
+            value={draft.name}
+            onChange={e => setDraft({ ...draft, name: e.target.value })}
+            className={inputClass}
+          />
+        </label>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm text-neutral-400 mb-1.5">Réaction déclencheuse sur WhatsApp</legend>
+          <div role="radiogroup" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {REACTION_TRIGGERS.slice(0, 12).map(t => {
+              const Icon = t.icon;
+              const active = !customTrigger && sameReaction(draft.emoji, t.value);
+              const taken = rules.some(r => r.id !== draft.id && r.active && sameReaction(r.emoji, t.value));
+              return (
+                <button
+                  key={t.label}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => {
+                    setCustomTrigger(false);
+                    setDraft({ ...draft, emoji: t.value });
+                  }}
+                  title={taken ? 'Déjà utilisé par une règle active' : t.label}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] transition-colors duration-150 cursor-pointer ${
+                    active
+                      ? 'border-white/40 bg-white/[0.08] text-white font-medium'
+                      : 'border-white/[0.08] bg-[#08090C] text-neutral-400 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                  <span className="truncate">{t.label}</span>
+                  {taken && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCustomTrigger(v => !v)}
+            className="inline-flex items-center gap-1.5 text-[13px] text-neutral-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${customTrigger ? 'rotate-180' : ''}`} />
+            Autre réaction (saisie avancée)
+          </button>
+          {customTrigger && (
+            <div className="flex items-center gap-3">
               <input
                 type="text"
                 maxLength={8}
-                placeholder="Ex. ⚡"
+                aria-label="Réaction personnalisée"
+                placeholder="Collez la réaction"
                 value={draft.emoji}
                 onChange={e => setDraft({ ...draft, emoji: e.target.value })}
-                className={`${inputClass} text-center text-xl font-bold`}
+                className={`${inputClass} max-w-[180px] text-center`}
               />
-            </label>
-            <div className="flex items-center justify-center gap-1 flex-wrap pt-0.5">
-              {['⚡', '🎵', '💰', '🎤', '⏱️', '✨', '⭐', '❤️', '👍', '🎉', '🔥', '💳'].map(em => (
-                <button
-                  key={em}
-                  type="button"
-                  onClick={() => setDraft({ ...draft, emoji: em })}
-                  className={`h-6 w-6 rounded border text-xs flex items-center justify-center transition-all cursor-pointer ${
-                    draft.emoji === em ? 'border-[#E5B54F] bg-[#E5B54F]/20' : 'border-white/5 bg-white/[0.03] hover:border-white/20'
-                  }`}
-                >
-                  {em}
-                </button>
-              ))}
+              {draft.emoji && <span className="font-mono text-xs text-neutral-500">{reactionCodepoint(draft.emoji)}</span>}
             </div>
-          </div>
-        </div>
+          )}
+        </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm text-[#A8A29E] mb-1.5">Format de la réponse WhatsApp</legend>
+          <legend className="text-sm text-[#A3A3A3] mb-1.5">Format de la réponse WhatsApp</legend>
           <div role="radiogroup" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {MEDIA_KINDS.map(k => {
               const Icon = k.icon;
@@ -626,7 +687,7 @@ export const AutomationsView: FC = () => {
                   className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition-colors duration-200 cursor-pointer ${
                     active
                       ? 'border-[#E5B54F] bg-[#E5B54F]/[0.1] text-[#F3CA75] font-semibold'
-                      : 'border-[#2D261E] bg-[#0E0C0A] text-[#A8A29E] hover:text-white hover:border-[#3A3022]'
+                      : 'border-white/[0.08] bg-[#08090C] text-[#A3A3A3] hover:text-white hover:border-white/[0.12]'
                   }`}
                 >
                   <Icon className="h-4 w-4" strokeWidth={1.7} />
@@ -639,7 +700,7 @@ export const AutomationsView: FC = () => {
 
         {renderMediaField(draft)}
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-[#2D261E]">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-white/[0.08]">
           <div className="text-xs text-neutral-400">
             {draft.kind === 'text' && !draft.action.trim() && (
               <span className="text-amber-300">Indiquez votre texte de réponse pour finaliser.</span>
@@ -656,14 +717,14 @@ export const AutomationsView: FC = () => {
             <button
               type="button"
               onClick={closeForm}
-              className="rounded-xl border border-[#3A3022] px-4 py-2.5 text-sm font-medium text-[#E7E5E4] hover:border-[#E5B54F]/40 transition-colors cursor-pointer"
+              className="rounded-xl border border-white/[0.12] px-4 py-2.5 text-sm font-medium text-[#E5E5E5] hover:border-[#E5B54F]/40 transition-colors cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-sm font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_8px_25px_-8px_rgba(229,181,79,0.5)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-sm font-semibold text-[#050608] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_8px_25px_-8px_rgba(229,181,79,0.5)]"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" strokeWidth={2.2} />}
               {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer la règle'}
@@ -679,7 +740,7 @@ export const AutomationsView: FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Automatisations</h1>
-          <p className="mt-2 max-w-md text-sm sm:text-base leading-relaxed text-[#A8A29E]">
+          <p className="mt-2 max-w-md text-sm sm:text-base leading-relaxed text-[#A3A3A3]">
             Un déclencheur, une réponse préparée à l'avance : texte, vocal, document ou vidéo.
           </p>
         </div>
@@ -689,14 +750,14 @@ export const AutomationsView: FC = () => {
             type="button"
             onClick={handleCutAll}
             disabled={rules.length === 0}
-            className="rounded-xl border border-[#3A3022] bg-[#0E0C0A] px-4 py-2.5 text-[15px] font-medium text-white hover:border-[#E5B54F]/40 transition-colors cursor-pointer disabled:opacity-40"
+            className="rounded-xl border border-white/[0.12] bg-[#08090C] px-4 py-2.5 text-[15px] font-medium text-white hover:border-[#E5B54F]/40 transition-colors cursor-pointer disabled:opacity-40"
           >
             {allOff ? 'Tout réactiver' : 'Tout couper'}
           </button>
           <button
             type="button"
             onClick={() => setDraft(EMPTY_DRAFT)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-[15px] font-semibold text-[#0C0A09] shadow-[0_8px_30px_-10px_rgba(229,181,79,0.6)] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-[15px] font-semibold text-[#050608] shadow-[0_8px_30px_-10px_rgba(229,181,79,0.6)] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
           >
             <Plus className="h-4 w-4" strokeWidth={2.2} />
             Nouvelle règle
@@ -714,104 +775,106 @@ export const AutomationsView: FC = () => {
       )}
 
       {/* Automatisation Chansons IA Kie.ai */}
-      <section className="rounded-[22px] border border-[#E5B54F]/40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1C1710] to-[#0E0C0A] p-6 space-y-5 shadow-[0_16px_40px_-16px_rgba(229,181,79,0.25)]">
+      <section className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl border border-[#E5B54F]/40 bg-[#E5B54F]/10 flex items-center justify-center text-[#F3CA75]">
-              <Music2 className="h-6 w-6" strokeWidth={1.5} />
+            <div className="h-11 w-11 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-neutral-200">
+              <Music2 className="h-5 w-5" strokeWidth={1.5} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-[17px] font-semibold text-white">Génération Chansons Automatique (Kie.ai)</h2>
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  Suno GPU
+                <h2 className="text-[17px] font-semibold text-white">Production automatique de chansons</h2>
+                <span className="rounded-md border border-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+                  Kie.ai · Suno
                 </span>
               </div>
-              <p className="text-xs text-[#A8A29E] mt-0.5">
-                Réagissez avec un emoji à un brief client pour lancer la production et livrer le morceau sur WhatsApp.
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Une réaction sur un brief validé lance la production, puis la livraison sur WhatsApp.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={handleToggleSongAuto}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-                songAutoConfig.enabled
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'bg-white/5 text-neutral-400 border border-white/10'
-              }`}
-            >
-              {songAutoConfig.enabled ? 'Automatisation Active' : 'Désactivée'}
-            </button>
-          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={songAutoConfig.enabled}
+            aria-label={songAutoConfig.enabled ? 'Couper la production automatique' : 'Activer la production automatique'}
+            onClick={handleToggleSongAuto}
+            className="vx-switch self-start sm:self-auto"
+          />
         </div>
 
         {songAutoNotice && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span>{songAutoNotice}</span>
+          <div
+            role="status"
+            className={`vx-fade-in rounded-xl border p-3.5 text-[13px] space-y-2 ${
+              songAutoNotice.ok ? 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-200' : 'border-amber-500/25 bg-amber-500/[0.06] text-amber-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {songAutoNotice.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <CircleAlert className="h-4 w-4 shrink-0" />}
+              <span>{songAutoNotice.text}</span>
+            </div>
+            {songAutoNotice.steps.length > 0 && (
+              <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-neutral-400">
+                {songAutoNotice.steps.map((step, i) => (
+                  <li key={step} className="inline-flex items-center gap-2">
+                    <span className="tabular-nums text-neutral-500">{String(i + 1).padStart(2, '0')}</span>
+                    {step}
+                    {i < songAutoNotice.steps.length - 1 && <ArrowRight className="h-3 w-3 text-neutral-600" />}
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-[#2D261E] bg-[#14110E] p-3.5 space-y-1.5">
-            <div className="text-xs text-[#A8A29E]">Emoji Déclencheur</div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{songAutoConfig.reactionEmoji}</span>
-              <span className="text-xs text-neutral-300 font-mono">sur brief WhatsApp</span>
-            </div>
-            <p className="text-[11px] text-neutral-500">Posez cet emoji sur le brief pour déclencher l'IA.</p>
+          <div className="rounded-xl border border-white/[0.06] bg-[#08090C] p-3.5 space-y-2">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-neutral-500">Déclencheur</div>
+            <TriggerChip value={songAutoConfig.reactionEmoji} />
+            <p className="text-[12px] text-neutral-500">À poser sur le brief validé du client.</p>
           </div>
 
-          <div className="rounded-xl border border-[#2D261E] bg-[#14110E] p-3.5 space-y-1.5">
-            <div className="text-xs text-[#A8A29E]">Livraison WhatsApp</div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">
-                {songAutoConfig.autoDeliverWhatsApp ? 'Automatique (PTT + Texte)' : 'Validation Manuelle'}
+          <div className="rounded-xl border border-white/[0.06] bg-[#08090C] p-3.5 space-y-2">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-neutral-500">Livraison WhatsApp</div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[13px] font-medium text-white">
+                {songAutoConfig.autoDeliverWhatsApp ? 'Automatique' : 'Après validation'}
               </span>
-              <input
-                type="checkbox"
-                checked={songAutoConfig.autoDeliverWhatsApp}
-                onChange={handleToggleAutoDeliver}
-                className="h-4 w-4 accent-[#E5B54F]"
+              <button
+                type="button"
+                role="switch"
+                aria-checked={songAutoConfig.autoDeliverWhatsApp}
+                aria-label="Livraison automatique sur WhatsApp"
+                onClick={handleToggleAutoDeliver}
+                className="vx-switch"
               />
             </div>
-            <p className="text-[11px] text-neutral-500">Envoie le morceau dès qu'il sort du studio.</p>
+            <p className="text-[12px] text-neutral-500">Uniquement un morceau réellement produit.</p>
           </div>
 
-          <div className="rounded-xl border border-[#2D261E] bg-[#14110E] p-3.5 space-y-1.5">
-            <div className="text-xs text-[#A8A29E]">Facturation Studio</div>
-            <div className="font-mono text-xs font-semibold text-[#F3CA75]">
-              1 crédit = 85 F CFA
-            </div>
-            <p className="text-[11px] text-neutral-500">Nouveaux & anciens clients tracés sans confusion.</p>
+          <div className="rounded-xl border border-white/[0.06] bg-[#08090C] p-3.5 space-y-2">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-neutral-500">Facturation</div>
+            <div className="font-mono text-[13px] font-semibold tabular-nums text-white">1 crédit = 85 F CFA</div>
+            <p className="text-[12px] text-neutral-500">Remboursé automatiquement si Kie.ai échoue.</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#2D261E]">
-          <span className="text-xs text-neutral-500">
-            {songAutoConfig.ordersCreatedCount} chansons créées automatiquement · Clé Kie.ai connectée
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/[0.06]">
+          <span className="font-mono text-xs tabular-nums text-neutral-500">
+            {String(songAutoConfig.ordersCreatedCount).padStart(2, '0')} production{songAutoConfig.ordersCreatedCount > 1 ? 's' : ''} lancée{songAutoConfig.ordersCreatedCount > 1 ? 's' : ''} depuis ce navigateur
+            {' · '}
+            {user ? 'génération via serveur sécurisé' : 'mode démo'}
           </span>
           <button
             type="button"
             disabled={testingSongAuto || !songAutoConfig.enabled}
             onClick={handleTestSongAutomation}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-4 py-2 text-xs font-semibold text-black hover:bg-[#F0C068] active:scale-[0.98] transition-all disabled:opacity-40 shadow-[0_0_20px_-5px_rgba(229,181,79,0.3)]"
+            className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.03] px-4 py-2 text-xs font-medium text-white hover:bg-white/[0.08] active:scale-[0.98] transition-all duration-150 disabled:opacity-40 cursor-pointer"
           >
-            {testingSongAuto ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Exécution du pipeline Kie.ai...</span>
-              </>
-            ) : (
-              <>
-                <Send className="h-3.5 w-3.5" />
-                <span>Tester la réaction 🎵 (Simulation Live)</span>
-              </>
-            )}
+            {testingSongAuto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" strokeWidth={1.6} />}
+            <span>{testingSongAuto ? 'Vérification…' : 'Tester la chaîne à blanc'}</span>
           </button>
         </div>
       </section>
@@ -826,11 +889,11 @@ export const AutomationsView: FC = () => {
         )}
 
         {rules.length === 0 && !draft && (
-          <div className="rounded-[22px] border border-dashed border-[#3A3022] bg-[#171512]/60 p-8 text-center space-y-4">
+          <div className="rounded-[22px] border border-dashed border-white/[0.12] bg-[#0E1015]/60 p-8 text-center space-y-4">
             <div>
               <p className="text-base text-white font-medium">Aucune règle personnalisée pour l'instant</p>
-              <p className="mt-1.5 text-sm text-[#A8A29E] max-w-md mx-auto">
-                Créez votre première réaction automatique : un emoji posé sur un message déclenche l'envoi d'un texte, d'un vocal, d'un document ou d'une vidéo.
+              <p className="mt-1.5 text-sm text-[#A3A3A3] max-w-md mx-auto">
+                Créez votre première réponse automatique : une réaction posée sur un message déclenche l'envoi d'un texte, d'un vocal, d'un document ou d'une vidéo.
               </p>
             </div>
             <button
@@ -854,32 +917,30 @@ export const AutomationsView: FC = () => {
             <article
               key={rule.id}
               style={{ '--i': i } as CSSProperties}
-              className={`vx-stagger rounded-[22px] border border-[#2D261E] bg-[#171512] px-6 py-5 flex items-start justify-between gap-4 transition-opacity duration-300 ${
+              className={`vx-stagger rounded-[22px] border border-white/[0.08] bg-[#0E1015] px-6 py-5 flex items-start justify-between gap-4 transition-opacity duration-300 ${
                 rule.active ? '' : 'opacity-60'
               }`}
             >
               <div className="min-w-0 flex-1 space-y-2.5">
                 <h3 className="text-[17px] font-semibold text-white truncate">{rule.name}</h3>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center rounded-full bg-[#0E0C0A] border border-[#2D261E] px-3.5 py-1.5 text-sm font-medium text-white">
-                    Je réagis avec un emoji
-                  </span>
-                  <span className="text-lg leading-none" aria-label="Emoji déclencheur">{rule.emoji}</span>
-                  <span className="text-[#78716C]" aria-hidden="true">→</span>
+                  <span className="text-sm text-neutral-400">Je réagis avec</span>
+                  <TriggerChip value={rule.emoji} />
+                  <ArrowRight className="h-3.5 w-3.5 text-neutral-600" aria-hidden="true" />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#0E0C0A] border border-[#2D261E] px-3.5 py-1.5 text-sm font-medium text-white">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#08090C] border border-white/[0.08] px-3.5 py-1.5 text-sm font-medium text-white">
                     <KindIcon className="h-3.5 w-3.5 text-[#E5B54F]" strokeWidth={1.8} />
                     {meta.pill}
                   </span>
                 </div>
                 {kind === 'text' ? (
-                  <p className="border-l-2 border-[#D4A347] pl-3 text-sm leading-relaxed text-[#A8A29E] line-clamp-2">{rule.action}</p>
+                  <p className="border-l-2 border-[#D4A347] pl-3 text-sm leading-relaxed text-[#A3A3A3] line-clamp-2">{rule.action}</p>
                 ) : (
                   <div className="space-y-2 pt-0.5">
                     <MediaPreview kind={kind} url={urlOf(rule)} name={rule.mediaName} seed={rule.id} />
                     {rule.action && (
-                      <p className="flex items-start gap-2 text-sm leading-relaxed text-[#A8A29E] line-clamp-2">
+                      <p className="flex items-start gap-2 text-sm leading-relaxed text-[#A3A3A3] line-clamp-2">
                         <Paperclip className="h-3.5 w-3.5 mt-[3px] shrink-0" strokeWidth={1.6} />
                         {rule.action}
                       </p>
@@ -902,7 +963,7 @@ export const AutomationsView: FC = () => {
                   onClick={() => openEdit(rule)}
                   title="Modifier"
                   aria-label={`Modifier ${rule.name}`}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[#E7E5E4] hover:text-[#F3CA75] hover:bg-[#E5B54F]/[0.08] transition-colors cursor-pointer"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-[#E5E5E5] hover:text-[#F3CA75] hover:bg-[#E5B54F]/[0.08] transition-colors cursor-pointer"
                 >
                   <Pencil className="h-[18px] w-[18px]" strokeWidth={1.6} />
                 </button>
@@ -911,7 +972,7 @@ export const AutomationsView: FC = () => {
                   onClick={() => handleDeleteRule(rule)}
                   title="Supprimer"
                   aria-label={`Supprimer ${rule.name}`}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[#E7E5E4] hover:text-[#FB7185] hover:bg-[#E11D48]/10 transition-colors cursor-pointer"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-[#E5E5E5] hover:text-[#FB7185] hover:bg-[#E11D48]/10 transition-colors cursor-pointer"
                 >
                   <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.6} />
                 </button>
@@ -922,35 +983,35 @@ export const AutomationsView: FC = () => {
       </div>
 
       {/* Journal */}
-      <section className="rounded-[22px] border border-[#2D261E] bg-[#171512] p-6 sm:p-7">
+      <section className="rounded-[22px] border border-white/[0.08] bg-[#0E1015] p-6 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-white">Journal des déclenchements</h2>
-            <p className="mt-1.5 text-[15px] text-[#A8A29E]">
+            <p className="mt-1.5 text-[15px] text-[#A3A3A3]">
               Les {MAX_LOGS} derniers. Maximum 60 envois automatiques par heure.
             </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] px-3 py-1 text-xs text-[#A8A29E]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-3 py-1 text-xs text-[#A3A3A3]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E] vx-breathe" />
             {syncedAt ? `Synchro ${syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Connexion…'}
           </span>
         </div>
 
         {logs.length === 0 ? (
-          <p className="mt-6 text-sm text-[#78716C]">Aucun déclenchement enregistré pour le moment.</p>
+          <p className="mt-6 text-sm text-[#737373]">Aucun déclenchement enregistré pour le moment.</p>
         ) : (
-          <ul className="mt-5 divide-y divide-[#2D261E]">
+          <ul className="mt-5 divide-y divide-white/[0.08]">
             {logs.map((log) => (
               <li key={log.id} className="vx-fade-in py-3.5 flex items-center justify-between gap-4">
                 <div className="min-w-0 truncate text-base">
                   <span className="font-medium text-white">{log.ruleName}</span>
-                  <span className="text-[#A8A29E]"> · {log.recipient}</span>
+                  <span className="text-[#A3A3A3]"> · {log.recipient}</span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${STATUS_STYLE[log.status]}`}>
                     {log.status}
                   </span>
-                  <span className="hidden sm:inline text-sm tabular-nums text-[#A8A29E]">{log.date}</span>
+                  <span className="hidden sm:inline text-sm tabular-nums text-[#A3A3A3]">{log.date}</span>
                 </div>
               </li>
             ))}

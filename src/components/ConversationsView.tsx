@@ -83,10 +83,10 @@ const Monogram: FC<{ name: string; unread?: boolean; size?: 'sm' | 'md' }> = ({ 
   <span
     className={`relative flex shrink-0 items-center justify-center rounded-full border font-heading font-semibold tracking-tight ${
       size === 'sm' ? 'h-9 w-9 text-[12.5px]' : 'h-10 w-10 text-[13px]'
-    } ${unread ? 'border-[#E5B54F]/50 bg-[#E5B54F]/[0.08] text-[#F1DDB4]' : 'border-[#3A3022] bg-white/[0.03] text-neutral-300'}`}
+    } ${unread ? 'border-[#E5B54F]/50 bg-[#E5B54F]/[0.08] text-[#F1DDB4]' : 'border-white/[0.12] bg-white/[0.03] text-neutral-300'}`}
   >
     {initials(name)}
-    {unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#13110E] bg-emerald-400" />}
+    {unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0B0C10] bg-emerald-400" />}
   </span>
 );
 
@@ -457,14 +457,14 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Discussions WhatsApp</h1>
-          <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed max-w-xl">
+          <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed max-w-xl">
             Répondez aux prospects de vos publicités et suivez les relances de l'IA, au même endroit.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <span
             title={beatTitle}
-            className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A8A29E]"
+            className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]"
           >
             <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
             <span className="text-neutral-200">{linkMeta.label}</span>
@@ -483,13 +483,13 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               Reconnecter
             </button>
           )}
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A8A29E]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
             <span className="font-mono tabular-nums text-white">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
           </span>
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
             <span>Exporter</span>
@@ -498,10 +498,10 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
       </div>
 
       {/* Boîte double panneau */}
-      <div className="vx-hairline rounded-2xl border border-[#2D261E] bg-[#13110E] overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:h-[calc(100dvh-13rem)] lg:min-h-[620px]">
+      <div className="vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:h-[calc(100dvh-13rem)] lg:min-h-[620px]">
         {/* Liste */}
-        <div className={`flex-col min-h-0 border-r border-[#2D261E] ${mobileThreadOpen ? 'hidden lg:flex' : 'flex'}`}>
-          <div className="p-3 space-y-2.5 border-b border-[#2D261E]">
+        <div className={`flex-col min-h-0 border-r border-white/[0.08] ${mobileThreadOpen ? 'hidden lg:flex' : 'flex'}`}>
+          <div className="p-3 space-y-2.5 border-b border-white/[0.08]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500" />
               <input
@@ -509,7 +509,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 placeholder="Nom, numéro, message"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-[#2D261E] bg-white/[0.02] pl-9 pr-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] pl-9 pr-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
               />
             </div>
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -519,7 +519,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   type="button"
                   onClick={() => setFilter(f.id)}
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] transition-colors duration-200 cursor-pointer ${
-                    filter === f.id ? 'bg-white text-black font-medium' : 'text-[#A8A29E] hover:text-white hover:bg-white/[0.04]'
+                    filter === f.id ? 'bg-white text-black font-medium' : 'text-[#A3A3A3] hover:text-white hover:bg-white/[0.04]'
                   }`}
                 >
                   {f.label}
@@ -547,7 +547,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   <div
                     key={conv.id}
                     style={{ '--i': Math.min(i, 8) } as CSSProperties}
-                    className={`vx-stagger group relative border-b border-[#2D261E]/60 transition-colors duration-200 ${
+                    className={`vx-stagger group relative border-b border-white/[0.05] transition-colors duration-200 ${
                       isSelected ? 'bg-white/[0.05]' : 'hover:bg-white/[0.02]'
                     }`}
                   >
@@ -565,7 +565,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                           </span>
                           <span className={`font-mono text-[11.5px] shrink-0 ${conv.unread ? 'text-emerald-400' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
                         </span>
-                        <span className="mt-1 flex items-center gap-1.5 text-[13px] text-[#A8A29E]">
+                        <span className="mt-1 flex items-center gap-1.5 text-[13px] text-[#A3A3A3]">
                           {voice && <Mic className="h-3 w-3 shrink-0 text-[#E5B54F]" strokeWidth={1.75} />}
                           <span className={`truncate ${conv.unread ? 'text-neutral-200' : ''}`}>{voice ? 'Note vocale' : conv.preview}</span>
                         </span>
@@ -591,7 +591,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
           </div>
 
           {syncedAt && (
-            <div className="hidden lg:flex items-center gap-1.5 border-t border-[#2D261E] px-3.5 py-2 font-mono text-[11px] text-neutral-600">
+            <div className="hidden lg:flex items-center gap-1.5 border-t border-white/[0.08] px-3.5 py-2 font-mono text-[11px] text-neutral-600">
               <span className="h-1 w-1 rounded-full bg-emerald-400/70" />
               Synchro {syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
@@ -602,12 +602,12 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
         <div className={`flex-col min-h-0 ${mobileThreadOpen ? 'flex' : 'hidden lg:flex'}`}>
           {selectedConv ? (
             <>
-              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-[#2D261E] bg-[#141210]">
+              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-[#0B0C10]">
                 <button
                   type="button"
                   onClick={() => setMobileThreadOpen(false)}
                   aria-label="Retour à la liste"
-                  className="lg:hidden -ml-1 p-1.5 rounded-lg text-[#A8A29E] hover:text-white cursor-pointer"
+                  className="lg:hidden -ml-1 p-1.5 rounded-lg text-[#A3A3A3] hover:text-white cursor-pointer"
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
@@ -621,7 +621,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                     type="button"
                     onClick={() => toggleUnread(selectedConv)}
                     title={selectedConv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#3A3022] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
                   >
                     {selectedConv.unread ? <MailOpen className="h-3 w-3" strokeWidth={1.5} /> : <Mail className="h-3 w-3" strokeWidth={1.5} />}
                     <span className="hidden md:inline">{selectedConv.unread ? 'Marquer lu' : 'Non lu'}</span>
@@ -641,7 +641,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Ouvrir dans WhatsApp"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#3A3022] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200"
                   >
                     <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
                     <span className="hidden sm:inline">WhatsApp</span>
@@ -650,7 +650,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               </div>
 
               {selectedConv.facts && (
-                <div className="flex gap-2.5 px-4 sm:px-5 py-2.5 border-b border-[#2D261E] bg-[#E5B54F]/[0.03]">
+                <div className="flex gap-2.5 px-4 sm:px-5 py-2.5 border-b border-white/[0.08] bg-[#E5B54F]/[0.03]">
                   <FileText className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[#E5B54F]" strokeWidth={1.5} />
                   <p className="text-[13px] leading-relaxed text-neutral-300 line-clamp-2">
                     <span className="text-[#F3CA75]">Brief extrait</span>
@@ -682,14 +682,14 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         <div
                           className={`max-w-[86%] sm:max-w-[72%] rounded-2xl px-3.5 py-2.5 ${
                             m.inbound
-                              ? `rounded-bl-md border bg-[#1A1713] text-neutral-200 ${voiceIn ? 'border-[#E5B54F]/20 w-[300px] sm:w-[340px]' : 'border-[#2D261E]'}`
+                              ? `rounded-bl-md border bg-[#0E1015] text-neutral-200 ${voiceIn ? 'border-[#E5B54F]/20 w-[300px] sm:w-[340px]' : 'border-white/[0.08]'}`
                               : `rounded-br-md bg-white text-black shadow-[0_8px_24px_-12px_rgba(255,255,255,0.25)] ${m.voice ? 'w-[280px] sm:w-[320px]' : ''}`
                           }`}
                         >
                           {voiceIn ? (
                             <div className="space-y-2.5">
                               <WaveformPlayer seed={m.id + m.body} durationHint={Math.min(58, Math.max(9, Math.round(stripVoice(m.body).length / 4.5)))} />
-                              <div className="flex gap-2 border-t border-[#2D261E] pt-2">
+                              <div className="flex gap-2 border-t border-white/[0.08] pt-2">
                                 <FileText className="h-3 w-3 mt-[3px] shrink-0 text-neutral-500" strokeWidth={1.5} />
                                 <p className="text-[12.5px] leading-relaxed text-neutral-300">
                                   <span className="sr-only">Transcription : </span>
@@ -734,7 +734,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               )}
 
               {/* Dock de réponses rapides + compositeur */}
-              <div className="border-t border-[#2D261E] bg-[#0E0C0A] p-3 sm:p-4 space-y-2.5">
+              <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                   {SNIPPETS.map((snip, i) => {
                     const Icon = snip.icon;
@@ -748,7 +748,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         className={`group/snip inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] transition-colors duration-200 cursor-pointer ${
                           active
                             ? 'border-[#E5B54F]/40 bg-[#E5B54F]/10 text-[#F1DDB4]'
-                            : 'border-[#2D261E] bg-white/[0.02] text-[#A8A29E] hover:text-white hover:border-white/20'
+                            : 'border-white/[0.08] bg-white/[0.02] text-[#A3A3A3] hover:text-white hover:border-white/20'
                         }`}
                       >
                         <Icon className="h-3 w-3" strokeWidth={1.5} />
@@ -767,7 +767,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                     onCancel={() => setRecorderOpen(false)}
                   />
                 ) : (
-                  <div className="flex items-end gap-2 rounded-2xl border border-[#2D261E] bg-white/[0.025] p-1.5 pl-4 focus-within:border-white/25 transition-colors duration-200">
+                  <div className="flex items-end gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-1.5 pl-4 focus-within:border-white/25 transition-colors duration-200">
                     <textarea
                       ref={composerRef}
                       rows={1}
@@ -799,7 +799,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         onClick={() => setRecorderOpen(true)}
                         aria-label="Enregistrer une note vocale WhatsApp"
                         title="Note vocale WhatsApp"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5B54F] text-[#0C0A09] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5B54F] text-[#050608] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer"
                       >
                         <Mic className="h-4 w-4" strokeWidth={2} />
                       </button>

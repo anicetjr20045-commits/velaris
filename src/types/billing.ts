@@ -9,6 +9,8 @@ export interface StudioCredits {
   cfaPerCredit: number;
   /** Historique des mouvements de crédits */
   history: CreditTransaction[];
+  /** server = solde Supabase ; pending = chargement ; demo = simulation locale */
+  source: 'server' | 'pending' | 'demo';
 }
 
 export interface CreditTransaction {
@@ -28,7 +30,7 @@ export interface SubscriptionInfo {
   planId: SubscriptionPlanId;
   planName: string;
   priceXOF: number;
-  status: 'active' | 'expired' | 'canceled' | 'trial';
+  status: 'active' | 'expired' | 'canceled' | 'trial' | 'inactive';
   startedAt: string;
   expiresAt: string | null;
   autoRenew: boolean;

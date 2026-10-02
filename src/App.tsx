@@ -19,7 +19,8 @@ import type { Order, StudioMetrics } from './types';
 export function App() {
   const { user, openAuthModal, isDemoMode } = useAuth();
   const sessionName = user ? (`studio_${user.id.slice(0, 8)}`) : 'Test';
-  const waha = useWahaSession(sessionName);
+  // Visiteurs non connectés : aucune sonde WAHA (le site public ne doit pas solliciter la passerelle)
+  const waha = useWahaSession(sessionName, { enabled: !!user, syncToStudio: true });
 
   // Support #copilot, #analyste, #studio, #cockpit, #decouvrir or default to home
   const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot'>(() => {

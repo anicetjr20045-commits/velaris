@@ -230,14 +230,14 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
   );
 
   return (
-    <div className="vx-fade-in rounded-2xl border border-[#2D261E] bg-[#0E0C0A] p-3" aria-live="polite">
+    <div className="vx-fade-in rounded-2xl border border-white/[0.08] bg-[#08090C] p-3" aria-live="polite">
       {phase === 'recording' && (
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={discard}
             aria-label="Annuler l'enregistrement"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A8A29E] hover:text-[#FB7185] hover:bg-[#E11D48]/10 transition-colors cursor-pointer"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A3A3A3] hover:text-[#FB7185] hover:bg-[#E11D48]/10 transition-colors cursor-pointer"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.6} />
           </button>
@@ -266,7 +266,7 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
               <button
                 type="button"
                 onClick={discard}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] text-[#A8A29E] hover:text-[#FB7185] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] text-[#A3A3A3] hover:text-[#FB7185] transition-colors cursor-pointer"
               >
                 <Trash2 className="h-3.5 w-3.5" strokeWidth={1.6} />
                 Supprimer
@@ -274,7 +274,7 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
               <button
                 type="button"
                 onClick={start}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] text-[#A8A29E] hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] text-[#A3A3A3] hover:text-white transition-colors cursor-pointer"
               >
                 <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.6} />
                 Recommencer
@@ -300,7 +300,7 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
             onClick={start}
             disabled={phase === 'requesting'}
             aria-label="Démarrer l'enregistrement"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E5B54F] text-[#0C0A09] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-60"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E5B54F] text-[#050608] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-60"
           >
             {phase === 'requesting' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" strokeWidth={2} />}
           </button>
@@ -321,7 +321,7 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
             <button
               type="button"
               onClick={discard}
-              className="shrink-0 rounded-full px-3 py-1.5 text-[12.5px] text-[#A8A29E] hover:text-white transition-colors cursor-pointer"
+              className="shrink-0 rounded-full px-3 py-1.5 text-[12.5px] text-[#A3A3A3] hover:text-white transition-colors cursor-pointer"
             >
               Fermer
             </button>

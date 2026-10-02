@@ -60,7 +60,7 @@ const formatClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s 
 const Vinyl: FC<{ spinning: boolean; done: boolean; title?: string }> = ({ spinning, done, title }) => (
   <div className="relative h-36 w-36 sm:h-40 sm:w-40 shrink-0">
     <svg viewBox="0 0 200 200" className={`vx-vinyl ${spinning ? 'vx-vinyl-live' : ''} h-full w-full`} aria-hidden="true">
-      <circle cx="100" cy="100" r="98" fill="#141210" stroke="rgba(255,255,255,0.10)" />
+      <circle cx="100" cy="100" r="98" fill="#0B0C10" stroke="rgba(255,255,255,0.10)" />
       {[90, 82, 76, 70, 63, 57, 50].map((r) => (
         <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.75" />
       ))}
@@ -72,7 +72,7 @@ const Vinyl: FC<{ spinning: boolean; done: boolean; title?: string }> = ({ spinn
       <text x="100" y="112" textAnchor="middle" fontSize="6" fill={done ? 'rgba(26,20,8,0.7)' : 'rgba(255,255,255,0.35)'} fontFamily="ui-monospace, monospace">
         {done ? 'MASTER' : 'FACE A'}
       </text>
-      <circle cx="100" cy="100" r="2.5" fill="#0C0A09" />
+      <circle cx="100" cy="100" r="2.5" fill="#050608" />
     </svg>
     {/* Reflet spéculaire fixe */}
     <div
@@ -142,7 +142,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
   if (!currentOrder) {
     return (
-      <div className="rounded-2xl border border-dashed border-[#3A3022] bg-[#13110E] p-12 text-center">
+      <div className="rounded-2xl border border-dashed border-white/[0.12] bg-[#0B0C10] p-12 text-center">
         <Disc3 className="h-8 w-8 mx-auto text-neutral-600" strokeWidth={1.25} />
         <p className="mt-4 text-sm text-neutral-200">Aucune commande dans l'atelier</p>
         <p className="mt-1 text-[13px] text-neutral-500">Créez un lead depuis le cockpit pour commencer une chanson.</p>
@@ -255,14 +255,14 @@ export const StudioView: FC<StudioViewProps> = ({
   const isDelivered = currentOrder.status === 'livre';
   const progress = productionStep === null ? (isDelivered ? 1 : 0) : (productionStep + 1) / productionSteps.length;
 
-  const fieldClass = 'w-full rounded-lg border border-[#2D261E] bg-white/[0.02] px-3 py-2 text-sm text-white focus:border-white/[0.24] focus:bg-white/[0.04] focus:outline-none transition-colors duration-200 resize-none leading-relaxed';
+  const fieldClass = 'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-white focus:border-white/[0.24] focus:bg-white/[0.04] focus:outline-none transition-colors duration-200 resize-none leading-relaxed';
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-[13px] text-[#A8A29E]">
+          <div className="flex items-center gap-2 text-[13px] text-[#A3A3A3]">
             <span className="font-mono text-neutral-500">{currentOrder.id}</span>
             <span className="text-neutral-700">·</span>
             <span>Pipeline audio 18 min</span>
@@ -273,7 +273,7 @@ export const StudioView: FC<StudioViewProps> = ({
         </div>
 
         {/* Sélecteur de commande */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-full border border-[#2D261E] bg-white/[0.02] p-0.5 max-w-full">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5 max-w-full">
           {orders.map((o) => {
             const active = o.id === currentOrder.id;
             return (
@@ -281,7 +281,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 key={o.id}
                 onClick={() => onSelectOrder(o.id)}
                 className={`shrink-0 flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors duration-150 ease-press cursor-pointer ${
-                  active ? 'bg-white text-black font-semibold' : 'text-[#A8A29E] hover:text-white'
+                  active ? 'bg-white text-black font-semibold' : 'text-[#A3A3A3] hover:text-white'
                 }`}
               >
                 <span>{o.clientName.split(' ')[0]}</span>
@@ -297,9 +297,9 @@ export const StudioView: FC<StudioViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Colonne gauche : console d'atelier */}
         <div className="lg:col-span-5 space-y-5">
-          <section className="vx-hairline vx-stagger rounded-2xl border border-[#2D261E] bg-[#13110E] overflow-hidden" style={{ '--i': 0 } as CSSProperties}>
+          <section className="vx-hairline vx-stagger rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden" style={{ '--i': 0 } as CSSProperties}>
             {/* Fiche client */}
-            <div className="p-5 flex items-start justify-between gap-4 border-b border-[#2D261E]">
+            <div className="p-5 flex items-start justify-between gap-4 border-b border-white/[0.08]">
               <div className="min-w-0">
                 <h2 className="text-lg font-bold text-white tracking-tight truncate">{currentOrder.clientName}</h2>
                 <p className="text-[13px] font-mono text-neutral-500 mt-0.5">{currentOrder.clientPhone}</p>
@@ -315,7 +315,7 @@ export const StudioView: FC<StudioViewProps> = ({
               </div>
             </div>
 
-            <dl className="grid grid-cols-2 divide-x divide-[#2D261E] border-b border-[#2D261E]">
+            <dl className="grid grid-cols-2 divide-x divide-white/[0.08] border-b border-white/[0.08]">
               <div className="px-5 py-3.5">
                 <dt className="text-[12.5px] text-neutral-500">Destinataire</dt>
                 <dd className="text-sm font-medium text-white mt-0.5 truncate">{currentOrder.recipient}</dd>
@@ -327,16 +327,16 @@ export const StudioView: FC<StudioViewProps> = ({
             </dl>
 
             {/* Note vocale */}
-            <div className="p-5 space-y-3 border-b border-[#2D261E]">
+            <div className="p-5 space-y-3 border-b border-white/[0.08]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[13px] font-medium text-neutral-200">
-                  <Mic className="h-3.5 w-3.5 text-[#A8A29E]" strokeWidth={1.5} />
+                  <Mic className="h-3.5 w-3.5 text-[#A3A3A3]" strokeWidth={1.5} />
                   Note vocale du client
                 </div>
                 <span className="text-[12.5px] font-mono text-neutral-500">WhatsApp · {formatClock(VOICE_NOTE_SECONDS)}</span>
               </div>
 
-              <div className="rounded-xl border border-[#2D261E] bg-[#1A1713] p-3.5">
+              <div className="rounded-xl border border-white/[0.08] bg-[#0E1015] p-3.5">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setIsPlayingAudio((p) => !p)}
@@ -366,7 +366,7 @@ export const StudioView: FC<StudioViewProps> = ({
                     ))}
                   </div>
 
-                  <span className="w-9 text-right text-[12.5px] font-mono text-[#A8A29E]">
+                  <span className="w-9 text-right text-[12.5px] font-mono text-[#A3A3A3]">
                     {formatClock(isPlayingAudio || elapsed > 0 ? elapsed : VOICE_NOTE_SECONDS)}
                   </span>
                 </div>
@@ -378,7 +378,7 @@ export const StudioView: FC<StudioViewProps> = ({
             </div>
 
             {/* Style musical */}
-            <div className="p-5 space-y-2.5 border-b border-[#2D261E]">
+            <div className="p-5 space-y-2.5 border-b border-white/[0.08]">
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-medium text-neutral-200">Style musical</span>
                 {activeStyle && <span className="text-[12.5px] font-mono text-neutral-500">{activeStyle.bpm} BPM</span>}
@@ -394,7 +394,7 @@ export const StudioView: FC<StudioViewProps> = ({
                       className={`rounded-xl border px-3 py-2.5 text-left transition-colors duration-150 ease-press cursor-pointer ${
                         active
                           ? 'border-white/[0.28] bg-white/[0.07]'
-                          : 'border-[#2D261E] bg-white/[0.015] hover:border-white/[0.14] hover:bg-white/[0.03]'
+                          : 'border-white/[0.08] bg-white/[0.015] hover:border-white/[0.14] hover:bg-white/[0.03]'
                       }`}
                     >
                       <div className={`text-[13px] font-medium ${active ? 'text-white' : 'text-neutral-300'}`}>{style.label}</div>
@@ -408,7 +408,7 @@ export const StudioView: FC<StudioViewProps> = ({
             {/* Timbre vocal */}
             <div className="p-5 space-y-2.5">
               <span className="text-[13px] font-medium text-neutral-200">Timbre vocal</span>
-              <div className="grid grid-cols-3 gap-0.5 rounded-xl border border-[#2D261E] bg-white/[0.02] p-0.5">
+              <div className="grid grid-cols-3 gap-0.5 rounded-xl border border-white/[0.08] bg-white/[0.02] p-0.5">
                 {VOICES.map((v) => {
                   const active = selectedVoice === v.id;
                   return (
@@ -421,7 +421,7 @@ export const StudioView: FC<StudioViewProps> = ({
                         onUpdateOrder({ ...currentOrder, voiceGender: v.id });
                       }}
                       className={`rounded-[10px] px-2 py-2 text-center transition-colors duration-150 ease-press cursor-pointer ${
-                        active ? 'bg-white text-black' : 'text-[#A8A29E] hover:text-white'
+                        active ? 'bg-white text-black' : 'text-[#A3A3A3] hover:text-white'
                       }`}
                     >
                       <div className="text-[13px] font-semibold">{v.label}</div>
@@ -436,11 +436,11 @@ export const StudioView: FC<StudioViewProps> = ({
 
         {/* Colonne droite : livret & mastering */}
         <div className="lg:col-span-7 space-y-5">
-          <section className="vx-hairline vx-stagger rounded-2xl border border-[#2D261E] bg-[#13110E] overflow-hidden" style={{ '--i': 1 } as CSSProperties}>
+          <section className="vx-hairline vx-stagger rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden" style={{ '--i': 1 } as CSSProperties}>
             {/* Barre d'outils du livret */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#2D261E]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-white/[0.08]">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[#A8A29E]" strokeWidth={1.5} />
+                <FileText className="h-4 w-4 text-[#A3A3A3]" strokeWidth={1.5} />
                 <h3 className="text-sm font-semibold text-white tracking-tight">Livret de paroles</h3>
               </div>
 
@@ -448,7 +448,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 {currentOrder.lyrics && !isEditingLyrics && (
                   <button
                     onClick={() => setIsEditingLyrics(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#2D261E] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 cursor-pointer"
                   >
                     <Edit3 className="h-3 w-3" strokeWidth={1.5} />
                     Modifier
@@ -466,7 +466,7 @@ export const StudioView: FC<StudioViewProps> = ({
                     <button
                       onClick={() => setIsEditingLyrics(false)}
                       aria-label="Annuler"
-                      className="inline-flex items-center rounded-full border border-[#2D261E] p-1.5 text-[#A8A29E] hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center rounded-full border border-white/[0.08] p-1.5 text-[#A3A3A3] hover:text-white transition-colors cursor-pointer"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -475,7 +475,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 <button
                   onClick={() => handleGenerateLyrics(customPrompt)}
                   disabled={isGeneratingLyrics}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#2D261E] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-50 cursor-pointer"
                 >
                   <RefreshCw className={`h-3 w-3 ${isGeneratingLyrics ? 'animate-spin' : ''}`} strokeWidth={1.5} />
                   {isGeneratingLyrics ? 'Écriture…' : 'Régénérer'}
@@ -483,7 +483,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 <button
                   onClick={copyLyrics}
                   disabled={!currentOrder.lyrics}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#2D261E] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-40 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-40 cursor-pointer"
                 >
                   {lyricsCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" strokeWidth={1.5} />}
                   {lyricsCopied ? 'Copié' : 'Copier'}
@@ -493,7 +493,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
             {/* Consigne de retouche */}
             <div className="px-5 sm:px-6 pt-4">
-              <div className="flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] pl-3.5 pr-1 py-1 focus-within:border-white/[0.22] transition-colors duration-200">
+              <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] pl-3.5 pr-1 py-1 focus-within:border-white/[0.22] transition-colors duration-200">
                 <Sliders className="h-3.5 w-3.5 text-neutral-500 shrink-0" strokeWidth={1.5} />
                 <input
                   type="text"
@@ -543,11 +543,11 @@ export const StudioView: FC<StudioViewProps> = ({
                   /* Livret vinyle */
                   <article
                     key={currentOrder.lyrics.title}
-                    className={`vx-fade-in relative rounded-xl border border-[#2D261E] bg-[radial-gradient(120%_80%_at_50%_0%,rgba(229,181,79,0.05),transparent_60%),#141210] px-5 sm:px-10 py-8 max-h-[460px] overflow-y-auto transition-opacity duration-300 ${
+                    className={`vx-fade-in relative rounded-xl border border-white/[0.08] bg-[radial-gradient(120%_80%_at_50%_0%,rgba(229,181,79,0.05),transparent_60%),#0B0C10] px-5 sm:px-10 py-8 max-h-[460px] overflow-y-auto transition-opacity duration-300 ${
                       isGeneratingLyrics ? 'opacity-40' : ''
                     }`}
                   >
-                    <header className="text-center pb-6 mb-6 border-b border-[#2D261E]">
+                    <header className="text-center pb-6 mb-6 border-b border-white/[0.08]">
                       <div className="text-[11.5px] font-mono tracking-[0.3em] text-neutral-500">
                         FACE A · {(activeStyle?.label ?? currentOrder.style).toUpperCase()}
                       </div>
@@ -580,7 +580,7 @@ export const StudioView: FC<StudioViewProps> = ({
                                         section.kind === 'chorus'
                                           ? 'text-white'
                                           : section.kind === 'outro'
-                                            ? 'italic text-[#A8A29E]'
+                                            ? 'italic text-[#A3A3A3]'
                                             : 'text-neutral-300'
                                       }`}
                                     >
@@ -595,14 +595,14 @@ export const StudioView: FC<StudioViewProps> = ({
                       })}
                     </div>
 
-                    <footer className="mt-8 pt-4 border-t border-[#2D261E] flex items-center justify-between text-[11.5px] font-mono text-neutral-600">
+                    <footer className="mt-8 pt-4 border-t border-white/[0.08] flex items-center justify-between text-[11.5px] font-mono text-neutral-600">
                       <span>Velaris Studio</span>
                       <span>{lineCounter} vers</span>
                     </footer>
                   </article>
                 )
               ) : (
-                <div className="flex flex-col items-center justify-center py-14 text-center rounded-xl border border-dashed border-[#2D261E] bg-[#141210]">
+                <div className="flex flex-col items-center justify-center py-14 text-center rounded-xl border border-dashed border-white/[0.08] bg-[#0B0C10]">
                   <p className="font-serif italic text-xl text-neutral-300">La page est encore blanche</p>
                   <p className="text-[13px] text-neutral-500 max-w-xs mt-2 mb-5 leading-relaxed">
                     Le brief vocal sera transformé en texte rimé, prêt à être validé par le client.
@@ -642,8 +642,8 @@ export const StudioView: FC<StudioViewProps> = ({
           {/* Console de mastering */}
           <section
             style={{ '--i': 2 } as CSSProperties}
-            className={`vx-hairline vx-stagger relative overflow-hidden rounded-2xl border bg-[#13110E] p-5 sm:p-6 transition-colors duration-500 ease-luxury ${
-              isLaunchingProduction ? 'border-white/[0.18]' : 'border-[#2D261E]'
+            className={`vx-hairline vx-stagger relative overflow-hidden rounded-2xl border bg-[#0B0C10] p-5 sm:p-6 transition-colors duration-500 ease-luxury ${
+              isLaunchingProduction ? 'border-white/[0.18]' : 'border-white/[0.08]'
             }`}
           >
             <div
@@ -659,7 +659,7 @@ export const StudioView: FC<StudioViewProps> = ({
               <div className="flex-1 w-full min-w-0 space-y-4">
                 <div>
                   <h3 className="text-base font-semibold text-white tracking-tight">Production & livraison</h3>
-                  <p className="text-[13px] text-[#A8A29E] mt-1 leading-relaxed">
+                  <p className="text-[13px] text-[#A3A3A3] mt-1 leading-relaxed">
                     Master Suno généré puis envoyé en MP3 directement sur le WhatsApp du client.
                   </p>
                 </div>
@@ -693,7 +693,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
                 <div className="min-h-[18px] text-[12.5px] font-mono">
                   {isLaunchingProduction && productionStep !== null && (
-                    <div key={productionStep} className="vx-fade-in flex items-center justify-between gap-3 text-[#A8A29E]">
+                    <div key={productionStep} className="vx-fade-in flex items-center justify-between gap-3 text-[#A3A3A3]">
                       <span className="truncate">{productionSteps[productionStep].detail}</span>
                       <span className="shrink-0 text-neutral-500">{Math.round(progress * 100)} %</span>
                     </div>

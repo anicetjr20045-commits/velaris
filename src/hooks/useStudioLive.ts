@@ -3,8 +3,12 @@ import { subscribeStudioRealtime, type StudioLiveTable } from '../services/supab
 
 /**
  * Recharge une donnée du studio en temps réel :
- * - à chaque événement Realtime Supabase sur les tables surveillées,
+ * - à chaque événement Realtime Supabase sur les tables surveillées (dérebond 300 ms),
  * - et par polling de secours (Realtime peut être désactivé côté projet).
+ *
+ * Garde-fous quotas : une seule requête en vol à la fois (les demandes reçues
+ * pendant ce temps sont fusionnées en un seul rechargement), aucune requête onglet
+ * masqué, réponse périmée ignorée, polling espacé après des erreurs successives.
  * Retourne la donnée, l'horodatage de la dernière synchro et un rechargement manuel.
  */
 export function useStudioLive<T>(
@@ -30,16 +34,33 @@ export function useStudioLive<T>(
     }
     let cancelled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+    let queued = false;
+    let errors = 0;
 
-    const load = () => {
-      if (document.visibilityState !== 'visible') return;
-      loaderRef.current()
-        .then((value) => {
-          if (cancelled) return;
-          setData(value);
-          setSyncedAt(new Date());
-        })
-        .catch(() => {});
+    const load = async () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      if (inFlight) {
+        queued = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        const value = await loaderRef.current();
+        if (cancelled) return;
+        errors = 0;
+        setData(value);
+        setSyncedAt(new Date());
+      } catch {
+        errors++;
+      } finally {
+        inFlight = false;
+        if (queued && !cancelled) {
+          queued = false;
+          void load();
+        }
+      }
     };
 
     const debouncedLoad = () => {
@@ -47,28 +68,30 @@ export function useStudioLive<T>(
       debounceTimer = setTimeout(load, 300);
     };
 
-    // Premier chargement immédiat
-    load();
+    // Polling de secours : x2 par erreur consécutive, plafonné à 2 minutes
+    const schedulePoll = () => {
+      const delay = Math.min(120000, pollMs * 2 ** Math.min(errors, 3));
+      pollTimer = setTimeout(async () => {
+        await load();
+        if (!cancelled) schedulePoll();
+      }, delay);
+    };
 
-    // Abonnement Supabase Realtime avec dérebond
+    void load();
     const unsubscribe = subscribeStudioRealtime(tables, debouncedLoad);
-
-    // Polling de secours intelligent (actif seulement si l'onglet est visible)
-    const timer = setInterval(load, pollMs);
+    schedulePoll();
 
     // Rafraîchissement instantané au retour sur l'onglet
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        load();
-      }
+      if (document.visibilityState === 'visible') debouncedLoad();
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       cancelled = true;
       if (debounceTimer) clearTimeout(debounceTimer);
+      if (pollTimer) clearTimeout(pollTimer);
       unsubscribe();
-      clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

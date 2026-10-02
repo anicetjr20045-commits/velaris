@@ -86,9 +86,9 @@ export const SonarMascot: FC<SonarMascotProps> = ({
     >
       <defs>
         <radialGradient id={`${uid}-body`} cx="38%" cy="30%" r="78%">
-          <stop offset="0%" stopColor="#2D261E" />
-          <stop offset="55%" stopColor="#1A1713" />
-          <stop offset="100%" stopColor="#0C0A09" />
+          <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
+          <stop offset="55%" stopColor="#0E1015" />
+          <stop offset="100%" stopColor="#050608" />
         </radialGradient>
         <linearGradient id={`${uid}-rim`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#F3DDAE" />
@@ -172,7 +172,7 @@ export const SonarMascot: FC<SonarMascotProps> = ({
 /* Version statique miniature pour les avatars de messages */
 export const SonarGlyph: FC<{ size?: number }> = ({ size = 28 }) => (
   <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true">
-    <circle cx="16" cy="16" r="15" fill="#1A1713" stroke="#E5B54F" strokeOpacity="0.7" strokeWidth="1" />
+    <circle cx="16" cy="16" r="15" fill="#0E1015" stroke="#E5B54F" strokeOpacity="0.7" strokeWidth="1" />
     <rect x="11" y="11" width="3" height="6" rx="1.5" fill="#F4E7CC" />
     <rect x="18" y="11" width="3" height="6" rx="1.5" fill="#F4E7CC" />
     <path d="M11.5 21.5h1M14 20.5v2M16 20v3M18 20.5v2M20.5 21.5h-1" stroke="#E5B54F" strokeWidth="1.2" strokeLinecap="round" />

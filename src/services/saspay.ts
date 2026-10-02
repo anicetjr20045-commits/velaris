@@ -1,16 +1,20 @@
 /**
- * Service d'intégration SasPay Live
- * API REST pour Mobile Money (Wave, Orange Money, MTN, Moov) et Cartes bancaires
+ * Service d'intégration SasPay (Mobile Money Wave, Orange Money, MTN, Moov et cartes)
  * Documentation officielle : https://docs.saspay.me/
+ *
+ * Aucune clé secrète dans le navigateur : les sessions de paiement sont créées par
+ * l'Edge Function `saspay-checkout` (montant, type et utilisateur fixés côté serveur)
+ * et le crédit n'est appliqué que par le webhook signé `saspay-webhook`.
  */
 
-import type { SasPayCheckoutRequest, SasPayCheckoutResponse, SubscriptionPlanId } from '../types/billing';
+import type { SubscriptionPlanId } from '../types/billing';
+import { supabase } from './supabase';
 
 export const SASPAY_CONFIG = {
-  apiKey: 'sk_live_zlZ6VKJ75jNB0NcI8I6-BssNMZCm6eU8Hfe0dvdkAYc',
-  baseUrl: 'https://api.saspay.me/api/v1',
+  publicBaseUrl: 'https://api.saspay.me/api/v1',
   currency: 'XOF',
-  freePaymentLinkUrl: 'https://link.saspay.me/b1w0ra13bhc', // Lien de paiement montant libre hébergé SasPay
+  // Lien hébergé montant libre : le paiement n'est rattaché à aucun studio, réconciliation manuelle
+  freePaymentLinkUrl: 'https://link.saspay.me/b1w0ra13bhc',
   webhooks: {
     supabaseEndpoint: 'https://dnwlqgsftauqsyjwhoza.supabase.co/functions/v1/saspay-webhook',
     directEndpoint: 'https://velaris.money/api/public/webhooks/saspay',
@@ -19,30 +23,31 @@ export const SASPAY_CONFIG = {
   rates: {
     cfaPerCredit: 85,
     minCfaRecharge: 200, // Seuil minimum SasPay
+    maxCfaRecharge: 500000,
     monthlySubscriptionXOF: 3000,
     quarterlySubscriptionXOF: 7000,
   },
   plans: {
     monthly: {
       id: 'monthly' as SubscriptionPlanId,
-      name: 'Abonnement Velaris Studio Mensuel',
+      name: 'Pass Studio Mensuel',
       priceXOF: 3000,
       durationDays: 30,
       description: 'Accès complet au Studio Velaris (30 jours) + WAHA WhatsApp + Pipeline CRM'
     },
     quarterly: {
       id: 'quarterly' as SubscriptionPlanId,
-      name: 'Abonnement Velaris Studio Trimestriel (3 mois)',
+      name: 'Pass Studio Trimestriel',
       priceXOF: 7000,
       durationDays: 90,
-      description: 'Accès complet 3 mois au Studio Velaris (avantage de 2 000 F CFA offert)'
+      description: 'Accès complet 3 mois au Studio Velaris (2 000 F CFA d’économie)'
     }
   }
 };
 
 /**
- * Calcule le nombre de crédits accordés pour un montant en F CFA
- * Ratio : 1 crédit = 85 F CFA
+ * Nombre de crédits accordés pour un montant en F CFA (1 crédit = 85 F CFA).
+ * Même arrondi que la fonction SQL velaris_apply_payment (2 décimales).
  */
 export function calculateCreditsForCFA(amountCfa: number): {
   credits: number;
@@ -54,188 +59,126 @@ export function calculateCreditsForCFA(amountCfa: number): {
   return {
     credits,
     ratePerCredit: rate,
-    formattedCredits: credits.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
+    formattedCredits: credits.toLocaleString('fr-FR', { maximumFractionDigits: 2 })
   };
 }
 
-/**
- * Crée une session de checkout hébergée SasPay
- * Endpoint : POST https://api.saspay.me/api/v1/checkout-sessions/
- */
-export async function createSasPayCheckout(req: SasPayCheckoutRequest): Promise<{
+export interface CheckoutResult {
   success: boolean;
-  data?: SasPayCheckoutResponse;
+  checkoutUrl?: string;
+  sessionId?: string;
   error?: string;
-}> {
+}
+
+const PENDING_KEY = 'velaris_saspay_pending_v1';
+
+/* Dernière session ouverte : permet de vérifier le statut au retour de SasPay */
+function rememberPending(id: string, kind: string) {
   try {
-    const formattedAmount = `${Math.round(req.amount)}.00`;
-    const payload = {
-      amount: formattedAmount,
-      currency: req.currency || SASPAY_CONFIG.currency,
-      description: req.description,
-      customer_email: req.customerEmail || 'studio@velaris.money',
-      customer_name: req.customerName || 'Studio Velaris',
-      customer_phone: req.customerPhone || '',
-      return_url: req.returnUrl || `${window.location.origin}${window.location.pathname}?payment=success`,
-      metadata: req.metadata || {}
-    };
-
-    const response = await fetch(`${SASPAY_CONFIG.baseUrl}/checkout-sessions/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${SASPAY_CONFIG.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const json = await response.json().catch(() => null);
-
-    if (!response.ok || !json?.data?.checkout_url) {
-      const errMsg = json?.message || json?.error || `Erreur SasPay HTTP ${response.status}`;
-      return { success: false, error: errMsg };
-    }
-
-    return {
-      success: true,
-      data: {
-        id: json.data.id,
-        checkoutUrl: json.data.checkout_url,
-        status: json.data.status,
-        slug: json.data.slug,
-        amount: json.data.amount,
-        currency: json.data.currency,
-        description: json.data.description
-      }
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err?.message || 'Impossible de contacter la passerelle SasPay.'
-    };
+    localStorage.setItem(PENDING_KEY, JSON.stringify({ id, kind, at: Date.now() }));
+  } catch {
+    // stockage indisponible
   }
 }
 
+export function getPendingCheckout(): { id: string; kind: string; at: number } | null {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    // Une session SasPay expire ; au-delà de 2 h elle n'a plus d'intérêt
+    return parsed && Date.now() - parsed.at < 2 * 3600 * 1000 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingCheckout() {
+  try {
+    localStorage.removeItem(PENDING_KEY);
+  } catch {
+    // stockage indisponible
+  }
+}
+
+async function invokeCheckout(payload: Record<string, unknown>): Promise<CheckoutResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { success: false, error: 'Connectez-vous à votre studio pour payer.' };
+
+  const { data, error } = await supabase.functions.invoke('saspay-checkout', { body: payload });
+  if (error || !data?.checkoutUrl) {
+    const detail = (data && data.error) || (error && 'context' in error ? await readFunctionError(error) : error?.message);
+    return { success: false, error: detail || 'Passerelle de paiement indisponible pour le moment.' };
+  }
+  rememberPending(data.id, String(payload.kind));
+  return { success: true, checkoutUrl: data.checkoutUrl, sessionId: data.id };
+}
+
+/* Les erreurs HTTP des Edge Functions portent le message dans le corps de la réponse */
+async function readFunctionError(error: unknown): Promise<string | undefined> {
+  try {
+    const ctx = (error as { context?: Response }).context;
+    const body = ctx ? await ctx.json() : null;
+    return body?.error;
+  } catch {
+    return undefined;
+  }
+}
+
+const returnUrl = () => `${window.location.origin}${window.location.pathname}?payment=return`;
+
 /**
- * Vérifie le statut d'une session de checkout directement auprès de SasPay
- * Endpoint : GET https://api.saspay.me/api/v1/checkout-sessions/{id}/status/
+ * Abonnement : 3 000 F CFA / mois ou 7 000 F CFA / 3 mois (prix imposés par le serveur)
  */
-export async function getSasPaySessionStatus(sessionId: string): Promise<{
+export function createSubscriptionCheckout(planId: SubscriptionPlanId): Promise<CheckoutResult> {
+  return invokeCheckout({ action: 'create', kind: 'SUBSCRIPTION', plan: planId === 'quarterly' ? 'quarterly' : 'monthly', returnUrl: returnUrl() });
+}
+
+/**
+ * Recharge de crédits en montant libre (min. 200 F CFA)
+ */
+export function createCreditRechargeCheckout(amountCfa: number): Promise<CheckoutResult> {
+  const amount = Math.round(amountCfa);
+  if (!Number.isFinite(amount) || amount < SASPAY_CONFIG.rates.minCfaRecharge) {
+    return Promise.resolve({ success: false, error: `Le montant minimum est de ${SASPAY_CONFIG.rates.minCfaRecharge} F CFA.` });
+  }
+  if (amount > SASPAY_CONFIG.rates.maxCfaRecharge) {
+    return Promise.resolve({ success: false, error: `Le montant maximum par paiement est de ${SASPAY_CONFIG.rates.maxCfaRecharge.toLocaleString('fr-FR')} F CFA.` });
+  }
+  return invokeCheckout({ action: 'create', kind: 'CREDIT_RECHARGE', amountCfa: amount, returnUrl: returnUrl() });
+}
+
+/**
+ * Statut d'une session de paiement (lecture seule : le crédit vient du webhook)
+ */
+export async function getCheckoutStatus(sessionId: string): Promise<{
   success: boolean;
   status?: 'PAID' | 'PENDING' | 'CANCELLED' | 'EXPIRED' | 'FAILED';
-  transactionId?: string | null;
-  transactionStatus?: string | null;
   error?: string;
 }> {
-  try {
-    const response = await fetch(`${SASPAY_CONFIG.baseUrl}/checkout-sessions/${sessionId}/status/`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${SASPAY_CONFIG.apiKey}`
-      }
-    });
-
-    const json = await response.json().catch(() => null);
-
-    if (!response.ok || !json?.data) {
-      return { success: false, error: json?.message || `HTTP ${response.status}` };
-    }
-
-    return {
-      success: true,
-      status: json.data.status,
-      transactionId: json.data.transaction_id,
-      transactionStatus: json.data.transaction_status
-    };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Échec de vérification du statut SasPay' };
-  }
+  const { data, error } = await supabase.functions.invoke('saspay-checkout', { body: { action: 'status', sessionId } });
+  if (error || !data?.status) return { success: false, error: data?.error || error?.message || 'Statut indisponible' };
+  return { success: true, status: data.status };
 }
 
 /**
- * Sonde la santé de l'API SasPay en mesurant la latence
+ * Sonde la santé de l'API publique SasPay en mesurant la latence (sans clé)
  */
 export async function probeSasPayHealth(): Promise<{
   ok: boolean;
+  reachable: boolean;
   latencyMs: number;
   message: string;
 }> {
   const started = performance.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch(`${SASPAY_CONFIG.baseUrl}/countries/`, {
-      method: 'GET',
-      cache: 'no-store'
-    });
+    const res = await fetch(`${SASPAY_CONFIG.publicBaseUrl}/countries/`, { method: 'GET', cache: 'no-store', signal: ctrl.signal });
     const latencyMs = Math.round(performance.now() - started);
-    return {
-      ok: res.ok,
-      latencyMs,
-      message: res.ok ? `En ligne (${latencyMs}ms)` : `HTTP ${res.status}`
-    };
+    return { ok: res.ok, reachable: true, latencyMs, message: res.ok ? `En ligne (${latencyMs} ms)` : `HTTP ${res.status}` };
   } catch (err: any) {
-    return {
-      ok: false,
-      latencyMs: Math.round(performance.now() - started),
-      message: err.message || 'Non joignable'
-    };
+    return { ok: false, reachable: false, latencyMs: Math.round(performance.now() - started), message: err?.message || 'Non joignable' };
+  } finally {
+    clearTimeout(timer);
   }
 }
-
-/**
- * Prépare une session de paiement libre (montant choisi librement par l'utilisateur)
- * ou retourne le lien hébergé SasPay universel.
- */
-export async function createSasPayFreeAmountCheckout(options: {
-  amountCfa?: number;
-  customerEmail?: string;
-  customerName?: string;
-  userId?: string;
-}): Promise<{
-  success: boolean;
-  checkoutUrl?: string;
-  creditsExpected?: number;
-  error?: string;
-}> {
-  // Si aucun montant spécifique n'est spécifié, rediriger vers la page hébergée SasPay montant libre
-  if (!options.amountCfa || options.amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) {
-    if (options.amountCfa && options.amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) {
-      return {
-        success: false,
-        error: `Le montant minimum pour un paiement est de ${SASPAY_CONFIG.rates.minCfaRecharge} F CFA.`
-      };
-    }
-    return {
-      success: true,
-      checkoutUrl: SASPAY_CONFIG.freePaymentLinkUrl,
-      creditsExpected: 0
-    };
-  }
-
-  const { credits } = calculateCreditsForCFA(options.amountCfa);
-  const checkoutRes = await createSasPayCheckout({
-    amount: options.amountCfa,
-    description: `Recharge libre Velaris Studio : ${credits} crédits (${options.amountCfa} F CFA)`,
-    customerEmail: options.customerEmail || 'studio@velaris.money',
-    customerName: options.customerName || 'Studio Velaris',
-    metadata: {
-      type: 'CREDIT_RECHARGE',
-      amount_cfa: options.amountCfa,
-      credits_expected: credits,
-      userId: options.userId || 'anonymous_studio'
-    }
-  });
-
-  if (!checkoutRes.success || !checkoutRes.data) {
-    return {
-      success: false,
-      error: checkoutRes.error || 'Erreur lors de la création de la session libre SasPay.'
-    };
-  }
-
-  return {
-    success: true,
-    checkoutUrl: checkoutRes.data.checkoutUrl,
-    creditsExpected: credits
-  };
-}
-

@@ -6,6 +6,10 @@ import {
 } from '../data/realProductionData';
 import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLead, StudioMetrics } from '../types';
 
+/* Bornes des listes chargées par le Studio (protège les quotas gratuits Supabase) */
+const LIST_LIMIT = 300;
+const ORDER_LIMIT = 500;
+
 export const SUPABASE_CONFIG = {
   projectId: import.meta.env.VITE_SUPABASE_PROJECT_ID || 'dnwlqgsftauqsyjwhoza',
   url: import.meta.env.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co',
@@ -65,7 +69,8 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
     const { data, error } = await supabase
       .from('conversations')
       .select('id, funnel_stage, summary, last_message_at, contacts(name, phone)')
-      .order('last_message_at', { ascending: false });
+      .order('last_message_at', { ascending: false })
+      .limit(LIST_LIMIT);
 
     if (error) {
       return isUser ? [] : REAL_CONVERSATIONS;
@@ -101,7 +106,8 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
     const { data, error } = await supabase
       .from('automation_rules')
       .select('id, name, trigger_value, action_type, text_body, media_path, caption, enabled')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(200);
 
     if (error) {
       return isUser ? [] : REAL_AUTOMATION_RULES;
@@ -114,7 +120,7 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
     return data.map((r: any) => ({
       id: r.id,
       name: r.name,
-      emoji: r.trigger_value || '⚡',
+      emoji: r.trigger_value || '\u26A1',
       action: r.text_body || r.caption || '',
       active: !!r.enabled,
       kind: actionTypeToKind(r.action_type, r.media_path),
@@ -282,57 +288,47 @@ export async function deleteAutomationRule(id: string): Promise<boolean> {
  * Récupère les métriques du studio connecté (ou métriques démo si visiteur non connecté)
  */
 export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
+  const empty: StudioMetrics = { totalRevenue: 0, ordersDelivered: 0, ordersActive: 0, adLeadsCount: 0, conversionRate: 0, currency: 'FCFA' };
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    const isUser = !!session?.user;
+    // Visiteur : métriques de démonstration, aucune requête réseau
+    if (!session?.user) return REAL_STUDIO_METRICS;
 
-    const [balanceRes, ordersRes] = await Promise.all([
+    // Utilisateur connecté : métriques STRICTEMENT isolées à son studio (RLS)
+    const [balanceRes, ordersRes, convRes] = await Promise.all([
       supabase.from('revenue_opening_balances').select('amount_cents').limit(1).maybeSingle(),
-      supabase.from('orders').select('amount_cents, status'),
+      supabase.from('orders').select('amount_cents, status').order('created_at', { ascending: false }).limit(ORDER_LIMIT),
+      supabase.from('conversations').select('id', { count: 'exact', head: true }),
     ]);
 
-    if (!isUser) {
-      return REAL_STUDIO_METRICS;
-    }
-
-    // Utilisateur connecté : métriques STRICTEMENT isolées à son studio
     const opening = balanceRes.data?.amount_cents ? Number(balanceRes.data.amount_cents) / 100 : 0;
     let ordersSum = 0;
     let deliveredCount = 0;
     let activeCount = 0;
-
-    if (ordersRes.data && ordersRes.data.length > 0) {
-      for (const order of ordersRes.data) {
-        const amt = Number(order.amount_cents || 0) / 100;
-        if (order.status === 'delivered') {
-          ordersSum += amt;
-          deliveredCount++;
-        } else if (order.status === 'validated' || order.status === 'pending') {
-          ordersSum += amt;
-          activeCount++;
-        }
+    for (const order of ordersRes.data || []) {
+      const amt = Number(order.amount_cents || 0) / 100;
+      if (order.status === 'delivered') {
+        ordersSum += amt;
+        deliveredCount++;
+      } else if (order.status === 'validated' || order.status === 'pending') {
+        ordersSum += amt;
+        activeCount++;
       }
     }
 
-    const total = opening + ordersSum;
-
+    // Conversion : commandes payées ou livrées rapportées aux discussions ouvertes (briefs)
+    const briefs = convRes.count ?? 0;
+    const paid = deliveredCount + (ordersRes.data || []).filter(o => o.status === 'validated').length;
     return {
-      totalRevenue: total,
+      totalRevenue: opening + ordersSum,
       ordersDelivered: deliveredCount,
       ordersActive: activeCount,
-      adLeadsCount: 0,
-      conversionRate: deliveredCount + activeCount > 0 ? 100 : 0,
+      adLeadsCount: briefs,
+      conversionRate: briefs > 0 ? Math.round((Math.min(paid, briefs) / briefs) * 1000) / 10 : 0,
       currency: 'FCFA',
     };
   } catch {
-    return {
-      totalRevenue: 0,
-      ordersDelivered: 0,
-      ordersActive: 0,
-      adLeadsCount: 0,
-      conversionRate: 0,
-      currency: 'FCFA',
-    };
+    return empty;
   }
 }
 
@@ -344,7 +340,8 @@ export async function getLiveOrders(): Promise<any[]> {
     const { data, error } = await supabase
       .from('orders')
       .select('id, amount_cents, currency, status, payment_method, notes, created_at, contacts(name, phone, occasion)')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(ORDER_LIMIT);
 
     if (error || !data) return [];
     return data.map((o: any) => ({
@@ -463,57 +460,66 @@ export async function searchStudioData(term: string): Promise<{
   conversations: any[];
   messages: any[];
 }> {
-  const clean = term.trim().toLowerCase();
+  // Filtrage côté Postgres (ilike) et résultats bornés : jamais de téléchargement de tables entières.
+  // Les caractères réservés de la syntaxe PostgREST (virgule, parenthèses) sont neutralisés.
+  const clean = term.trim().replace(/[%_,()*"\\]/g, ' ').replace(/\s+/g, ' ').slice(0, 60);
+  const empty = { contacts: [], orders: [], conversations: [], messages: [] };
+  if (clean.length < 2) return empty;
+  const like = `%${clean}%`;
   try {
-    const [contactsRes, ordersRes, convsRes, msgsRes] = await Promise.all([
-      supabase.from('contacts').select('id, name, phone, occasion, price_quoted_cents, notes, created_at').order('created_at', { ascending: false }),
-      supabase.from('orders').select('id, amount_cents, currency, status, payment_method, notes, created_at, contacts(name, phone, occasion)').order('created_at', { ascending: false }),
-      supabase.from('conversations').select('id, funnel_stage, summary, last_message_at, contacts(id, name, phone, occasion)').order('last_message_at', { ascending: false }),
-      supabase.from('messages').select('id, role, direction, body, created_at, conversation_id').order('created_at', { ascending: false }).limit(40),
+    const [contactsRes, convsRes, msgsRes] = await Promise.all([
+      supabase
+        .from('contacts')
+        .select('id, name, phone, occasion, price_quoted_cents, notes, created_at')
+        .or(`name.ilike.${like},phone.ilike.${like},occasion.ilike.${like},notes.ilike.${like}`)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('conversations')
+        .select('id, funnel_stage, summary, last_message_at, contacts(id, name, phone, occasion)')
+        .ilike('summary', like)
+        .order('last_message_at', { ascending: false })
+        .limit(20),
+      supabase
+        .from('messages')
+        .select('id, role, direction, body, created_at, conversation_id')
+        .ilike('body', like)
+        .order('created_at', { ascending: false })
+        .limit(20),
     ]);
 
-    const allContacts = contactsRes.data || [];
-    const allOrders = ordersRes.data || [];
-    const allConvs = convsRes.data || [];
-    const allMsgs = msgsRes.data || [];
+    const contacts = contactsRes.data || [];
+    const contactIds = contacts.map(c => c.id).slice(0, 20);
 
-    const matchedContacts = allContacts.filter(c => 
-      (c.name && c.name.toLowerCase().includes(clean)) ||
-      (c.phone && c.phone.includes(clean)) ||
-      (c.occasion && c.occasion.toLowerCase().includes(clean))
-    );
+    // Conversations et commandes des contacts trouvés par nom / téléphone
+    const [convByContact, ordersRes] = contactIds.length
+      ? await Promise.all([
+          supabase
+            .from('conversations')
+            .select('id, funnel_stage, summary, last_message_at, contacts(id, name, phone, occasion)')
+            .in('contact_id', contactIds)
+            .order('last_message_at', { ascending: false })
+            .limit(20),
+          supabase
+            .from('orders')
+            .select('id, amount_cents, currency, status, payment_method, notes, created_at, contacts(name, phone, occasion)')
+            .in('contact_id', contactIds)
+            .order('created_at', { ascending: false })
+            .limit(20),
+        ])
+      : [{ data: [] as any[] }, { data: [] as any[] }];
 
-    const matchedOrders = allOrders.filter((o: any) => {
-      const c = Array.isArray(o.contacts) ? o.contacts[0] : o.contacts;
-      return (
-        (c?.name && c.name.toLowerCase().includes(clean)) ||
-        (c?.phone && c.phone.includes(clean)) ||
-        (o.notes && o.notes.toLowerCase().includes(clean)) ||
-        (o.status && o.status.toLowerCase().includes(clean))
-      );
-    });
-
-    const matchedConvs = allConvs.filter((c: any) => {
-      const ct = Array.isArray(c.contacts) ? c.contacts[0] : c.contacts;
-      return (
-        (ct?.name && ct.name.toLowerCase().includes(clean)) ||
-        (ct?.phone && ct.phone.includes(clean)) ||
-        (c.summary && c.summary.toLowerCase().includes(clean))
-      );
-    });
-
-    const matchedMsgs = allMsgs.filter(m => 
-      m.body && m.body.toLowerCase().includes(clean)
-    );
+    const convs = new Map<string, any>();
+    for (const c of [...(convByContact.data || []), ...(convsRes.data || [])]) convs.set(c.id, c);
 
     return {
-      contacts: matchedContacts,
-      orders: matchedOrders,
-      conversations: matchedConvs,
-      messages: matchedMsgs,
+      contacts,
+      orders: ordersRes.data || [],
+      conversations: [...convs.values()],
+      messages: msgsRes.data || [],
     };
   } catch {
-    return { contacts: [], orders: [], conversations: [], messages: [] };
+    return empty;
   }
 }
 
@@ -551,9 +557,14 @@ export async function findConversationByPhone(fragment: string): Promise<{
   const empty = { contact: null, conversation: null, messages: [], orders: [] };
   if (digits.length < 4) return empty;
   try {
+    // Pré-filtre Postgres sur les 4 derniers chiffres (les numéros peuvent contenir des espaces)
+    const tail = digits.slice(-4);
+    const tailPattern = `%${tail.split('').join('%')}%`;
     const { data: contacts } = await supabase
       .from('contacts')
-      .select('id, name, phone, occasion, price_quoted_cents, notes, created_at');
+      .select('id, name, phone, occasion, price_quoted_cents, notes, created_at')
+      .ilike('phone', tailPattern)
+      .limit(200);
     const contact = (contacts || []).find((c: any) => phoneMatches(c.phone, digits)) || null;
     if (!contact) return empty;
 

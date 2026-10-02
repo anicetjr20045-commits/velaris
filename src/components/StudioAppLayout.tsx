@@ -212,9 +212,9 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   }, [isMobileDrawerOpen]);
 
   return (
-    <div className="vx-halo min-h-screen bg-[#0C0A09] text-[#E7E5E4] flex flex-col md:flex-row relative selection:bg-[#E5B54F]/30 selection:text-white">
+    <div className="vx-halo min-h-screen bg-[#050608] text-[#E5E5E5] flex flex-col md:flex-row relative selection:bg-[#E5B54F]/30 selection:text-white">
       {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 w-full flex items-center justify-between px-4 py-3 bg-[#13110E]/85 border-b border-[#2D261E] backdrop-blur-xl">
+      <header className="md:hidden sticky top-0 z-40 w-full flex items-center justify-between px-4 py-3 bg-[#0B0C10]/85 border-b border-white/[0.08] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
@@ -268,14 +268,14 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
           }
           drawerTouchX.current = null;
         }}
-        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-30 w-72 shrink-0 flex flex-col bg-[#0E0C0A]/95 md:bg-[#0E0C0A]/80 backdrop-blur-xl border-r border-[#2D261E] transition-transform duration-[360ms] ease-luxury ${
+        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-30 w-72 shrink-0 flex flex-col bg-[#08090C]/95 md:bg-[#08090C]/80 backdrop-blur-xl border-r border-white/[0.08] transition-transform duration-[360ms] ease-luxury ${
           isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         } h-screen`}
       >
         {/* Brand Header */}
-        <div className="px-5 py-5 border-b border-[#2D261E] flex items-center justify-between">
+        <div className="px-5 py-5 border-b border-white/[0.08] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative h-11 w-11 rounded-full bg-[radial-gradient(circle_at_35%_30%,#2D261E,#0C0A09_70%)] border border-[#3A3022] flex items-center justify-center text-[#F3CA75] shrink-0">
+            <div className="relative h-11 w-11 rounded-full bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.08),#050608_70%)] border border-white/[0.12] flex items-center justify-center text-[#F3CA75] shrink-0">
               <VelarisMark className="h-5 w-5" />
             </div>
 
@@ -284,7 +284,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                 <span className="font-display font-bold text-[19px] tracking-wide text-white">
                   VELARIS
                 </span>
-                <span className="text-[10px] font-semibold tracking-[0.14em] px-1.5 py-[1px] rounded-[4px] bg-[#E5B54F] text-[#0C0A09]">
+                <span className="text-[10px] font-semibold tracking-[0.14em] px-1.5 py-[1px] rounded-[4px] bg-[#E5B54F] text-[#050608]">
                   STUDIO
                 </span>
               </div>
@@ -310,7 +310,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         <div className="px-3 pt-3">
           <button
             onClick={onReturnToHome}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] text-[#A8A29E] hover:text-white hover:bg-[#E5B54F]/[0.05] border border-[#2D261E] hover:border-[#3A3022] transition-all duration-200 ease-luxury cursor-pointer group"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] text-[#A3A3A3] hover:text-white hover:bg-[#E5B54F]/[0.05] border border-white/[0.08] hover:border-white/[0.12] transition-all duration-200 ease-luxury cursor-pointer group"
           >
             <span className="flex items-center gap-2">
               <ArrowLeft className="h-3.5 w-3.5 text-neutral-500 group-hover:text-white group-hover:-translate-x-0.5 transition-all duration-200 ease-luxury" />
@@ -324,7 +324,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         <nav className="relative flex-1 px-3 py-5 space-y-6 overflow-y-auto no-scrollbar">
           {navGroups.map((group) => (
             <div key={group.title} className="space-y-1">
-              <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#78716C]">
+              <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#737373]">
                 {group.title}
               </div>
 
@@ -339,12 +339,12 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                     className={`w-full group relative flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-[15px] transition-[color,background-color,border-color] duration-200 ease-luxury text-left cursor-pointer ${
                       isActive
                         ? 'border-[#E5B54F]/55 border-l-2 border-l-[#E5B54F] bg-gradient-to-r from-[#E5B54F]/[0.16] via-[#E5B54F]/[0.05] to-transparent text-[#F3CA75] font-semibold shadow-[0_0_24px_-8px_rgba(229,181,79,0.45)]'
-                        : 'border-transparent text-[#A8A29E] font-medium hover:bg-[#E5B54F]/[0.04] hover:text-[#E7E5E4]'
+                        : 'border-transparent text-[#A3A3A3] font-medium hover:bg-[#E5B54F]/[0.04] hover:text-[#E5E5E5]'
                     }`}
                   >
                     <div className="flex items-center gap-3 truncate">
                       <Icon strokeWidth={1.6} className={`h-[18px] w-[18px] shrink-0 transition-colors duration-200 ${
-                        isActive ? 'text-[#E5B54F]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'
+                        isActive ? 'text-[#E5B54F]' : 'text-[#737373] group-hover:text-[#D6D3D1]'
                       }`} />
                       <span className="truncate">{item.label}</span>
                     </div>
@@ -365,9 +365,9 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         </nav>
 
         {/* Footer User Profile (Multi-Tenant Auth) */}
-        <div className="p-3 border-t border-[#2D261E]">
+        <div className="p-3 border-t border-white/[0.08]">
           {user ? (
-            <div className="rounded-xl border border-[#2D261E] bg-[#1A1713] p-3 flex items-center justify-between gap-2.5">
+            <div className="rounded-xl border border-white/[0.08] bg-[#0E1015] p-3 flex items-center justify-between gap-2.5">
               <button
                 onClick={() => handleTabClick('profile')}
                 title="Mon profil studio"
@@ -400,7 +400,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border border-[#2D261E] bg-[#1A1713] p-3 space-y-2">
+            <div className="rounded-xl border border-white/[0.08] bg-[#0E1015] p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 vx-breathe" />
@@ -412,7 +412,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               </p>
               <button
                 onClick={() => openAuthModal('login')}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#E5B54F] px-3 py-2 text-[13px] font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#E5B54F] px-3 py-2 text-[13px] font-semibold text-[#050608] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer"
               >
                 <LogIn className="h-3.5 w-3.5" />
                 <span>Mon espace studio</span>
@@ -425,7 +425,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
       {/* Main Column */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Fil d'Ariane (desktop) */}
-        <div className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-between px-8 lg:px-10 border-b border-[#2D261E] bg-[#0C0A09]/70 backdrop-blur-xl">
+        <div className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-between px-8 lg:px-10 border-b border-white/[0.08] bg-[#050608]/70 backdrop-blur-xl">
           <nav aria-label="Fil d'Ariane" className="flex items-center gap-1.5 text-[13px] min-w-0">
             <button
               onClick={() => handleTabClick('revenus')}
@@ -450,13 +450,13 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="group inline-flex items-center gap-2.5 h-9 rounded-full border border-[#2D261E] bg-white/[0.02] pl-3 pr-1.5 text-[13px] text-neutral-500 hover:text-neutral-200 hover:border-[#3A3022] transition-colors duration-200 ease-luxury cursor-pointer"
+              className="group inline-flex items-center gap-2.5 h-9 rounded-full border border-white/[0.08] bg-white/[0.02] pl-3 pr-1.5 text-[13px] text-neutral-500 hover:text-neutral-200 hover:border-white/[0.12] transition-colors duration-200 ease-luxury cursor-pointer"
             >
               <Search className="h-3.5 w-3.5" strokeWidth={1.8} />
               <span className="hidden lg:inline">Aller à…</span>
               <kbd className="vx-kbd">{shortcutLabel}</kbd>
             </button>
-            <span className="hidden lg:inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-3 py-1 text-[11px] font-mono text-neutral-400">
+            <span className="hidden lg:inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1 text-[11px] font-mono text-neutral-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
               WAHA · Suno · Supabase
             </span>

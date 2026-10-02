@@ -151,9 +151,9 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ open, onOpenChange, co
         aria-modal="true"
         aria-label="Palette de commandes"
         onKeyDown={onKeyDown}
-        className="vx-palette w-full max-w-xl overflow-hidden rounded-2xl border border-[#3A3022] bg-[#141210]/95 backdrop-blur-xl shadow-[0_40px_120px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(229,181,79,0.05)]"
+        className="vx-palette w-full max-w-xl overflow-hidden rounded-2xl border border-white/[0.12] bg-[#0B0C10]/95 backdrop-blur-xl shadow-[0_40px_120px_-20px_rgba(0,0,0,0.85),0_0_0_1px_rgba(229,181,79,0.05)]"
       >
-        <div className="flex items-center gap-3 px-4 border-b border-[#2D261E]">
+        <div className="flex items-center gap-3 px-4 border-b border-white/[0.08]">
           <Search className="h-4 w-4 shrink-0 text-[#E5B54F]" strokeWidth={1.8} />
           <input
             ref={inputRef}
@@ -182,7 +182,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ open, onOpenChange, co
           ) : (
             grouped.map(([group, items]) => (
               <div key={group} className="pb-1">
-                <div className="px-3 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#78716C]">
+                <div className="px-3 pt-2.5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#737373]">
                   {group}
                 </div>
                 {items.map((cmd) => {
@@ -202,7 +202,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ open, onOpenChange, co
                       className="vx-palette-item flex items-center justify-between gap-3 rounded-xl px-3 min-h-[44px] cursor-pointer text-[14px] text-neutral-300"
                     >
                       <span className="flex items-center gap-3 min-w-0">
-                        <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-[#E5B54F]' : 'text-[#78716C]'}`} strokeWidth={1.6} />
+                        <Icon className={`h-4 w-4 shrink-0 ${selected ? 'text-[#E5B54F]' : 'text-[#737373]'}`} strokeWidth={1.6} />
                         <span className="truncate">{cmd.label}</span>
                       </span>
                       {cmd.hint && <span className="shrink-0 text-xs font-mono text-neutral-500">{cmd.hint}</span>}
@@ -214,7 +214,7 @@ export const CommandPalette: FC<CommandPaletteProps> = ({ open, onOpenChange, co
           )}
         </div>
 
-        <div className="hidden sm:flex items-center justify-between px-4 h-10 border-t border-[#2D261E] text-[11px] text-neutral-500">
+        <div className="hidden sm:flex items-center justify-between px-4 h-10 border-t border-white/[0.08] text-[11px] text-neutral-500">
           <span className="flex items-center gap-3">
             <span className="flex items-center gap-1"><kbd className="vx-kbd"><ArrowUp className="h-3 w-3" /></kbd><kbd className="vx-kbd"><ArrowDown className="h-3 w-3" /></kbd> naviguer</span>
             <span className="flex items-center gap-1"><kbd className="vx-kbd"><CornerDownLeft className="h-3 w-3" /></kbd> ouvrir</span>

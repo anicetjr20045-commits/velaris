@@ -139,14 +139,14 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Ventes & trésorerie</h1>
-          <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed max-w-xl">
+          <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed max-w-xl">
             Le grand livre des paiements reçus directement sur vos comptes Wave, Orange Money et Moov.
           </p>
         </div>
         <button
           type="button"
           onClick={exportCsv}
-          className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full border border-[#3A3022] bg-white/[0.02] px-4 py-2 text-[13px] text-neutral-200 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
+          className="inline-flex items-center gap-2 self-start sm:self-auto rounded-full border border-white/[0.12] bg-white/[0.02] px-4 py-2 text-[13px] text-neutral-200 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
         >
           <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
           Exporter le grand livre
@@ -155,13 +155,13 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
 
       {/* Coffre */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-4">
-        <div className="vx-hairline relative overflow-hidden rounded-2xl border border-[#2D261E] bg-[#13110E] p-6 sm:p-7">
+        <div className="vx-hairline relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-6 sm:p-7">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(30rem_14rem_at_0%_0%,rgba(229,181,79,0.09),transparent_70%)]"
           />
           <div className="relative flex items-center justify-between gap-3">
-            <span className="text-[13px] text-[#A8A29E]">Total encaissé net</span>
+            <span className="text-[13px] text-[#A3A3A3]">Total encaissé net</span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-2.5 py-1 text-[12.5px] text-emerald-300">
               <ShieldCheck className="h-3 w-3" strokeWidth={1.75} />
               100 % sur vos comptes
@@ -179,12 +179,12 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
               <span className="vx-fill block h-full rounded-full bg-orange-400" style={{ width: `${omShare * 100}%`, '--i': 3 } as CSSProperties} />
             </div>
             <div className="mt-3 flex items-center justify-between text-[12.5px]">
-              <span className="inline-flex items-center gap-1.5 text-[#A8A29E]">
+              <span className="inline-flex items-center gap-1.5 text-[#A3A3A3]">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
                 Wave
                 <span className="font-mono text-white">{(waveShare * 100).toFixed(1).replace('.', ',')} %</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 text-[#A8A29E]">
+              <span className="inline-flex items-center gap-1.5 text-[#A3A3A3]">
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
                 Orange Money & Moov
                 <span className="font-mono text-white">{(omShare * 100).toFixed(1).replace('.', ',')} %</span>
@@ -192,7 +192,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
             </div>
           </div>
 
-          <div className="relative mt-6 pt-4 border-t border-[#2D261E] grid grid-cols-3 gap-3">
+          <div className="relative mt-6 pt-4 border-t border-white/[0.08] grid grid-cols-3 gap-3">
             {[
               { label: 'Marge brute', value: '92,4 %' },
               { label: 'Commission Velaris', value: '0 F' },
@@ -213,7 +213,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
               <div
                 key={p.key}
                 style={{ '--i': i + 1 } as CSSProperties}
-                className="vx-stagger vx-hairline flex items-center gap-5 rounded-2xl border border-[#2D261E] bg-[#13110E] p-5"
+                className="vx-stagger vx-hairline flex items-center gap-5 rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-5"
               >
                 <div className="relative">
                   <RingGauge share={p.share} stroke={meta.stroke} delay={150 + i * 150} />
@@ -222,7 +222,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 text-[13px] text-[#A8A29E]">
+                  <div className="flex items-center gap-1.5 text-[13px] text-[#A3A3A3]">
                     <Smartphone className={`h-3 w-3 ${meta.text}`} strokeWidth={1.75} />
                     {meta.label}
                   </div>
@@ -239,16 +239,16 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
       </div>
 
       {/* Grand livre */}
-      <div className="rounded-2xl border border-[#2D261E] bg-[#13110E] overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#2D261E]">
-          <div className="flex items-center gap-1 rounded-full border border-[#2D261E] bg-white/[0.02] p-0.5 self-start">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-white/[0.08]">
+          <div className="flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5 self-start">
             {filters.map(f => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => setPaymentFilter(f.id)}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] transition-colors duration-200 cursor-pointer ${
-                  paymentFilter === f.id ? 'bg-white text-black font-medium' : 'text-[#A8A29E] hover:text-white'
+                  paymentFilter === f.id ? 'bg-white text-black font-medium' : 'text-[#A3A3A3] hover:text-white'
                 }`}
               >
                 {f.label}
@@ -263,7 +263,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
               placeholder="Commande, client, numéro"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border border-[#2D261E] bg-white/[0.02] pl-9 pr-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] pl-9 pr-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
             />
           </div>
         </div>
@@ -271,7 +271,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead>
-              <tr className="text-[12.5px] text-neutral-500 border-b border-[#2D261E]">
+              <tr className="text-[12.5px] text-neutral-500 border-b border-white/[0.08]">
                 <th className="py-3 px-5 font-normal">Écriture</th>
                 <th className="py-3 px-4 font-normal">Client</th>
                 <th className="py-3 px-4 font-normal">Occasion</th>
@@ -295,7 +295,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
                   <tr
                     key={o.id}
                     style={{ '--i': Math.min(i, 10) } as CSSProperties}
-                    className="vx-stagger group border-b border-[#2D261E]/60 last:border-0 hover:bg-white/[0.02] transition-colors duration-150"
+                    className="vx-stagger group border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors duration-150"
                   >
                     <td className="py-3.5 px-5">
                       <div className="font-mono font-semibold text-white">{o.id}</div>
@@ -314,7 +314,7 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2D261E] bg-white/[0.02] px-2.5 py-1 text-[12.5px] text-neutral-300">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[12.5px] text-neutral-300">
                         <span className={`h-1.5 w-1.5 rounded-full ${provider.dot}`} />
                         {provider.label}
                       </span>
@@ -341,8 +341,8 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
             </tbody>
             {filteredOrders.length > 0 && (
               <tfoot>
-                <tr className="border-t border-[#2D261E] bg-white/[0.015]">
-                  <td colSpan={4} className="py-3.5 px-5 text-[12.5px] text-[#A8A29E]">
+                <tr className="border-t border-white/[0.08] bg-white/[0.015]">
+                  <td colSpan={4} className="py-3.5 px-5 text-[12.5px] text-[#A3A3A3]">
                     <span className="inline-flex items-center gap-1.5">
                       <CheckCircle2 className="h-3 w-3 text-emerald-400" strokeWidth={1.75} />
                       {filteredOrders.length} écriture{filteredOrders.length > 1 ? 's' : ''} affichée{filteredOrders.length > 1 ? 's' : ''}

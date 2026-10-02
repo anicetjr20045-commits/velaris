@@ -48,10 +48,10 @@ function passwordScore(pw: string): number {
 }
 
 const SCORE_LABELS = ['Trop court', 'Faible', 'Correct', 'Solide', 'Excellent'];
-const SCORE_COLORS = ['bg-[#3A3022]', 'bg-rose-500', 'bg-amber-400', 'bg-[#E5B54F]', 'bg-emerald-400'];
+const SCORE_COLORS = ['bg-white/[0.12]', 'bg-rose-500', 'bg-amber-400', 'bg-[#E5B54F]', 'bg-emerald-400'];
 
 const inputClass =
-  'w-full rounded-xl border border-[#2D261E] bg-[#1A1713] pl-10 pr-3 h-11 text-sm text-white placeholder-neutral-600 focus:border-[#E5B54F]/60 focus:outline-none focus:ring-2 focus:ring-[#E5B54F]/15 transition-[border-color,box-shadow] duration-200 ease-luxury';
+  'w-full rounded-xl border border-white/[0.08] bg-[#0E1015] pl-10 pr-3 h-11 text-sm text-white placeholder-neutral-600 focus:border-[#E5B54F]/60 focus:outline-none focus:ring-2 focus:ring-[#E5B54F]/15 transition-[border-color,box-shadow] duration-200 ease-luxury';
 
 const Field: FC<{ id: string; label: string; icon: typeof Mail; children: ReactNode; aside?: ReactNode }> = ({ id, label, icon: Icon, children, aside }) => (
   <div className="space-y-1.5">
@@ -263,7 +263,7 @@ export const AuthModal: FC = () => {
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
-            className={`h-1 rounded-full transition-colors duration-300 ease-luxury ${i < score ? SCORE_COLORS[score] : 'bg-[#2D261E]'}`}
+            className={`h-1 rounded-full transition-colors duration-300 ease-luxury ${i < score ? SCORE_COLORS[score] : 'bg-white/[0.08]'}`}
           />
         ))}
       </div>
@@ -286,7 +286,7 @@ export const AuthModal: FC = () => {
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-title"
-        className="vx-palette relative w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-[#2D261E] bg-[#141210] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] p-6 sm:p-8 space-y-6 vx-hairline"
+        className="vx-palette relative w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-white/[0.08] bg-[#0B0C10] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] p-6 sm:p-8 space-y-6 vx-hairline"
       >
         <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-[#E5B54F]/[0.06] blur-3xl pointer-events-none" />
 
@@ -320,7 +320,7 @@ export const AuthModal: FC = () => {
 
         {/* Onglets connexion / inscription */}
         {!sentTo && (authModalMode === 'login' || authModalMode === 'signup') && (
-          <div className="relative grid grid-cols-2 rounded-xl bg-white/[0.03] p-1 border border-[#2D261E]/60" role="tablist">
+          <div className="relative grid grid-cols-2 rounded-xl bg-white/[0.03] p-1 border border-white/[0.05]" role="tablist">
             <span
               aria-hidden
               className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white transition-transform duration-300 ease-luxury"
@@ -390,7 +390,7 @@ export const AuthModal: FC = () => {
               type="button"
               onClick={handleResend}
               disabled={loading || resendRemaining > 0}
-              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-[#3A3022] text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
+              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" strokeWidth={1.6} />}
               {resendRemaining > 0 ? <span className="font-mono">Renvoyer dans {resendRemaining}s</span> : 'Renvoyer l\'email'}
@@ -539,7 +539,7 @@ export const AuthModal: FC = () => {
 
         {/* Garanties + accès démo */}
         {authModalMode !== 'recovery' && (
-          <div className="pt-4 border-t border-[#2D261E] space-y-3">
+          <div className="pt-4 border-t border-white/[0.08] space-y-3">
             <div className="flex items-center justify-center gap-4 text-[11px] font-mono text-neutral-500">
               <span className="flex items-center gap-1.5"><Lock className="h-3 w-3" /> TLS chiffré</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> Données isolées RLS</span>
@@ -548,7 +548,7 @@ export const AuthModal: FC = () => {
               <button
                 type="button"
                 onClick={handleDemoAccess}
-                className="min-h-[44px] text-[13px] font-medium text-neutral-300 hover:text-white underline underline-offset-4 decoration-[#3A3022] hover:decoration-[#E5B54F] transition-colors"
+                className="min-h-[44px] text-[13px] font-medium text-neutral-300 hover:text-white underline underline-offset-4 decoration-white/[0.12] hover:decoration-[#E5B54F] transition-colors"
               >
                 Continuer en mode démonstration
               </button>

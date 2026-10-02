@@ -1,17 +1,18 @@
-import { useState, type FC } from 'react';
-import { 
-  X, 
-  QrCode, 
-  CheckCircle2, 
-  RefreshCw, 
+import { useEffect, useState, type FC } from 'react';
+import {
+  X,
+  QrCode,
+  CheckCircle2,
   ShieldCheck,
   RotateCw,
   Loader2,
   Lock,
-  ArrowRight
+  ArrowRight,
+  CircleAlert
 } from 'lucide-react';
 import { useWahaSession } from '../hooks/useWaha';
 import { useAuth } from '../hooks/useAuth';
+import { wahaSessionNameFor } from '../services/waha';
 
 interface QrConnectModalProps {
   isOpen: boolean;
@@ -21,16 +22,38 @@ interface QrConnectModalProps {
   setIsWhatsAppConnected: (connected: boolean) => void;
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  STARTING: 'Démarrage de la passerelle',
+  SCAN_QR_CODE: 'En attente du scan',
+  WORKING: 'Connectée',
+  FAILED: 'Session en échec',
+  STOPPED: 'Session arrêtée',
+  UNREACHABLE: 'Passerelle injoignable',
+};
+
 export const QrConnectModal: FC<QrConnectModalProps> = ({
   isOpen,
   onClose,
-  sessionName: propSessionName,
   setIsWhatsAppConnected,
 }) => {
   const { user, openAuthModal } = useAuth();
-  const sessionName = propSessionName || (user ? `studio_${user.id.slice(0, 8)}` : 'Test');
-  const waha = useWahaSession(sessionName);
+  // Un studio ne lie jamais que SA propre session
+  const sessionName = wahaSessionNameFor(user?.id);
+  // Aucune sonde WAHA tant que la fenêtre est fermée ou sans compte
+  const waha = useWahaSession(sessionName, { enabled: isOpen && !!user });
   const [isRestarting, setIsRestarting] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
+  useEffect(() => {
+    if (waha.isOnline) setIsWhatsAppConnected(true);
+  }, [waha.isOnline, setIsWhatsAppConnected]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -42,54 +65,60 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
 
   const handleDisconnect = async () => {
     await waha.stop();
+    setConfirmDisconnect(false);
     setIsWhatsAppConnected(false);
   };
 
-  const isConnected = waha.isOnline;
-  const connectedPhone = waha.session?.me?.id 
-    ? `+${waha.session.me.id.split('@')[0]}` 
-    : (user ? 'Numéro Studio lié' : '+226 56 24 05 33');
+  const connectedPhone = waha.session?.me?.id ? `+${waha.session.me.id.split('@')[0]}` : 'Numéro du studio';
+  const stuck = waha.status === 'FAILED' || waha.status === 'STOPPED' || waha.status === 'UNREACHABLE';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-[#3A3022] bg-[#141210] p-6 shadow-2xl">
-        {/* Close Button */}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md vx-fade-in"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qr-title"
+        onClick={e => e.stopPropagation()}
+        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0E1015] p-6 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)]"
+      >
         <button
+          type="button"
           onClick={onClose}
+          aria-label="Fermer"
           className="absolute right-4 top-4 rounded-full p-2 text-white/50 hover:bg-white/[0.06] hover:text-white cursor-pointer"
         >
           <X className="h-5 w-5" />
         </button>
 
-        {/* Modal Header */}
         <div className="text-center pb-4">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#d4af37] to-[#8f6d14] text-black shadow-lg shadow-[#d4af37]/20">
-            <QrCode className="h-6 w-6" />
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-white">
+            <QrCode className="h-5 w-5" strokeWidth={1.5} />
           </div>
-          <h2 className="font-serif text-xl font-bold text-white">
-            {isConnected ? 'WhatsApp Studio Connecté' : 'Lier votre WhatsApp Studio'}
+          <h2 id="qr-title" className="text-xl font-bold tracking-tight text-white">
+            {waha.isOnline ? 'WhatsApp Studio connecté' : 'Lier votre WhatsApp Studio'}
           </h2>
-          <p className="text-xs text-stone-400 mt-1">
+          <p className="text-xs text-neutral-400 mt-1">
             {user ? (
-              <span>Ligne isolée et sécurisée • Session <span className="font-mono text-white/90">{sessionName}</span></span>
+              <span>Ligne isolée · session <span className="font-mono text-white/90">{sessionName}</span></span>
             ) : (
-              'Connectez votre compte pour attribuer une passerelle dédiée à votre entreprise.'
+              'Connectez votre compte pour obtenir une passerelle dédiée à votre studio.'
             )}
           </p>
         </div>
 
-        {/* Unauthenticated State: Call to Action to sign in first */}
         {!user ? (
-          <div className="my-2 space-y-4 rounded-2xl border border-[#2D261E] bg-white/[0.02] p-5 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-stone-300">
-              <Lock className="h-5 w-5" />
+          <div className="my-2 space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-neutral-300">
+              <Lock className="h-5 w-5" strokeWidth={1.5} />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">
-                Compte Studio Requis
-              </h3>
-              <p className="text-xs text-stone-400 mt-1 leading-relaxed">
-                Chaque studio dispose de sa propre passerelle WAHA chiffrée et de ses propres messages. Créez votre compte en un clic pour générer votre QR code privé.
+              <h3 className="text-sm font-semibold text-white">Compte studio requis</h3>
+              <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                Chaque studio dispose de sa propre passerelle WhatsApp et de ses propres messages. Créez votre compte pour générer votre QR code privé.
               </p>
             </div>
             <div className="pt-2 flex flex-col gap-2">
@@ -99,7 +128,7 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
                   onClose();
                   openAuthModal();
                 }}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-neutral-200 py-2.5 text-xs font-bold text-black cursor-pointer shadow transition-all"
+                className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-2.5 text-xs font-bold text-black cursor-pointer transition-colors"
               >
                 <span>Créer mon studio ou me connecter</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -107,114 +136,105 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full rounded-xl border border-[#2D261E] py-2 text-xs font-medium text-stone-400 hover:text-white cursor-pointer"
+                className="w-full rounded-full border border-white/[0.08] py-2 text-xs font-medium text-neutral-400 hover:text-white cursor-pointer"
               >
                 Continuer en exploration démo
               </button>
             </div>
           </div>
-        ) : isConnected ? (
-          /* Main Content: Connected State */
-          <div className="my-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 text-center space-y-3">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-              <CheckCircle2 className="h-7 w-7" />
+        ) : waha.isOnline ? (
+          <div className="my-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-5 text-center space-y-3">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+              <CheckCircle2 className="h-6 w-6" strokeWidth={1.6} />
             </div>
             <div>
-              <h3 className="font-serif text-base font-bold text-white">
-                {connectedPhone}
-              </h3>
-              <p className="text-xs text-emerald-300 mt-0.5 font-mono">
-                Passerelle WAHA Active • Session {sessionName}
-              </p>
+              <h3 className="font-mono text-base font-bold tabular-nums text-white">{connectedPhone}</h3>
+              <p className="text-xs text-emerald-300 mt-0.5 font-mono">Passerelle active · {sessionName}</p>
             </div>
             <div className="pt-2 flex flex-col gap-2">
               <button
+                type="button"
                 onClick={onClose}
-                className="w-full rounded-xl bg-gradient-to-r from-[#d4af37] to-[#e5c158] py-2.5 text-xs font-bold text-black cursor-pointer shadow"
+                className="w-full rounded-full bg-white py-2.5 text-xs font-bold text-black hover:bg-neutral-200 cursor-pointer transition-colors"
               >
-                Accéder au Studio OS
+                Accéder au Studio
               </button>
-              <button
-                onClick={handleDisconnect}
-                className="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 py-2 text-xs font-medium text-rose-300 hover:bg-rose-500/20 cursor-pointer"
-              >
-                Déconnecter cette session
-              </button>
+              {confirmDisconnect ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    className="flex-1 rounded-full border border-rose-500/40 bg-rose-500/15 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+                  >
+                    Confirmer la déconnexion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDisconnect(false)}
+                    className="flex-1 rounded-full border border-white/[0.08] py-2 text-xs text-neutral-300 hover:text-white cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDisconnect(true)}
+                  className="w-full rounded-full border border-rose-500/25 py-2 text-xs font-medium text-rose-300 hover:bg-rose-500/10 cursor-pointer"
+                >
+                  Déconnecter cette ligne
+                </button>
+              )}
             </div>
           </div>
         ) : (
-          /* Live QR Code Display */
           <div className="space-y-4">
-            <div className="relative mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border-2 border-[#d4af37]/40 bg-white p-3 shadow-2xl overflow-hidden">
-              {waha.status === 'SCAN_QR_CODE' && !isRestarting ? (
-                <img
-                  src={waha.qrUrl}
-                  alt="QR Code WhatsApp"
-                  className="h-full w-full object-contain"
-                />
+            <div className="relative mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border border-white/[0.12] bg-white p-3 overflow-hidden">
+              {waha.qrUrl && !isRestarting ? (
+                <img src={waha.qrUrl} alt="QR code d'appairage WhatsApp" className="h-full w-full object-contain" />
               ) : (
-                <div className="flex flex-col items-center justify-center text-center p-4 h-full w-full bg-[#14120E] text-white space-y-2">
-                  <RefreshCw className="h-8 w-8 text-[#e5c158] animate-spin" />
+                <div className="flex flex-col items-center justify-center text-center p-4 h-full w-full rounded-xl bg-[#08090C] text-white space-y-2">
+                  {stuck ? (
+                    <CircleAlert className="h-7 w-7 text-amber-300" strokeWidth={1.5} />
+                  ) : (
+                    <Loader2 className="h-7 w-7 text-neutral-300 animate-spin" />
+                  )}
                   <span className="text-xs font-semibold text-neutral-200">
-                    {waha.status === 'FAILED' ? 'Relance de la passerelle...' : 'Génération du QR Code...'}
+                    {isRestarting ? 'Relance de la passerelle…' : STATUS_LABEL[waha.status] || 'Préparation du QR code…'}
                   </span>
-                  <span className="text-[11px] text-neutral-400 font-mono">
-                    Statut : {waha.status}
-                  </span>
-                </div>
-              )}
-
-              {isRestarting && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-black/85 backdrop-blur-sm text-white">
-                  <RefreshCw className="h-8 w-8 text-[#e5c158] animate-spin mb-2" />
-                  <span className="text-xs font-semibold">Génération du QR Code dédié...</span>
+                  <span className="text-[11px] text-neutral-500 font-mono">{waha.status}</span>
                 </div>
               )}
             </div>
 
-            {/* Instruction Steps */}
-            <div className="rounded-2xl border border-[#2D261E] bg-white/[0.02] p-3 text-xs text-stone-300 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#d4af37] text-black font-bold text-[9px]">
-                  01
-                </span>
-                <span>Ouvrez WhatsApp sur votre smartphone dédié</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/10 text-white font-mono text-[10px]">
-                  02
-                </span>
-                <span>Allez dans <strong>Appareils connectés</strong> › <strong>Lier un appareil</strong></span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/10 text-white font-mono text-[10px]">
-                  03
-                </span>
-                <span>Pointez votre caméra vers ce QR code</span>
-              </div>
-            </div>
+            <ol className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-neutral-300 space-y-1.5">
+              {['Ouvrez WhatsApp sur le téléphone du studio', 'Appareils connectés, puis Connecter un appareil', 'Pointez la caméra vers ce QR code'].map((step, i) => (
+                <li key={step} className="flex items-center gap-2.5">
+                  <span className="font-mono text-[10px] tabular-nums text-neutral-500">{String(i + 1).padStart(2, '0')}</span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
 
-            {/* Actions Buttons */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleRestartSession}
-                disabled={isRestarting}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-neutral-200 py-2.5 text-xs font-bold text-black shadow-md cursor-pointer transition-all disabled:opacity-50"
-              >
-                {isRestarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-                <span>Relancer la session WAHA</span>
-              </button>
-            </div>
+            {waha.error && stuck && <p className="text-center text-[12px] text-amber-200/90">{waha.error}</p>}
+
+            <button
+              type="button"
+              onClick={handleRestartSession}
+              disabled={isRestarting}
+              className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-2.5 text-xs font-bold text-black cursor-pointer transition-colors disabled:opacity-50"
+            >
+              {isRestarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+              <span>{stuck ? 'Relancer la session' : 'Générer un nouveau QR code'}</span>
+            </button>
           </div>
         )}
 
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-stone-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-          <span>Passerelle WAHA multi-tenant sécurisée (étanchéité stricte)</span>
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.6} />
+          <span>Passerelle multi-studio · chaque ligne est étanche</span>
         </div>
       </div>
     </div>
   );
 };
-

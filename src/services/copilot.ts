@@ -25,7 +25,7 @@ import {
 import { ACADEMY_MODULES } from '../data/mockData';
 import type { Order, StudioMetrics } from '../types';
 import { debitAiPromptCredit, getStudioCredits } from './billing';
-import { generateKieSong } from './kie';
+import { KIE_CONFIG } from './kie';
 
 export interface ActionCardData {
   type: 'lyrics' | 'reply' | 'stats' | 'client_brief' | 'song_generation';
@@ -67,7 +67,7 @@ function normalize(str: string): string {
 const fcfa = (n: number) => `${Math.round(n).toLocaleString('fr-FR')} F CFA`;
 const digitsOf = (s: string | null | undefined) => (s || '').replace(/\D/g, '');
 const stripPictos = (s: string) => s.replace(/\p{Extended_Pictographic}|️|‍/gu, '').replace(/\s{2,}/g, ' ').trim();
-const isVoiceNote = (s: string) => s.includes('🎙');
+const isVoiceNote = (s: string) => s.includes('\u{1F399}');
 const waLink = (phone?: string) => (digitsOf(phone) ? `https://wa.me/${digitsOf(phone)}` : undefined);
 
 const STOP_WORDS = new Set(
@@ -106,18 +106,35 @@ export function extractPhoneFragment(text: string): string | null {
 
 type Intent = 'phone' | 'sales' | 'lyrics' | 'reply' | 'song_generate' | 'billing' | 'knowledge' | 'search' | 'help';
 
-const has = (n: string, list: string[]) => list.some(k => n.includes(k));
+/*
+ * Correspondance en début de mot : « cout » ne doit pas matcher « écoute »,
+ * ni « dit » matcher « crédit ». Les expressions multi-mots restent des sous-chaînes.
+ */
+const termCache = new Map<string, RegExp>();
+const termRe = (k: string) => {
+  let re = termCache.get(k);
+  if (!re) {
+    re = new RegExp(`(^|[^a-z0-9])${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+    termCache.set(k, re);
+  }
+  return re;
+};
+const has = (n: string, list: string[]) => list.some(k => termRe(k).test(n));
 
-const SALES_WORDS = ['chiffre', 'encaiss', 'revenu', 'stat', 'vente', 'vendu', 'performance', 'taux de conversion', 'closing', 'caisse', 'tresorerie', 'argent', 'gagne', 'benefice', 'marge', 'wave', 'orange money', 'panier', 'livree', 'commandes'];
+/* « ne lance pas la chanson », « sans générer » : l'action demandée est niée */
+const isNegated = (n: string) => /(^|\s)(ne|n)\s?\S*\s+(pas|plus|jamais)(\s|$)|(^|\s)(sans|surtout pas|annule|stop)(\s|$)/.test(n);
+
+const SALES_WORDS = ['chiffre', 'encaiss', 'revenu', 'statistique', 'vente', 'vendu', 'performance', 'taux de conversion', 'closing', 'caisse', 'tresorerie', 'argent', 'gagne', 'benefice', 'marge', 'wave', 'orange money', 'panier', 'livree', 'commandes'];
 const SONG_GEN_WORDS = ['genere la chanson', 'generer la chanson', 'lance la chanson', 'produis la chanson', 'produire la chanson', 'creation chanson', 'generation kie', 'kie.ai', 'kie ai', 'creer chanson suno', 'lance la production'];
-const BILLING_WORDS = ['credit', 'abonnement', 'tarif', 'forfait', 'recharge', 'saspay', 'facturation', 'pack studio', 'payer abonnement', 'prix credit', 'cout'];
+/* Facturation de la plateforme (crédits, pass) : les tarifs clients relèvent de la base de connaissance */
+const BILLING_WORDS = ['credit', 'abonnement', 'recharge', 'saspay', 'facturation', 'pass studio', 'mon solde', 'solde de credit'];
 const LYRICS_WORDS = ['parole', 'ecris la chanson', 'ecris une chanson', 'redige la chanson', 'compose', 'texte de la chanson', 'chanson pour', 'couplet', 'refrain', 'lyrics'];
 const REPLY_WORDS = ['relance', 'relancer', 'redige un message', 'redige-moi un message', 'redige moi un message', 'ecris un message', 'message whatsapp', 'reponds', 'repondre', 'reponse', 'message pour', 'texte pour', 'convaincre', 'hesite'];
-const RECALL_WORDS = ['rappelle', 'resume', 'discute', 'dit', 'parle', 'historique', 'conversation', 'discussion', 'retrouve', 'cherche', 'trouve', 'qui a', 'quel client', 'dossier', 'fiche'];
+const RECALL_WORDS = ['rappelle', 'resume', 'discute', 'a dit', 'parle', 'historique', 'conversation', 'discussion', 'retrouve', 'cherche', 'trouve', 'qui a', 'quel client', 'dossier', 'fiche'];
 
 function detectIntent(prompt: string): Intent {
   const n = normalize(prompt);
-  if (has(n, SONG_GEN_WORDS)) return 'song_generate';
+  if (has(n, SONG_GEN_WORDS) && !isNegated(n)) return 'song_generate';
   if (has(n, BILLING_WORDS)) return 'billing';
   const phone = extractPhoneFragment(prompt);
   if (phone && !has(n, LYRICS_WORDS) && !has(n, REPLY_WORDS)) return 'phone';
@@ -136,7 +153,7 @@ const INTENT_TOOLS: Record<Intent, string[]> = {
   search: ['search_studio_conversations', 'get_whatsapp_transcripts', 'summarize_conversation'],
   sales: ['get_studio_metrics', 'track_live_sales', 'get_live_orders'],
   lyrics: ['search_client_context', 'generate_lyric_score'],
-  song_generate: ['check_studio_credits', 'query_kie_ai_api', 'synthesize_audio_master', 'prepare_whatsapp_delivery'],
+  song_generate: ['lookup_client_dossier', 'extract_client_memories', 'generate_lyric_score', 'check_studio_credits'],
   billing: ['get_studio_credits', 'get_subscription_status', 'check_saspay_gateway'],
   reply: ['search_client_context', 'compose_whatsapp_reply'],
   knowledge: ['query_velaris_knowledge_base'],
@@ -451,7 +468,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     body: `Brief vocal transcrit, paroles générées, production musicale puis livraison sur WhatsApp : **18 minutes en moyenne** (15 min Découverte, 25 min Prestige).`,
   },
   {
-    keys: ['marge', 'cout', 'depense', 'rentab', 'suno', 'abonnement'],
+    keys: ['marge', 'cout', 'depense', 'rentab', 'suno'],
     title: 'Coûts & marges',
     body:
       `- **Marge brute moyenne** : 92,4 %\n- **Coût IA** : environ 150 F CFA par composition\n- **Suno Pro** : 12 000 F / mois\n- **VPS WAHA** : 3 500 F / mois\n- **Retraits Mobile Money** : 1 % fixe\n\nSuivi détaillé dans l’onglet *Ventes & Caisse*.`,
@@ -466,7 +483,7 @@ const KNOWLEDGE: KnowledgeEntry[] = [
   {
     keys: ['automatisation', 'emoji', 'regle', 'declencheur', 'reaction'],
     title: 'Automatisations',
-    body: `Une règle = un emoji posé sur un message client qui déclenche l’envoi d’un texte préparé. Les toggles dorés activent ou coupent chaque règle ; le journal garde les 50 derniers déclenchements (60 envois automatiques maximum par heure).`,
+    body: `Une règle = une réaction posée sur un message client qui déclenche l’envoi d’un texte, d’un vocal, d’un document ou d’une vidéo. Une même réaction ne peut servir qu’à une seule règle active (sinon le client recevrait deux réponses). Les interrupteurs activent ou coupent chaque règle ; le journal garde les 50 derniers déclenchements (60 envois automatiques maximum par heure).`,
   },
   {
     keys: ['pipeline', 'suivi client', 'etape', 'kanban', 'prospect'],
@@ -498,7 +515,7 @@ function findKnowledge(n: string): KnowledgeEntry | null {
   let best: KnowledgeEntry | null = null;
   let bestScore = 0;
   for (const k of KNOWLEDGE) {
-    const score = k.keys.filter(key => n.includes(key)).length;
+    const score = k.keys.filter(key => termRe(key).test(n)).length;
     if (score > bestScore) {
       best = k;
       bestScore = score;
@@ -511,7 +528,49 @@ function findKnowledge(n: string): KnowledgeEntry | null {
 /* Paroles                                                            */
 /* ------------------------------------------------------------------ */
 
-function composeLyrics(name: string, occasion: string, style: string): string {
+/*
+ * Souvenirs du client repris mot pour mot dans un pont : ce qui rend la chanson unique.
+ * On retient les phrases entrantes qui racontent (toujours, souvenir, ensemble…),
+ * nettoyées des pictogrammes, sans montants ni numéros.
+ */
+const MEMORY_CUES = ['toujours', 'souvenir', 'ensemble', 'depuis', 'jamais', 'merci', 'soutenu', 'aime', 'fier', 'courage', 'premiere fois', 'quand on', 'elle m', 'il m', 'ma vie', 'mon coeur', 'traverse'];
+
+function memoryLines(d: ClientDossier | null): string[] {
+  if (!d) return [];
+  const sentences = d.messages
+    .filter(m => m.inbound)
+    .flatMap(m => stripPictos(m.body).split(/(?<=[.!?])\s+/))
+    .concat(d.facts ? stripPictos(d.facts).split(/(?<=[.!?])\s+/) : [])
+    .map(x => x.trim().replace(/[.!?]+$/, ''))
+    .filter(x => x.length >= 18 && x.length <= 90 && !/\d{3,}|f\s?cfa|wave|orange|moov|numero|transf/i.test(x));
+  const scored = sentences
+    .map(x => ({ x, score: MEMORY_CUES.filter(c => normalize(x).includes(c)).length }))
+    .filter(e => e.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const { x } of scored) {
+    const key = normalize(x).slice(0, 30);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(x.charAt(0).toUpperCase() + x.slice(1));
+    if (out.length === 2) break;
+  }
+  return out;
+}
+
+function withBridge(lyrics: string, bridge: string[]): string {
+  if (!bridge.length) return lyrics;
+  const block = `(Pont)\n${bridge.join(',\n')}…\nCes mots-là, c'est toi qui les as écrits dans nos vies.`;
+  // Le pont s'insère avant l'outro (ou à la fin s'il n'y en a pas)
+  return lyrics.includes('(Outro)') ? lyrics.replace('(Outro)', `${block}\n\n(Outro)`) : `${lyrics}\n\n${block}`;
+}
+
+function composeLyrics(name: string, occasion: string, style: string, dossier: ClientDossier | null = null): string {
+  return withBridge(composeBaseLyrics(name, occasion, style), memoryLines(dossier));
+}
+
+function composeBaseLyrics(name: string, occasion: string, style: string): string {
   const o = normalize(occasion);
   if (o.includes('hommage') || o.includes('deuil')) {
     return `[Titre : "${name}, la lumière demeure"]
@@ -766,9 +825,22 @@ function salesReport(ctx: CopilotContext, metrics: StudioMetrics, liveOrders: Or
 export async function askCopilot(
   prompt: string,
   history: CopilotMessage[],
-  _sessionName: string,
+  sessionName: string,
   user: any,
   context: CopilotContext = {}
+): Promise<CopilotMessage> {
+  const answer = await answerCopilot(prompt, history, sessionName, user, context);
+  // Micro-crédit Copilot (0.05) : débité une fois la réponse produite, jamais sur une erreur
+  debitAiPromptCredit(`Copilot IA : ${prompt.trim().slice(0, 40)}`);
+  return answer;
+}
+
+async function answerCopilot(
+  prompt: string,
+  history: CopilotMessage[],
+  _sessionName: string,
+  user: any,
+  context: CopilotContext
 ): Promise<CopilotMessage> {
   const cleanPrompt = prompt.trim();
   const norm = normalize(cleanPrompt);
@@ -785,8 +857,6 @@ export async function askCopilot(
     actionCard,
   });
 
-  // Débit micro-crédits pour utilisation Copilot IA (0.05 crédit)
-  debitAiPromptCredit(`Copilot IA: ${cleanPrompt.slice(0, 30)}`);
 
   // ---------------------------------------------------------------------
   // Facturation, crédits & abonnements SasPay
@@ -817,67 +887,41 @@ export async function askCopilot(
   // ---------------------------------------------------------------------
   if (intent === 'song_generate') {
     const { best } = await resolveDossier(cleanPrompt, user, history, true);
-    const clientName = best?.name || 'Client';
-    const clientPhone = best?.phone || '';
-    const occasion = best?.occasion || 'Anniversaire';
-    const style = STYLES.find(([k]) => has(norm, k))?.[1] || 'Afro-Love acoustique';
-    const songTitle = `Chanson pour ${clientName}`;
-    const lyrics = composeLyrics(clientName, occasion, style);
-
+    if (!best) {
+      return reply(
+        `### Pour quel client ?\n\n` +
+        `Je lance une production seulement pour un client identifié, afin de livrer le bon morceau au bon numéro.\n\n` +
+        `Précisez un **numéro** (même partiel) ou un **prénom** : *« Lance la chanson pour 5835 »*.`
+      );
+    }
+    const a = analyse(best);
+    const recipient = a.recipient || best.name.split(/\s+/)[0];
+    const occasion = OCCASIONS.find(([k]) => has(norm, k))?.[1] || a.occasion || 'Anniversaire';
+    const style = STYLES.find(([k]) => has(norm, k))?.[1] || a.style || 'Afro-Love acoustique';
+    const lyrics = composeLyrics(recipient, occasion, style, best);
     const credits = getStudioCredits();
-    if (credits.balance < 1.0) {
-      return reply(
-        `### Solde de crédits insuffisant\n\n` +
-        `La génération d'une chanson requiert **1 crédit** (85 F CFA).\n` +
-        `Votre solde actuel est de **${credits.balance.toFixed(2)} crédit(s)**.\n\n` +
-        `👉 Rendez-vous dans votre **Profil Studio** pour recharger vos crédits via **SasPay** (Wave, Orange Money, MTN, Moov).`
-      );
-    }
+    const enough = credits.source === 'pending' || credits.balance >= credits.songCostCredits;
 
-    const gen = await generateKieSong({
-      prompt: lyrics,
-      lyrics,
-      style,
-      title: songTitle,
-      clientName,
-      clientPhone,
-      orderId: `ORD-${Date.now().toString().slice(-4)}`
-    });
-
-    if (!gen.success || !gen.result) {
-      return reply(
-        `### Erreur de génération Kie.ai\n\n` +
-        `${gen.error || 'Impossible de joindre le moteur Kie.ai pour le moment.'}\n\n` +
-        `Vos crédits ont été préservés.`
-      );
-    }
-
-    const res = gen.result;
-    const isZeroKie = gen.isZeroKieBalance || res.isSimulation;
-
+    // Validation humaine avant toute action irréversible : le texte est proposé,
+    // la production (1 crédit) ne part qu'au clic sur « Lancer la production ».
     return reply(
-      `### Chanson générée avec succès pour ${clientName} !\n\n` +
-      `Style musical : **${style}** | Occasion : **${occasion}**\n` +
-      `Coût : **1 crédit déduit** (85 F CFA). Solde restant : **${getStudioCredits().balance.toFixed(2)} crédits**.\n\n` +
-      (isZeroKie ? `> ℹ️ *Notification Kie.ai : Clé API configurée avec succès (solde de votre compte Kie.ai actuellement à 0 crédits). Morceau studio échantillonné prêt pour prévisualisation et livraison client.* \n\n` : '') +
-      `Le fichier audio est prêt pour écoute et peut être expédié directement au client sur WhatsApp.`,
+      `### Production prête pour ${best.name}\n\n` +
+      `| Paramètre | Valeur |\n| :--- | :--- |\n` +
+      `| Destinataire | ${recipient} |\n| Occasion | ${occasion} |\n| Style | ${style} |\n` +
+      `| Coût | 1 crédit (85 F CFA), remboursé si la production échoue |\n` +
+      `| Solde | ${credits.source === 'pending' ? 'synchronisation…' : `${credits.balance.toFixed(2)} crédit(s)`} |\n\n` +
+      (enough
+        ? `Relisez les paroles ci-dessous (limite Suno : ${KIE_CONFIG.maxLyrics} caractères), puis lancez la production depuis la carte.`
+        : `Solde insuffisant : rechargez vos crédits depuis votre **Profil Studio** (SasPay : Wave, Orange Money, MTN, Moov), puis relancez.`),
       {
-        type: 'song_generation',
-        title: songTitle,
-        phone: clientPhone,
-        recipient: clientName,
+        type: 'lyrics',
+        title: `Chanson pour ${recipient}`,
+        phone: best.phone,
+        recipient,
         occasion,
         style,
         content: lyrics,
-        metadata: {
-          taskId: res.taskId,
-          orderId: res.orderId,
-          audioUrl: res.audioUrl,
-          duration: res.duration,
-          isSimulation: res.isSimulation,
-          notice: res.notice,
-          waLink: waLink(clientPhone)
-        }
+        metadata: { convId: best.convId, waLink: waLink(best.phone), readyForProduction: enough },
       }
     );
   }
@@ -971,12 +1015,14 @@ export async function askCopilot(
     const name = explicit || a?.recipient || best?.name.split(/\s+/)[0] || 'Mon amour';
     const occasion = occasionFromPrompt || a?.occasion || 'Anniversaire';
     const style = STYLES.find(([k]) => has(norm, k))?.[1] || a?.style || 'Afro-Love acoustique';
-    const lyrics = composeLyrics(name, occasion, style);
+    const lyrics = composeLyrics(name, occasion, style, best);
+    const personal = memoryLines(best).length > 0;
 
     return reply(
       `### Paroles composées pour ${name}\n\n` +
       (best ? `Construites à partir de la discussion avec **${best.name}**${a?.occasion ? ` (${a.occasion.toLowerCase()})` : ''}.` : `Occasion retenue : **${occasion}**.`) +
-      ` Structure Velaris : accroche émotionnelle, refrain mémorable avec le prénom, chute intime.\n\n` +
+      ` Structure Velaris : accroche émotionnelle, refrain mémorable avec le prénom, chute intime` +
+      (personal ? `, et un pont qui reprend les mots du client.\n\n` : `.\n\n`) +
       `*Copiez-les ou envoyez-les directement à l’Atelier pour la production.*`,
       {
         type: 'lyrics',

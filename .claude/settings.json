@@ -1,6 +1,7 @@
 {
   "telemetry": false,
   "theme": "dark",
+  "model": "claude-opus-5-5",
   "allowedTools": [
     "Edit",
     "Write",

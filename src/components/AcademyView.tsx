@@ -424,25 +424,25 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
   return (
     <div className="space-y-6 pb-20 md:pb-8 max-w-6xl mx-auto vx-view-enter">
       {/* En-tête du cursus */}
-      <header className="rounded-[22px] border border-[#2D261E] bg-[#0E0C0A] p-6 sm:p-7 space-y-6">
+      <header className="rounded-[22px] border border-white/[0.08] bg-[#08090C] p-6 sm:p-7 space-y-6">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="max-w-2xl">
-            <div className="text-xs font-mono uppercase tracking-[0.14em] text-[#A8A29E]">Académie du studio</div>
+            <div className="text-xs font-mono uppercase tracking-[0.14em] text-[#A3A3A3]">Académie du studio</div>
             <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight mt-2">
               Formation et maîtrise du studio WhatsApp
             </h1>
-            <p className="text-sm sm:text-base text-[#A8A29E] mt-2 leading-relaxed">
+            <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed">
               De zéro à vos premières ventes quotidiennes de chansons personnalisées, avec Facebook Ads et Suno.
             </p>
           </div>
-          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[#2D261E] bg-[#2D261E] shrink-0">
+          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.08] shrink-0">
             {[
               { label: 'Modules', value: `${totals.modulesDone}/${modules.length}` },
               { label: 'Chapitres', value: `${totals.chaptersSeen}/${totals.chaptersTotal}` },
               { label: 'Restant', value: formatMinutes(totals.minutesLeft) },
             ].map(s => (
-              <div key={s.label} className="bg-[#13110E] px-4 py-3 min-w-[6.5rem]">
-                <dt className="text-[11px] font-mono uppercase tracking-[0.1em] text-[#78716C]">{s.label}</dt>
+              <div key={s.label} className="bg-[#0B0C10] px-4 py-3 min-w-[6.5rem]">
+                <dt className="text-[11px] font-mono uppercase tracking-[0.1em] text-[#737373]">{s.label}</dt>
                 <dd className="mt-1 font-mono text-lg font-semibold tabular-nums text-white">{s.value}</dd>
               </div>
             ))}
@@ -452,7 +452,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
         {/* Barre de progression studio : un segment par module, proportionnel à ses chapitres */}
         <div className="space-y-2">
           <div className="flex items-baseline justify-between text-sm">
-            <span className="text-[#A8A29E]">Progression du cursus</span>
+            <span className="text-[#A3A3A3]">Progression du cursus</span>
             <span className="font-mono font-semibold tabular-nums text-[#F3CA75]">{overallPercent} %</span>
           </div>
           <div className="flex gap-1.5" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercent} aria-label="Progression du cursus">
@@ -475,7 +475,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Parcours */}
         <nav className="lg:col-span-4 space-y-2.5" aria-label="Modules du cursus">
-          <div className="text-xs font-mono uppercase tracking-[0.12em] text-[#78716C] px-1">Parcours · {modules.length} modules</div>
+          <div className="text-xs font-mono uppercase tracking-[0.12em] text-[#737373] px-1">Parcours · {modules.length} modules</div>
           {modules.map((mod, index) => {
             const active = mod.id === selectedModule.id;
             const list = chaptersOf(mod);
@@ -488,20 +488,20 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
                 onClick={() => selectModule(mod.id)}
                 aria-current={active ? 'true' : undefined}
                 className={`w-full text-left rounded-2xl border p-4 transition-colors duration-200 cursor-pointer ${
-                  active ? 'border-[#E5B54F]/50 bg-[#1A1713]' : 'border-[#2D261E] bg-[#0E0C0A] hover:bg-[#13110E] hover:border-[#3A3022]'
+                  active ? 'border-[#E5B54F]/50 bg-[#0E1015]' : 'border-white/[0.08] bg-[#08090C] hover:bg-[#0B0C10] hover:border-white/[0.12]'
                 }`}
               >
                 <div className="flex items-start gap-3.5">
-                  <span className={`font-mono text-sm tabular-nums pt-0.5 ${active ? 'text-[#F3CA75]' : 'text-[#78716C]'}`}>{pad2(index + 1)}</span>
+                  <span className={`font-mono text-sm tabular-nums pt-0.5 ${active ? 'text-[#F3CA75]' : 'text-[#737373]'}`}>{pad2(index + 1)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-[#A8A29E]">{mod.level}</span>
+                      <span className="text-xs text-[#A3A3A3]">{mod.level}</span>
                       {done ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
                           <CheckCircle2 className="h-3.5 w-3.5" /> Validé
                         </span>
                       ) : (
-                        <span className={active ? 'text-[#E5B54F]' : 'text-[#78716C]'}>{moduleIcon(mod.icon)}</span>
+                        <span className={active ? 'text-[#E5B54F]' : 'text-[#737373]'}>{moduleIcon(mod.icon)}</span>
                       )}
                     </div>
                     <h3 className="mt-1 text-[15px] font-semibold leading-snug text-white">{mod.title}</h3>
@@ -509,10 +509,10 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
                         <div className="h-full rounded-full bg-[#E5B54F] transition-[width] duration-500 ease-luxury" style={{ width: `${(seen / Math.max(1, list.length)) * 100}%` }} />
                       </div>
-                      <span className="font-mono text-[11.5px] tabular-nums text-[#78716C]">
+                      <span className="font-mono text-[11.5px] tabular-nums text-[#737373]">
                         {seen}/{list.length}
                       </span>
-                      <span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-[#78716C]">
+                      <span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-[#737373]">
                         <Clock className="h-3 w-3" /> {mod.duration}
                       </span>
                     </div>
@@ -528,14 +528,14 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
           <div
             tabIndex={0}
             onKeyDown={onPlayerKey}
-            className="overflow-hidden rounded-[22px] border border-[#2D261E] bg-[#0E0C0A] outline-none focus-visible:border-[#E5B54F]/60"
+            className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#08090C] outline-none focus-visible:border-[#E5B54F]/60"
           >
             {selectedModule.videoUrl ? (
               <video key={selectedModule.id} src={selectedModule.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-black" />
             ) : (
-              <div className="relative aspect-video w-full overflow-hidden bg-[radial-gradient(60rem_30rem_at_80%_-10%,rgba(229,181,79,0.10),transparent_60%),linear-gradient(180deg,#13110E,#0C0A09)]">
+              <div className="relative aspect-video w-full overflow-hidden bg-[radial-gradient(60rem_30rem_at_80%_-10%,rgba(229,181,79,0.10),transparent_60%),linear-gradient(180deg,#0B0C10,#050608)]">
                 <div className="absolute inset-0 flex flex-col justify-between p-5 sm:p-8">
-                  <div className="flex items-center justify-between font-mono text-xs tabular-nums text-[#A8A29E]">
+                  <div className="flex items-center justify-between font-mono text-xs tabular-nums text-[#A3A3A3]">
                     <span>
                       Chapitre {pad2(chapterIdx + 1)} <span className="text-[#57534E]">/ {pad2(chapters.length)}</span>
                     </span>
@@ -546,7 +546,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
                     <h2 className="font-display text-2xl sm:text-[34px] font-bold leading-tight text-white">{chapter?.title}</h2>
                     <ol className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
                       {pointsShown.map((pt, i) => (
-                        <li key={i} className="vx-fade-in flex gap-3 text-sm sm:text-base leading-snug text-[#E7E5E4]">
+                        <li key={i} className="vx-fade-in flex gap-3 text-sm sm:text-base leading-snug text-[#E5E5E5]">
                           <span className="font-mono text-xs tabular-nums text-[#E5B54F] pt-1">{pad2(i + 1)}</span>
                           {pt}
                         </li>
@@ -572,7 +572,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
 
             {/* Barre de contrôle */}
             {!selectedModule.videoUrl && (
-              <div className="border-t border-[#2D261E] px-4 sm:px-5 py-3 space-y-3">
+              <div className="border-t border-white/[0.08] px-4 sm:px-5 py-3 space-y-3">
                 <div className="flex gap-1" aria-hidden="true">
                   {chapters.map((_, i) => (
                     <button
@@ -618,7 +618,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
                   >
                     <SkipForward className="h-4 w-4" fill="currentColor" />
                   </button>
-                  <span className="ml-1 truncate text-sm text-[#A8A29E]">Résumé guidé du chapitre</span>
+                  <span className="ml-1 truncate text-sm text-[#A3A3A3]">Résumé guidé du chapitre</span>
                   <button
                     type="button"
                     onClick={() => setRateIdx(i => (i + 1) % RATES.length)}
@@ -633,16 +633,16 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
           </div>
 
           {/* Détails du module */}
-          <div className="rounded-[22px] border border-[#2D261E] bg-[#0E0C0A] p-5 sm:p-6 space-y-5">
+          <div className="rounded-[22px] border border-white/[0.08] bg-[#08090C] p-5 sm:p-6 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-xs text-[#A8A29E]">
+                <div className="flex items-center gap-2 text-xs text-[#A3A3A3]">
                   <span>{selectedModule.level}</span>
                   <span className="text-[#57534E]">/</span>
                   <span className="font-mono tabular-nums">{moduleChapterMinutes ? formatMinutes(moduleChapterMinutes) : selectedModule.duration}</span>
                 </div>
                 <h2 className="mt-1 text-lg font-semibold text-white leading-snug">{selectedModule.title}</h2>
-                <p className="mt-1.5 text-sm text-[#A8A29E] leading-relaxed">{selectedModule.description}</p>
+                <p className="mt-1.5 text-sm text-[#A3A3A3] leading-relaxed">{selectedModule.description}</p>
               </div>
               <button
                 type="button"
@@ -659,7 +659,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
               </button>
             </div>
 
-            <ol className="divide-y divide-[#2D261E] border-t border-[#2D261E]">
+            <ol className="divide-y divide-white/[0.08] border-t border-white/[0.08]">
               {chapters.map((c, i) => {
                 const seen = seenHere.includes(i) || isCompleted(selectedModule.id);
                 const current = i === chapterIdx;
@@ -673,9 +673,9 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
                       }}
                       className={`w-full flex items-center gap-3.5 py-3 text-left transition-colors cursor-pointer ${current ? 'text-white' : 'text-[#D6D3D1] hover:text-white'}`}
                     >
-                      <span className={`font-mono text-xs tabular-nums w-5 ${current ? 'text-[#E5B54F]' : 'text-[#78716C]'}`}>{pad2(i + 1)}</span>
+                      <span className={`font-mono text-xs tabular-nums w-5 ${current ? 'text-[#E5B54F]' : 'text-[#737373]'}`}>{pad2(i + 1)}</span>
                       <span className={`min-w-0 flex-1 truncate text-sm ${current ? 'font-semibold' : ''}`}>{c.title}</span>
-                      {c.minutes > 0 && <span className="font-mono text-xs tabular-nums text-[#78716C]">{c.minutes} min</span>}
+                      {c.minutes > 0 && <span className="font-mono text-xs tabular-nums text-[#737373]">{c.minutes} min</span>}
                       <span className="flex h-5 w-5 items-center justify-center">
                         {seen ? (
                           <Check className="h-4 w-4 text-emerald-400" strokeWidth={2.2} aria-label="Vu" />
@@ -693,31 +693,31 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
       </div>
 
       {/* Boîte à outils */}
-      <section className="rounded-[22px] border border-[#2D261E] bg-[#0E0C0A] p-5 sm:p-7 space-y-5" aria-label="Boîte à outils">
+      <section className="rounded-[22px] border border-white/[0.08] bg-[#08090C] p-5 sm:p-7 space-y-5" aria-label="Boîte à outils">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-white">Boîte à outils</h2>
-            <p className="mt-1 text-sm text-[#A8A29E]">Scripts de vente et prompts Suno, personnalisés puis copiés en un clic.</p>
+            <p className="mt-1 text-sm text-[#A3A3A3]">Scripts de vente et prompts Suno, personnalisés puis copiés en un clic.</p>
           </div>
           <div className="grid grid-cols-2 gap-2.5 lg:w-[26rem]">
             <label className="block space-y-1">
-              <span className="text-xs text-[#78716C]">Prénom du destinataire</span>
+              <span className="text-xs text-[#737373]">Prénom du destinataire</span>
               <input
                 type="text"
                 value={fields.prenom}
                 onChange={e => setFields(f => ({ ...f, prenom: e.target.value }))}
                 placeholder="Awa"
-                className="w-full rounded-xl border border-[#2D261E] bg-[#13110E] px-3 py-2 text-sm text-white placeholder:text-[#57534E] outline-none focus:border-[#E5B54F]/60 transition-colors"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#0B0C10] px-3 py-2 text-sm text-white placeholder:text-[#57534E] outline-none focus:border-[#E5B54F]/60 transition-colors"
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-xs text-[#78716C]">Occasion</span>
+              <span className="text-xs text-[#737373]">Occasion</span>
               <input
                 type="text"
                 value={fields.occasion}
                 onChange={e => setFields(f => ({ ...f, occasion: e.target.value }))}
                 placeholder="son anniversaire"
-                className="w-full rounded-xl border border-[#2D261E] bg-[#13110E] px-3 py-2 text-sm text-white placeholder:text-[#57534E] outline-none focus:border-[#E5B54F]/60 transition-colors"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#0B0C10] px-3 py-2 text-sm text-white placeholder:text-[#57534E] outline-none focus:border-[#E5B54F]/60 transition-colors"
               />
             </label>
           </div>
@@ -732,7 +732,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
               aria-selected={category === c}
               onClick={() => setCategory(c)}
               className={`rounded-full px-3.5 py-1.5 text-[13px] transition-colors duration-200 cursor-pointer ${
-                category === c ? 'bg-white text-black font-medium' : 'text-[#A8A29E] hover:text-white hover:bg-white/[0.05]'
+                category === c ? 'bg-white text-black font-medium' : 'text-[#A3A3A3] hover:text-white hover:bg-white/[0.05]'
               }`}
             >
               {c === 'all' ? 'Tout' : CATEGORY_LABEL[c]}
@@ -747,10 +747,10 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
           {resources.map(res => {
             const state = copied?.id === res.id ? copied : null;
             return (
-              <article key={res.id} className="vx-fade-in flex flex-col rounded-2xl border border-[#2D261E] bg-[#13110E] p-4 hover:border-[#3A3022] transition-colors">
+              <article key={res.id} className="vx-fade-in flex flex-col rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-4 hover:border-white/[0.12] transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[11px] font-mono uppercase tracking-[0.1em] text-[#78716C]">{CATEGORY_LABEL[res.category]}</div>
+                    <div className="text-[11px] font-mono uppercase tracking-[0.1em] text-[#737373]">{CATEGORY_LABEL[res.category]}</div>
                     <h3 className="mt-0.5 text-[15px] font-semibold text-white">{res.title}</h3>
                   </div>
                   <button
@@ -769,7 +769,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
                     {state?.ok ? 'Copié' : state ? 'Échec' : 'Copier'}
                   </button>
                 </div>
-                <pre className="mt-3 flex-1 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-[#2D261E]/70 bg-black/30 p-3 font-mono text-[12.5px] leading-relaxed text-[#A8A29E]">
+                <pre className="mt-3 flex-1 max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-white/[0.05] bg-black/30 p-3 font-mono text-[12.5px] leading-relaxed text-[#A3A3A3]">
                   {renderWithTokens(res.content)}
                 </pre>
               </article>

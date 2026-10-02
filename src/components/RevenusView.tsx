@@ -44,7 +44,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-16">
       {/* 1. Carte Chiffre d'affaires Total Réalisé — Precision Telemetry Master */}
-      <div className="rounded-2xl border border-[#2D261E] bg-[#0E0C0A] p-6 sm:p-8 relative overflow-hidden shadow-2xl space-y-6">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#08090C] p-6 sm:p-8 relative overflow-hidden shadow-2xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-mono text-neutral-400">
             <Landmark className="h-3.5 w-3.5 text-neutral-300" />
@@ -67,7 +67,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         </div>
 
         {/* Section Revenus Aujourd'hui intégrée */}
-        <div className="pt-6 border-t border-[#2D261E] space-y-4">
+        <div className="pt-6 border-t border-white/[0.08] space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">
               Revenus · {selectedPeriod.toUpperCase()}
@@ -93,7 +93,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
                 className={`text-xs px-3 py-1.5 rounded-lg font-mono transition-all shrink-0 cursor-pointer border ${
                   selectedPeriod === period
                     ? 'border-white bg-white text-black font-semibold shadow-sm'
-                    : 'bg-[#1A1713] text-neutral-400 hover:text-white border-[#2D261E] hover:bg-white/[0.04]'
+                    : 'bg-[#0E1015] text-neutral-400 hover:text-white border-white/[0.08] hover:bg-white/[0.04]'
                 }`}
               >
                 {period}
@@ -127,7 +127,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         {/* Messages reçus aujourd'hui */}
         <div 
           onClick={onOpenConversations}
-          className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
+          className="rounded-xl border border-white/[0.08] bg-[#08090C] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Messages Entrants</span>
@@ -144,7 +144,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         {/* Nouveaux clients (7 jours) */}
         <div 
           onClick={onOpenPipeline}
-          className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
+          className="rounded-xl border border-white/[0.08] bg-[#08090C] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Nouveaux Prospects</span>
@@ -159,7 +159,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         </div>
 
         {/* Automatisations envoyées aujourd'hui */}
-        <div className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] p-5 shadow-sm space-y-2">
+        <div className="rounded-xl border border-white/[0.08] bg-[#08090C] p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Déclenchements IA</span>
             <Zap className="h-4 w-4 text-neutral-500" />
@@ -173,7 +173,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         </div>
 
         {/* Lignes WhatsApp connectées */}
-        <div className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] p-5 shadow-sm space-y-2">
+        <div className="rounded-xl border border-white/[0.08] bg-[#08090C] p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Lignes Connectées</span>
             <Smartphone className="h-4 w-4 text-neutral-500" />
@@ -188,7 +188,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
       </div>
 
       {/* 3. Section Dernières Ventes */}
-      <div className="rounded-2xl border border-[#2D261E] bg-[#0E0C0A] p-6 shadow-sm space-y-4">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#08090C] p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">FLUX RÉCENT</div>
@@ -209,7 +209,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
             {orders.slice(0, 3).map((o) => (
               <div 
                 key={o.id}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-[#1A1713] border border-[#2D261E]/60"
+                className="flex items-center justify-between p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.05]"
               >
                 <div>
                   <div className="text-xs font-semibold text-white">{o.clientName}</div>
@@ -219,7 +219,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
                   <div className="text-xs font-mono font-bold text-white">
                     {new Intl.NumberFormat('fr-FR').format(o.amount)} FCFA
                   </div>
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-white/[0.04] text-neutral-400 border border-[#2D261E] mt-0.5 inline-block">
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-white/[0.04] text-neutral-400 border border-white/[0.08] mt-0.5 inline-block">
                     {o.status === 'livre' ? 'Livré' : 'En cours'}
                   </span>
                 </div>
@@ -234,7 +234,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
       </div>
 
       {/* 4. Section Où en sont tes clients (30 jours) */}
-      <div className="rounded-2xl border border-[#2D261E] bg-[#0E0C0A] p-6 shadow-sm">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#08090C] p-6 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">PIPELINE ACTIF</div>

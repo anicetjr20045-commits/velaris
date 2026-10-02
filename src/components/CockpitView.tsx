@@ -89,11 +89,11 @@ const KpiCard: FC<KpiCardProps> = ({ index, label, value, suffix, icon: Icon, fo
     <div
       onPointerMove={trackPointer}
       style={{ '--i': index } as CSSProperties}
-      className="vx-stagger vx-spotlight vx-hairline group rounded-2xl border border-[#2D261E] bg-[#13110E] p-5 transition-[border-color,transform] duration-300 ease-luxury hover:border-white/[0.16] hover:-translate-y-px"
+      className="vx-stagger vx-spotlight vx-hairline group rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-5 transition-[border-color,transform] duration-300 ease-luxury hover:border-white/[0.16] hover:-translate-y-px"
     >
       <div className="relative flex items-center justify-between">
-        <span className="text-[13px] text-[#A8A29E]">{label}</span>
-        <span className="h-7 w-7 rounded-lg bg-white/[0.04] border border-[#2D261E] flex items-center justify-center text-neutral-300 group-hover:text-white transition-colors">
+        <span className="text-[13px] text-[#A3A3A3]">{label}</span>
+        <span className="h-7 w-7 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-neutral-300 group-hover:text-white transition-colors">
           <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
         </span>
       </div>
@@ -107,7 +107,7 @@ const KpiCard: FC<KpiCardProps> = ({ index, label, value, suffix, icon: Icon, fo
         <Sparkline points={trend} />
       </div>
 
-      <div className="relative mt-3 pt-3 border-t border-[#2D261E] flex items-center gap-1.5 text-[12.5px] font-mono text-[#A8A29E]">
+      <div className="relative mt-3 pt-3 border-t border-white/[0.08] flex items-center gap-1.5 text-[12.5px] font-mono text-[#A3A3A3]">
         <FootIcon className={`h-3 w-3 ${tone}`} strokeWidth={1.5} />
         <span className="truncate">{footnote}</span>
       </div>
@@ -200,14 +200,14 @@ export const CockpitView: FC<CockpitViewProps> = ({
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       {/* En-tête exécutif */}
-      <section className="vx-hairline relative overflow-hidden rounded-2xl border border-[#2D261E] bg-gradient-to-b from-[#1A1713] to-[#13110E] p-6 sm:p-8">
+      <section className="vx-hairline relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#0E1015] to-[#0B0C10] p-6 sm:p-8">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-24 right-0 h-64 w-[28rem] rounded-full bg-[#E5B54F]/[0.08] blur-3xl"
         />
         <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 text-[13px] text-[#A8A29E]">
+            <div className="flex items-center gap-2 text-[13px] text-[#A3A3A3]">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
               <span className="first-letter:uppercase">{today}</span>
               <span className="text-neutral-700">·</span>
@@ -216,7 +216,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
             <h1 className="mt-3 font-display text-3xl sm:text-4xl font-bold text-white leading-[1.08]">
               Cockpit du studio
             </h1>
-            <p className="text-sm text-[#A8A29E] mt-2 max-w-xl leading-relaxed">
+            <p className="text-sm text-[#A3A3A3] mt-2 max-w-xl leading-relaxed">
               Leads WhatsApp, validation des paroles et mastering audio livré en 18 minutes.
             </p>
           </div>
@@ -233,7 +233,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
             )}
             <button
               onClick={onOpenQrModal}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-[#3A3022] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.22] px-4 py-2.5 text-[13px] font-medium text-neutral-300 hover:text-white transition-all duration-200 ease-luxury cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.22] px-4 py-2.5 text-[13px] font-medium text-neutral-300 hover:text-white transition-all duration-200 ease-luxury cursor-pointer"
             >
               <QrCode className="h-3.5 w-3.5" strokeWidth={1.5} />
               <span>Connecter WhatsApp</span>
@@ -241,7 +241,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
             {onOpenConversations && (
               <button
                 onClick={onOpenConversations}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#3A3022] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.22] px-4 py-2.5 text-[13px] font-medium text-neutral-300 hover:text-white transition-all duration-200 ease-luxury cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/[0.22] px-4 py-2.5 text-[13px] font-medium text-neutral-300 hover:text-white transition-all duration-200 ease-luxury cursor-pointer"
               >
                 <MessagesSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
                 <span>Discussions</span>
@@ -298,21 +298,21 @@ export const CockpitView: FC<CockpitViewProps> = ({
       </div>
 
       {/* Journal des commandes */}
-      <section className="vx-hairline rounded-2xl border border-[#2D261E] bg-[#13110E] overflow-hidden">
-        <div className="p-5 sm:p-6 space-y-5 border-b border-[#2D261E]">
+      <section className="vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden">
+        <div className="p-5 sm:p-6 space-y-5 border-b border-white/[0.08]">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">
                 Commandes actives
                 <span className="ml-2 font-mono text-sm font-medium text-neutral-500">{filteredOrders.length}</span>
               </h2>
-              <p className="text-[13px] text-[#A8A29E] mt-1">
+              <p className="text-[13px] text-[#A3A3A3] mt-1">
                 Ouvrez une commande pour l'envoyer à l'atelier : paroles, voix, mastering.
               </p>
             </div>
             <button
               onClick={exportCsv}
-              className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-[#2D261E] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.16] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white transition-all duration-200 ease-luxury cursor-pointer"
+              className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/[0.16] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white transition-all duration-200 ease-luxury cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
               <span>Export CSV</span>
@@ -339,7 +339,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
                   <span key={s} className="inline-flex items-center gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${STATUS_META[s].dot}`} />
                     {STATUS_META[s].label}
-                    <span className="font-mono text-[#A8A29E]">{statusCounts[s]}</span>
+                    <span className="font-mono text-[#A3A3A3]">{statusCounts[s]}</span>
                   </span>
                 ))}
               </div>
@@ -356,12 +356,12 @@ export const CockpitView: FC<CockpitViewProps> = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Client, destinataire, occasion, téléphone"
-                className="w-full rounded-full border border-[#2D261E] bg-white/[0.02] pl-9 pr-10 py-2 text-[13px] text-white placeholder-neutral-500 focus:border-white/[0.24] focus:bg-white/[0.04] focus:outline-none transition-colors duration-200"
+                className="w-full rounded-full border border-white/[0.08] bg-white/[0.02] pl-9 pr-10 py-2 text-[13px] text-white placeholder-neutral-500 focus:border-white/[0.24] focus:bg-white/[0.04] focus:outline-none transition-colors duration-200"
               />
-              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-[#3A3022] bg-white/[0.04] px-1.5 text-[11.5px] font-mono text-neutral-500">/</kbd>
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-white/[0.12] bg-white/[0.04] px-1.5 text-[11.5px] font-mono text-neutral-500">/</kbd>
             </div>
 
-            <div className="flex items-center gap-0.5 rounded-full border border-[#2D261E] bg-white/[0.02] p-0.5 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-0.5 rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5 overflow-x-auto no-scrollbar">
               {filters.map((f) => {
                 const active = statusFilter === f.id;
                 return (
@@ -371,7 +371,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
                     className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] transition-colors duration-150 ease-press cursor-pointer ${
                       active
                         ? 'bg-white text-black font-semibold'
-                        : 'text-[#A8A29E] hover:text-white'
+                        : 'text-[#A3A3A3] hover:text-white'
                     }`}
                   >
                     {f.label}
@@ -384,7 +384,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
         </div>
 
         {/* En-têtes de colonnes (desktop) */}
-        <div className="hidden md:grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.1fr)_minmax(0,1fr)_auto] gap-4 px-6 py-2.5 text-[12.5px] text-neutral-500 border-b border-[#2D261E] bg-white/[0.01]">
+        <div className="hidden md:grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.1fr)_minmax(0,1fr)_auto] gap-4 px-6 py-2.5 text-[12.5px] text-neutral-500 border-b border-white/[0.08] bg-white/[0.01]">
           <span>Client & commande</span>
           <span>Statut</span>
           <span className="text-right">Montant</span>
@@ -397,13 +397,13 @@ export const CockpitView: FC<CockpitViewProps> = ({
             <p className="text-sm text-neutral-300">Aucune commande ne correspond à ces filtres.</p>
             <button
               onClick={() => { setSearchTerm(''); setStatusFilter('all'); }}
-              className="mt-3 text-[13px] text-[#A8A29E] hover:text-white underline underline-offset-4 decoration-white/20 hover:decoration-white/60 transition-colors cursor-pointer"
+              className="mt-3 text-[13px] text-[#A3A3A3] hover:text-white underline underline-offset-4 decoration-white/20 hover:decoration-white/60 transition-colors cursor-pointer"
             >
               Réinitialiser les filtres
             </button>
           </div>
         ) : (
-          <ul className="divide-y divide-[#2D261E]">
+          <ul className="divide-y divide-white/[0.08]">
             {filteredOrders.map((order, i) => {
               const meta = STATUS_META[order.status];
               return (
@@ -418,7 +418,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
                   >
                     {/* Client */}
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-white/[0.1] to-white/[0.03] border border-[#2D261E] text-white font-mono font-semibold text-[13px]">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-white/[0.1] to-white/[0.03] border border-white/[0.08] text-white font-mono font-semibold text-[13px]">
                         {order.clientName.charAt(0)}
                       </span>
                       <div className="min-w-0">
@@ -426,7 +426,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
                           <span className="font-medium text-white text-sm truncate">{order.clientName}</span>
                           <span className="hidden sm:inline text-[12.5px] font-mono text-neutral-500 truncate">{order.clientPhone}</span>
                         </div>
-                        <p className="text-[13px] text-[#A8A29E] mt-0.5 truncate">
+                        <p className="text-[13px] text-[#A3A3A3] mt-0.5 truncate">
                           {order.occasion} pour <span className="text-neutral-200">{order.recipient}</span>
                           <span className="text-neutral-600"> · </span>
                           <span className="capitalize">{order.style.replace('_', ' ')}</span>
@@ -436,7 +436,7 @@ export const CockpitView: FC<CockpitViewProps> = ({
 
                     {/* Statut */}
                     <div className="flex items-center justify-between md:block">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#2D261E] bg-white/[0.02] px-2.5 py-1 text-[12.5px] text-neutral-300">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[12.5px] text-neutral-300">
                         <span className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${order.status === 'production_suno' ? 'vx-breathe' : ''}`} />
                         {meta.label}
                       </span>

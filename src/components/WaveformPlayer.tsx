@@ -198,7 +198,7 @@ export const WaveformPlayer: FC<WaveformPlayerProps> = ({ seed, src, peaks, dura
         })}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className={`font-mono text-[12.5px] tabular-nums w-9 text-right ${light ? 'text-neutral-600' : 'text-[#A8A29E]'}`}>
+        <span className={`font-mono text-[12.5px] tabular-nums w-9 text-right ${light ? 'text-neutral-600' : 'text-[#A3A3A3]'}`}>
           {formatClock(shown)}
         </span>
         <button

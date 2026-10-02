@@ -17,7 +17,6 @@ import {
   Calendar,
   AlertCircle,
   Ban,
-  Sparkles,
   ExternalLink,
   Globe
 } from 'lucide-react';
@@ -26,17 +25,21 @@ import { supabase } from '../services/supabase';
 import {
   getStudioCredits,
   getStudioSubscription,
-  rechargeCredits,
   cancelSubscription,
-  activateSubscription,
+  resumeSubscriptionRenewal,
+  refreshBilling,
   subscribeToBilling
 } from '../services/billing';
 import {
-  createSasPayCheckout,
-  createSasPayFreeAmountCheckout,
+  createSubscriptionCheckout,
+  createCreditRechargeCheckout,
   calculateCreditsForCFA,
+  clearPendingCheckout,
+  getCheckoutStatus,
+  getPendingCheckout,
   SASPAY_CONFIG
 } from '../services/saspay';
+import { useAdminAccess } from '../hooks/useAdmin';
 import type { SubscriptionPlanId } from '../types/billing';
 
 interface StudioProfileViewProps {
@@ -44,7 +47,7 @@ interface StudioProfileViewProps {
   onOpenWhatsApp: () => void;
 }
 
-const panelClass = 'rounded-2xl border border-[#2D261E] bg-[#13110E] vx-hairline';
+const panelClass = 'rounded-2xl border border-white/[0.08] bg-[#0B0C10] vx-hairline';
 
 const fmtDate = (iso?: string | null) =>
   iso
@@ -90,6 +93,9 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
 
+  const adminAccess = useAdminAccess();
+  const isDirection = adminAccess === 'admin' || adminAccess === 'unconfigured';
+
   useEffect(() => {
     const unsub = subscribeToBilling(() => {
       setCredits(getStudioCredits());
@@ -97,6 +103,45 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     });
     return unsub;
   }, []);
+
+  /* Retour de la page SasPay : on vérifie le statut puis on attend le crédit posé par le webhook */
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(window.location.search);
+    const pending = getPendingCheckout();
+    if (params.get('payment') !== 'return' || !pending) return;
+    params.delete('payment');
+    const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+    window.history.replaceState(null, '', clean);
+
+    let cancelled = false;
+    (async () => {
+      setNotice({ tone: 'ok', text: 'Vérification de votre paiement auprès de SasPay…' });
+      for (let i = 0; i < 6 && !cancelled; i++) {
+        const st = await getCheckoutStatus(pending.id);
+        if (st.status === 'PAID') {
+          // Le webhook signé applique le crédit en quelques secondes : on relit le solde
+          for (let j = 0; j < 5 && !cancelled; j++) {
+            await new Promise(r => setTimeout(r, 2500));
+            await refreshBilling();
+          }
+          clearPendingCheckout();
+          if (!cancelled) setNotice({ tone: 'ok', text: 'Paiement confirmé par SasPay. Votre compte est crédité.' });
+          return;
+        }
+        if (st.status === 'CANCELLED' || st.status === 'EXPIRED' || st.status === 'FAILED') {
+          clearPendingCheckout();
+          if (!cancelled) setNotice({ tone: 'err', text: 'Paiement non abouti : aucun montant n’a été prélevé.' });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 4000));
+      }
+      if (!cancelled) setNotice({ tone: 'ok', text: 'Paiement en cours de confirmation : votre solde se mettra à jour dès réception par SasPay.' });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const sessionName = user ? `studio_${user.id.slice(0, 8)}` : 'Test';
   const initials = ((currentName || user?.email || 'ST').slice(0, 2)).toUpperCase();
@@ -151,60 +196,34 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     }
   };
 
-  // Souscription SasPay Checkout
-  const handleSubscribe = async (planId: SubscriptionPlanId) => {
+  // Paiements SasPay : session créée côté serveur, crédit appliqué par le webhook signé uniquement
+  const startCheckout = async (create: () => ReturnType<typeof createSubscriptionCheckout>, label: string) => {
+    if (!user) {
+      flash('err', 'Connectez-vous à votre studio pour effectuer un paiement.');
+      return;
+    }
     setBusy('checkout');
-    const plan = planId === 'quarterly' ? SASPAY_CONFIG.plans.quarterly : SASPAY_CONFIG.plans.monthly;
-    const checkoutRes = await createSasPayCheckout({
-      amount: plan.priceXOF,
-      description: `${plan.name} - Studio Velaris`,
-      customerEmail: user?.email || 'studio@velaris.money',
-      customerName: studioName || 'Studio Velaris',
-      metadata: {
-        type: 'subscription',
-        planId,
-        userId: user?.id || 'demo'
-      }
-    });
+    const res = await create();
     setBusy(null);
-
-    if (checkoutRes.success && checkoutRes.data?.checkoutUrl) {
-      // Activer immédiatement en local pour réactivité studio + ouvrir lien SasPay réel
-      activateSubscription(planId, checkoutRes.data.id, 'SasPay Mobile Money');
-      flash('ok', `Redirection vers la passerelle de paiement SasPay (${plan.priceXOF.toLocaleString('fr-FR')} F CFA)...`);
-      window.open(checkoutRes.data.checkoutUrl, '_blank');
+    if (res.success && res.checkoutUrl) {
+      flash('ok', `Redirection vers SasPay : ${label}`);
+      window.location.assign(res.checkoutUrl);
     } else {
-      flash('err', checkoutRes.error || 'Impossible d’initialiser le paiement SasPay.');
+      flash('err', res.error || 'Impossible d’initialiser le paiement SasPay.');
     }
   };
 
-  // Recharge en montant libre SasPay (calcul temps réel à 85 F CFA / crédit)
-  const handleRechargeFreeAmount = async (amountCfa: number) => {
+  const handleSubscribe = (planId: SubscriptionPlanId) => {
+    const plan = planId === 'quarterly' ? SASPAY_CONFIG.plans.quarterly : SASPAY_CONFIG.plans.monthly;
+    return startCheckout(() => createSubscriptionCheckout(planId), `${plan.name} (${plan.priceXOF.toLocaleString('fr-FR')} F CFA)`);
+  };
+
+  const handleRechargeFreeAmount = (amountCfa: number) => {
     if (amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) {
       flash('err', `Le montant minimum pour un paiement SasPay est de ${SASPAY_CONFIG.rates.minCfaRecharge} F CFA.`);
       return;
     }
-    setBusy('checkout');
-    const res = await createSasPayFreeAmountCheckout({
-      amountCfa,
-      customerEmail: user?.email || 'studio@velaris.money',
-      customerName: studioName || 'Studio Velaris',
-      userId: user?.id || 'demo'
-    });
-    setBusy(null);
-
-    if (res.success && res.checkoutUrl) {
-      if (res.creditsExpected && res.creditsExpected > 0) {
-        rechargeCredits(res.creditsExpected, 'SASPAY-LIBRE', 'SasPay Mobile Money');
-        flash('ok', `${res.creditsExpected} crédits provisionnés ! Redirection vers SasPay (${amountCfa.toLocaleString('fr-FR')} F CFA)...`);
-      } else {
-        flash('ok', 'Redirection vers la passerelle de paiement SasPay...');
-      }
-      setShowRechargeModal(false);
-      window.open(res.checkoutUrl, '_blank');
-    } else {
-      flash('err', res.error || 'Erreur lors du paiement libre SasPay.');
-    }
+    return startCheckout(() => createCreditRechargeCheckout(amountCfa), `${amountCfa.toLocaleString('fr-FR')} F CFA`);
   };
 
   const copyWebhook = async (url: string, label: string) => {
@@ -221,7 +240,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
   const handleCancelSub = () => {
     cancelSubscription();
     setShowCancelConfirm(false);
-    flash('ok', 'Abonnement résilié. Votre accès reste garanti jusqu’à la date d’expiration.');
+    flash('ok', 'Renouvellement arrêté. Votre accès reste garanti jusqu’à l’échéance déjà payée.');
   };
 
   const facts = [
@@ -240,7 +259,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div>
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Mon profil studio</h1>
-        <p className="text-sm sm:text-base text-[#A8A29E] mt-2">
+        <p className="text-sm sm:text-base text-[#A3A3A3] mt-2">
           Identité, abonnement SasPay, solde de crédits et sécurité de votre studio.
         </p>
       </div>
@@ -260,7 +279,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
       )}
 
       {/* Module 1 : Solde de Crédits Studio & Facturation Chansons (Kie.ai) */}
-      <section className={`${panelClass} p-5 sm:p-6 space-y-5 border-[#E5B54F]/30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1C1710] to-[#0E0C0A]`}>
+      <section className={`${panelClass} p-5 sm:p-6 space-y-5 border-[#E5B54F]/30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0E1015] to-[#08090C]`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-xl border border-[#E5B54F]/40 bg-[#E5B54F]/10 flex items-center justify-center text-[#F3CA75]">
@@ -270,11 +289,10 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
               <div className="flex items-center gap-2">
                 <span className="text-[17px] font-semibold text-white">Solde de Crédits Studio</span>
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-                  <Sparkles className="h-2.5 w-2.5" />
                   N'expirent jamais
                 </span>
               </div>
-              <p className="text-xs text-[#A8A29E] mt-0.5">
+              <p className="text-xs text-[#A3A3A3] mt-0.5">
                 1 crédit = 1 génération chanson complète (85 F CFA) · Micro-crédits IA inclus
               </p>
             </div>
@@ -282,10 +300,12 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
 
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="font-mono text-3xl font-bold tracking-tight text-[#F3CA75]">
-                {credits.balance.toFixed(2)}
+              <div className="font-mono text-3xl font-bold tracking-tight tabular-nums text-white">
+                {credits.source === 'pending' ? '—' : credits.balance.toFixed(2)}
               </div>
-              <div className="text-[11px] text-[#A8A29E]">crédits disponibles</div>
+              <div className="text-[11px] text-neutral-400">
+                {credits.source === 'demo' ? 'crédits (démonstration)' : credits.source === 'pending' ? 'synchronisation…' : 'crédits disponibles'}
+              </div>
             </div>
             <button
               type="button"
@@ -300,21 +320,21 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
 
         {/* Modal / Bloc de recharge en Paiement Libre SasPay */}
         {showRechargeModal && (
-          <div className="p-5 rounded-2xl border border-[#3A3022] bg-[#161310] space-y-5 vx-fade-in shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#2D261E] pb-3">
+          <div className="p-5 rounded-2xl border border-white/[0.12] bg-[#0E1015] space-y-5 vx-fade-in shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>
                 <div className="text-base font-semibold text-white flex items-center gap-2">
                   <Coins className="h-4 w-4 text-[#E5B54F]" />
                   Recharge de crédits en Paiement Libre
                 </div>
-                <div className="text-xs text-[#A8A29E] mt-0.5">
+                <div className="text-xs text-[#A3A3A3] mt-0.5">
                   1 crédit = 85 F CFA · Crédits sans date d'expiration · Mobile Money & Carte
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowRechargeModal(false)}
-                className="text-xs text-[#A8A29E] hover:text-white px-2 py-1 rounded-lg border border-white/5 hover:border-white/20 transition-colors"
+                className="text-xs text-[#A3A3A3] hover:text-white px-2 py-1 rounded-lg border border-white/5 hover:border-white/20 transition-colors"
               >
                 Fermer
               </button>
@@ -336,9 +356,9 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                     value={freeAmountCfa || ''}
                     onChange={e => setFreeAmountCfa(Math.max(0, parseInt(e.target.value) || 0))}
                     placeholder="Ex: 1000, 2500, 5000..."
-                    className="w-full h-12 rounded-xl border border-[#3A3022] bg-[#0E0C0A] px-4 font-mono text-lg font-bold text-white focus:border-[#E5B54F] outline-none"
+                    className="w-full h-12 rounded-xl border border-white/[0.12] bg-[#08090C] px-4 font-mono text-lg font-bold text-white focus:border-[#E5B54F] outline-none"
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-[#A8A29E] pointer-events-none">
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-[#A3A3A3] pointer-events-none">
                     F CFA
                   </span>
                 </div>
@@ -388,7 +408,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                       className={`p-3 rounded-xl border text-left transition-all ${
                         freeAmountCfa === item.cfa
                           ? 'border-[#E5B54F] bg-[#E5B54F]/10 text-white'
-                          : 'border-[#2D261E] bg-[#110F0D] hover:border-[#3A3022] text-neutral-300'
+                          : 'border-white/[0.08] bg-[#08090C] hover:border-white/[0.12] text-neutral-300'
                       }`}
                     >
                       <div className="font-mono text-xs font-bold">{item.label}</div>
@@ -400,9 +420,9 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             </div>
 
             {/* Option B : Lien de paiement libre 100% hébergé SasPay */}
-            <div className="pt-3 border-t border-[#2D261E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="text-[#A8A29E]">
-                Vous préférez saisir le montant directement sur la page SasPay ?
+            <div className="pt-3 border-t border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="text-[#A3A3A3]">
+                Lien universel SasPay : paiement non rattaché à votre compte, crédit appliqué manuellement après vérification.
               </div>
               <a
                 href={SASPAY_CONFIG.freePaymentLinkUrl}
@@ -420,7 +440,10 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
         {/* Historique récent des crédits */}
         <div>
           <div className="text-xs font-semibold text-neutral-400 mb-2">Derniers mouvements de crédits</div>
-          <div className="rounded-xl border border-[#2D261E] bg-[#0E0C0A] divide-y divide-[#221C16] max-h-48 overflow-y-auto">
+          <div className="rounded-xl border border-white/[0.08] bg-[#08090C] divide-y divide-white/[0.06] max-h-48 overflow-y-auto">
+            {credits.history.length === 0 && (
+              <div className="p-3.5 text-xs text-neutral-500">Aucun mouvement pour le moment.</div>
+            )}
             {credits.history.slice(0, 5).map(tx => (
               <div key={tx.id} className="p-2.5 sm:px-3.5 flex items-center justify-between text-xs">
                 <div className="min-w-0 flex-1 pr-3">
@@ -435,7 +458,9 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                   >
                     {tx.amount > 0 ? `+${tx.amount.toFixed(2)}` : tx.amount.toFixed(2)} cr
                   </span>
-                  <div className="font-mono text-[10px] text-neutral-500">{tx.balanceAfter.toFixed(2)} solde</div>
+                  {Number.isFinite(tx.balanceAfter) && (
+                    <div className="font-mono text-[10px] text-neutral-500">{tx.balanceAfter.toFixed(2)} solde</div>
+                  )}
                 </div>
               </div>
             ))}
@@ -447,7 +472,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
       <section className={`${panelClass} p-5 sm:p-6 space-y-5`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl border border-[#3A3022] bg-[#1A1713] flex items-center justify-center text-[#E5B54F]">
+            <div className="h-12 w-12 rounded-xl border border-white/[0.12] bg-[#0E1015] flex items-center justify-center text-[#E5B54F]">
               <CreditCard className="h-6 w-6" strokeWidth={1.5} />
             </div>
             <div>
@@ -474,11 +499,13 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                   {subscription.status === 'active'
                     ? 'Actif'
                     : subscription.status === 'canceled'
-                    ? 'Résilié (actif jusqu’à échéance)'
+                    ? 'Sans renouvellement (actif jusqu’à échéance)'
+                    : subscription.status === 'inactive'
+                    ? 'Aucun pass'
                     : 'Expiré'}
                 </span>
               </div>
-              <p className="text-xs text-[#A8A29E] mt-0.5">
+              <p className="text-xs text-[#A3A3A3] mt-0.5">
                 Pass d'accès à la plateforme Studio Velaris · Paiement sécurisé SasPay
               </p>
             </div>
@@ -488,7 +515,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             <div className="font-mono text-2xl font-bold text-white">
               {subscription.priceXOF.toLocaleString('fr-FR')} F CFA
             </div>
-            <div className="text-xs text-[#A8A29E] flex items-center gap-1 sm:justify-end mt-0.5">
+            <div className="text-xs text-[#A3A3A3] flex items-center gap-1 sm:justify-end mt-0.5">
               <Calendar className="h-3.5 w-3.5 text-[#E5B54F]" />
               Expire le :{' '}
               <strong className="text-neutral-200">{fmtShortDate(subscription.expiresAt)}</strong>
@@ -498,7 +525,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
 
         {/* Détails et actions abonnement */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          <div className="p-3.5 rounded-xl border border-[#2D261E] bg-[#171512] space-y-1">
+          <div className="p-3.5 rounded-xl border border-white/[0.08] bg-[#0E1015] space-y-1">
             <div className="text-xs text-neutral-400">Pass Mensuel (30 jours)</div>
             <div className="font-mono text-base font-semibold text-white">3 000 F CFA / mois</div>
             <p className="text-[11px] text-neutral-500 leading-tight">Accès studio illimité, passerelle WhatsApp et CRM.</p>
@@ -531,10 +558,11 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
         </div>
 
         {/* Résiliation */}
-        <div className="pt-2 border-t border-[#2D261E] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="pt-2 border-t border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="text-xs text-neutral-500">
-            Dernier paiement : {subscription.lastPaymentRef || 'SASPAY-REF-INIT'} via{' '}
-            {subscription.lastPaymentMethod || 'Mobile Money'}
+            {subscription.lastPaymentRef
+              ? `Dernier paiement : ${subscription.lastPaymentRef} via ${subscription.lastPaymentMethod || 'Mobile Money'}`
+              : 'Paiements ponctuels SasPay : aucun prélèvement automatique, vous renouvelez quand vous le souhaitez.'}
           </div>
 
           {subscription.status === 'active' && !showCancelConfirm && (
@@ -544,19 +572,29 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
               className="text-xs text-neutral-400 hover:text-rose-400 transition-colors flex items-center gap-1"
             >
               <Ban className="h-3 w-3" />
-              Résilier mon abonnement
+              Ne pas renouveler
+            </button>
+          )}
+
+          {subscription.status === 'canceled' && (
+            <button
+              type="button"
+              onClick={() => resumeSubscriptionRenewal()}
+              className="text-xs text-neutral-400 hover:text-white transition-colors"
+            >
+              Réactiver le rappel de renouvellement
             </button>
           )}
 
           {showCancelConfirm && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-rose-300">Confirmer la résiliation ?</span>
+              <span className="text-xs text-rose-300">Arrêter le renouvellement ?</span>
               <button
                 type="button"
                 onClick={handleCancelSub}
                 className="px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 text-xs font-semibold hover:bg-rose-500/30"
               >
-                Oui, résilier
+                Confirmer
               </button>
               <button
                 type="button"
@@ -570,11 +608,12 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
         </div>
       </section>
 
-      {/* Module 2-bis : Webhook SasPay & Synchronisation Temps Réel */}
+      {/* Module 2-bis : Webhook SasPay (configuration plateforme, réservée à la direction) */}
+      {isDirection && (
       <section className={`${panelClass} p-5 sm:p-6 space-y-4`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2D261E] pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl border border-[#3A3022] bg-[#1A1713] flex items-center justify-center text-[#E5B54F]">
+            <div className="h-10 w-10 rounded-xl border border-white/[0.12] bg-[#0E1015] flex items-center justify-center text-[#E5B54F]">
               <Globe className="h-5 w-5" strokeWidth={1.5} />
             </div>
             <div>
@@ -584,7 +623,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                   LIVE
                 </span>
               </div>
-              <p className="text-xs text-[#A8A29E] mt-0.5">
+              <p className="text-xs text-[#A3A3A3] mt-0.5">
                 Accréditation automatique des paiements SasPay (crédits libres et abonnements)
               </p>
             </div>
@@ -607,7 +646,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
 
         <div className="space-y-3">
           {/* URL 1 : Supabase Edge Function */}
-          <div className="p-3.5 rounded-xl border border-[#2D261E] bg-[#0E0C0A] space-y-1.5">
+          <div className="p-3.5 rounded-xl border border-white/[0.08] bg-[#08090C] space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-neutral-200">
                 1. Point de réception Supabase Edge Function (Recommandé) :
@@ -627,7 +666,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
           </div>
 
           {/* URL 2 : Domaine Velaris enregistré */}
-          <div className="p-3.5 rounded-xl border border-[#2D261E] bg-[#0E0C0A] space-y-1.5">
+          <div className="p-3.5 rounded-xl border border-white/[0.08] bg-[#08090C] space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-neutral-200">
                 2. Point de réception Domaine Velaris (Enregistré sur SasPay) :
@@ -653,16 +692,17 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             <strong className="text-white">Événements abonnés :</strong> transaction.success, transaction.failed, transaction.cancelled
           </div>
           <div className="p-2.5 rounded-lg border border-white/5 bg-white/[0.02] text-neutral-400">
-            <strong className="text-white">Sécurité active :</strong> Signature HMAC-SHA256, tolérance d'horodatage 300s (anti-rejeu)
+            <strong className="text-white">Sécurité active :</strong> Signature HMAC-SHA256 obligatoire, tolérance d'horodatage 300 s, idempotence par référence
           </div>
         </div>
       </section>
+      )}
 
 
       {/* Module 3 : Identité & Nom du Studio */}
       <section className={`${panelClass} p-5 sm:p-6 space-y-4`}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          <div className="h-16 w-16 shrink-0 rounded-full bg-[radial-gradient(circle_at_35%_30%,#3A3022,#13110E_70%)] border border-[#E5B54F]/40 flex items-center justify-center font-display text-xl font-bold text-[#F3CA75]">
+          <div className="h-16 w-16 shrink-0 rounded-full bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.12),#0B0C10_70%)] border border-[#E5B54F]/40 flex items-center justify-center font-display text-xl font-bold text-[#F3CA75]">
             {initials}
           </div>
 
@@ -679,7 +719,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                   maxLength={60}
                   onChange={e => setStudioName(e.target.value)}
                   placeholder="Mon Studio Velaris"
-                  className="w-full h-11 rounded-xl border border-[#2D261E] bg-[#1A1713] pl-9 pr-3 text-[15px] text-white placeholder-neutral-600 focus:border-[#E5B54F]/60 focus:outline-none focus:ring-2 focus:ring-[#E5B54F]/15 transition-[border-color,box-shadow]"
+                  className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#0E1015] pl-9 pr-3 text-[15px] text-white placeholder-neutral-600 focus:border-[#E5B54F]/60 focus:outline-none focus:ring-2 focus:ring-[#E5B54F]/15 transition-[border-color,box-shadow]"
                 />
               </div>
               <button
@@ -694,10 +734,10 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
           </form>
         </div>
 
-        <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-px rounded-xl overflow-hidden border border-[#2D261E] bg-[#2D261E]">
+        <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-px rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.08]">
           {facts.map(({ icon: Icon, label, value, mono }) => (
-            <div key={label} className="bg-[#13110E] px-4 py-3.5 flex items-start gap-3">
-              <Icon className="h-4 w-4 mt-0.5 shrink-0 text-[#78716C]" strokeWidth={1.5} />
+            <div key={label} className="bg-[#0B0C10] px-4 py-3.5 flex items-start gap-3">
+              <Icon className="h-4 w-4 mt-0.5 shrink-0 text-[#737373]" strokeWidth={1.5} />
               <div className="min-w-0">
                 <dt className="text-xs text-neutral-500">{label}</dt>
                 <dd className={`text-sm text-white truncate ${mono ? 'font-mono' : ''}`}>{value}</dd>
@@ -715,7 +755,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             <Smartphone className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.5} />
             Ligne WhatsApp privée
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#2D261E] bg-[#1A1713] px-4 h-12">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#0E1015] px-4 h-12">
             <span className="font-mono text-sm text-[#F3CA75] truncate">{sessionName}</span>
             <button
               onClick={copySession}
@@ -730,7 +770,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
           </p>
           <button
             onClick={onOpenWhatsApp}
-            className="w-full h-11 rounded-xl border border-[#3A3022] text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white transition-colors"
+            className="w-full h-11 rounded-xl border border-white/[0.12] text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white transition-colors"
           >
             Gérer mes lignes WhatsApp
           </button>
@@ -765,7 +805,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             <button
               onClick={handleRefresh}
               disabled={busy !== null}
-              className="h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-[#3A3022] text-[13px] font-medium text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
+              className="h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] text-[13px] font-medium text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${busy === 'refresh' ? 'animate-spin' : ''}`} />
               Renouveler jeton
@@ -773,7 +813,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             <button
               onClick={handlePasswordReset}
               disabled={busy !== null}
-              className="h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-[#3A3022] text-[13px] font-medium text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
+              className="h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] text-[13px] font-medium text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
             >
               {busy === 'reset' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
               Mot de passe
