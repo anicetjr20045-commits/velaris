@@ -186,22 +186,24 @@ export const WhatsAppLinesView: FC = () => {
                 </p>
               </div>
 
-              <div className="inline-block p-4 rounded-xl bg-white shadow-2xl relative">
-                <img
-                  src={wahaAlex.qrUrl}
-                  alt="QR Code WAHA WhatsApp"
-                  className="h-44 w-44 object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const parent = e.currentTarget.parentElement;
-                    if (parent && !parent.querySelector('.qr-fallback')) {
-                      const div = document.createElement('div');
-                      div.className = 'qr-fallback h-44 w-44 flex flex-col items-center justify-center text-black text-[13px] gap-2 p-4 text-center font-mono';
-                      div.innerHTML = '<span class="font-bold">Génération du QR Code...</span><span class="text-[11.5px] text-neutral-600">Cliquez sur Relancer si nécessaire</span>';
-                      parent.appendChild(div);
-                    }
-                  }}
-                />
+              <div className="inline-block p-4 rounded-xl bg-white shadow-2xl relative overflow-hidden">
+                {wahaAlex.status === 'SCAN_QR_CODE' ? (
+                  <img
+                    src={wahaAlex.qrUrl}
+                    alt="QR Code WAHA WhatsApp"
+                    className="h-44 w-44 object-contain"
+                  />
+                ) : (
+                  <div className="h-44 w-44 flex flex-col items-center justify-center bg-[#14120E] text-white text-xs p-4 text-center rounded-lg space-y-2">
+                    <Loader2 className="h-6 w-6 text-[#E5B54F] animate-spin" />
+                    <span className="font-semibold text-neutral-200">
+                      {wahaAlex.status === 'FAILED' ? 'Session à relancer' : 'Génération du QR Code...'}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 font-mono">
+                      Statut : {wahaAlex.status}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">

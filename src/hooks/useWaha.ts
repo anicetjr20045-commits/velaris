@@ -3,8 +3,8 @@ import {
   WAHA_CONFIG, 
   fetchWahaSession, 
   ensureWahaSession,
-  startWahaSession, 
-  stopWahaSession, 
+  stopWahaSession,
+  restartWahaSession,
   sendWahaTextMessage, 
   getWahaQrCodeUrl,
   startWahaHeartbeat,
@@ -108,12 +108,10 @@ export function useWahaSession(sessionName: string = WAHA_CONFIG.defaultSession)
   const restart = useCallback(async () => {
     setIsLoading(true);
     setStatus('STARTING');
-    let ok = false;
-    if (sessionName.startsWith('studio_')) {
+    let ok = await restartWahaSession(sessionName);
+    if (!ok && sessionName.startsWith('studio_')) {
       const data = await ensureWahaSession(sessionName);
       ok = !!data;
-    } else {
-      ok = await startWahaSession(sessionName);
     }
     setQrNonce(prev => prev + 1);
     await new Promise(r => setTimeout(r, 2000));

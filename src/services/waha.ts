@@ -192,11 +192,57 @@ export async function stopWahaSession(sessionName: string = WAHA_CONFIG.defaultS
 }
 
 /**
+ * Redémarre proprement une session WAHA (utile en cas d'état FAILED ou timeout)
+ */
+export async function restartWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
+  try {
+    const res = await wahaFetch(`/api/sessions/${sessionName}/restart`, {
+      method: 'POST',
+    });
+    if (res.ok) return true;
+    // Fallback : stop puis start
+    await stopWahaSession(sessionName);
+    await new Promise(r => setTimeout(r, 1500));
+    return await startWahaSession(sessionName);
+  } catch (err) {
+    console.error(`[WAHA] restartSession(${sessionName}) error:`, err);
+    return false;
+  }
+}
+
+/**
  * URL directe du QR code de jumelage avec authentification par query param
  */
 export function getWahaQrCodeUrl(sessionName: string = WAHA_CONFIG.defaultSession): string {
   // L'URL accepte directement le paramètre ?x-api-key pour charger l'image PNG dans un tag <img>
   return `${WAHA_CONFIG.baseUrl}/api/${sessionName}/auth/qr?x-api-key=${WAHA_CONFIG.apiKey}&t=${Date.now()}`;
+}
+
+/**
+ * Récupère le QR code en tant que Blob d'image validé (évite les erreurs 422 JSON sous forme d'image cassée)
+ */
+export async function fetchWahaQrBlob(sessionName: string = WAHA_CONFIG.defaultSession): Promise<{
+  success: boolean;
+  blobUrl?: string;
+  status?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`${WAHA_CONFIG.baseUrl}/api/${sessionName}/auth/qr?x-api-key=${WAHA_CONFIG.apiKey}&t=${Date.now()}`);
+    if (res.status === 200 && res.headers.get('content-type')?.includes('image')) {
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      return { success: true, blobUrl, status: 'SCAN_QR_CODE' };
+    }
+    const json = await res.json().catch(() => null);
+    return {
+      success: false,
+      status: json?.status || 'STARTING',
+      error: json?.error || `HTTP ${res.status}`
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Impossible de joindre la passerelle WAHA' };
+  }
 }
 
 /**

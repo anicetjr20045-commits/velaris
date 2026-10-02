@@ -145,25 +145,27 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
         ) : (
           /* Live QR Code Display */
           <div className="space-y-4">
-            <div className="relative mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border-2 border-dashed border-[#d4af37]/40 bg-white p-3 shadow-2xl">
-              <img
-                src={waha.qrUrl}
-                alt="QR Code WAHA Live"
-                className="h-full w-full object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const parent = e.currentTarget.parentElement;
-                  if (parent && !parent.querySelector('.qr-err')) {
-                    const d = document.createElement('div');
-                    d.className = 'qr-err text-center p-3 text-black text-xs';
-                    d.innerHTML = '<p class="font-bold">Initialisation de la passerelle</p><p class="text-[10px] text-stone-600 mt-1">Cliquez sur Relancer ci-dessous pour rafraîchir</p>';
-                    parent.appendChild(d);
-                  }
-                }}
-              />
+            <div className="relative mx-auto flex h-56 w-56 items-center justify-center rounded-2xl border-2 border-[#d4af37]/40 bg-white p-3 shadow-2xl overflow-hidden">
+              {waha.status === 'SCAN_QR_CODE' && !isRestarting ? (
+                <img
+                  src={waha.qrUrl}
+                  alt="QR Code WhatsApp"
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-4 h-full w-full bg-[#14120E] text-white space-y-2">
+                  <RefreshCw className="h-8 w-8 text-[#e5c158] animate-spin" />
+                  <span className="text-xs font-semibold text-neutral-200">
+                    {waha.status === 'FAILED' ? 'Relance de la passerelle...' : 'Génération du QR Code...'}
+                  </span>
+                  <span className="text-[11px] text-neutral-400 font-mono">
+                    Statut : {waha.status}
+                  </span>
+                </div>
+              )}
 
-              {(isRestarting || waha.isLoading) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-black/80 backdrop-blur-sm text-white">
+              {isRestarting && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-black/85 backdrop-blur-sm text-white">
                   <RefreshCw className="h-8 w-8 text-[#e5c158] animate-spin mb-2" />
                   <span className="text-xs font-semibold">Génération du QR Code dédié...</span>
                 </div>

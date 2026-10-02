@@ -29,7 +29,10 @@ export function useStudioLive<T>(
       return;
     }
     let cancelled = false;
-    const load = () =>
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const load = () => {
+      if (document.visibilityState !== 'visible') return;
       loaderRef.current()
         .then((value) => {
           if (cancelled) return;
@@ -37,14 +40,36 @@ export function useStudioLive<T>(
           setSyncedAt(new Date());
         })
         .catch(() => {});
+    };
 
+    const debouncedLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(load, 300);
+    };
+
+    // Premier chargement immédiat
     load();
-    const unsubscribe = subscribeStudioRealtime(tables, load);
+
+    // Abonnement Supabase Realtime avec dérebond
+    const unsubscribe = subscribeStudioRealtime(tables, debouncedLoad);
+
+    // Polling de secours intelligent (actif seulement si l'onglet est visible)
     const timer = setInterval(load, pollMs);
+
+    // Rafraîchissement instantané au retour sur l'onglet
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        load();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       cancelled = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribe();
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables.join(','), pollMs, enabled, tick, ...deps]);
