@@ -30,6 +30,26 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 23. Webhooks SasPay Live & Rechargement de Crédits en Paiement Libre (2 Octobre 2026)
+- **Configuration & Endpoint Webhook SasPay Déployé** :
+  - **URL Principale Supabase Edge Function** : `https://dnwlqgsftauqsyjwhoza.supabase.co/functions/v1/saspay-webhook`
+  - **URL Enregistrée SasPay Dashboard** : `https://velaris.money/api/public/webhooks/saspay` (ID: `98cd87f8-9403-4c68-ade6-2408cf9c8e9f`)
+  - **Code Source Edge Function** : `supabase/functions/saspay-webhook/index.ts`
+  - **Sécurité Cryptographique Robuste** :
+    - Tolérance d'âge anti-rejeu : Rejet si `X-Webhook-Timestamp` s'écarte de plus de 300 secondes (5 min).
+    - Signature HMAC-SHA256 sur corps brut : `X-Webhook-Signature` comparée en temps constant.
+    - Événements abonnés : `transaction.success`, `transaction.failed`, `transaction.cancelled`, `settlement.success`.
+    - Accréditation automatique des profils en base de données Supabase dès confirmation de paiement.
+  - **Module d'Affichage Webhook dans le Profil Studio** (`src/components/StudioProfileView.tsx`) :
+    - Bouton 1-clic de copie de l'URL du webhook.
+    - Guide clair d'enregistrement dans le Dashboard SasPay (`https://app.saspay.me`).
+- **Système de Rechargement en Paiement Libre (Montant au Choix)** (`src/services/saspay.ts`, `src/components/StudioProfileView.tsx`) :
+  - **Mode A (Saisie Directe Studio)** : L'utilisateur entre n'importe quel montant en F CFA (min. 200 F CFA imposé par la passerelle).
+  - **Conversion Instantanée** : Calcul en temps réel selon le barème officiel **1 crédit = 85 F CFA** (ex: 1 000 F CFA = 11.8 crédits).
+  - **Génération Checkout SasPay** : Appel direct `POST /checkout-sessions/` avec métadonnées typées `CREDIT_RECHARGE`.
+  - **Mode B (Lien Universel Hébergé SasPay)** : Lien permanent `https://link.saspay.me/b1w0ra13bhc` configuré avec `amount_type: "FREE"`, permettant au client de taper le montant qu'il souhaite directement sur l'écran sécurisé SasPay.
+  - **Packs Rapides 1-clic** : Suggestions rapides à 1 000 F CFA, 2 550 F CFA, 5 000 F CFA et 10 000 F CFA.
+
 ### 22. Système d'Abonnement SasPay, Crédits Permanents & Automatisation Chansons Kie.ai (2 Octobre 2026)
 - **Intégration Moteur Kie.ai (Suno GPU)** (`src/services/kie.ts`) :
   - Clé API : `9c8965ca1c39ef43b6835599b42c8951`, endpoints `/generate` et `/generate/record-info`.

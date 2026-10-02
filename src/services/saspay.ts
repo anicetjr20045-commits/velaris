@@ -10,8 +10,15 @@ export const SASPAY_CONFIG = {
   apiKey: 'sk_live_zlZ6VKJ75jNB0NcI8I6-BssNMZCm6eU8Hfe0dvdkAYc',
   baseUrl: 'https://api.saspay.me/api/v1',
   currency: 'XOF',
+  freePaymentLinkUrl: 'https://link.saspay.me/b1w0ra13bhc', // Lien de paiement montant libre hébergé SasPay
+  webhooks: {
+    supabaseEndpoint: 'https://dnwlqgsftauqsyjwhoza.supabase.co/functions/v1/saspay-webhook',
+    directEndpoint: 'https://velaris.money/api/public/webhooks/saspay',
+    activeEvents: ['transaction.success', 'transaction.failed', 'transaction.cancelled', 'settlement.success']
+  },
   rates: {
     cfaPerCredit: 85,
+    minCfaRecharge: 200, // Seuil minimum SasPay
     monthlySubscriptionXOF: 3000,
     quarterlySubscriptionXOF: 7000,
   },
@@ -32,6 +39,24 @@ export const SASPAY_CONFIG = {
     }
   }
 };
+
+/**
+ * Calcule le nombre de crédits accordés pour un montant en F CFA
+ * Ratio : 1 crédit = 85 F CFA
+ */
+export function calculateCreditsForCFA(amountCfa: number): {
+  credits: number;
+  ratePerCredit: number;
+  formattedCredits: string;
+} {
+  const rate = SASPAY_CONFIG.rates.cfaPerCredit;
+  const credits = Math.max(0, Math.round((amountCfa / rate) * 100) / 100);
+  return {
+    credits,
+    ratePerCredit: rate,
+    formattedCredits: credits.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
+  };
+}
 
 /**
  * Crée une session de checkout hébergée SasPay
@@ -155,3 +180,62 @@ export async function probeSasPayHealth(): Promise<{
     };
   }
 }
+
+/**
+ * Prépare une session de paiement libre (montant choisi librement par l'utilisateur)
+ * ou retourne le lien hébergé SasPay universel.
+ */
+export async function createSasPayFreeAmountCheckout(options: {
+  amountCfa?: number;
+  customerEmail?: string;
+  customerName?: string;
+  userId?: string;
+}): Promise<{
+  success: boolean;
+  checkoutUrl?: string;
+  creditsExpected?: number;
+  error?: string;
+}> {
+  // Si aucun montant spécifique n'est spécifié, rediriger vers la page hébergée SasPay montant libre
+  if (!options.amountCfa || options.amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) {
+    if (options.amountCfa && options.amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) {
+      return {
+        success: false,
+        error: `Le montant minimum pour un paiement est de ${SASPAY_CONFIG.rates.minCfaRecharge} F CFA.`
+      };
+    }
+    return {
+      success: true,
+      checkoutUrl: SASPAY_CONFIG.freePaymentLinkUrl,
+      creditsExpected: 0
+    };
+  }
+
+  const { credits } = calculateCreditsForCFA(options.amountCfa);
+  const checkoutRes = await createSasPayCheckout({
+    amount: options.amountCfa,
+    description: `Recharge libre Velaris Studio : ${credits} crédits (${options.amountCfa} F CFA)`,
+    customerEmail: options.customerEmail || 'studio@velaris.money',
+    customerName: options.customerName || 'Studio Velaris',
+    metadata: {
+      type: 'CREDIT_RECHARGE',
+      amount_cfa: options.amountCfa,
+      credits_expected: credits,
+      userId: options.userId || 'anonymous_studio'
+    }
+  });
+
+  if (!checkoutRes.success || !checkoutRes.data) {
+    return {
+      success: false,
+      error: checkoutRes.error || 'Erreur lors de la création de la session libre SasPay.'
+    };
+  }
+
+  return {
+    success: true,
+    checkoutUrl: checkoutRes.data.checkoutUrl,
+    creditsExpected: credits
+  };
+}
+

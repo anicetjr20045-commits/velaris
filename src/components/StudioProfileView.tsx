@@ -17,7 +17,9 @@ import {
   Calendar,
   AlertCircle,
   Ban,
-  Sparkles
+  Sparkles,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
@@ -29,7 +31,12 @@ import {
   activateSubscription,
   subscribeToBilling
 } from '../services/billing';
-import { createSasPayCheckout, SASPAY_CONFIG } from '../services/saspay';
+import {
+  createSasPayCheckout,
+  createSasPayFreeAmountCheckout,
+  calculateCreditsForCFA,
+  SASPAY_CONFIG
+} from '../services/saspay';
 import type { SubscriptionPlanId } from '../types/billing';
 
 interface StudioProfileViewProps {
@@ -78,7 +85,8 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
   // Billing state
   const [credits, setCredits] = useState(getStudioCredits());
   const [subscription, setSubscription] = useState(getStudioSubscription());
-  const [customCredits, setCustomCredits] = useState<number>(50);
+  const [freeAmountCfa, setFreeAmountCfa] = useState<number>(1000);
+  const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
 
@@ -170,33 +178,43 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     }
   };
 
-  // Recharge de crédits via SasPay
-  const handleRechargeCredits = async (amountCredits: number) => {
-    if (amountCredits <= 0) return;
+  // Recharge en montant libre SasPay (calcul temps réel à 85 F CFA / crédit)
+  const handleRechargeFreeAmount = async (amountCfa: number) => {
+    if (amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) {
+      flash('err', `Le montant minimum pour un paiement SasPay est de ${SASPAY_CONFIG.rates.minCfaRecharge} F CFA.`);
+      return;
+    }
     setBusy('checkout');
-    const totalXOF = Math.round(amountCredits * SASPAY_CONFIG.rates.cfaPerCredit);
-
-    const checkoutRes = await createSasPayCheckout({
-      amount: totalXOF,
-      description: `Recharge de ${amountCredits} crédits chanson - Studio Velaris`,
+    const res = await createSasPayFreeAmountCheckout({
+      amountCfa,
       customerEmail: user?.email || 'studio@velaris.money',
       customerName: studioName || 'Studio Velaris',
-      metadata: {
-        type: 'credits_topup',
-        credits: amountCredits,
-        userId: user?.id || 'demo'
-      }
+      userId: user?.id || 'demo'
     });
     setBusy(null);
 
-    if (checkoutRes.success && checkoutRes.data?.checkoutUrl) {
-      // Ajouter les crédits avec la référence SasPay
-      rechargeCredits(amountCredits, checkoutRes.data.id, 'SasPay Mobile Money');
+    if (res.success && res.checkoutUrl) {
+      if (res.creditsExpected && res.creditsExpected > 0) {
+        rechargeCredits(res.creditsExpected, 'SASPAY-LIBRE', 'SasPay Mobile Money');
+        flash('ok', `${res.creditsExpected} crédits provisionnés ! Redirection vers SasPay (${amountCfa.toLocaleString('fr-FR')} F CFA)...`);
+      } else {
+        flash('ok', 'Redirection vers la passerelle de paiement SasPay...');
+      }
       setShowRechargeModal(false);
-      flash('ok', `${amountCredits} crédits ajoutés avec succès ! Redirection vers la page de reçu SasPay.`);
-      window.open(checkoutRes.data.checkoutUrl, '_blank');
+      window.open(res.checkoutUrl, '_blank');
     } else {
-      flash('err', checkoutRes.error || 'Échec de création du paiement SasPay.');
+      flash('err', res.error || 'Erreur lors du paiement libre SasPay.');
+    }
+  };
+
+  const copyWebhook = async (url: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedWebhook(label);
+      window.setTimeout(() => setCopiedWebhook(null), 2000);
+      flash('ok', `URL ${label} copiée dans le presse-papiers.`);
+    } catch {
+      // clip failed
     }
   };
 
@@ -280,80 +298,121 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
           </div>
         </div>
 
-        {/* Modal / Bloc de recharge rapide */}
+        {/* Modal / Bloc de recharge en Paiement Libre SasPay */}
         {showRechargeModal && (
-          <div className="p-4 rounded-xl border border-[#3A3022] bg-[#171410] space-y-4 vx-fade-in">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white">Sélectionnez votre pack de crédits</span>
+          <div className="p-5 rounded-2xl border border-[#3A3022] bg-[#161310] space-y-5 vx-fade-in shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2D261E] pb-3">
+              <div>
+                <div className="text-base font-semibold text-white flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-[#E5B54F]" />
+                  Recharge de crédits en Paiement Libre
+                </div>
+                <div className="text-xs text-[#A8A29E] mt-0.5">
+                  1 crédit = 85 F CFA · Crédits sans date d'expiration · Mobile Money & Carte
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowRechargeModal(false)}
-                className="text-xs text-[#A8A29E] hover:text-white"
+                className="text-xs text-[#A8A29E] hover:text-white px-2 py-1 rounded-lg border border-white/5 hover:border-white/20 transition-colors"
               >
                 Fermer
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { credits: 20, price: 1700, popular: false },
-                { credits: 50, price: 4250, popular: true },
-                { credits: 100, price: 8500, popular: false }
-              ].map(pack => (
+            {/* Saisie Montant Libre */}
+            <div className="p-4 rounded-xl border border-[#E5B54F]/30 bg-[#E5B54F]/[0.05] space-y-3">
+              <label htmlFor="recharge-free-cfa" className="text-xs font-semibold text-[#F3CA75] block">
+                Saisissez votre montant libre en F CFA :
+              </label>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <input
+                    id="recharge-free-cfa"
+                    type="number"
+                    min={SASPAY_CONFIG.rates.minCfaRecharge}
+                    step={100}
+                    value={freeAmountCfa || ''}
+                    onChange={e => setFreeAmountCfa(Math.max(0, parseInt(e.target.value) || 0))}
+                    placeholder="Ex: 1000, 2500, 5000..."
+                    className="w-full h-12 rounded-xl border border-[#3A3022] bg-[#0E0C0A] px-4 font-mono text-lg font-bold text-white focus:border-[#E5B54F] outline-none"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-[#A8A29E] pointer-events-none">
+                    F CFA
+                  </span>
+                </div>
+
                 <button
-                  key={pack.credits}
                   type="button"
-                  disabled={busy === 'checkout'}
-                  onClick={() => handleRechargeCredits(pack.credits)}
-                  className={`p-3.5 rounded-xl border text-left transition-all relative ${
-                    pack.popular
-                      ? 'border-[#E5B54F] bg-[#E5B54F]/[0.08] hover:bg-[#E5B54F]/[0.14]'
-                      : 'border-[#2D261E] bg-[#110F0D] hover:border-[#E5B54F]/40'
-                  }`}
+                  disabled={busy === 'checkout' || freeAmountCfa < SASPAY_CONFIG.rates.minCfaRecharge}
+                  onClick={() => handleRechargeFreeAmount(freeAmountCfa)}
+                  className="h-12 px-6 rounded-xl bg-[#E5B54F] text-xs font-bold text-black hover:bg-[#F0C068] active:scale-[0.98] transition-all disabled:opacity-40 whitespace-nowrap shadow-[0_0_20px_-5px_rgba(229,181,79,0.5)] flex items-center justify-center gap-2"
                 >
-                  {pack.popular && (
-                    <span className="absolute -top-2.5 right-3 rounded-full bg-[#E5B54F] px-2 py-0.5 text-[9px] font-bold text-black uppercase">
-                      Recommandé
-                    </span>
-                  )}
-                  <div className="font-mono text-lg font-bold text-white">{pack.credits} crédits</div>
-                  <div className="text-xs font-semibold text-[#F3CA75] mt-0.5">
-                    {pack.price.toLocaleString('fr-FR')} F CFA
-                  </div>
-                  <div className="text-[11px] text-[#A8A29E] mt-1">
-                    {(pack.price / pack.credits).toFixed(0)} F / chanson
-                  </div>
+                  {busy === 'checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  Payer {(freeAmountCfa || 0).toLocaleString('fr-FR')} F CFA
                 </button>
-              ))}
+              </div>
+
+              {/* Conversion en temps réel */}
+              <div className="flex flex-wrap items-center justify-between text-xs pt-1">
+                <div className="text-neutral-300">
+                  Équivaut à :{' '}
+                  <span className="font-mono text-base font-bold text-white">
+                    {calculateCreditsForCFA(freeAmountCfa || 0).formattedCredits}
+                  </span>{' '}
+                  crédits chanson
+                </div>
+                <div className="text-[11px] text-neutral-500">
+                  Seuil min. SasPay : {SASPAY_CONFIG.rates.minCfaRecharge} F CFA
+                </div>
+              </div>
             </div>
 
-            {/* Montant libre */}
-            <div className="pt-2 border-t border-[#2D261E] flex flex-col sm:flex-row items-center gap-3">
-              <div className="flex-1 w-full text-xs text-[#A8A29E]">
-                Recharge libre : {customCredits} crédits ={' '}
-                <span className="font-mono text-white font-semibold">
-                  {(customCredits * 85).toLocaleString('fr-FR')} F CFA
-                </span>
+            {/* Suggestions de montants rapides */}
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-neutral-400">Suggestions de recharges rapides :</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[
+                  { cfa: 1000, label: '1 000 F CFA', popular: false },
+                  { cfa: 2550, label: '2 550 F CFA', popular: false },
+                  { cfa: 5000, label: '5 000 F CFA', popular: true },
+                  { cfa: 10000, label: '10 000 F CFA', popular: false }
+                ].map(item => {
+                  const cr = calculateCreditsForCFA(item.cfa).formattedCredits;
+                  return (
+                    <button
+                      key={item.cfa}
+                      type="button"
+                      onClick={() => setFreeAmountCfa(item.cfa)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        freeAmountCfa === item.cfa
+                          ? 'border-[#E5B54F] bg-[#E5B54F]/10 text-white'
+                          : 'border-[#2D261E] bg-[#110F0D] hover:border-[#3A3022] text-neutral-300'
+                      }`}
+                    >
+                      <div className="font-mono text-xs font-bold">{item.label}</div>
+                      <div className="text-[11px] text-[#F3CA75] font-mono mt-0.5">{cr} crédits</div>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <input
-                  type="number"
-                  min={5}
-                  max={1000}
-                  step={5}
-                  value={customCredits}
-                  onChange={e => setCustomCredits(Math.max(1, parseInt(e.target.value) || 0))}
-                  className="w-24 h-9 rounded-lg border border-[#3A3022] bg-[#0E0C0A] px-2.5 font-mono text-xs text-white text-center focus:border-[#E5B54F] outline-none"
-                />
-                <button
-                  type="button"
-                  disabled={busy === 'checkout' || customCredits <= 0}
-                  onClick={() => handleRechargeCredits(customCredits)}
-                  className="h-9 px-3 rounded-lg border border-[#E5B54F]/40 bg-[#E5B54F]/10 text-xs font-medium text-[#F3CA75] hover:bg-[#E5B54F]/20 active:scale-[0.98] transition-all whitespace-nowrap"
-                >
-                  Payer via SasPay
-                </button>
+            </div>
+
+            {/* Option B : Lien de paiement libre 100% hébergé SasPay */}
+            <div className="pt-3 border-t border-[#2D261E] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="text-[#A8A29E]">
+                Vous préférez saisir le montant directement sur la page SasPay ?
               </div>
+              <a
+                href={SASPAY_CONFIG.freePaymentLinkUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-[#E5B54F]/40 bg-white/[0.03] text-neutral-200 hover:text-white transition-all text-xs font-medium"
+              >
+                <span>Lien universel SasPay</span>
+                <ExternalLink className="h-3.5 w-3.5 text-[#E5B54F]" />
+              </a>
             </div>
           </div>
         )}
@@ -510,6 +569,95 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
           )}
         </div>
       </section>
+
+      {/* Module 2-bis : Webhook SasPay & Synchronisation Temps Réel */}
+      <section className={`${panelClass} p-5 sm:p-6 space-y-4`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2D261E] pb-3">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl border border-[#3A3022] bg-[#1A1713] flex items-center justify-center text-[#E5B54F]">
+              <Globe className="h-5 w-5" strokeWidth={1.5} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[16px] font-semibold text-white">Webhook SasPay & Confirmation Instantanée</h2>
+                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  LIVE
+                </span>
+              </div>
+              <p className="text-xs text-[#A8A29E] mt-0.5">
+                Accréditation automatique des paiements SasPay (crédits libres et abonnements)
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://app.saspay.me"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-[#E5B54F]/50 bg-white/[0.03] text-xs font-medium text-neutral-300 hover:text-white transition-all w-fit"
+          >
+            <span>Tableau de bord SasPay</span>
+            <ExternalLink className="h-3.5 w-3.5 text-[#E5B54F]" />
+          </a>
+        </div>
+
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          Pour valider automatiquement les paiements en arrière-plan et créditer les studios instantanément, configurez l'URL webhook ci-dessous dans votre interface <strong>SasPay (Webhooks → Ajouter un point de réception)</strong> :
+        </p>
+
+        <div className="space-y-3">
+          {/* URL 1 : Supabase Edge Function */}
+          <div className="p-3.5 rounded-xl border border-[#2D261E] bg-[#0E0C0A] space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-neutral-200">
+                1. Point de réception Supabase Edge Function (Recommandé) :
+              </span>
+              <button
+                type="button"
+                onClick={() => copyWebhook(SASPAY_CONFIG.webhooks.supabaseEndpoint, 'Supabase Edge Function')}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E5B54F] hover:text-[#F3CA75]"
+              >
+                {copiedWebhook === 'Supabase Edge Function' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedWebhook === 'Supabase Edge Function' ? 'Copié !' : 'Copier'}
+              </button>
+            </div>
+            <div className="font-mono text-xs text-[#F3CA75] break-all select-all bg-black/40 p-2 rounded-lg border border-white/5">
+              {SASPAY_CONFIG.webhooks.supabaseEndpoint}
+            </div>
+          </div>
+
+          {/* URL 2 : Domaine Velaris enregistré */}
+          <div className="p-3.5 rounded-xl border border-[#2D261E] bg-[#0E0C0A] space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-neutral-200">
+                2. Point de réception Domaine Velaris (Enregistré sur SasPay) :
+              </span>
+              <button
+                type="button"
+                onClick={() => copyWebhook(SASPAY_CONFIG.webhooks.directEndpoint, 'Domaine Velaris')}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E5B54F] hover:text-[#F3CA75]"
+              >
+                {copiedWebhook === 'Domaine Velaris' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedWebhook === 'Domaine Velaris' ? 'Copié !' : 'Copier'}
+              </button>
+            </div>
+            <div className="font-mono text-xs text-neutral-300 break-all select-all bg-black/40 p-2 rounded-lg border border-white/5">
+              {SASPAY_CONFIG.webhooks.directEndpoint}
+            </div>
+          </div>
+        </div>
+
+        {/* Détails techniques & sécurité */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-[11px]">
+          <div className="p-2.5 rounded-lg border border-white/5 bg-white/[0.02] text-neutral-400">
+            <strong className="text-white">Événements abonnés :</strong> transaction.success, transaction.failed, transaction.cancelled
+          </div>
+          <div className="p-2.5 rounded-lg border border-white/5 bg-white/[0.02] text-neutral-400">
+            <strong className="text-white">Sécurité active :</strong> Signature HMAC-SHA256, tolérance d'horodatage 300s (anti-rejeu)
+          </div>
+        </div>
+      </section>
+
 
       {/* Module 3 : Identité & Nom du Studio */}
       <section className={`${panelClass} p-5 sm:p-6 space-y-4`}>

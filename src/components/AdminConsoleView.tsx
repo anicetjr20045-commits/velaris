@@ -297,8 +297,8 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
   const securityChecks: { label: string; pass: boolean | 'warn'; note: string }[] = [
     { label: 'Transport chiffré', pass: typeof window !== 'undefined' && window.isSecureContext, note: 'TLS de bout en bout navigateur ↔ API' },
     { label: 'Isolation RLS', pass: !!user || 'warn', note: user ? 'Requêtes filtrées par user_id' : 'Actif dès la connexion' },
-    { label: 'Paiements & Anti-fraude SasPay', pass: true, note: 'Double contrôle REST + signature HMAC-SHA256 (5 min)' },
-    { label: 'Crédits Studio Kie.ai', pass: true, note: 'Non périssables · 1 crédit = 85 F CFA' },
+    { label: 'Webhooks & Anti-fraude SasPay', pass: true, note: 'Edge Function active · Signature HMAC-SHA256 (300s)' },
+    { label: 'Recharge libre & Crédits Kie.ai', pass: true, note: 'Paiement libre actif · 1 crédit = 85 F CFA sans expiration' },
     { label: 'Sessions WAHA par studio', pass: true, note: 'Nom de session studio_<id> par tenant' }
   ];
 
