@@ -30,6 +30,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 24. Déblocage Intégral de la Création d'Automatisations & Modèles en 1 Clic (2 Octobre 2026)
+- **Résolution du Bug de Création de Règles** (`src/components/AutomationsView.tsx`) :
+  - **Correction du rendu JSX** : L'appel au formulaire de création `renderForm(false)` n'était pas injecté lors de l'ouverture d'un nouveau brouillon (`!draft.id`), rendant le clic sur « Nouvelle règle » inopérant et invisible.
+  - **Formulaire actif en tête de liste** : Le formulaire s'ouvre désormais instantanément en haut de la liste lors du clic sur « Nouvelle règle » ou dans l'état vide.
+- **Déblocage du Bouton d'Enregistrement & UX Soignée** :
+  - Suppression du blocage rigide `disabled={saving || !draftReady}` avec curseur interdit : le bouton est actif et guide l'utilisateur en temps réel.
+  - Indicateur visuel dynamique en bas de formulaire signalant précisément l'état de validation.
+  - En cas de champ obligatoire manquant, un message explicatif clair s'affiche immédiatement.
+- **Ajout de 4 Modèles Rapides Prêts à l'Emploi (Remplissage en 1 clic)** :
+  1. *Formules & Tarifs (1 200 F / 3 000 F / 5 000 F)* (Emoji `💰`)
+  2. *Délai de Livraison Express (18 min)* (Emoji `⏱️`)
+  3. *Demande de Note Vocale du Client* (Emoji `🎤`)
+  4. *Paiement Wave / Orange Money* (Emoji `💳`)
+- **Barre de Sélection d'Emojis Rapides** :
+  - 12 emojis fréquents (`⚡`, `🎵`, `💰`, `🎤`, `⏱️`, `✨`, `⭐`, `❤️`, `👍`, `🎉`, `🔥`, `💳`) sélectionnables en 1 tap sans besoin de clavier d'émojis tiers.
+  - Valeur par défaut automatique `⚡` si aucun emoji n'est spécifié.
+
 ### 23. Webhooks SasPay Live & Rechargement de Crédits en Paiement Libre (2 Octobre 2026)
 - **Configuration & Endpoint Webhook SasPay Déployé** :
   - **URL Principale Supabase Edge Function** : `https://dnwlqgsftauqsyjwhoza.supabase.co/functions/v1/saspay-webhook`
