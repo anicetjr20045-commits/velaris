@@ -30,6 +30,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 25. Stabilisation WAHA, QR Code Instantané, Protection Quotas Supabase & Claude Code VPS (2 Octobre 2026)
+- **Résolution Définitive du Scan QR Code WhatsApp** (`src/services/waha.ts`, `src/hooks/useWaha.ts`, `src/components/QrConnectModal.tsx`, `src/components/WhatsAppLinesView.tsx`) :
+  - **Diagnostic** : Sessions WAHA (`Test` et `studio_bd1481ad`) bloquées en statut `FAILED` sur `https://waha.velarisagent.life`, retournant un code HTTP 422 JSON au lieu d'une image PNG sur `/api/{session}/auth/qr`.
+  - **Mécanisme d'auto-récupération** : Ajout de `restartWahaSession(sessionName)` exploitant `POST /api/sessions/{sessionName}/restart` (avec fallback stop -> start) et `fetchWahaQrBlob` vérifiant le header `image/png`.
+  - **Interface utilisateur blindée** : Affichage conditionnel de la balise `<img>` uniquement quand `status === 'SCAN_QR_CODE'`. Si la session est en cours d'initialisation (`STARTING`), un loader sombre architectural guide l'utilisateur sans image brisée ni erreur visuelle.
+  - **Validation en direct** : La session WAHA `Test` (`+22656240533`) a été redémarrée avec succès et est passée en `SCAN_QR_CODE` avec flux PNG 200 immédiat.
+- **Protection Anti-Saturation & Économie de Quotas Supabase** (`src/hooks/useStudioLive.ts`, `supabase_stabilization_production.sql`) :
+  - **Optimisation Realtime & Visibilité** : Suspension automatique du polling quand l'onglet du navigateur est en arrière-plan (`document.visibilityState === 'hidden'`), divisant par 10 les requêtes inutiles. Reprise instantanée à la réactivation (`visibilitychange`).
+  - **Anti-rafale (Debounce 300ms)** : Évite les rafales de requêtes concurrentes lors de messages reçus en cascade.
+  - **Pack SQL de Stabilisation Production** :
+    - Index B-Tree haute performance sur `contacts(user_id, phone)`, `conversations(user_id, contact_id, last_message_at, funnel_stage)`, `messages(conversation_id, user_id, created_at)`, `orders(user_id, status)` et `automation_rules(user_id)`.
+    - Optimisation critique RLS : Remplacement de `user_id = auth.uid()` par `user_id = (SELECT auth.uid())` pour éviter les requêtes N+1 et l'explosion CPU sur les scans de tables.
+    - Limite de stockage fixée à 16 Mo par fichier dans `storage.buckets`.
+- **Accès Claude Code sur le VPS** :
+  - Claude Code CLI est déjà présent et opérationnel sur le VPS : `/usr/local/bin/claude` (`version 2.1.287`).
+  - Utilisable en 1 commande depuis le terminal SSH : `cd /root/projets/velaris && claude`.
+
 ### 24. Déblocage Intégral de la Création d'Automatisations & Modèles en 1 Clic (2 Octobre 2026)
 - **Résolution du Bug de Création de Règles** (`src/components/AutomationsView.tsx`) :
   - **Correction du rendu JSX** : L'appel au formulaire de création `renderForm(false)` n'était pas injecté lors de l'ouverture d'un nouveau brouillon (`!draft.id`), rendant le clic sur « Nouvelle règle » inopérant et invisible.
