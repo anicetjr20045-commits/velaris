@@ -101,7 +101,40 @@ interface Draft {
   media?: DraftMedia;
 }
 
-const EMPTY_DRAFT: Draft = { name: '', emoji: '', kind: 'text', action: '' };
+const EMPTY_DRAFT: Draft = { name: '', emoji: '⚡', kind: 'text', action: '' };
+
+const AUTOMATION_PRESETS: { name: string; emoji: string; kind: AutomationMediaKind; action: string }[] = [
+  {
+    name: 'Formules & Tarifs (1 200 F / 3 000 F / 5 000 F)',
+    emoji: '💰',
+    kind: 'text',
+    action: `Bonjour ! Voici nos formules de création de chanson personnalisée :
+
+🎵 Formule Émotion (1 200 F CFA) : Paroles personnalisées & mélodie acoustique.
+⭐ Formule Studio Or (3 000 F CFA) : Production complète, voix studio & mixage pro.
+👑 Formule Prestige (5 000 F CFA) : Production master, vidéo souvenir & livraison en 18 minutes.
+
+Quelle formule correspond le mieux à votre projet ?`
+  },
+  {
+    name: 'Délai de Livraison Express (18 min)',
+    emoji: '⏱️',
+    kind: 'text',
+    action: `Votre chanson est prête et livrée en 18 minutes chrono après validation de votre brief ! Envoyez-nous simplement une note vocale ou un texte avec les prénoms et détails.`
+  },
+  {
+    name: 'Demande de Note Vocale du Client',
+    emoji: '🎤',
+    kind: 'text',
+    action: `Pour que votre chanson soit chargée d'émotion, envoyez-nous une note vocale de 30 secondes en nous racontant votre plus belle histoire ou vos souvenirs avec la personne !`
+  },
+  {
+    name: 'Paiement Wave / Orange Money',
+    emoji: '💳',
+    kind: 'text',
+    action: `Pour valider votre commande et lancer immédiatement la production en studio, vous pouvez régler par Wave ou Orange Money au numéro de notre studio.`
+  }
+];
 
 /* ------------------------------------------------------------------ */
 /* Aperçu du média tel que reçu par le client                         */
@@ -326,19 +359,33 @@ export const AutomationsView: FC = () => {
     setRecording(false);
   };
 
-  const draftReady = !!draft && !!draft.name.trim() && !!draft.emoji.trim() && (draft.kind === 'text' ? !!draft.action.trim() : !!draft.media);
+  const draftReady = !!draft && (draft.kind === 'text' ? !!draft.action.trim() : (!!draft.media || !!draft.action.trim()));
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!draft || !draftReady) return;
+    if (!draft) return;
+
+    if (draft.kind === 'text' && !draft.action.trim()) {
+      setError("Veuillez saisir le texte de votre message automatique WhatsApp avant d'enregistrer.");
+      return;
+    }
+
+    if (draft.kind !== 'text' && !draft.media && !draft.action.trim()) {
+      setError("Veuillez téléverser un fichier ou enregistrer un vocal pour cette automatisation.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     const existing = draft.id ? rules.find(r => r.id === draft.id) : undefined;
     const media = draft.kind === 'text' ? undefined : draft.media;
+    const finalName = draft.name.trim() || (draft.kind === 'voice' ? 'Note vocale automatique' : 'Réponse automatique');
+    const finalEmoji = draft.emoji.trim() || '⚡';
+
     const rule: AutomationRule = {
       id: draft.id ?? `auto-${Date.now()}`,
-      name: draft.name.trim(),
-      emoji: draft.emoji.trim(),
+      name: finalName,
+      emoji: finalEmoji,
       action: draft.action.trim(),
       active: existing?.active ?? true,
       kind: draft.kind,
@@ -476,7 +523,10 @@ export const AutomationsView: FC = () => {
         className="vx-view-enter rounded-[22px] border border-[#E5B54F]/40 bg-[#171512] p-6 space-y-5 shadow-[0_24px_60px_-24px_rgba(229,181,79,0.25)]"
       >
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">{isEdit ? 'Modifier la règle' : 'Nouvelle règle'}</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-white">{isEdit ? 'Modifier la règle' : 'Nouvelle règle d’automatisation'}</h2>
+            <p className="text-xs text-[#A8A29E] mt-0.5">Posez un emoji sur WhatsApp pour envoyer automatiquement cette réponse.</p>
+          </div>
           <button
             type="button"
             onClick={closeForm}
@@ -486,35 +536,82 @@ export const AutomationsView: FC = () => {
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-4">
+
+        {/* Modèles prêts à l'emploi (1 clic) */}
+        {!isEdit && (
+          <div className="space-y-2 p-3.5 rounded-xl border border-white/5 bg-white/[0.02]">
+            <div className="text-xs font-semibold text-[#F3CA75]">
+              Modèles rapides prêts à l'emploi (remplissage en 1 clic) :
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {AUTOMATION_PRESETS.map(preset => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => {
+                    setDraft({
+                      ...draft,
+                      name: preset.name,
+                      emoji: preset.emoji,
+                      kind: preset.kind,
+                      action: preset.action,
+                      media: undefined
+                    });
+                    setError(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#3A3022] bg-[#0E0C0A] hover:border-[#E5B54F]/50 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer"
+                >
+                  <span>{preset.emoji}</span>
+                  <span>{preset.name.split('(')[0].trim()}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_180px] gap-4">
           <label className="block space-y-1.5">
             <span className="text-sm text-[#A8A29E]">Nom de la règle</span>
             <input
               type="text"
               autoFocus
-              placeholder="Ex. Grille tarifaire"
+              placeholder="Ex. Formules & Tarifs"
               value={draft.name}
               onChange={e => setDraft({ ...draft, name: e.target.value })}
               className={inputClass}
-              required
             />
           </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm text-[#A8A29E]">Emoji déclencheur</span>
-            <input
-              type="text"
-              maxLength={8}
-              placeholder="Réaction"
-              value={draft.emoji}
-              onChange={e => setDraft({ ...draft, emoji: e.target.value })}
-              className={`${inputClass} text-center text-xl`}
-              required
-            />
-          </label>
+          <div className="space-y-1.5">
+            <label className="block space-y-1.5">
+              <span className="text-sm text-[#A8A29E]">Emoji déclencheur</span>
+              <input
+                type="text"
+                maxLength={8}
+                placeholder="Ex. ⚡"
+                value={draft.emoji}
+                onChange={e => setDraft({ ...draft, emoji: e.target.value })}
+                className={`${inputClass} text-center text-xl font-bold`}
+              />
+            </label>
+            <div className="flex items-center justify-center gap-1 flex-wrap pt-0.5">
+              {['⚡', '🎵', '💰', '🎤', '⏱️', '✨', '⭐', '❤️', '👍', '🎉', '🔥', '💳'].map(em => (
+                <button
+                  key={em}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, emoji: em })}
+                  className={`h-6 w-6 rounded border text-xs flex items-center justify-center transition-all cursor-pointer ${
+                    draft.emoji === em ? 'border-[#E5B54F] bg-[#E5B54F]/20' : 'border-white/5 bg-white/[0.03] hover:border-white/20'
+                  }`}
+                >
+                  {em}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm text-[#A8A29E] mb-1.5">Réponse envoyée</legend>
+          <legend className="text-sm text-[#A8A29E] mb-1.5">Format de la réponse WhatsApp</legend>
           <div role="radiogroup" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {MEDIA_KINDS.map(k => {
               const Icon = k.icon;
@@ -542,22 +639,36 @@ export const AutomationsView: FC = () => {
 
         {renderMediaField(draft)}
 
-        <div className="flex justify-end gap-2.5">
-          <button
-            type="button"
-            onClick={closeForm}
-            className="rounded-xl border border-[#3A3022] px-4 py-2.5 text-sm font-medium text-[#E7E5E4] hover:border-[#E5B54F]/40 transition-colors cursor-pointer"
-          >
-            Annuler
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !draftReady}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-sm font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" strokeWidth={2.2} />}
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-[#2D261E]">
+          <div className="text-xs text-neutral-400">
+            {draft.kind === 'text' && !draft.action.trim() && (
+              <span className="text-amber-300">Indiquez votre texte de réponse pour finaliser.</span>
+            )}
+            {draft.kind !== 'text' && !draft.media && (
+              <span className="text-amber-300">Enregistrez un vocal ou choisissez un fichier.</span>
+            )}
+            {draftReady && (
+              <span className="text-emerald-400">Prêt à être enregistré dans votre studio !</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={closeForm}
+              className="rounded-xl border border-[#3A3022] px-4 py-2.5 text-sm font-medium text-[#E7E5E4] hover:border-[#E5B54F]/40 transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-sm font-semibold text-[#0C0A09] hover:bg-[#F0C068] active:scale-[0.98] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_8px_25px_-8px_rgba(229,181,79,0.5)]"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" strokeWidth={2.2} />}
+              {saving ? 'Enregistrement…' : isEdit ? 'Mettre à jour' : 'Enregistrer la règle'}
+            </button>
+          </div>
         </div>
       </form>
     );
@@ -707,12 +818,29 @@ export const AutomationsView: FC = () => {
 
       {/* Règles */}
       <div className="space-y-3.5">
+        {/* Formulaire de création d'une nouvelle règle */}
+        {draft && !draft.id && (
+          <div className="mb-4">
+            {renderForm(false)}
+          </div>
+        )}
+
         {rules.length === 0 && !draft && (
-          <div className="rounded-[22px] border border-dashed border-[#3A3022] bg-[#171512]/60 p-8 text-center">
-            <p className="text-base text-white font-medium">Aucune règle pour l'instant</p>
-            <p className="mt-1.5 text-sm text-[#A8A29E]">
-              Créez votre première réaction automatique : un emoji posé sur un message déclenche l'envoi d'un texte, d'un vocal, d'un document ou d'une vidéo.
-            </p>
+          <div className="rounded-[22px] border border-dashed border-[#3A3022] bg-[#171512]/60 p-8 text-center space-y-4">
+            <div>
+              <p className="text-base text-white font-medium">Aucune règle personnalisée pour l'instant</p>
+              <p className="mt-1.5 text-sm text-[#A8A29E] max-w-md mx-auto">
+                Créez votre première réaction automatique : un emoji posé sur un message déclenche l'envoi d'un texte, d'un vocal, d'un document ou d'une vidéo.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDraft(EMPTY_DRAFT)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#F0C068] active:scale-[0.98] transition-all cursor-pointer shadow-[0_8px_25px_-8px_rgba(229,181,79,0.5)]"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.2} />
+              Créer une première automatisation
+            </button>
           </div>
         )}
 
