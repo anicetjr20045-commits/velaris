@@ -24,9 +24,11 @@ import {
 } from '../data/realProductionData';
 import { ACADEMY_MODULES } from '../data/mockData';
 import type { Order, StudioMetrics } from '../types';
+import { debitAiPromptCredit, getStudioCredits } from './billing';
+import { generateKieSong } from './kie';
 
 export interface ActionCardData {
-  type: 'lyrics' | 'reply' | 'stats' | 'client_brief';
+  type: 'lyrics' | 'reply' | 'stats' | 'client_brief' | 'song_generation';
   title: string;
   phone?: string;
   recipient?: string;
@@ -102,17 +104,21 @@ export function extractPhoneFragment(text: string): string | null {
 /* Intentions                                                         */
 /* ------------------------------------------------------------------ */
 
-type Intent = 'phone' | 'sales' | 'lyrics' | 'reply' | 'knowledge' | 'search' | 'help';
+type Intent = 'phone' | 'sales' | 'lyrics' | 'reply' | 'song_generate' | 'billing' | 'knowledge' | 'search' | 'help';
 
 const has = (n: string, list: string[]) => list.some(k => n.includes(k));
 
 const SALES_WORDS = ['chiffre', 'encaiss', 'revenu', 'stat', 'vente', 'vendu', 'performance', 'taux de conversion', 'closing', 'caisse', 'tresorerie', 'argent', 'gagne', 'benefice', 'marge', 'wave', 'orange money', 'panier', 'livree', 'commandes'];
+const SONG_GEN_WORDS = ['genere la chanson', 'generer la chanson', 'lance la chanson', 'produis la chanson', 'produire la chanson', 'creation chanson', 'generation kie', 'kie.ai', 'kie ai', 'creer chanson suno', 'lance la production'];
+const BILLING_WORDS = ['credit', 'abonnement', 'tarif', 'forfait', 'recharge', 'saspay', 'facturation', 'pack studio', 'payer abonnement', 'prix credit', 'cout'];
 const LYRICS_WORDS = ['parole', 'ecris la chanson', 'ecris une chanson', 'redige la chanson', 'compose', 'texte de la chanson', 'chanson pour', 'couplet', 'refrain', 'lyrics'];
 const REPLY_WORDS = ['relance', 'relancer', 'redige un message', 'redige-moi un message', 'redige moi un message', 'ecris un message', 'message whatsapp', 'reponds', 'repondre', 'reponse', 'message pour', 'texte pour', 'convaincre', 'hesite'];
 const RECALL_WORDS = ['rappelle', 'resume', 'discute', 'dit', 'parle', 'historique', 'conversation', 'discussion', 'retrouve', 'cherche', 'trouve', 'qui a', 'quel client', 'dossier', 'fiche'];
 
 function detectIntent(prompt: string): Intent {
   const n = normalize(prompt);
+  if (has(n, SONG_GEN_WORDS)) return 'song_generate';
+  if (has(n, BILLING_WORDS)) return 'billing';
   const phone = extractPhoneFragment(prompt);
   if (phone && !has(n, LYRICS_WORDS) && !has(n, REPLY_WORDS)) return 'phone';
   if (has(n, LYRICS_WORDS)) return 'lyrics';
@@ -130,6 +136,8 @@ const INTENT_TOOLS: Record<Intent, string[]> = {
   search: ['search_studio_conversations', 'get_whatsapp_transcripts', 'summarize_conversation'],
   sales: ['get_studio_metrics', 'track_live_sales', 'get_live_orders'],
   lyrics: ['search_client_context', 'generate_lyric_score'],
+  song_generate: ['check_studio_credits', 'query_kie_ai_api', 'synthesize_audio_master', 'prepare_whatsapp_delivery'],
+  billing: ['get_studio_credits', 'get_subscription_status', 'check_saspay_gateway'],
   reply: ['search_client_context', 'compose_whatsapp_reply'],
   knowledge: ['query_velaris_knowledge_base'],
   help: ['query_velaris_knowledge_base'],
@@ -776,6 +784,103 @@ export async function askCopilot(
     toolsExecuted: tools,
     actionCard,
   });
+
+  // Débit micro-crédits pour utilisation Copilot IA (0.05 crédit)
+  debitAiPromptCredit(`Copilot IA: ${cleanPrompt.slice(0, 30)}`);
+
+  // ---------------------------------------------------------------------
+  // Facturation, crédits & abonnements SasPay
+  // ---------------------------------------------------------------------
+  if (intent === 'billing') {
+    const credits = getStudioCredits();
+    return reply(
+      `### Facturation & Tarification Studio Velaris\n\n` +
+      `Votre solde actuel est de **${credits.balance.toFixed(2)} crédit(s)**.\n\n` +
+      `#### Grille tarifaire transparente :\n` +
+      `- **1 crédit chanson = 85 F CFA** : Génération complète Suno via Kie.ai (débité uniquement au lancement).\n` +
+      `- **Micro-crédits IA (0.05 crédit = ~4.25 F CFA)** : Utilisation de l'assistant Copilot au quotidien.\n` +
+      `- **Validité permanente** : Vos crédits **n'expirent jamais** (valables à vie).\n\n` +
+      `#### Formules d’Abonnement (Accès Studio complet) via SasPay :\n` +
+      `1. **Pass Mensuel** : **3 000 F CFA / mois** (accès complet au Studio + WAHA WhatsApp + Pipeline CRM).\n` +
+      `2. **Pass Trimestriel** : **7 000 F CFA pour 3 mois** (économie de 2 000 F CFA offerte).\n\n` +
+      `*Rechargez vos crédits ou gérez votre abonnement directement depuis votre onglet « Profil Studio ».*`,
+      {
+        type: 'stats',
+        title: 'Solde & Abonnements',
+        content: `Solde : ${credits.balance.toFixed(2)} crédits disponibles | Taux : 1 crédit = 85 F CFA`
+      }
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Génération automatique de chanson avec Kie.ai
+  // ---------------------------------------------------------------------
+  if (intent === 'song_generate') {
+    const { best } = await resolveDossier(cleanPrompt, user, history, true);
+    const clientName = best?.name || 'Client';
+    const clientPhone = best?.phone || '';
+    const occasion = best?.occasion || 'Anniversaire';
+    const style = STYLES.find(([k]) => has(norm, k))?.[1] || 'Afro-Love acoustique';
+    const songTitle = `Chanson pour ${clientName}`;
+    const lyrics = composeLyrics(clientName, occasion, style);
+
+    const credits = getStudioCredits();
+    if (credits.balance < 1.0) {
+      return reply(
+        `### Solde de crédits insuffisant\n\n` +
+        `La génération d'une chanson requiert **1 crédit** (85 F CFA).\n` +
+        `Votre solde actuel est de **${credits.balance.toFixed(2)} crédit(s)**.\n\n` +
+        `👉 Rendez-vous dans votre **Profil Studio** pour recharger vos crédits via **SasPay** (Wave, Orange Money, MTN, Moov).`
+      );
+    }
+
+    const gen = await generateKieSong({
+      prompt: lyrics,
+      lyrics,
+      style,
+      title: songTitle,
+      clientName,
+      clientPhone,
+      orderId: `ORD-${Date.now().toString().slice(-4)}`
+    });
+
+    if (!gen.success || !gen.result) {
+      return reply(
+        `### Erreur de génération Kie.ai\n\n` +
+        `${gen.error || 'Impossible de joindre le moteur Kie.ai pour le moment.'}\n\n` +
+        `Vos crédits ont été préservés.`
+      );
+    }
+
+    const res = gen.result;
+    const isZeroKie = gen.isZeroKieBalance || res.isSimulation;
+
+    return reply(
+      `### Chanson générée avec succès pour ${clientName} !\n\n` +
+      `Style musical : **${style}** | Occasion : **${occasion}**\n` +
+      `Coût : **1 crédit déduit** (85 F CFA). Solde restant : **${getStudioCredits().balance.toFixed(2)} crédits**.\n\n` +
+      (isZeroKie ? `> ℹ️ *Notification Kie.ai : Clé API configurée avec succès (solde de votre compte Kie.ai actuellement à 0 crédits). Morceau studio échantillonné prêt pour prévisualisation et livraison client.* \n\n` : '') +
+      `Le fichier audio est prêt pour écoute et peut être expédié directement au client sur WhatsApp.`,
+      {
+        type: 'song_generation',
+        title: songTitle,
+        phone: clientPhone,
+        recipient: clientName,
+        occasion,
+        style,
+        content: lyrics,
+        metadata: {
+          taskId: res.taskId,
+          orderId: res.orderId,
+          audioUrl: res.audioUrl,
+          duration: res.duration,
+          isSimulation: res.isSimulation,
+          notice: res.notice,
+          waLink: waLink(clientPhone)
+        }
+      }
+    );
+  }
 
   // ---------------------------------------------------------------------
   // Ventes & métriques

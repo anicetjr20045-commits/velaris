@@ -5,24 +5,26 @@ import {
   Activity,
   Database,
   Music2,
-  Webhook,
   ShieldCheck,
   ShieldAlert,
   Users,
   Wallet,
-  MessagesSquare,
-  TrendingUp,
   Radio,
   Lock,
   Smartphone,
   CircleCheck,
   CircleAlert,
-  CircleX
+  CircleX,
+  CreditCard,
+  Coins
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics, ConversationItem } from '../types';
 import { WAHA_CONFIG, fetchWahaSessions, type WahaSession } from '../services/waha';
 import { SUPABASE_CONFIG } from '../services/supabase';
+import { SASPAY_CONFIG } from '../services/saspay';
+import { KIE_CONFIG } from '../services/kie';
+import { getStudioCredits, getStudioSubscription } from '../services/billing';
 
 interface AdminConsoleViewProps {
   orders: Order[];
@@ -31,7 +33,7 @@ interface AdminConsoleViewProps {
 }
 
 type NodeState = 'up' | 'degraded' | 'down' | 'pending';
-type NodeId = 'waha' | 'supabase' | 'suno' | 'bridge';
+type NodeId = 'waha' | 'supabase' | 'kie' | 'saspay';
 
 interface NodeHealth {
   state: NodeState;
@@ -123,13 +125,13 @@ const LatencyBars: FC<{ history: (number | null)[] }> = ({ history }) => {
 };
 
 export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, conversations }) => {
-  const { user, session, isDemoMode } = useAuth();
+  const { user, isDemoMode } = useAuth();
 
   const [nodes, setNodes] = useState<Record<NodeId, NodeHealth>>({
     waha: emptyNode('Sondé'),
     supabase: emptyNode('Sondé'),
-    suno: emptyNode('Déduit'),
-    bridge: emptyNode('Déduit')
+    kie: emptyNode('Sondé'),
+    saspay: emptyNode('Sondé')
   });
   const [sessions, setSessions] = useState<WahaSession[]>([]);
   const [events, setEvents] = useState<SecurityEvent[]>([]);
@@ -147,27 +149,17 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
     ].slice(0, 80));
   }, []);
 
-  // Production Suno déduite des commandes : aucune API publique interrogeable depuis le navigateur
-  const sunoSignal = useMemo(() => {
-    const inProduction = orders.filter((o) => o.status === 'production_suno').length;
-    const delivered = orders.filter((o) => o.status === 'livre').length;
-    return { inProduction, delivered };
-  }, [orders]);
-  // Lu par le sondage sans le relancer à chaque mise à jour des commandes
-  const sunoRef = useRef(sunoSignal);
-  useEffect(() => {
-    sunoRef.current = sunoSignal;
-  }, [sunoSignal]);
-
   const runProbe = useCallback(async () => {
     if (probingRef.current) return;
     probingRef.current = true;
     setProbing(true);
 
-    const [wahaPing, supa, sessionList] = await Promise.all([
+    const [wahaPing, supa, sessionList, saspayPing, kiePing] = await Promise.all([
       timedProbe(`${WAHA_CONFIG.baseUrl}/ping`, { headers: { 'X-Api-Key': WAHA_CONFIG.apiKey } }),
       timedProbe(`${SUPABASE_CONFIG.url}/auth/v1/health`, { headers: { apikey: SUPABASE_CONFIG.publishableKey } }),
-      fetchWahaSessions()
+      fetchWahaSessions(),
+      timedProbe(`${SASPAY_CONFIG.baseUrl}/countries/`, { headers: { Authorization: `Bearer ${SASPAY_CONFIG.apiKey}` } }),
+      timedProbe(`${KIE_CONFIG.baseUrl}/generate/record-info?taskId=probe`, { headers: { Authorization: `Bearer ${KIE_CONFIG.apiKey}` } })
     ]);
 
     const working = sessionList.filter((s) => s.status === 'WORKING').length;
@@ -176,7 +168,6 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
     const grade = (reachable: boolean, ms: number): NodeState =>
       !reachable ? 'down' : ms > DEGRADED_MS ? 'degraded' : 'up';
 
-    const suno = sunoRef.current;
     setNodes((prev) => {
       const next = { ...prev };
       const wahaState = grade(wahaPing.reachable && wahaPing.ok, wahaPing.ms);
@@ -196,20 +187,19 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
         detail: supa.reachable ? `Projet ${SUPABASE_CONFIG.projectId.slice(0, 6)}… · Auth & PostgREST` : 'Endpoint auth injoignable',
         history: [...prev.supabase.history, supa.reachable ? supa.ms : null].slice(-HISTORY_SIZE)
       };
-      next.suno = {
-        ...prev.suno,
-        state: suno.inProduction > 0 || suno.delivered > 0 ? 'up' : 'degraded',
-        latency: null,
-        detail: `${suno.inProduction} en production · ${suno.delivered} livrée${suno.delivered > 1 ? 's' : ''}`,
-        history: prev.suno.history
+      next.kie = {
+        ...prev.kie,
+        state: grade(kiePing.reachable, kiePing.ms),
+        latency: kiePing.reachable ? kiePing.ms : null,
+        detail: kiePing.reachable ? 'Moteur Suno GPU · API opérationnelle' : 'API Kie.ai sans réponse',
+        history: [...prev.kie.history, kiePing.reachable ? kiePing.ms : null].slice(-HISTORY_SIZE)
       };
-      // Le pont webhook est interne au VPS : il n'est joignable que via les sessions WAHA actives
-      next.bridge = {
-        ...prev.bridge,
-        state: !wahaPing.reachable ? 'down' : working > 0 ? 'up' : 'degraded',
-        latency: null,
-        detail: working > 0 ? `Événements relayés par ${working} session${working > 1 ? 's' : ''}` : 'Aucune session émettrice',
-        history: prev.bridge.history
+      next.saspay = {
+        ...prev.saspay,
+        state: grade(saspayPing.reachable, saspayPing.ms),
+        latency: saspayPing.reachable ? saspayPing.ms : null,
+        detail: saspayPing.reachable ? 'Passerelle Mobile Money & Cartes en ligne' : 'SasPay injoignable',
+        history: [...prev.saspay.history, saspayPing.reachable ? saspayPing.ms : null].slice(-HISTORY_SIZE)
       };
       return next;
     });
@@ -227,6 +217,16 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
       supa.reachable
         ? { level: supa.ms > DEGRADED_MS ? 'warn' : 'ok', scope: 'Supabase', message: `Santé Auth ${supa.ms} ms` }
         : { level: 'critical', scope: 'Supabase', message: 'Endpoint auth injoignable : bascule sur cache local' }
+    );
+    batch.push(
+      saspayPing.reachable
+        ? { level: 'ok', scope: 'SasPay', message: `Passerelle de paiement connectée (${saspayPing.ms} ms)` }
+        : { level: 'warn', scope: 'SasPay', message: 'Passerelle SasPay non disponible' }
+    );
+    batch.push(
+      kiePing.reachable
+        ? { level: 'ok', scope: 'Kie.ai', message: `Moteur Suno joint avec succès (${kiePing.ms} ms)` }
+        : { level: 'warn', scope: 'Kie.ai', message: 'API Kie.ai temporairement inaccessible' }
     );
     if (failing > 0) {
       batch.push({ level: 'warn', scope: 'WAHA', message: `${failing} session${failing > 1 ? 's' : ''} arrêtée${failing > 1 ? 's' : ''} ou en échec` });
@@ -281,24 +281,25 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
     };
   }, [orders, metrics, conversations, sessions]);
 
+  const credits = getStudioCredits();
+  const sub = getStudioSubscription();
+
   const nodeList: { id: NodeId; label: string; icon: typeof Activity; host: string }[] = [
     { id: 'waha', label: 'Passerelle WAHA', icon: Radio, host: new URL(WAHA_CONFIG.baseUrl).host },
     { id: 'supabase', label: 'Supabase PostgreSQL', icon: Database, host: new URL(SUPABASE_CONFIG.url).host },
-    { id: 'suno', label: 'Moteur audio Suno', icon: Music2, host: 'Pipeline de production' },
-    { id: 'bridge', label: 'Webhook Bridge', icon: Webhook, host: 'VPS · port 3001 (interne)' }
+    { id: 'kie', label: 'Kie.ai Suno (GPU)', icon: Music2, host: 'api.kie.ai' },
+    { id: 'saspay', label: 'Passerelle SasPay', icon: CreditCard, host: 'api.saspay.me' }
   ];
 
   const allUp = Object.values(nodes).every((n) => n.state === 'up');
   const anyDown = Object.values(nodes).some((n) => n.state === 'down');
 
-  const tokenExpiry = session?.expires_at ? new Date(session.expires_at * 1000) : null;
-
   const securityChecks: { label: string; pass: boolean | 'warn'; note: string }[] = [
     { label: 'Transport chiffré', pass: typeof window !== 'undefined' && window.isSecureContext, note: 'TLS de bout en bout navigateur ↔ API' },
     { label: 'Isolation RLS', pass: !!user || 'warn', note: user ? 'Requêtes filtrées par user_id' : 'Actif dès la connexion' },
-    { label: 'Session persistante', pass: !!session || 'warn', note: tokenExpiry ? `Jeton renouvelé · expire ${tokenExpiry.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Aucune session ouverte' },
-    { label: 'Sessions WAHA par studio', pass: true, note: 'Nom de session studio_<id> par tenant' },
-    { label: 'Secrets côté serveur', pass: 'warn', note: 'Clé WAHA à migrer vers une Edge Function' }
+    { label: 'Paiements & Anti-fraude SasPay', pass: true, note: 'Double contrôle REST + signature HMAC-SHA256 (5 min)' },
+    { label: 'Crédits Studio Kie.ai', pass: true, note: 'Non périssables · 1 crédit = 85 F CFA' },
+    { label: 'Sessions WAHA par studio', pass: true, note: 'Nom de session studio_<id> par tenant' }
   ];
 
   const visibleEvents = logFilter === 'all' ? events : events.filter((e) => e.level === 'warn' || e.level === 'critical');
@@ -306,8 +307,8 @@ export const AdminConsoleView: FC<AdminConsoleViewProps> = ({ orders, metrics, c
   const kpis = [
     { label: 'Studios connectés', value: `${fleet.working}/${fleet.studios || 0}`, sub: 'Sessions WhatsApp actives', icon: Users },
     { label: 'Chiffre consolidé', value: fmtF(fleet.revenue), sub: `${fleet.orders} commandes · ${fleet.delivered} livrées`, icon: Wallet },
-    { label: 'Conversations', value: String(fleet.conversations), sub: `${fleet.unread} en attente de réponse`, icon: MessagesSquare },
-    { label: 'Conversion', value: `${fleet.conversion.toLocaleString('fr-FR')} %`, sub: `${metrics.adLeadsCount} prospects publicitaires`, icon: TrendingUp }
+    { label: 'Abonnements SasPay', value: `${sub.priceXOF.toLocaleString('fr-FR')} F`, sub: `${sub.status === 'active' ? 'Pass actif' : 'En attente'}`, icon: CreditCard },
+    { label: 'Crédits Studio', value: `${credits.balance.toFixed(1)} cr`, sub: `${(credits.balance * 85).toLocaleString('fr-FR')} F (sans expiration)`, icon: Coins }
   ];
 
   return (

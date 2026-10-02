@@ -13,6 +13,10 @@ import {
   Upload,
   Video,
   X,
+  Music2,
+  Sparkles,
+  Send,
+  CheckCircle2,
   type LucideIcon
 } from 'lucide-react';
 import type { AutomationLog, AutomationMediaKind, AutomationRule } from '../types';
@@ -32,6 +36,7 @@ import {
 } from '../services/supabase';
 import { WaveformPlayer } from './WaveformPlayer';
 import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
+import { getSongAutomationConfig, saveSongAutomationConfig, triggerSongAutomation } from '../services/songAutomation';
 
 const MAX_LOGS = 50;
 
@@ -170,6 +175,44 @@ export const AutomationsView: FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
+  const [songAutoConfig, setSongAutoConfig] = useState(getSongAutomationConfig());
+  const [testingSongAuto, setTestingSongAuto] = useState(false);
+  const [songAutoNotice, setSongAutoNotice] = useState<string | null>(null);
+
+  const handleToggleSongAuto = () => {
+    const updated = { ...songAutoConfig, enabled: !songAutoConfig.enabled };
+    setSongAutoConfig(updated);
+    saveSongAutomationConfig(updated);
+    pushLog('Génération Chansons Kie.ai', updated.enabled ? 'Activée' : 'Coupée');
+  };
+
+  const handleToggleAutoDeliver = () => {
+    const updated = { ...songAutoConfig, autoDeliverWhatsApp: !songAutoConfig.autoDeliverWhatsApp };
+    setSongAutoConfig(updated);
+    saveSongAutomationConfig(updated);
+  };
+
+  const handleTestSongAutomation = async () => {
+    setTestingSongAuto(true);
+    setSongAutoNotice(null);
+    const trigger = await triggerSongAutomation({
+      emoji: songAutoConfig.reactionEmoji,
+      clientName: 'Mariam Diallo',
+      clientPhone: '+226 79 29 64 99',
+      title: 'Chanson pour Mariam',
+      lyrics: 'Mariam, lumière de ma vie, chaque instant avec toi est une mélodie...',
+      style: 'Afro-Love acoustique',
+      orderId: `ORD-${Date.now().toString().slice(-4)}`
+    });
+    setTestingSongAuto(false);
+    if (trigger.triggered) {
+      setSongAutoNotice('Succès : Réaction emoji 🎵 détectée → Chanson Kie.ai générée (1 crédit débité) → Expédiée sur WhatsApp au +226 79 29 64 99 !');
+      pushLog('Génération Chanson Kie.ai', 'Envoyé', '+226 79 29 64 99');
+    } else {
+      setSongAutoNotice(`Information : ${trigger.reason || 'Simulation terminée'}`);
+    }
+  };
+
   /* URLs signées des médias en base (path -> url), valables une heure */
   const [signed, setSigned] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
@@ -559,7 +602,108 @@ export const AutomationsView: FC = () => {
         </div>
       )}
 
-      {draft && !draft.id && renderForm(false)}
+      {/* Automatisation Chansons IA Kie.ai */}
+      <section className="rounded-[22px] border border-[#E5B54F]/40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1C1710] to-[#0E0C0A] p-6 space-y-5 shadow-[0_16px_40px_-16px_rgba(229,181,79,0.25)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl border border-[#E5B54F]/40 bg-[#E5B54F]/10 flex items-center justify-center text-[#F3CA75]">
+              <Music2 className="h-6 w-6" strokeWidth={1.5} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-[17px] font-semibold text-white">Génération Chansons Automatique (Kie.ai)</h2>
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Suno GPU
+                </span>
+              </div>
+              <p className="text-xs text-[#A8A29E] mt-0.5">
+                Réagissez avec un emoji à un brief client pour lancer la production et livrer le morceau sur WhatsApp.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={handleToggleSongAuto}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                songAutoConfig.enabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-white/5 text-neutral-400 border border-white/10'
+              }`}
+            >
+              {songAutoConfig.enabled ? 'Automatisation Active' : 'Désactivée'}
+            </button>
+          </div>
+        </div>
+
+        {songAutoNotice && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            <span>{songAutoNotice}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border border-[#2D261E] bg-[#14110E] p-3.5 space-y-1.5">
+            <div className="text-xs text-[#A8A29E]">Emoji Déclencheur</div>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{songAutoConfig.reactionEmoji}</span>
+              <span className="text-xs text-neutral-300 font-mono">sur brief WhatsApp</span>
+            </div>
+            <p className="text-[11px] text-neutral-500">Posez cet emoji sur le brief pour déclencher l'IA.</p>
+          </div>
+
+          <div className="rounded-xl border border-[#2D261E] bg-[#14110E] p-3.5 space-y-1.5">
+            <div className="text-xs text-[#A8A29E]">Livraison WhatsApp</div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">
+                {songAutoConfig.autoDeliverWhatsApp ? 'Automatique (PTT + Texte)' : 'Validation Manuelle'}
+              </span>
+              <input
+                type="checkbox"
+                checked={songAutoConfig.autoDeliverWhatsApp}
+                onChange={handleToggleAutoDeliver}
+                className="h-4 w-4 accent-[#E5B54F]"
+              />
+            </div>
+            <p className="text-[11px] text-neutral-500">Envoie le morceau dès qu'il sort du studio.</p>
+          </div>
+
+          <div className="rounded-xl border border-[#2D261E] bg-[#14110E] p-3.5 space-y-1.5">
+            <div className="text-xs text-[#A8A29E]">Facturation Studio</div>
+            <div className="font-mono text-xs font-semibold text-[#F3CA75]">
+              1 crédit = 85 F CFA
+            </div>
+            <p className="text-[11px] text-neutral-500">Nouveaux & anciens clients tracés sans confusion.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#2D261E]">
+          <span className="text-xs text-neutral-500">
+            {songAutoConfig.ordersCreatedCount} chansons créées automatiquement · Clé Kie.ai connectée
+          </span>
+          <button
+            type="button"
+            disabled={testingSongAuto || !songAutoConfig.enabled}
+            onClick={handleTestSongAutomation}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#E5B54F] px-4 py-2 text-xs font-semibold text-black hover:bg-[#F0C068] active:scale-[0.98] transition-all disabled:opacity-40 shadow-[0_0_20px_-5px_rgba(229,181,79,0.3)]"
+          >
+            {testingSongAuto ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Exécution du pipeline Kie.ai...</span>
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>Tester la réaction 🎵 (Simulation Live)</span>
+              </>
+            )}
+          </button>
+        </div>
+      </section>
 
       {/* Règles */}
       <div className="space-y-3.5">

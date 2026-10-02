@@ -30,6 +30,36 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 22. Système d'Abonnement SasPay, Crédits Permanents & Automatisation Chansons Kie.ai (2 Octobre 2026)
+- **Intégration Moteur Kie.ai (Suno GPU)** (`src/services/kie.ts`) :
+  - Clé API : `9c8965ca1c39ef43b6835599b42c8951`, endpoints `/generate` et `/generate/record-info`.
+  - Gestion gracieuse du solde nul (code HTTP 402) sans bloquer l'application : génération studio échantillonnée avec notification claire pour tests et prévisualisations.
+  - Détection automatique Nouveaux vs Anciens clients (dossier client) et traçabilité multi-commandes (Order ID unique).
+  - Livraison automatique du master audio sur la ligne WhatsApp du client (`deliverSongToWhatsApp`).
+- **Système de Crédits Studio & Facturation** (`src/services/billing.ts`, `src/types/billing.ts`) :
+  - **1 crédit chanson = 85 F CFA** (déduit lors de la production).
+  - Micro-crédits pour l'IA Copilot (**0.05 crédit = ~4.25 F CFA**, économique et intelligent).
+  - **Validité permanente** : Les crédits **n'expirent JAMAIS**.
+  - Grand livre d'audit de toutes les transactions avec solde en temps réel et persistance.
+- **Passerelle de Paiement SasPay Live & Abonnements** (`src/services/saspay.ts`) :
+  - Clé API Live : `sk_live_zlZ6VKJ75jNB0NcI8I6-BssNMZCm6eU8Hfe0dvdkAYc`.
+  - Pass Studio Mensuel : **3 000 F CFA / mois**.
+  - Pass Studio Trimestriel (3 mois) : **7 000 F CFA / 3 mois** (2 000 F d'économie).
+  - Création de sessions de checkout hébergées SasPay réelles (Mobile Money Wave, Orange Money, MTN, Moov, Carte).
+  - Contrôle anti-fraude strict avec vérification REST gateway et signature Webhook HMAC-SHA256 (tolérance d'âge de 5 minutes).
+  - Module d'abonnement dans `StudioProfileView.tsx` : statut en direct, date d'expiration exacte, bouton de résiliation, modal de recharge de crédits.
+- **Automatisation par Réaction Emoji WhatsApp** (`src/services/songAutomation.ts`, `src/components/AutomationsView.tsx`) :
+  - Réaction emoji `🎵` sur brief client déclenchant la génération Kie.ai et la livraison automatique WhatsApp.
+  - Bouton interactif de test de simulation de la réaction en direct.
+- **Console de Direction & Télémétrie d'Infrastructure** (`src/components/AdminConsoleView.tsx`) :
+  - Sondage réseau réel à 30 s de **Kie.ai** et **SasPay** avec mesure de latence en millisecondes et histogrammes.
+  - Métriques d'abonnements SasPay (MRR récurrent) et de crédits studio.
+- **Compagnon Copilot IA & Lecteur Waveform** (`src/components/StudioCopilotView.tsx`, `src/services/copilot.ts`) :
+  - Intention `song_generate` et `billing` intégrées à l'IA.
+  - Bouton « Générer avec Kie.ai (1 crédit) » sur chaque fiche de paroles.
+  - Lecteur audio interactif waveform master et bouton 1-clic « Livrer le morceau au client ».
+- **Validation** : `tsc -p tsconfig.app.json --noEmit` → 0 erreur ; `vite build` → succès en 3.56s.
+
 ### 21. Mission Complète Suite — Vague 2 (2 Octobre 2026)
 - **Source** : `MISSION_COMPLETE_SUITE.md` (points 4, 5, 9, 11, 12, 17 bonus enregistreur).
 - **`services/waha.ts`** : `wahaFetch` borné dans le temps (AbortController) pour tous les appels ; `startWahaHeartbeat` (sonde 15 s, backoff exponentiel plafonné à 60 s, veille onglet caché, reprise sur `online`/`visibilitychange`, relance auto STOPPED/FAILED limitée à 3 tentatives, états `connecting/online/scan/reconnecting/offline`, latence) ; `sendWahaVoiceMessage` (PTT `/api/sendVoice`, OGG tel quel sinon `convert: true` → WAHA Plus + ffmpeg requis) ; `markWahaChatSeen` (`/api/sendSeen`) ; `fetchWahaMessageAcks` (ack 0-4) ; `wahaSessionNameFor`, `toChatId`. Hook `useWahaHeartbeat` dans `hooks/useWaha.ts` (reconnexion auto désactivée en démo).

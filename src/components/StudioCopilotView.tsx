@@ -20,6 +20,9 @@ import {
   TrendingUp,
   UserRoundSearch,
   Wallet,
+  Coins,
+  Music2,
+  Sparkles,
   type LucideIcon
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -36,6 +39,9 @@ import type { Order, StudioMetrics } from '../types';
 import { REAL_STUDIO_METRICS } from '../data/realProductionData';
 import { SonarGlyph, SonarMascot } from './SonarMascot';
 import { SONAR_STATE_LABEL, type SonarState } from './sonarState';
+import { WaveformPlayer } from './WaveformPlayer';
+import { getStudioCredits, subscribeToBilling } from '../services/billing';
+import { generateKieSong, deliverSongToWhatsApp } from '../services/kie';
 
 interface StudioCopilotViewProps {
   sessionName?: string;
@@ -305,9 +311,81 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [sendingMessageMap, setSendingMessageMap] = useState<Record<string, boolean>>({});
   const [sentSuccessMap, setSentSuccessMap] = useState<Record<string, boolean>>({});
+  const [generatingSongMap, setGeneratingSongMap] = useState<Record<string, boolean>>({});
+  const [songDeliveredMap, setSongDeliveredMap] = useState<Record<string, boolean>>({});
+
+  // Solde de crédits Studio
+  const [credits, setCredits] = useState(getStudioCredits());
+  useEffect(() => {
+    return subscribeToBilling(() => setCredits(getStudioCredits()));
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleGenerateSongFromCard = async (msgId: string, card: any) => {
+    setGeneratingSongMap(prev => ({ ...prev, [msgId]: true }));
+    const gen = await generateKieSong({
+      prompt: card.content,
+      lyrics: card.content,
+      style: card.style || 'Afro-Love acoustique',
+      title: card.title || `Chanson pour ${card.recipient || 'Client'}`,
+      clientName: card.recipient || 'Client',
+      clientPhone: card.phone || '',
+      orderId: `ORD-${Date.now().toString().slice(-4)}`
+    });
+    setGeneratingSongMap(prev => ({ ...prev, [msgId]: false }));
+
+    if (gen.success && gen.result) {
+      const res = gen.result;
+      const newMsg: CopilotMessage = {
+        id: `song_${Date.now()}`,
+        role: 'assistant',
+        text: `### Chanson générée avec succès pour ${card.recipient || 'Client'} !\n\nStyle : **${card.style || 'Afro-Love'}** · 1 crédit débité (85 F CFA).\nLe master audio est prêt pour écoute et expédition client WhatsApp.`,
+        timestamp: nowTime(),
+        toolsExecuted: ['check_studio_credits', 'query_kie_ai_api', 'synthesize_audio_master'],
+        actionCard: {
+          type: 'song_generation',
+          title: res.title,
+          phone: card.phone,
+          recipient: card.recipient,
+          style: card.style,
+          content: card.content,
+          metadata: {
+            taskId: res.taskId,
+            orderId: res.orderId,
+            audioUrl: res.audioUrl,
+            duration: res.duration,
+            isSimulation: res.isSimulation,
+            notice: res.notice,
+            waLink: card.metadata?.waLink
+          }
+        }
+      };
+      setMessages(prev => [...prev, newMsg]);
+    }
+  };
+
+  const handleDeliverSongToWhatsApp = async (msgId: string, card: any) => {
+    if (!card.phone) return;
+    setSendingMessageMap(prev => ({ ...prev, [msgId]: true }));
+    const delivery = await deliverSongToWhatsApp({
+      taskId: card.metadata?.taskId || 'demo_task',
+      orderId: card.metadata?.orderId || 'ORD-001',
+      clientName: card.recipient || 'Client',
+      clientPhone: card.phone,
+      isNewClient: false,
+      title: card.title,
+      style: card.style || 'Afro-Love',
+      status: 'success',
+      audioUrl: card.metadata?.audioUrl,
+      createdAt: new Date().toISOString()
+    }, sessionName);
+    setSendingMessageMap(prev => ({ ...prev, [msgId]: false }));
+    if (delivery.success) {
+      setSongDeliveredMap(prev => ({ ...prev, [msgId]: true }));
+    }
+  };
 
   /* Ventes en direct : Realtime Supabase sur les commandes (studio connecté) */
   const { data: liveMetrics, syncedAt: metricsSyncedAt } = useStudioLive<StudioMetrics>(
@@ -547,6 +625,31 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
             )}
           </div>
 
+          {/* Solde Crédits Studio & Moteur Kie.ai */}
+          <div className="rounded-2xl border border-[#E5B54F]/30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1C1710] to-[#0E0C0A] p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Coins className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.6} />
+                Crédits Studio
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                <Sparkles className="h-2.5 w-2.5" />
+                Permanent
+              </span>
+            </div>
+            <div>
+              <div className="text-xs text-[#A8A29E]">Générateur Kie.ai (Suno)</div>
+              <div className="mt-0.5 font-mono text-2xl font-bold tracking-tight text-[#F3CA75] whitespace-nowrap">
+                {credits.balance.toFixed(2)}
+                <span className="ml-1 text-xs font-medium text-[#A8A29E]">crédits</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-[#A8A29E] pt-2 border-t border-[#2D261E]">
+              <span>1 chanson = 1 crédit (85 F)</span>
+              <span className="font-mono text-neutral-300">Sans expiration</span>
+            </div>
+          </div>
+
           <div className="hidden lg:block rounded-2xl border border-[#2D261E] bg-[#13110E] p-2">
             <div className="px-2.5 pt-2 pb-2.5 text-[12.5px] text-neutral-500">Sources de données</div>
             {SOURCES.map((s) => {
@@ -653,7 +756,9 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                         <div className="relative flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#2D261E]">
                           <div className="flex items-center gap-3 min-w-0">
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#E5B54F]/30 bg-[#E5B54F]/10 text-[#F3CA75]">
-                              {m.actionCard.type === 'lyrics' ? (
+                              {m.actionCard.type === 'song_generation' ? (
+                                <Music2 className="h-3.5 w-3.5" strokeWidth={1.6} />
+                              ) : m.actionCard.type === 'lyrics' ? (
                                 <Music className="h-3.5 w-3.5" strokeWidth={1.5} />
                               ) : m.actionCard.type === 'client_brief' ? (
                                 <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -670,7 +775,28 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                           )}
                         </div>
 
-                        {m.actionCard.type === 'stats' && m.actionCard.metadata ? (
+                        {m.actionCard.type === 'song_generation' ? (
+                          <div className="p-4 sm:p-5 space-y-3 bg-[#110F0D]">
+                            <div className="flex items-center justify-between text-xs text-[#A8A29E]">
+                              <span className="flex items-center gap-1.5 text-white font-medium">
+                                <Music2 className="h-3.5 w-3.5 text-[#E5B54F]" />
+                                Master Audio Studio (Kie.ai Suno)
+                              </span>
+                              <span className="font-mono text-emerald-400">1 crédit débité (85 F CFA)</span>
+                            </div>
+                            <div className="rounded-xl border border-[#2D261E] bg-[#171512] p-3.5">
+                              <WaveformPlayer seed={m.id} src={m.actionCard.metadata?.audioUrl} durationHint={m.actionCard.metadata?.duration || 180} tone="dark" />
+                            </div>
+                            {m.actionCard.metadata?.notice && (
+                              <p className="text-[11px] text-[#A8A29E] bg-[#1A1713] p-2.5 rounded-lg border border-[#2D261E]">
+                                {m.actionCard.metadata.notice}
+                              </p>
+                            )}
+                            <div className="font-serif text-[15px] leading-relaxed text-[#F1E6CF] max-h-36 overflow-y-auto whitespace-pre-wrap p-2 border border-white/5 rounded-lg">
+                              {m.actionCard.content}
+                            </div>
+                          </div>
+                        ) : m.actionCard.type === 'stats' && m.actionCard.metadata ? (
                           <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/[0.06]">
                             {[
                               { label: 'Encaissé', value: String(m.actionCard.metadata.totalRevenue ?? '0'), unit: 'F' },
@@ -718,7 +844,54 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                             )}
                           </button>
 
-                          {m.actionCard.phone && (
+                          {m.actionCard.type === 'song_generation' && m.actionCard.phone && (
+                            <button
+                              type="button"
+                              disabled={sendingMessageMap[m.id]}
+                              onClick={() => handleDeliverSongToWhatsApp(m.id, m.actionCard)}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-[#22C55E] px-4 py-2 text-sm font-semibold text-black hover:bg-[#16A34A] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_0_24px_-6px_rgba(34,197,94,0.5)]"
+                            >
+                              {sendingMessageMap[m.id] ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  <span>Livraison en cours...</span>
+                                </>
+                              ) : songDeliveredMap[m.id] ? (
+                                <>
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-black" />
+                                  <span>Chanson livrée sur WhatsApp !</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-3.5 w-3.5" />
+                                  <span>Livrer le morceau au client</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          {m.actionCard.type === 'lyrics' && (
+                            <button
+                              type="button"
+                              disabled={generatingSongMap[m.id]}
+                              onClick={() => handleGenerateSongFromCard(m.id, m.actionCard)}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-[#E5B54F] px-4 py-1.5 text-[13px] font-semibold text-black hover:bg-[#F0C068] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer shadow-[0_0_20px_-5px_rgba(229,181,79,0.4)]"
+                            >
+                              {generatingSongMap[m.id] ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  <span>Génération Kie.ai...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Music2 className="h-3.5 w-3.5" />
+                                  <span>Générer avec Kie.ai (1 crédit)</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          {m.actionCard.phone && m.actionCard.type !== 'song_generation' && (
                             <button
                               type="button"
                               disabled={sendingMessageMap[m.id]}
@@ -762,7 +935,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                             <button
                               type="button"
                               onClick={onNavigateToStudio}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-[#E5B54F] px-4 py-1.5 text-[13px] font-semibold text-black hover:bg-[#F0C068] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#3A3022] px-4 py-1.5 text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
                             >
                               <span>Envoyer à l'Atelier</span>
                               <ArrowUpRight className="h-3.5 w-3.5" />
