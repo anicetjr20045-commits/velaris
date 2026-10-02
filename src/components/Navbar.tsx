@@ -1,14 +1,28 @@
-import { useState, type FC } from 'react';
-import { Menu, X, LogIn, ShieldCheck } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FC } from 'react';
+import { LogIn, Menu, ShieldCheck, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { VelarisMark } from './VelarisMark';
+import { SonarGlyph } from './SonarMascot';
+
+type NavTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
 interface NavbarProps {
-  activeTab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
-  setActiveTab: (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot') => void;
+  activeTab: NavTab;
+  setActiveTab: (tab: NavTab) => void;
   isWhatsAppConnected: boolean;
   onOpenQrModal: () => void;
   onOpenNewOrderModal?: () => void;
 }
+
+const NAV_ITEMS: { id: NavTab; label: string }[] = [
+  { id: 'home', label: 'Accueil' },
+  { id: 'studio', label: 'Atelier' },
+  { id: 'cockpit', label: 'Cockpit' },
+  { id: 'copilot', label: 'Copilot' },
+  { id: 'academy', label: 'Académie' },
+];
+
+const WHATSAPP_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Velaris, je souhaite créer une chanson personnalisée.');
 
 export const Navbar: FC<NavbarProps> = ({
   activeTab,
@@ -18,280 +32,233 @@ export const Navbar: FC<NavbarProps> = ({
 }) => {
   const { user, openAuthModal } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
 
-  const handleNavClick = (tab: 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot') => {
+  const studioName = user
+    ? (user.user_metadata?.studio_name as string) || (user.email ? user.email.split('@')[0] : 'Mon Studio')
+    : '';
+
+  const handleNavClick = (tab: NavTab) => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
   };
 
-  const WHATSAPP_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Velaris, je souhaite créer une chanson personnalisée.');
+  /* La barre se densifie dès qu'on quitte le haut de page */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  /* Pastille active qui glisse d'un lien à l'autre */
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = navRef.current?.querySelector<HTMLElement>(`[data-nav="${activeTab}"]`);
+      setIndicator(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsMobileMenuOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isMobileMenuOpen]);
 
   return (
-    <>
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#08080a]/90 backdrop-blur-2xl transition-all">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8 gap-4">
-          {/* Logo & Brand (with explicit right margin to avoid crowding nav) */}
-          <div 
-            onClick={() => handleNavClick('home')}
-            className="flex items-center gap-3 cursor-pointer group select-none shrink-0 mr-4 lg:mr-8"
+    <header
+      className={`sticky top-0 z-40 w-full border-b transition-colors duration-300 ease-luxury ${
+        scrolled || isMobileMenuOpen ? 'border-white/[0.08] bg-[#050608]/80 backdrop-blur-2xl' : 'border-transparent bg-transparent'
+      }`}
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
+        {/* Marque */}
+        <button
+          type="button"
+          onClick={() => handleNavClick('home')}
+          className="group flex shrink-0 items-center gap-2.5 select-none cursor-pointer"
+          aria-label="Velaris, accueil"
+        >
+          <VelarisMark className="h-7 w-7 text-white transition-transform duration-500 ease-luxury group-hover:rotate-[24deg]" />
+          <span className="font-heading text-[17px] font-bold tracking-tight text-white">Velaris</span>
+        </button>
+
+        {/* Navigation desktop */}
+        <nav
+          ref={navRef}
+          className="relative hidden md:flex items-center gap-0.5 rounded-full border border-white/[0.07] bg-white/[0.02] p-1"
+          aria-label="Navigation principale"
+        >
+          {indicator && (
+            <span
+              aria-hidden="true"
+              className="absolute top-1 bottom-1 rounded-full bg-white/[0.09] border border-white/[0.08] transition-[left,width] duration-300 ease-luxury"
+              style={{ left: indicator.left, width: indicator.width }}
+            />
+          )}
+          {NAV_ITEMS.map(item => {
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                data-nav={item.id}
+                onClick={() => handleNavClick(item.id)}
+                aria-current={active ? 'page' : undefined}
+                className={`relative z-10 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                  active ? 'text-white font-medium' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {item.id === 'copilot' && <SonarGlyph size={14} />}
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Actions desktop */}
+        <div className="hidden md:flex shrink-0 items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onOpenQrModal}
+            title={isWhatsAppConnected ? 'Passerelle WhatsApp connectée' : 'Scannez le QR code pour connecter WhatsApp'}
+            className="inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 text-[11px] text-neutral-400 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/[0.04] transition-colors group-hover:border-white/50">
-              <span className="h-2 w-2 rounded-full bg-white" />
-            </div>
+            <span className="relative flex h-2 w-2">
+              {!isWhatsAppConnected && <span className="absolute inset-0 rounded-full bg-amber-400 vx-breathe" />}
+              <span className={`relative h-2 w-2 rounded-full ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            </span>
+            <span className="hidden lg:inline">{isWhatsAppConnected ? 'WhatsApp actif' : 'Connecter WhatsApp'}</span>
+          </button>
 
-            <div className="flex items-baseline gap-2">
-              <span className="font-heading text-lg font-bold tracking-tight text-white">
-                VELARIS
-              </span>
-              <span className="text-[10px] tracking-widest text-neutral-400 uppercase font-medium">
-                Studio
-              </span>
-            </div>
-          </div>
-
-          {/* Desktop Navigation Links (with minimum 16px gap and generous spacing) */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-xs font-medium tracking-tight">
+          {user ? (
             <button
-              onClick={() => handleNavClick('home')}
-              className={`transition-colors py-1 relative whitespace-nowrap ${
-                activeTab === 'home'
-                  ? 'text-white font-semibold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Accueil
-              {activeTab === 'home' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-white rounded-full" />
-              )}
-            </button>
-
-            <button
-              onClick={() => handleNavClick('studio')}
-              className={`transition-colors py-1 relative whitespace-nowrap ${
-                activeTab === 'studio'
-                  ? 'text-white font-semibold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Atelier de composition
-              {activeTab === 'studio' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-white rounded-full" />
-              )}
-            </button>
-
-            <button
+              type="button"
               onClick={() => handleNavClick('cockpit')}
-              className={`transition-colors py-1 relative whitespace-nowrap ${
-                activeTab === 'cockpit'
-                  ? 'text-white font-semibold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.03] px-3 py-1.5 text-xs text-neutral-200 hover:border-white/30 transition-colors cursor-pointer whitespace-nowrap"
             >
-              Cockpit des ventes
-              {activeTab === 'cockpit' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-white rounded-full" />
-              )}
+              <ShieldCheck className="h-3 w-3 text-emerald-400" strokeWidth={1.75} />
+              <span className="max-w-[120px] truncate">{studioName}</span>
             </button>
-
+          ) : (
             <button
-              onClick={() => handleNavClick('copilot')}
-              className={`transition-colors py-1 relative whitespace-nowrap flex items-center gap-1.5 ${
-                activeTab === 'copilot'
-                  ? 'text-[#d4af37] font-semibold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
+              type="button"
+              onClick={() => openAuthModal('login')}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-[#d4af37]" />
-              <span>Copilot IA & Analyste</span>
-              {activeTab === 'copilot' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d4af37] rounded-full" />
-              )}
+              <LogIn className="h-3 w-3" strokeWidth={1.75} />
+              Connexion
             </button>
+          )}
 
-            <button
-              onClick={() => handleNavClick('academy')}
-              className={`transition-colors py-1 relative whitespace-nowrap ${
-                activeTab === 'academy'
-                  ? 'text-white font-semibold'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Académie
-              {activeTab === 'academy' && (
-                <span className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-white rounded-full" />
-              )}
-            </button>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press whitespace-nowrap shadow-[0_0_24px_rgba(255,255,255,0.10)]"
+          >
+            Commander sur WhatsApp
+          </a>
+        </div>
+
+        {/* Mobile */}
+        <div className="flex md:hidden shrink-0 items-center gap-2">
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black whitespace-nowrap"
+          >
+            Commander
+          </a>
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(o => !o)}
+            aria-label={isMobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={isMobileMenuOpen}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03] text-white cursor-pointer"
+          >
+            {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Menu mobile */}
+      {isMobileMenuOpen && (
+        <div className="vx-view-enter md:hidden border-t border-white/[0.06] px-5 pt-3 pb-6 space-y-5">
+          <nav className="flex flex-col" aria-label="Navigation mobile">
+            {NAV_ITEMS.map((item, i) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleNavClick(item.id)}
+                  style={{ '--i': i } as CSSProperties}
+                  className={`vx-stagger flex items-center justify-between border-b border-white/[0.05] py-3.5 text-left font-heading text-lg tracking-tight cursor-pointer ${
+                    active ? 'text-white' : 'text-neutral-400'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    {item.id === 'copilot' && <SonarGlyph size={18} />}
+                    {item.label}
+                  </span>
+                  {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                </button>
+              );
+            })}
           </nav>
 
-          {/* Desktop Right Actions: Gap >= 16px, White-space nowrap pastille */}
-          <div className="hidden md:flex items-center gap-4 lg:gap-5 shrink-0 ml-4">
+          <div className="space-y-2.5">
             <button
-              onClick={onOpenQrModal}
-              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs whitespace-nowrap transition-colors ${
-                isWhatsAppConnected
-                  ? 'border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-400 hover:bg-emerald-500/15'
-                  : 'border-amber-500/30 bg-amber-500/[0.08] text-amber-300 hover:bg-amber-500/15'
-              }`}
+              type="button"
+              onClick={() => {
+                onOpenQrModal();
+                setIsMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-xs text-neutral-300 cursor-pointer"
             >
-              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
-              <span className="font-medium text-xs whitespace-nowrap">
-                {isWhatsAppConnected ? 'WhatsApp actif' : 'Scan QR requis'}
+              <span>Passerelle WhatsApp</span>
+              <span className={`inline-flex items-center gap-1.5 ${isWhatsAppConnected ? 'text-emerald-300' : 'text-amber-300'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400 vx-breathe'}`} />
+                {isWhatsAppConnected ? 'Active' : 'Scan QR requis'}
               </span>
             </button>
 
             {user ? (
               <button
+                type="button"
                 onClick={() => handleNavClick('cockpit')}
-                className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.04] px-3 py-1.5 text-xs text-neutral-200 hover:border-white/40 hover:bg-white/[0.08] transition-colors whitespace-nowrap"
+                className="w-full flex items-center justify-between rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-xs text-neutral-200 cursor-pointer"
               >
-                <ShieldCheck className="h-3 w-3 text-emerald-400" />
-                <span className="font-semibold text-xs max-w-[120px] truncate">
-                  {(user.user_metadata?.studio_name as string) || (user.email ? user.email.split('@')[0] : 'Mon Studio')}
+                <span className="inline-flex items-center gap-2">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.75} />
+                  {studioName}
                 </span>
+                <span className="font-mono text-[10px] text-neutral-500">Espace privé</span>
               </button>
             ) : (
               <button
-                onClick={() => openAuthModal('login')}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-neutral-300 hover:text-white hover:border-white/35 transition-colors whitespace-nowrap"
-              >
-                <LogIn className="h-3 w-3" />
-                <span>Connexion</span>
-              </button>
-            )}
-
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition-all hover:bg-neutral-200 active:scale-95 whitespace-nowrap"
-            >
-              Commander sur WhatsApp
-            </a>
-          </div>
-
-          {/* Mobile Right Bar: Single CTA + Burger button (Point 3) */}
-          <div className="flex md:hidden items-center gap-2.5 shrink-0">
-            <a
-              href={WHATSAPP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black whitespace-nowrap"
-            >
-              Commander
-            </a>
-
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
-              className="p-1.5 rounded-lg border border-white/15 bg-white/[0.04] text-white hover:bg-white/[0.08]"
-            >
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Slide-Down Navigation Menu */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-white/[0.08] bg-[#08080a]/95 backdrop-blur-2xl px-6 py-6 space-y-4">
-            <nav className="flex flex-col space-y-3 text-sm font-medium">
-              <button
-                onClick={() => handleNavClick('home')}
-                className={`text-left py-2 border-b border-white/[0.04] ${
-                  activeTab === 'home' ? 'text-white font-bold' : 'text-neutral-400'
-                }`}
-              >
-                Accueil
-              </button>
-              <button
-                onClick={() => handleNavClick('studio')}
-                className={`text-left py-2 border-b border-white/[0.04] ${
-                  activeTab === 'studio' ? 'text-white font-bold' : 'text-neutral-400'
-                }`}
-              >
-                Atelier de composition
-              </button>
-              <button
-                onClick={() => handleNavClick('cockpit')}
-                className={`text-left py-2 border-b border-white/[0.04] ${
-                  activeTab === 'cockpit' ? 'text-white font-bold' : 'text-neutral-400'
-                }`}
-              >
-                Cockpit des ventes
-              </button>
-              <button
-                onClick={() => handleNavClick('copilot')}
-                className={`text-left py-2 border-b border-white/[0.04] flex items-center justify-between ${
-                  activeTab === 'copilot' ? 'text-[#d4af37] font-bold' : 'text-neutral-400'
-                }`}
-              >
-                <span>Copilot IA & Analyste</span>
-                <span className="text-[10px] font-mono text-[#d4af37] bg-[#d4af37]/10 px-2 py-0.5 rounded">IA</span>
-              </button>
-              <button
-                onClick={() => handleNavClick('academy')}
-                className={`text-left py-2 border-b border-white/[0.04] ${
-                  activeTab === 'academy' ? 'text-white font-bold' : 'text-neutral-400'
-                }`}
-              >
-                Académie
-              </button>
-            </nav>
-
-            <div className="pt-2 flex flex-col gap-3">
-              {!user ? (
-                <button
-                  onClick={() => {
-                    openAuthModal('login');
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] py-2.5 text-xs font-semibold text-white hover:bg-white/10 transition-colors"
-                >
-                  <LogIn className="h-3.5 w-3.5" />
-                  <span>Connexion Espace Studio</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    handleNavClick('cockpit');
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3 text-xs text-emerald-300"
-                >
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>{(user.user_metadata?.studio_name as string) || 'Mon Studio'}</span>
-                  </span>
-                  <span className="text-[10px] uppercase font-mono text-emerald-400">Isolé RLS</span>
-                </button>
-              )}
-
-              <button
+                type="button"
                 onClick={() => {
-                  onOpenQrModal();
+                  openAuthModal('login');
                   setIsMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs text-neutral-300"
+                className="w-full flex items-center justify-center gap-2 rounded-full border border-white/[0.15] py-3 text-xs font-medium text-white cursor-pointer"
               >
-                <span>État WhatsApp</span>
-                <span className={`flex items-center gap-1.5 ${isWhatsAppConnected ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${isWhatsAppConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
-                  {isWhatsAppConnected ? 'WhatsApp actif' : 'Scan QR requis'}
-                </span>
+                <LogIn className="h-3.5 w-3.5" />
+                Connexion à l'espace studio
               </button>
-
-              <a
-                href={WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full rounded-full bg-white text-black py-3 text-center text-xs font-bold"
-              >
-                Lancer une commande sur WhatsApp
-              </a>
-            </div>
+            )}
           </div>
-        )}
-      </header>
-    </>
+        </div>
+      )}
+    </header>
   );
 };

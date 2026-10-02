@@ -1,0 +1,22 @@
+{
+  "telemetry": false,
+  "theme": "dark",
+  "allowedTools": [
+    "Edit",
+    "Write",
+    "Bash",
+    "Read",
+    "Glob",
+    "Grep"
+  ],
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash",
+      "Read",
+      "Glob",
+      "Grep"
+    ]
+  }
+}

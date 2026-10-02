@@ -1,23 +1,19 @@
-import { useState, type FC } from 'react';
-import { 
-  Check, 
-  Play, 
-  Pause, 
-  Copy, 
-  Mic, 
-  RefreshCw, 
-  Music, 
-  CheckCircle2, 
-  Smartphone, 
-  Zap, 
-  Radio,
+import { useEffect, useRef, useState, type CSSProperties, type FC } from 'react';
+import {
+  Check,
+  Play,
+  Pause,
+  Copy,
+  Mic,
+  RefreshCw,
+  CheckCircle2,
+  Smartphone,
   Edit3,
   Save,
   X,
   ExternalLink,
   Sliders,
-  UserCheck,
-  Disc,
+  Disc3,
   FileText
 } from 'lucide-react';
 import type { Order } from '../types';
@@ -29,6 +25,77 @@ interface StudioViewProps {
   onUpdateOrder: (updated: Order) => void;
 }
 
+type Voice = 'femme' | 'homme' | 'duo';
+
+const STYLES = [
+  { id: 'afro_love', label: 'Afro-Love', desc: 'Chaud, rythmé & romantique', bpm: 102 },
+  { id: 'acoustique', label: 'Guitare acoustique', desc: 'Doux, intime & sobre', bpm: 84 },
+  { id: 'rumba', label: 'Rumba congolaise', desc: 'Mélodique & festif', bpm: 118 },
+  { id: 'zouk', label: 'Zouk rétro', desc: 'Sensuel & enveloppant', bpm: 92 },
+  { id: 'gospel', label: 'Gospel & célébration', desc: 'Harmonique & majestueux', bpm: 76 },
+  { id: 'mandingue', label: 'Mandingue kora', desc: 'Traditionnel & envoûtant', bpm: 96 },
+];
+
+const VOICES: { id: Voice; label: string; desc: string }[] = [
+  { id: 'femme', label: 'Femme', desc: 'Douce & sensuelle' },
+  { id: 'homme', label: 'Homme', desc: 'Chaud & puissant' },
+  { id: 'duo', label: 'Duo mixte', desc: 'Harmonies riches' },
+];
+
+/* Profil de la note vocale (amplitudes normalisées 0–1) */
+const WAVE = [
+  0.3, 0.5, 0.8, 0.6, 0.9, 0.4, 0.7, 1, 0.55, 0.75, 0.35, 0.6, 0.95, 0.8, 0.5,
+  0.3, 0.45, 0.85, 0.6, 0.4, 0.7, 0.9, 0.65, 0.35, 0.55, 0.8, 0.5, 0.3, 0.6, 0.75,
+  0.45, 0.85, 0.7, 0.4, 0.55, 0.3, 0.5, 0.35, 0.25, 0.2,
+];
+const VOICE_NOTE_SECONDS = 48;
+
+/* Étapes réelles du pipeline de mastering, avec leur instant de déclenchement (ms) */
+const PRODUCTION_TIMELINE = [0, 1200, 2600, 3900];
+const PRODUCTION_DONE_AT = 4800;
+
+const formatClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/* Disque vinyle : les sillons tournent, le reflet reste fixe */
+const Vinyl: FC<{ spinning: boolean; done: boolean; title?: string }> = ({ spinning, done, title }) => (
+  <div className="relative h-36 w-36 sm:h-40 sm:w-40 shrink-0">
+    <svg viewBox="0 0 200 200" className={`vx-vinyl ${spinning ? 'vx-vinyl-live' : ''} h-full w-full`} aria-hidden="true">
+      <circle cx="100" cy="100" r="98" fill="#0A0B0E" stroke="rgba(255,255,255,0.10)" />
+      {[90, 82, 76, 70, 63, 57, 50].map((r) => (
+        <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.75" />
+      ))}
+      <circle cx="100" cy="100" r="32" fill={done ? '#D6AA60' : '#16181D'} stroke="rgba(255,255,255,0.12)" />
+      <path d="M100 74 a26 26 0 0 1 26 26" stroke={done ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)'} strokeWidth="1" fill="none" />
+      <text x="100" y="96" textAnchor="middle" fontSize="7" letterSpacing="1.5" fill={done ? '#1A1408' : 'rgba(255,255,255,0.55)'} fontFamily="ui-monospace, monospace">
+        VELARIS
+      </text>
+      <text x="100" y="112" textAnchor="middle" fontSize="6" fill={done ? 'rgba(26,20,8,0.7)' : 'rgba(255,255,255,0.35)'} fontFamily="ui-monospace, monospace">
+        {done ? 'MASTER' : 'FACE A'}
+      </text>
+      <circle cx="100" cy="100" r="2.5" fill="#050608" />
+    </svg>
+    {/* Reflet spéculaire fixe */}
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 rounded-full bg-[conic-gradient(from_200deg,transparent_0deg,rgba(255,255,255,0.09)_40deg,transparent_80deg,transparent_180deg,rgba(255,255,255,0.05)_220deg,transparent_260deg)]"
+    />
+    {/* Bras de lecture */}
+    <svg
+      viewBox="0 0 60 120"
+      aria-hidden="true"
+      style={{ transformOrigin: '48px 10px' }}
+      className={`absolute -right-6 -top-3 h-28 w-14 transition-transform duration-700 ease-luxury ${
+        spinning ? 'rotate-0' : '-rotate-[28deg]'
+      }`}
+    >
+      <circle cx="48" cy="10" r="7" fill="#16181D" stroke="rgba(255,255,255,0.18)" />
+      <path d="M48 10 L40 80 L22 104" stroke="rgba(255,255,255,0.55)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      <rect x="14" y="100" width="12" height="8" rx="1.5" transform="rotate(-35 20 104)" fill="#D6AA60" />
+    </svg>
+    {title && <span className="sr-only">{title}</span>}
+  </div>
+);
+
 export const StudioView: FC<StudioViewProps> = ({
   orders,
   selectedOrderId,
@@ -38,40 +105,65 @@ export const StudioView: FC<StudioViewProps> = ({
   const currentOrder = orders.find((o) => o.id === selectedOrderId) || orders[0];
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [isGeneratingLyrics, setIsGeneratingLyrics] = useState(false);
-  const [isLaunchingProduction, setIsLaunchingProduction] = useState(false);
-  const [productionStep, setProductionStep] = useState<string | null>(null);
+  const [productionStep, setProductionStep] = useState<number | null>(null);
   const [lyricsCopied, setLyricsCopied] = useState(false);
   const [lyricsSentToWhatsApp, setLyricsSentToWhatsApp] = useState(false);
 
   // Lyrics inline editor state
   const [isEditingLyrics, setIsEditingLyrics] = useState(false);
-  const [editTitle, setEditTitle] = useState(currentOrder.lyrics?.title || '');
-  const [editVerse1, setEditVerse1] = useState(currentOrder.lyrics?.verse1 || '');
-  const [editChorus, setEditChorus] = useState(currentOrder.lyrics?.chorus || '');
-  const [editVerse2, setEditVerse2] = useState(currentOrder.lyrics?.verse2 || '');
-  const [editOutro, setEditOutro] = useState(currentOrder.lyrics?.outro || '');
+  const [editTitle, setEditTitle] = useState(currentOrder?.lyrics?.title || '');
+  const [editVerse1, setEditVerse1] = useState(currentOrder?.lyrics?.verse1 || '');
+  const [editChorus, setEditChorus] = useState(currentOrder?.lyrics?.chorus || '');
+  const [editVerse2, setEditVerse2] = useState(currentOrder?.lyrics?.verse2 || '');
+  const [editOutro, setEditOutro] = useState(currentOrder?.lyrics?.outro || '');
   const [customPrompt, setCustomPrompt] = useState('');
 
-  // Voice selector state
-  const [selectedVoice, setSelectedVoice] = useState<'femme' | 'homme' | 'duo'>(
-    (currentOrder.voiceGender as 'femme' | 'homme' | 'duo') || 'homme'
-  );
+  const [selectedVoice, setSelectedVoice] = useState<Voice>(currentOrder?.voiceGender || 'homme');
 
-  // Styles list
-  const STYLES = [
-    { id: 'afro_love', label: 'Afro-Love', desc: 'Chaud, rythmé & romantique' },
-    { id: 'acoustique', label: 'Guitare Acoustique', desc: 'Doux, intime & sobre' },
-    { id: 'rumba', label: 'Rumba Congolaise', desc: 'Mélodique & festif' },
-    { id: 'zouk', label: 'Zouk Rétro', desc: 'Sensuel & enveloppant' },
-    { id: 'gospel', label: 'Gospel & Célébration', desc: 'Harmonique & majestueux' },
-    { id: 'mandingue', label: 'Mandingue Kora', desc: 'Traditionnel & envoûtant' },
+  const timers = useRef<number[]>([]);
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+
+  // Lecture simulée de la note vocale
+  useEffect(() => {
+    if (!isPlayingAudio) return;
+    const id = window.setInterval(() => {
+      setElapsed((prev) => Math.min(VOICE_NOTE_SECONDS, prev + 0.1));
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [isPlayingAudio]);
+
+  useEffect(() => {
+    if (elapsed < VOICE_NOTE_SECONDS) return;
+    setIsPlayingAudio(false);
+    setElapsed(0);
+  }, [elapsed]);
+
+  if (!currentOrder) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/[0.1] bg-[#08090C] p-12 text-center">
+        <Disc3 className="h-8 w-8 mx-auto text-neutral-600" strokeWidth={1.25} />
+        <p className="mt-4 text-sm text-neutral-200">Aucune commande dans l'atelier</p>
+        <p className="mt-1 text-xs text-neutral-500">Créez un lead depuis le cockpit pour commencer une chanson.</p>
+      </div>
+    );
+  }
+
+  const isLaunchingProduction = productionStep !== null;
+  const activeStyle = STYLES.find((s) => s.id === currentOrder.style);
+
+  const productionSteps = [
+    { label: 'Composition', detail: 'Initialisation du pipeline Suno' },
+    { label: 'Arrangement', detail: `Voix ${VOICES.find((v) => v.id === selectedVoice)?.label.toLowerCase()} · ${activeStyle?.label ?? currentOrder.style}` },
+    { label: 'Mastering', detail: 'Master 24-bit · encodage WhatsApp' },
+    { label: 'Livraison', detail: `Expédition sur ${currentOrder.clientPhone}` },
   ];
 
   // 1-Click AI Lyrics Generation
   const handleGenerateLyrics = (directive?: string) => {
     setIsGeneratingLyrics(true);
-    setTimeout(() => {
+    timers.current.push(window.setTimeout(() => {
       const generated = {
         title: `${currentOrder.recipient}, Notre Chanson Sacrée`,
         verse1: directive
@@ -95,7 +187,7 @@ export const StudioView: FC<StudioViewProps> = ({
       setIsGeneratingLyrics(false);
       setIsEditingLyrics(false);
       setCustomPrompt('');
-    }, 1100);
+    }, 1100));
   };
 
   const handleSaveEditedLyrics = () => {
@@ -114,24 +206,11 @@ export const StudioView: FC<StudioViewProps> = ({
   };
 
   const handleLaunchProduction = () => {
-    if (!currentOrder.lyrics) return;
-    setIsLaunchingProduction(true);
-    setProductionStep('Initialisation du pipeline de composition...');
-
-    setTimeout(() => {
-      setProductionStep(`Arrangement audio ${selectedVoice.toUpperCase()} & Mastering (Simulation 18 min)...`);
-    }, 1200);
-
-    setTimeout(() => {
-      setProductionStep('Finalisation du master 24-bit & Encodage WhatsApp...');
-    }, 2600);
-
-    setTimeout(() => {
-      setProductionStep(`Expédition sur ${currentOrder.clientPhone}...`);
-    }, 3900);
-
-    setTimeout(() => {
-      setIsLaunchingProduction(false);
+    if (!currentOrder.lyrics || isLaunchingProduction) return;
+    PRODUCTION_TIMELINE.forEach((at, index) => {
+      timers.current.push(window.setTimeout(() => setProductionStep(index), at));
+    });
+    timers.current.push(window.setTimeout(() => {
       setProductionStep(null);
       onUpdateOrder({
         ...currentOrder,
@@ -140,7 +219,7 @@ export const StudioView: FC<StudioViewProps> = ({
         deliveryDate: `Livré sur WhatsApp à ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
         audioTrackUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3',
       });
-    }, 4800);
+    }, PRODUCTION_DONE_AT));
   };
 
   const copyLyrics = () => {
@@ -148,7 +227,7 @@ export const StudioView: FC<StudioViewProps> = ({
     const fullText = `*${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\n*Velaris Studio Musical*`;
     navigator.clipboard.writeText(fullText);
     setLyricsCopied(true);
-    setTimeout(() => setLyricsCopied(false), 2000);
+    timers.current.push(window.setTimeout(() => setLyricsCopied(false), 2000));
   };
 
   const openWhatsAppChat = () => {
@@ -158,99 +237,111 @@ export const StudioView: FC<StudioViewProps> = ({
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     setLyricsSentToWhatsApp(true);
-    setTimeout(() => setLyricsSentToWhatsApp(false), 3000);
+    timers.current.push(window.setTimeout(() => setLyricsSentToWhatsApp(false), 3000));
   };
+
+  // Livret : sections + numérotation continue des vers
+  const lyricSections = currentOrder.lyrics
+    ? [
+        { name: 'Couplet I', text: currentOrder.lyrics.verse1, kind: 'verse' as const },
+        { name: 'Refrain', text: currentOrder.lyrics.chorus, kind: 'chorus' as const },
+        { name: 'Couplet II', text: currentOrder.lyrics.verse2, kind: 'verse' as const },
+        { name: 'Coda', text: currentOrder.lyrics.outro, kind: 'outro' as const },
+      ]
+    : [];
+  let lineCounter = 0;
+
+  const playhead = elapsed / VOICE_NOTE_SECONDS;
+  const isDelivered = currentOrder.status === 'livre';
+  const progress = productionStep === null ? (isDelivered ? 1 : 0) : (productionStep + 1) / productionSteps.length;
+
+  const fieldClass = 'w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-[13px] text-white focus:border-white/[0.24] focus:bg-white/[0.04] focus:outline-none transition-colors duration-200 resize-none leading-relaxed';
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* En-tête */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-mono tracking-wider text-neutral-300 uppercase">
-              STUDIO OS • ENGINE V4
-            </span>
-            <span className="text-xs font-mono text-neutral-500">Pipeline Audio 18 Min</span>
+          <div className="flex items-center gap-2 text-xs text-neutral-400">
+            <span className="font-mono text-neutral-500">{currentOrder.id}</span>
+            <span className="text-neutral-700">·</span>
+            <span>Pipeline audio 18 min</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-1">
-            Atelier de Création Audio & Paroles
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-[1.05] mt-2">
+            Atelier
           </h1>
         </div>
 
-        {/* Client quick switcher strip */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          {orders.map((o) => (
-            <button
-              key={o.id}
-              onClick={() => onSelectOrder(o.id)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-mono whitespace-nowrap transition-all border cursor-pointer ${
-                o.id === currentOrder.id
-                  ? 'bg-white text-black font-semibold border-white shadow-sm'
-                  : 'bg-white/[0.02] text-neutral-400 border-white/[0.06] hover:bg-white/[0.05] hover:text-white'
-              }`}
-            >
-              <span>{o.clientName.split(' ')[0]}</span>
-              <span className="text-[10px] opacity-60">({o.amount.toLocaleString()} F)</span>
-            </button>
-          ))}
+        {/* Sélecteur de commande */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5 max-w-full">
+          {orders.map((o) => {
+            const active = o.id === currentOrder.id;
+            return (
+              <button
+                key={o.id}
+                onClick={() => onSelectOrder(o.id)}
+                className={`shrink-0 flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs whitespace-nowrap transition-colors duration-150 ease-press cursor-pointer ${
+                  active ? 'bg-white text-black font-semibold' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span>{o.clientName.split(' ')[0]}</span>
+                <span className={`font-mono text-[10px] ${active ? 'text-black/50' : 'text-neutral-600'}`}>
+                  {o.amount.toLocaleString('fr-FR')} F
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Main Studio Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Client Info & Voice Transcription (5 cols) */}
+        {/* Colonne gauche : console d'atelier */}
         <div className="lg:col-span-5 space-y-5">
-          {/* Client Brief Card */}
-          <div className="rounded-2xl border border-white/[0.06] bg-[#07080B] p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
-                  Détails Commande ({currentOrder.id})
-                </span>
-                <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
-                  {currentOrder.clientName}
-                </h3>
-                <p className="text-xs font-mono text-neutral-400">{currentOrder.clientPhone}</p>
+          <section className="vx-hairline vx-stagger rounded-2xl border border-white/[0.08] bg-[#08090C] overflow-hidden" style={{ '--i': 0 } as CSSProperties}>
+            {/* Fiche client */}
+            <div className="p-5 flex items-start justify-between gap-4 border-b border-white/[0.06]">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-white tracking-tight truncate">{currentOrder.clientName}</h2>
+                <p className="text-xs font-mono text-neutral-500 mt-0.5">{currentOrder.clientPhone}</p>
               </div>
-              <div className="text-right">
-                <span className="font-mono text-lg font-bold text-white">
-                  {currentOrder.amount.toLocaleString()} FCFA
-                </span>
-                <p className="text-[10px] font-mono text-emerald-400 flex items-center justify-end gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
+              <div className="text-right shrink-0">
+                <div className="font-mono text-lg font-bold text-white">
+                  {currentOrder.amount.toLocaleString('fr-FR')} <span className="text-xs font-normal text-neutral-500">F</span>
+                </div>
+                <p className="text-[11px] text-emerald-400 flex items-center justify-end gap-1 mt-0.5">
+                  <CheckCircle2 className="h-3 w-3" strokeWidth={1.5} />
                   {currentOrder.paymentMethod}
                 </p>
               </div>
             </div>
 
-            {/* Target & Occasion */}
-            <div className="grid grid-cols-2 gap-3 py-1 text-xs">
-              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                <span className="text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">Destinataire</span>
-                <span className="font-semibold text-white mt-0.5 block">{currentOrder.recipient}</span>
+            <dl className="grid grid-cols-2 divide-x divide-white/[0.06] border-b border-white/[0.06]">
+              <div className="px-5 py-3.5">
+                <dt className="text-[11px] text-neutral-500">Destinataire</dt>
+                <dd className="text-sm font-medium text-white mt-0.5 truncate">{currentOrder.recipient}</dd>
               </div>
-              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                <span className="text-neutral-500 block text-[10px] font-mono uppercase tracking-wider">Occasion</span>
-                <span className="font-semibold text-white mt-0.5 block">{currentOrder.occasion}</span>
+              <div className="px-5 py-3.5">
+                <dt className="text-[11px] text-neutral-500">Occasion</dt>
+                <dd className="text-sm font-medium text-white mt-0.5 truncate">{currentOrder.occasion}</dd>
               </div>
-            </div>
+            </dl>
 
-            {/* WhatsApp Voice Note Transcription Module */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300">
-                  <Mic className="h-3.5 w-3.5 text-white" />
-                  <span>Transcription Note Vocale</span>
+            {/* Note vocale */}
+            <div className="p-5 space-y-3 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-medium text-neutral-200">
+                  <Mic className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.5} />
+                  Note vocale du client
                 </div>
-                <span className="text-[10px] font-mono text-neutral-500">Audio WhatsApp • 0:48</span>
+                <span className="text-[11px] font-mono text-neutral-500">WhatsApp · {formatClock(VOICE_NOTE_SECONDS)}</span>
               </div>
 
-              {/* Hardware Waveform Player */}
-              <div className="rounded-xl border border-white/[0.06] bg-[#0D0F14] p-3.5 space-y-3">
+              <div className="rounded-xl border border-white/[0.06] bg-[#0E1015] p-3.5">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+                    onClick={() => setIsPlayingAudio((p) => !p)}
+                    aria-label={isPlayingAudio ? 'Mettre en pause' : 'Écouter la note vocale'}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer"
                   >
                     {isPlayingAudio ? (
                       <Pause className="h-3.5 w-3.5 fill-current" />
@@ -259,377 +350,378 @@ export const StudioView: FC<StudioViewProps> = ({
                     )}
                   </button>
 
-                  {/* Audio Bars */}
-                  <div className="flex flex-1 items-center gap-1 h-6">
-                    {[6, 12, 18, 14, 24, 8, 16, 22, 12, 18, 10, 15, 25, 20, 14, 8, 12, 19, 11, 7].map((h, i) => (
+                  <div className={`flex flex-1 items-center gap-[3px] h-8 ${isPlayingAudio ? 'vx-wave-live' : ''}`}>
+                    {WAVE.map((amp, i) => (
                       <span
                         key={i}
-                        style={{ height: `${isPlayingAudio ? Math.min(26, h + (i % 3) * 3) : h}px` }}
-                        className={`w-1 rounded-full transition-all duration-200 ${
-                          isPlayingAudio ? 'bg-white' : 'bg-white/20'
+                        style={{
+                          height: `${Math.round(8 + amp * 24)}px`,
+                          animationDelay: `${(-i * 0.07).toFixed(2)}s`,
+                          animationDuration: `${(0.8 + (i % 5) * 0.12).toFixed(2)}s`,
+                        }}
+                        className={`vx-wave-bar flex-1 max-w-[4px] rounded-full transition-colors duration-150 ${
+                          i / WAVE.length < playhead ? 'bg-white' : 'bg-white/20'
                         }`}
                       />
                     ))}
                   </div>
 
-                  <span className="text-[11px] font-mono text-neutral-400">0:48</span>
+                  <span className="w-9 text-right text-[11px] font-mono text-neutral-400">
+                    {formatClock(isPlayingAudio || elapsed > 0 ? elapsed : VOICE_NOTE_SECONDS)}
+                  </span>
                 </div>
 
-                {/* Transcription Text */}
-                <div className="text-xs text-neutral-300 italic bg-white/[0.02] p-3 rounded-lg border border-white/[0.04] leading-relaxed">
-                  « {currentOrder.transcription} »
-                </div>
+                <blockquote className="mt-3 border-l border-white/15 pl-3 font-serif italic text-[15px] leading-relaxed text-neutral-300">
+                  {currentOrder.transcription || 'Transcription en attente.'}
+                </blockquote>
               </div>
             </div>
 
-            {/* Musical Style Selector */}
-            <div className="pt-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 block mb-2">
-                Style Musical Souhaité
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {STYLES.map((style) => (
-                  <button
-                    key={style.id}
-                    onClick={() =>
-                      onUpdateOrder({
-                        ...currentOrder,
-                        style: style.id,
-                      })
-                    }
-                    className={`rounded-lg border p-2.5 text-left transition-all cursor-pointer ${
-                      currentOrder.style === style.id
-                        ? 'border-white/30 bg-white/[0.08] text-white shadow-sm'
-                        : 'border-white/[0.06] bg-white/[0.02] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
-                    }`}
-                  >
-                    <div className="font-semibold text-xs text-white">{style.label}</div>
-                    <div className="text-[10px] text-neutral-500 line-clamp-1 mt-0.5">{style.desc}</div>
-                  </button>
-                ))}
+            {/* Style musical */}
+            <div className="p-5 space-y-2.5 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-200">Style musical</span>
+                {activeStyle && <span className="text-[11px] font-mono text-neutral-500">{activeStyle.bpm} BPM</span>}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {STYLES.map((style) => {
+                  const active = currentOrder.style === style.id;
+                  return (
+                    <button
+                      key={style.id}
+                      onClick={() => onUpdateOrder({ ...currentOrder, style: style.id })}
+                      aria-pressed={active}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition-colors duration-150 ease-press cursor-pointer ${
+                        active
+                          ? 'border-white/[0.28] bg-white/[0.07]'
+                          : 'border-white/[0.06] bg-white/[0.015] hover:border-white/[0.14] hover:bg-white/[0.03]'
+                      }`}
+                    >
+                      <div className={`text-xs font-medium ${active ? 'text-white' : 'text-neutral-300'}`}>{style.label}</div>
+                      <div className="text-[10px] text-neutral-500 truncate mt-0.5">{style.desc}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Vocal Gender Selector */}
-            <div className="pt-3 border-t border-white/[0.06]">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-neutral-400 block mb-2 flex items-center gap-1.5">
-                <UserCheck className="h-3 w-3 text-neutral-300" />
-                <span>Timbre Vocal Studio</span>
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'femme', label: 'Voix Femme', desc: 'Douce & Sensuelle' },
-                  { id: 'homme', label: 'Voix Homme', desc: 'Chaud & Puissant' },
-                  { id: 'duo', label: 'Duo Mixte', desc: 'Harmonies Riches' },
-                ].map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedVoice(v.id as 'femme' | 'homme' | 'duo');
-                      onUpdateOrder({ ...currentOrder, voiceGender: v.id as 'femme' | 'homme' | 'duo' });
-                    }}
-                    className={`rounded-lg border p-2 text-center transition-all cursor-pointer ${
-                      selectedVoice === v.id
-                        ? 'border-white/30 bg-white text-black font-semibold'
-                        : 'border-white/[0.06] bg-white/[0.02] text-neutral-400 hover:bg-white/[0.04] hover:text-white'
-                    }`}
-                  >
-                    <div className="text-xs font-semibold">{v.label}</div>
-                    <div className={`text-[9px] mt-0.5 ${selectedVoice === v.id ? 'text-neutral-700' : 'text-neutral-500'}`}>{v.desc}</div>
-                  </button>
-                ))}
+            {/* Timbre vocal */}
+            <div className="p-5 space-y-2.5">
+              <span className="text-xs font-medium text-neutral-200">Timbre vocal</span>
+              <div className="grid grid-cols-3 gap-0.5 rounded-xl border border-white/[0.08] bg-white/[0.02] p-0.5">
+                {VOICES.map((v) => {
+                  const active = selectedVoice === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setSelectedVoice(v.id);
+                        onUpdateOrder({ ...currentOrder, voiceGender: v.id });
+                      }}
+                      className={`rounded-[10px] px-2 py-2 text-center transition-colors duration-150 ease-press cursor-pointer ${
+                        active ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold">{v.label}</div>
+                      <div className={`text-[10px] mt-0.5 ${active ? 'text-black/55' : 'text-neutral-600'}`}>{v.desc}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* Right Column: AI Lyrics Editor & 1-Click Launch (7 cols) */}
+        {/* Colonne droite : livret & mastering */}
         <div className="lg:col-span-7 space-y-5">
-          <div className="rounded-2xl border border-white/[0.06] bg-[#07080B] p-5 sm:p-6 space-y-5">
-            {/* Lyrics Card Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
-              <div>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-white" />
-                  <h3 className="text-lg font-bold text-white tracking-tight">
-                    Paroles de la Chanson
-                  </h3>
-                </div>
-                <p className="text-xs text-neutral-400">
-                  Générées à partir du brief vocal et éditables en direct.
-                </p>
+          <section className="vx-hairline vx-stagger rounded-2xl border border-white/[0.08] bg-[#08090C] overflow-hidden" style={{ '--i': 1 } as CSSProperties}>
+            {/* Barre d'outils du livret */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
+                <h3 className="text-sm font-semibold text-white tracking-tight">Livret de paroles</h3>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {currentOrder.lyrics && !isEditingLyrics && (
                   <button
                     onClick={() => setIsEditingLyrics(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-mono text-neutral-300 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 cursor-pointer"
                   >
-                    <Edit3 className="h-3 w-3" />
-                    <span>Modifier</span>
+                    <Edit3 className="h-3 w-3" strokeWidth={1.5} />
+                    Modifier
                   </button>
                 )}
                 {isEditingLyrics && (
                   <>
                     <button
                       onClick={handleSaveEditedLyrics}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-white text-black px-3 py-1.5 text-xs font-semibold hover:bg-neutral-200 transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white text-black px-3 py-1.5 text-xs font-semibold hover:bg-neutral-200 transition-colors cursor-pointer"
                     >
                       <Save className="h-3 w-3" />
-                      <span>Enregistrer</span>
+                      Enregistrer
                     </button>
                     <button
                       onClick={() => setIsEditingLyrics(false)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs text-neutral-400 hover:text-white transition-all cursor-pointer"
+                      aria-label="Annuler"
+                      className="inline-flex items-center rounded-full border border-white/[0.08] p-1.5 text-neutral-400 hover:text-white transition-colors cursor-pointer"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </>
                 )}
                 <button
                   onClick={() => handleGenerateLyrics(customPrompt)}
                   disabled={isGeneratingLyrics}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-xs font-mono text-white hover:bg-white/[0.08] transition-all disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-50 cursor-pointer"
                 >
-                  <RefreshCw className={`h-3 w-3 ${isGeneratingLyrics ? 'animate-spin' : ''}`} />
-                  <span>{isGeneratingLyrics ? 'Génération...' : 'Régénérer'}</span>
+                  <RefreshCw className={`h-3 w-3 ${isGeneratingLyrics ? 'animate-spin' : ''}`} strokeWidth={1.5} />
+                  {isGeneratingLyrics ? 'Écriture…' : 'Régénérer'}
                 </button>
                 <button
                   onClick={copyLyrics}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-mono text-neutral-400 hover:text-white cursor-pointer"
+                  disabled={!currentOrder.lyrics}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-40 cursor-pointer"
                 >
-                  {lyricsCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                  <span>{lyricsCopied ? 'Copié' : 'Copier'}</span>
+                  {lyricsCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" strokeWidth={1.5} />}
+                  {lyricsCopied ? 'Copié' : 'Copier'}
                 </button>
               </div>
             </div>
 
-            {/* Quick Directive / Custom Retouch Input */}
-            <div className="flex items-center gap-2 bg-[#0D0F14] p-2 rounded-xl border border-white/[0.06]">
-              <Sliders className="h-3.5 w-3.5 text-neutral-400 ml-2 shrink-0" />
-              <input
-                type="text"
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                placeholder="Consigne de retouche (ex: insister sur le mariage ce samedi, ajouter un clin d'œil à Ouaga...)"
-                className="w-full bg-transparent px-2 text-xs text-white placeholder-neutral-500 focus:outline-none"
-              />
-              <button
-                onClick={() => handleGenerateLyrics(customPrompt)}
-                disabled={isGeneratingLyrics || !customPrompt.trim()}
-                className="rounded-lg bg-white/[0.08] px-3 py-1 text-xs font-medium text-white hover:bg-white/[0.15] disabled:opacity-40 transition-all shrink-0 cursor-pointer"
-              >
-                Appliquer
-              </button>
-            </div>
-
-            {/* Lyrics Content: Display vs Inline Edit */}
-            {currentOrder.lyrics ? (
-              isEditingLyrics ? (
-                /* Inline Editor Mode */
-                <div className="space-y-3 rounded-xl border border-white/[0.1] bg-[#0D0F14] p-4 text-xs font-mono">
-                  <div>
-                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
-                      Titre de la chanson
-                    </label>
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
-                      Couplet 1
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={editVerse1}
-                      onChange={(e) => setEditVerse1(e.target.value)}
-                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none resize-none leading-relaxed"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
-                      Refrain
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={editChorus}
-                      onChange={(e) => setEditChorus(e.target.value)}
-                      className="w-full rounded-md border border-white/[0.15] bg-white/[0.05] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none resize-none leading-relaxed font-semibold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
-                      Couplet 2
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={editVerse2}
-                      onChange={(e) => setEditVerse2(e.target.value)}
-                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none resize-none leading-relaxed"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-mono text-neutral-400 block mb-1">
-                      Outro
-                    </label>
-                    <input
-                      type="text"
-                      value={editOutro}
-                      onChange={(e) => setEditOutro(e.target.value)}
-                      className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-white focus:border-white/30 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* Standard Display Mode — Vinyl Lyric Sheet */
-                <div className="space-y-4 rounded-xl border border-white/[0.06] bg-[#0D0F14] p-4 text-xs leading-relaxed max-h-[360px] overflow-y-auto font-sans">
-                  <div className="text-center pb-2 border-b border-white/[0.06]">
-                    <span className="text-sm font-bold text-white tracking-tight">
-                      {currentOrder.lyrics.title}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block mb-1">
-                      [Couplet 1]
-                    </span>
-                    <p className="text-neutral-300 whitespace-pre-line pl-3 border-l-2 border-white/20">
-                      {currentOrder.lyrics.verse1}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg bg-white/[0.03] p-3.5 border border-white/[0.08]">
-                    <span className="text-[10px] font-mono text-white font-semibold uppercase tracking-widest block mb-1">
-                      [Refrain]
-                    </span>
-                    <p className="text-white font-medium whitespace-pre-line">
-                      {currentOrder.lyrics.chorus}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block mb-1">
-                      [Couplet 2]
-                    </span>
-                    <p className="text-neutral-300 whitespace-pre-line pl-3 border-l-2 border-white/20">
-                      {currentOrder.lyrics.verse2}
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest block mb-1">
-                      [Outro]
-                    </span>
-                    <p className="text-neutral-400 italic pl-3 border-l-2 border-white/10">
-                      {currentOrder.lyrics.outro}
-                    </p>
-                  </div>
-                </div>
-              )
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-xl border border-dashed border-white/[0.08] bg-[#0D0F14]">
-                <Music className="h-8 w-8 text-neutral-600 mb-3" />
-                <p className="text-xs font-semibold text-neutral-300">Aucune parole rédigée pour l'instant</p>
-                <p className="text-[11px] text-neutral-500 max-w-xs mt-1 mb-4">
-                  Cliquez sur le bouton ci-dessous pour transformer le brief vocal en texte rimé.
-                </p>
+            {/* Consigne de retouche */}
+            <div className="px-5 sm:px-6 pt-4">
+              <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] pl-3.5 pr-1 py-1 focus-within:border-white/[0.22] transition-colors duration-200">
+                <Sliders className="h-3.5 w-3.5 text-neutral-500 shrink-0" strokeWidth={1.5} />
+                <input
+                  type="text"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && customPrompt.trim()) handleGenerateLyrics(customPrompt); }}
+                  placeholder="Consigne de retouche : insister sur le mariage ce samedi, clin d'œil à Ouaga…"
+                  className="w-full bg-transparent py-1 text-xs text-white placeholder-neutral-500 focus:outline-none"
+                />
                 <button
-                  onClick={() => handleGenerateLyrics()}
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition-all cursor-pointer"
+                  onClick={() => handleGenerateLyrics(customPrompt)}
+                  disabled={isGeneratingLyrics || !customPrompt.trim()}
+                  className="shrink-0 rounded-full bg-white/[0.08] px-3 py-1 text-xs font-medium text-white hover:bg-white/[0.14] disabled:opacity-40 transition-colors cursor-pointer"
                 >
-                  <FileText className="h-3.5 w-3.5" />
-                  <span>Générer les Paroles</span>
+                  Appliquer
                 </button>
               </div>
-            )}
+            </div>
 
-            {/* Action Bar: Send Lyrics for Validation & The Master 1-Click Launch Button */}
-            <div className="space-y-3 pt-2">
+            {/* Livret / éditeur */}
+            <div className="p-5 sm:p-6">
+              {currentOrder.lyrics ? (
+                isEditingLyrics ? (
+                  <div className="space-y-4 vx-fade-in">
+                    <label className="block">
+                      <span className="text-[11px] text-neutral-500 block mb-1.5">Titre</span>
+                      <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className={`${fieldClass} font-serif italic text-base`} />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] text-neutral-500 block mb-1.5">Couplet I</span>
+                      <textarea rows={4} value={editVerse1} onChange={(e) => setEditVerse1(e.target.value)} className={fieldClass} />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] text-[#D6AA60] block mb-1.5">Refrain</span>
+                      <textarea rows={4} value={editChorus} onChange={(e) => setEditChorus(e.target.value)} className={`${fieldClass} border-[#D6AA60]/25 font-medium`} />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] text-neutral-500 block mb-1.5">Couplet II</span>
+                      <textarea rows={4} value={editVerse2} onChange={(e) => setEditVerse2(e.target.value)} className={fieldClass} />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] text-neutral-500 block mb-1.5">Coda</span>
+                      <input type="text" value={editOutro} onChange={(e) => setEditOutro(e.target.value)} className={fieldClass} />
+                    </label>
+                  </div>
+                ) : (
+                  /* Livret vinyle */
+                  <article
+                    key={currentOrder.lyrics.title}
+                    className={`vx-fade-in relative rounded-xl border border-white/[0.06] bg-[radial-gradient(120%_80%_at_50%_0%,rgba(214,170,96,0.05),transparent_60%),#0B0C10] px-5 sm:px-10 py-8 max-h-[460px] overflow-y-auto transition-opacity duration-300 ${
+                      isGeneratingLyrics ? 'opacity-40' : ''
+                    }`}
+                  >
+                    <header className="text-center pb-6 mb-6 border-b border-white/[0.06]">
+                      <div className="text-[10px] font-mono tracking-[0.3em] text-neutral-500">
+                        FACE A · {(activeStyle?.label ?? currentOrder.style).toUpperCase()}
+                      </div>
+                      <h4 className="mt-3 font-serif italic text-3xl sm:text-[34px] leading-tight text-white" style={{ fontFamily: 'var(--font-serif)', letterSpacing: '-0.01em' }}>
+                        {currentOrder.lyrics.title}
+                      </h4>
+                      <div className="mt-2 text-xs text-neutral-500">
+                        Pour {currentOrder.recipient} · de la part de {currentOrder.clientName.split(' ')[0]}
+                      </div>
+                    </header>
+
+                    <div className="space-y-7">
+                      {lyricSections.map((section) => {
+                        const lines = section.text.split('\n').filter(Boolean);
+                        return (
+                          <section key={section.name} className={section.kind === 'chorus' ? 'relative pl-4 border-l border-[#D6AA60]/40' : ''}>
+                            <div className={`text-[10px] font-mono tracking-[0.2em] mb-2 ${section.kind === 'chorus' ? 'text-[#D6AA60]' : 'text-neutral-500'}`}>
+                              {section.name.toUpperCase()}
+                            </div>
+                            <ol className="space-y-1">
+                              {lines.map((line) => {
+                                lineCounter += 1;
+                                return (
+                                  <li key={`${section.name}-${lineCounter}`} className="grid grid-cols-[1.75rem_1fr] items-baseline gap-2">
+                                    <span className="text-[10px] font-mono text-neutral-700 text-right select-none">
+                                      {lineCounter % 4 === 0 || lineCounter === 1 ? lineCounter : ''}
+                                    </span>
+                                    <span
+                                      className={`font-serif text-[17px] leading-[1.6] ${
+                                        section.kind === 'chorus'
+                                          ? 'text-white'
+                                          : section.kind === 'outro'
+                                            ? 'italic text-neutral-400'
+                                            : 'text-neutral-300'
+                                      }`}
+                                    >
+                                      {line}
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ol>
+                          </section>
+                        );
+                      })}
+                    </div>
+
+                    <footer className="mt-8 pt-4 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-neutral-600">
+                      <span>Velaris Studio</span>
+                      <span>{lineCounter} vers</span>
+                    </footer>
+                  </article>
+                )
+              ) : (
+                <div className="flex flex-col items-center justify-center py-14 text-center rounded-xl border border-dashed border-white/[0.08] bg-[#0B0C10]">
+                  <p className="font-serif italic text-xl text-neutral-300">La page est encore blanche</p>
+                  <p className="text-xs text-neutral-500 max-w-xs mt-2 mb-5 leading-relaxed">
+                    Le brief vocal sera transformé en texte rimé, prêt à être validé par le client.
+                  </p>
+                  <button
+                    onClick={() => handleGenerateLyrics()}
+                    disabled={isGeneratingLyrics}
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isGeneratingLyrics ? 'animate-spin' : 'hidden'}`} />
+                    {isGeneratingLyrics ? 'Écriture en cours…' : 'Écrire les paroles'}
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={openWhatsAppChat}
                 disabled={!currentOrder.lyrics}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-40 cursor-pointer"
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/[0.06] px-4 py-2.5 text-xs font-medium text-emerald-300 hover:bg-emerald-400/[0.12] hover:border-emerald-400/40 transition-colors duration-200 disabled:opacity-40 cursor-pointer"
               >
                 {lyricsSentToWhatsApp ? (
                   <>
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>WhatsApp ouvert pour {currentOrder.clientName.split(' ')[0]}</span>
+                    <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
+                    WhatsApp ouvert pour {currentOrder.clientName.split(' ')[0]}
                   </>
                 ) : (
                   <>
-                    <Smartphone className="h-4 w-4" />
-                    <span>Envoyer les paroles sur WhatsApp pour validation client</span>
-                    <ExternalLink className="h-3 w-3 opacity-60 ml-0.5" />
+                    <Smartphone className="h-4 w-4" strokeWidth={1.5} />
+                    Envoyer les paroles au client pour validation
+                    <ExternalLink className="h-3 w-3 opacity-60" />
                   </>
                 )}
               </button>
+            </div>
+          </section>
 
-              {/* The Grand 1-Click Master Control */}
-              <div className="rounded-xl border border-white/[0.1] bg-[#0D0F14] p-4 relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-white" />
-                      <span className="text-sm font-bold text-white tracking-tight">
-                        Production & Expédition 1-Clic
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">
-                      Génère le master en studio Suno et l'envoie directement en MP3 sur WhatsApp.
-                    </p>
-                  </div>
+          {/* Console de mastering */}
+          <section
+            style={{ '--i': 2 } as CSSProperties}
+            className={`vx-hairline vx-stagger relative overflow-hidden rounded-2xl border bg-[#08090C] p-5 sm:p-6 transition-colors duration-500 ease-luxury ${
+              isLaunchingProduction ? 'border-white/[0.18]' : 'border-white/[0.08]'
+            }`}
+          >
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute -left-16 top-1/2 -translate-y-1/2 h-64 w-64 rounded-full bg-[#D6AA60]/[0.08] blur-3xl transition-opacity duration-700 ${
+                isLaunchingProduction || isDelivered ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
 
-                  <button
-                    onClick={handleLaunchProduction}
-                    disabled={isLaunchingProduction || !currentOrder.lyrics}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-semibold text-black hover:bg-neutral-200 transition-all active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.15)] disabled:opacity-40 cursor-pointer"
-                  >
-                    <Disc className={`h-4 w-4 ${isLaunchingProduction ? 'animate-spin' : ''}`} />
-                    <span>
-                      {isLaunchingProduction ? 'Production en cours...' : 'Produire & Livrer'}
-                    </span>
-                  </button>
+            <div className="relative flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+              <Vinyl spinning={isLaunchingProduction} done={isDelivered && !isLaunchingProduction} title={currentOrder.lyrics?.title} />
+
+              <div className="flex-1 w-full min-w-0 space-y-4">
+                <div>
+                  <h3 className="text-base font-semibold text-white tracking-tight">Production & livraison</h3>
+                  <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                    Master Suno généré puis envoyé en MP3 directement sur le WhatsApp du client.
+                  </p>
                 </div>
 
-                {/* Progress Animation during Production */}
-                {isLaunchingProduction && (
-                  <div className="mt-4 pt-3 border-t border-white/[0.08] space-y-2">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-white font-mono font-medium flex items-center gap-1.5">
-                        <Radio className="h-3 w-3 text-emerald-400 animate-spin" />
-                        {productionStep}
-                      </span>
-                      <span className="font-mono text-neutral-500">Suno Engine • {selectedVoice}</span>
-                    </div>
-                    <div className="h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
-                      <div className="h-full bg-white animate-pulse w-full transition-all duration-500" />
-                    </div>
-                  </div>
-                )}
+                {/* Étapes */}
+                <ol className="grid grid-cols-4 gap-2">
+                  {productionSteps.map((step, index) => {
+                    const done = isDelivered && productionStep === null ? true : productionStep !== null && index < productionStep;
+                    const active = productionStep === index;
+                    return (
+                      <li key={step.label} className="min-w-0">
+                        <div className="relative h-0.5 rounded-full bg-white/[0.08] overflow-hidden">
+                          <span
+                            className={`absolute inset-0 origin-left transition-transform duration-[1100ms] ease-luxury ${
+                              done ? 'bg-white' : active ? 'bg-[#D6AA60]' : 'bg-white'
+                            }`}
+                            style={{ transform: `scaleX(${done || active ? 1 : 0})` }}
+                          />
+                        </div>
+                        <div className={`mt-2 flex items-center gap-1 text-[11px] font-medium truncate transition-colors duration-300 ${
+                          active ? 'text-white' : done ? 'text-neutral-300' : 'text-neutral-600'
+                        }`}>
+                          {done && <Check className="h-3 w-3 shrink-0 text-emerald-400" />}
+                          {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D6AA60] vx-breathe" />}
+                          <span className="truncate">{step.label}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
 
-                {/* Delivery Success Notification */}
-                {currentOrder.status === 'livre' && (
-                  <div className="mt-4 pt-3 border-t border-white/[0.08] flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>{currentOrder.deliveryDate || 'Morceau livré au client avec succès !'}</span>
+                <div className="min-h-[18px] text-[11px] font-mono">
+                  {isLaunchingProduction && productionStep !== null && (
+                    <div key={productionStep} className="vx-fade-in flex items-center justify-between gap-3 text-neutral-400">
+                      <span className="truncate">{productionSteps[productionStep].detail}</span>
+                      <span className="shrink-0 text-neutral-500">{Math.round(progress * 100)} %</span>
                     </div>
-                    <span className="text-[10px] text-neutral-500 font-mono">Pipeline Terminé</span>
-                  </div>
-                )}
+                  )}
+                  {!isLaunchingProduction && isDelivered && (
+                    <div className="vx-fade-in flex items-center gap-1.5 text-emerald-400">
+                      <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <span className="truncate">{currentOrder.deliveryDate || 'Morceau livré au client'}</span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleLaunchProduction}
+                  disabled={isLaunchingProduction || !currentOrder.lyrics}
+                  className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-6 py-3 text-xs font-semibold text-black hover:bg-neutral-100 active:scale-[0.97] transition-all duration-150 ease-press shadow-[0_10px_40px_-10px_rgba(214,170,96,0.55)] disabled:opacity-40 disabled:shadow-none cursor-pointer"
+                >
+                  {isLaunchingProduction && (
+                    <span aria-hidden="true" className="vx-scan absolute inset-0 bg-gradient-to-r from-transparent via-black/[0.08] to-transparent" />
+                  )}
+                  <Disc3 className={`relative h-4 w-4 ${isLaunchingProduction ? 'animate-spin' : ''}`} strokeWidth={1.75} />
+                  <span className="relative">
+                    {isLaunchingProduction ? 'Mastering en cours…' : isDelivered ? 'Relancer la production' : 'Produire & livrer'}
+                  </span>
+                </button>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>

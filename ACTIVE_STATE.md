@@ -8,7 +8,7 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 30 Septembre 2026 (22:15 UTC)
+- **Dernière mise à jour** : 1er Octobre 2026
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
@@ -29,6 +29,24 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 18. Refonte Maître Phase 2 — Mascotte Interactive Sonar & Copilot Wahou (1er Octobre 2026)
+- **Mascotte Assistante Sonar (`SonarMascot.tsx`)** : Compagnon vectoriel audio/tech (disque d'obsidienne cerclé d'or, regard réactif suivant la souris par interpolation physique, égaliseur vocal ondulant à la frappe de l'utilisateur, 3 satellites orbitaux : WhatsApp `#34D399`, Trésorerie `#D6AA60`, Paroles `#F5F5F4`). 4 états réactifs : `idle`, `listening`, `searching` (scan WhatsApp / Supabase), `writing` (génération paroles).
+- **Copilot Studio Sublimé (`StudioCopilotView.tsx`)** : Rendu spectaculaire « Wahou » avec présence permanente de Sonar, visualiseur d'outils de base de données en direct (recherche discussions, analyse rentabilité, écriture poétique, envoi direct WAHA), cartes d'actions étincelantes avec bordures réactives (`.vx-spotlight`) et boutons 1-clic ("Injecter dans le Studio", "Envoyer WhatsApp", "Copier").
+- **Inbox WhatsApp Dual-Pane (`ConversationsView.tsx`)** : Bulles de dialogue contrastées ultra-soignées, indicateurs d'ondes vocales, filtres de contacts dynamiques et dock de snippets prêts à l'envoi.
+- **Pipeline & Caisse Trésorerie (`PipelineView.tsx` & `VentesCaisseView.tsx`)** : Kanban de closing réactif avec sélecteurs de statuts fluides et jauges de ventilation Mobile Money (Wave vs Orange Money).
+- **Brand & Navigation (`Navbar.tsx`, `VelarisMark.tsx`, `HeroBriefToSong.tsx`)** : Marque vectorielle unifiée, liens de navigation soignés et démo interactive de parcours brief-vers-chanson.
+- **Validation** : `tsc -p tsconfig.app.json --noEmit` : **0 erreur** ; `vite build` : **succès en 3.72s**.
+
+### 17. Refonte Maître Ultra-Premium — Shell, Cockpit & Atelier (1er Octobre 2026)
+- **Branchement** : l'onglet `revenus` du `StudioAppLayout` affiche désormais `CockpitView` (cockpit d'accueil officiel). `RevenusView.tsx` n'est plus importé (fichier conservé).
+- **`index.css`** : tokens de courbes (`--ease-luxury`, `--ease-press`), halos ambiants ambré/indigo (`.vx-halo`), filet lumineux (`.vx-hairline`), reflet qui suit le pointeur (`.vx-spotlight`), entrées en cascade (`.vx-stagger`, `.vx-view-enter`), ondes audio (`.vx-wave-bar`), vinyle (`.vx-vinyl`), `.no-scrollbar` (était utilisé mais non défini), support `prefers-reduced-motion`.
+- **`StudioAppLayout.tsx`** : marque SVG Velaris (sillons + bras doré), réglet actif unique qui glisse entre les items, fil d'Ariane sticky desktop, transition à chaque changement d'onglet, tiroir mobile avec fondu et fermeture par Échap, resynchronisation de l'onglet quand `initialTab` change, ouverture d'une commande qui bascule réellement sur l'Atelier. Nouvelles props optionnelles `onOpenQrModal` / `onOpenNewOrderModal` (branchées dans `App.tsx`).
+- **`CockpitView.tsx`** : cartes KPI avec compteur animé, sparkline et reflet au pointeur ; barre de répartition du flux par statut ; filtres segmentés avec compteurs ; recherche au raccourci `/` ; grille de commandes en colonnes ; badges sobres à pastille (gère aussi `paiement_valide`).
+- **`StudioView.tsx`** : lecteur de note vocale avec ondes animées et tête de lecture (0:48) ; transcription en serif ; vinyle SVG qui tourne pendant le mastering, bras de lecture animé, macaron doré une fois livré ; 4 étapes réelles (Composition, Arrangement, Mastering, Livraison) ; livret de paroles en Instrument Serif avec numérotation des vers et refrain souligné en doré ; timers nettoyés au démontage ; écran vide si aucune commande (évitait un crash).
+- **Validation** : `tsc -p tsconfig.app.json --noEmit` → exit 0 ; `vite build` → exit 0 en 2.73s (seul avertissement : bundle > 500 kB, préexistant). Note PRoot : `npm run build` complet a été tué (exit 137, mémoire) — utiliser `NODE_OPTIONS=--max-old-space-size=768`.
+- **Non commité** (en attente de validation visuelle par l'utilisateur).
+- **Prochaine étape** : appliquer le même langage aux autres vues de la mission (`ConversationsView`, `StudioCopilotView`, `VentesCaisseView`, `PipelineView`, `AcademyView`, `LandingPage`, `Navbar`).
 
 ### 16. Refonte Haute Facture de l'Intérieur du Studio OS (30 Septembre 2026)
 - **Objectif & Exigences Fondamentales** :

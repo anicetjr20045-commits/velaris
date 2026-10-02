@@ -211,6 +211,8 @@ export function App() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onSelectOrderForStudio={handleSelectOrderForStudio}
+              onOpenQrModal={() => setIsQrModalOpen(true)}
+              onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
               renderStudioAI={() => (
                 <StudioView
                   key={selectedOrderId}
