@@ -45,8 +45,9 @@ const LineCard: FC<{
   role: string;
   readOnly?: boolean;
   manageable?: boolean;
-}> = ({ sessionName, title, role, readOnly = false, manageable = true }) => {
-  const waha = useWahaSession(sessionName, { readOnly });
+  syncToStudio?: boolean;
+}> = ({ sessionName, title, role, readOnly = false, manageable = true, syncToStudio = false }) => {
+  const waha = useWahaSession(sessionName, { readOnly, syncToStudio });
   const link = useWahaHeartbeat(sessionName, { autoReconnect: manageable && !readOnly });
   const [confirmStop, setConfirmStop] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -431,6 +432,7 @@ export const WhatsAppLinesView: FC = () => {
                 title="Ma ligne studio"
                 role="Réception & Livraison"
                 manageable={true}
+                syncToStudio={true}
               />
               <SendConsole sessionName={ownSession} />
             </>

@@ -104,6 +104,7 @@ export function useWahaSession(sessionName: string = WAHA_CONFIG.defaultSession,
         session_name: sessionName,
         status: connected ? 'connected' : data.status === 'SCAN_QR_CODE' ? 'scanning' : 'disconnected',
         phone_number: phone,
+        engine_owner: 'velaris_engine',
         last_seen_at: new Date().toISOString(),
       },
       { onConflict: 'session_name' }

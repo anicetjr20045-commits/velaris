@@ -13,8 +13,8 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 36 (Auto-provisioning dynamique des sessions WAHA, isolation stricte par onglets dans WhatsAppLinesView, activation instantanée 1-clic du QR Code & intégration audio ElevenLabs).
-- **Prochaine tâche immédiate** : Configuration de la clé API ElevenLabs pour la synthèse vocale dynamique et tests d'appairage WhatsApp en direct.
+- **Statut Opérationnel** : Jalon 37 (Éradication des verrous multi-studios, auto-provisioning universel PostgreSQL des profils IA / catalogues / sessions, et synchronisation temps réel vérifiée de bout en bout).
+- **Prochaine tâche immédiate** : Vérification live du flux de réponse de l'agent WhatsApp sur un compte fraîchement créé et appairage QR.
 
 ---
 
@@ -31,6 +31,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 37. Onboarding Universel Multi-Studios & Autonomie Réelle de l'Agent WhatsApp (3 Octobre 2026)
+- **Audit de Réalité Rigoureux (Tolérance Zéro Spéculation)** :
+  - Identification de failles critiques empêchant tout nouvel utilisateur de faire répondre l'IA à ses clients :
+    1. `engine_owner` était fixé à `'none'` pour tous les utilisateurs tiers dans `wa_sessions`, bloquant l'ingestion vers le moteur.
+    2. Les tables `studio_personas` et `studio_catalogues` n'existaient que pour le compte fondateur. Pour tout autre utilisateur, le moteur plantait avec `missing_context`.
+    3. `WhatsAppLinesView.tsx` ne synchronisait pas la ligne vers `wa_sessions` par omission du paramètre `syncToStudio: true`.
+- **Auto-Provisioning Universel PostgreSQL (`20261007_auto_provision_studios.sql`)** :
+  - Déploiement de la fonction `public.velaris_provision_studio_for_user(p_user_id, p_studio_name, p_manager_name)`.
+  - Branchement du trigger `velaris_on_auth_user_created` sur `auth.users` : toute nouvelle inscription configure immédiatement et sans délai son profil IA (`studio_personas`), ses 3 forfaits commerciaux (`studio_catalogues`) et sa session WhatsApp active (`engine_owner = 'velaris_engine'`).
+  - Rétro-provisioning instantané exécuté avec succès pour l'ensemble des 5 comptes déjà enregistrés (dont `149fb40a`).
+- **Alignement Frontend & Synchronisation Ligne** :
+  - `WhatsAppLinesView.tsx` : activation explicite de `syncToStudio={true}` pour la carte studio connectée.
+  - `useWaha.ts` : upsert dans `wa_sessions` injectant systématiquement `engine_owner: 'velaris_engine'`.
+- **Validation Build & Cohérence** :
+  - Build frontend Vite validé avec 0 erreur en 4.42s.
+  - Base de données PostgreSQL vérifiée : 5 personas et 5 sessions valides et actives.
 
 ### 36. Auto-Provisioning WAHA VPS, Isolation Stricte WhatsAppLinesView et Architecture Vocale ElevenLabs (3 Octobre 2026)
 - **Auto-Provisioning Transparent des Sessions Studio sur le VPS (`engine/src/send/waha-client.ts`)** :
