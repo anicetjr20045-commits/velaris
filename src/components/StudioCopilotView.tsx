@@ -23,6 +23,7 @@ import {
   Coins,
   Music2,
   Sparkles,
+  QrCode,
   type LucideIcon
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -47,6 +48,7 @@ import type { KieSongResult } from '../types/billing';
 interface StudioCopilotViewProps {
   sessionName?: string;
   onNavigateToStudio?: () => void;
+  onOpenQrModal?: () => void;
   /** Commandes du studio (mêmes données que la Caisse) pour le suivi des ventes */
   orders?: Order[];
   metrics?: StudioMetrics;
@@ -302,6 +304,7 @@ const SUGGESTIONS: { label: string; hint: string; icon: LucideIcon; query: strin
 export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
   sessionName: propSessionName,
   onNavigateToStudio,
+  onOpenQrModal,
   orders = [],
   metrics
 }) => {
@@ -584,11 +587,24 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
-            <span>Passerelle</span>
-            <span className="font-mono text-white">{sessionName}</span>
-          </div>
+          {onOpenQrModal ? (
+            <button
+              type="button"
+              onClick={onOpenQrModal}
+              className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#E5B54F]/40 px-3.5 py-1.5 text-[12.5px] text-white transition-all cursor-pointer group"
+              title="Lier la ligne WhatsApp Studio (Code QR)"
+            >
+              <QrCode className="h-3.5 w-3.5 text-[#E5B54F] group-hover:scale-110 transition-transform" strokeWidth={1.7} />
+              <span>Code QR WhatsApp</span>
+              <span className="font-mono text-xs text-neutral-400">({sessionName})</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
+              <span>Passerelle</span>
+              <span className="font-mono text-white">{sessionName}</span>
+            </div>
+          )}
           <button
             type="button"
             onClick={handleReset}

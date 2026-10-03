@@ -516,6 +516,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
                 orders={orders}
                 metrics={metrics ?? { ...REAL_STUDIO_METRICS, currency: 'FCFA' }}
                 onNavigateToStudio={() => handleTabClick('studio_ai')}
+                onOpenQrModal={onOpenQrModal ?? (() => handleTabClick('whatsapp'))}
               />
             )}
 
