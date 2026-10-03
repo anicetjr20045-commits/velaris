@@ -6,8 +6,6 @@ import {
   ShieldCheck,
   RotateCw,
   Loader2,
-  Lock,
-  ArrowRight,
   CircleAlert
 } from 'lucide-react';
 import { useWahaSession } from '../hooks/useWaha';
@@ -34,13 +32,14 @@ const STATUS_LABEL: Record<string, string> = {
 export const QrConnectModal: FC<QrConnectModalProps> = ({
   isOpen,
   onClose,
+  sessionName: passedSessionName,
   setIsWhatsAppConnected,
 }) => {
-  const { user, openAuthModal } = useAuth();
-  // Un studio ne lie jamais que SA propre session
-  const sessionName = wahaSessionNameFor(user?.id);
-  // Aucune sonde WAHA tant que la fenêtre est fermée ou sans compte
-  const waha = useWahaSession(sessionName, { enabled: isOpen && !!user });
+  const { user } = useAuth();
+  // Un studio lie sa propre session (ou 'Test' par défaut)
+  const sessionName = passedSessionName || wahaSessionNameFor(user?.id);
+  // Sonde active dès que la modal est ouverte
+  const waha = useWahaSession(sessionName, { enabled: isOpen });
   const [isRestarting, setIsRestarting] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
 
@@ -102,47 +101,11 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
             {waha.isOnline ? 'WhatsApp Studio connecté' : 'Lier votre WhatsApp Studio'}
           </h2>
           <p className="text-xs text-neutral-400 mt-1">
-            {user ? (
-              <span>Ligne isolée · session <span className="font-mono text-white/90">{sessionName}</span></span>
-            ) : (
-              'Connectez votre compte pour obtenir une passerelle dédiée à votre studio.'
-            )}
+            <span>Passerelle WhatsApp · session <span className="font-mono text-white/90">{sessionName}</span></span>
           </p>
         </div>
 
-        {!user ? (
-          <div className="my-2 space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.05] text-neutral-300">
-              <Lock className="h-5 w-5" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-white">Compte studio requis</h3>
-              <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                Chaque studio dispose de sa propre passerelle WhatsApp et de ses propres messages. Créez votre compte pour générer votre QR code privé.
-              </p>
-            </div>
-            <div className="pt-2 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  openAuthModal();
-                }}
-                className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-2.5 text-xs font-bold text-black cursor-pointer transition-colors"
-              >
-                <span>Créer mon studio ou me connecter</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full rounded-full border border-white/[0.08] py-2 text-xs font-medium text-neutral-400 hover:text-white cursor-pointer"
-              >
-                Continuer en exploration démo
-              </button>
-            </div>
-          </div>
-        ) : waha.isOnline ? (
+        {waha.isOnline ? (
           <div className="my-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.05] p-5 text-center space-y-3">
             <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
               <CheckCircle2 className="h-6 w-6" strokeWidth={1.6} />

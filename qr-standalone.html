@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion WhatsApp Studio — Velaris</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050608;
+      --card: #0E1015;
+      --card-inner: #08090C;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(255, 255, 255, 0.2);
+      --txt-main: #FFFFFF;
+      --txt-muted: #8E929E;
+      --txt-dim: #545763;
+      --emerald: #10B981;
+      --emerald-bg: rgba(16, 185, 129, 0.08);
+      --emerald-border: rgba(16, 185, 129, 0.25);
+      --amber: #F59E0B;
+      --amber-bg: rgba(245, 158, 11, 0.08);
+      --amber-border: rgba(245, 158, 11, 0.25);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--txt-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      max-width: 440px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 32px 28px;
+      box-shadow: 0 30px 90px -20px rgba(0, 0, 0, 0.85);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 20%;
+      right: 20%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+    }
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      color: var(--txt-main);
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--txt-muted);
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 20px;
+    }
+    .badge-amber {
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: #FBBF24;
+    }
+    .badge-emerald {
+      background: var(--emerald-bg);
+      border: 1px solid var(--emerald-border);
+      color: #34D399;
+    }
+    .badge-neutral {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--txt-muted);
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+    .dot-amber { background: #F59E0B; }
+    .dot-emerald { background: #10B981; }
+    .dot-neutral { background: var(--txt-muted); }
+    .dot-pulse {
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.9); }
+    }
+    
+    .qr-container {
+      background: #FFFFFF;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 14px;
+      width: 240px;
+      height: 240px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    }
+    .qr-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      border-radius: 8px;
+    }
+    
+    .idle-box {
+      background: var(--card-inner);
+      border: 1px dashed var(--border);
+      border-radius: 20px;
+      padding: 32px 20px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .idle-box p {
+      font-size: 13px;
+      color: var(--txt-muted);
+      line-height: 1.6;
+    }
+    
+    .connected-box {
+      background: var(--emerald-bg);
+      border: 1px solid var(--emerald-border);
+      border-radius: 22px;
+      padding: 30px 20px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .connected-phone {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 19px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+      margin-top: 10px;
+    }
+    .connected-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #34D399;
+      margin-top: 4px;
+    }
+
+    .steps {
+      background: var(--card-inner);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 22px;
+      text-align: left;
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 12.5px;
+      color: var(--txt-muted);
+      line-height: 1.5;
+    }
+    .step-item:not(:last-child) {
+      margin-bottom: 10px;
+    }
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--txt-dim);
+      padding-top: 1px;
+    }
+    .step-item strong {
+      color: var(--txt-main);
+      font-weight: 600;
+    }
+
+    .btn {
+      width: 100%;
+      height: 44px;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: none;
+      outline: none;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: #FFFFFF;
+      color: #000000;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #E5E5E5;
+    }
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.985);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--txt-main);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-focus);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .spinner {
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .footer {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--txt-dim);
+    }
+    .footer svg {
+      color: var(--emerald);
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="card">
+    <div class="header-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/>
+      </svg>
+    </div>
+
+    <h1 id="view-title">WhatsApp Studio Velaris</h1>
+    <p class="subtitle" id="view-sub">Passerelle officielle · session <span style="font-family: 'JetBrains Mono'; color: #FFF;">Test</span></p>
+
+    <!-- Badge statut -->
+    <div id="status-badge-container">
+      <div class="status-badge badge-neutral">
+        <span class="dot dot-neutral"></span>
+        <span id="status-text">Vérification en cours…</span>
+      </div>
+    </div>
+
+    <!-- ÉTAT 1 : IDLE / FAILED / STOPPED (Pas de QR code affiché, bouton d'activation) -->
+    <div id="section-idle" style="display: none;">
+      <div class="idle-box">
+        <p>Le code QR n'est pas actif pour le moment. Cliquez sur le bouton ci-dessous pour démarrer la passerelle et générer un code d'appairage frais.</p>
+      </div>
+      <button id="btn-activate" onclick="activateSession()" class="btn btn-primary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/>
+        </svg>
+        <span>Activer le Code QR</span>
+      </button>
+    </div>
+
+    <!-- ÉTAT 2 : SCAN_QR_CODE (QR code actif et visible) -->
+    <div id="section-scan" style="display: none;">
+      <div class="qr-container">
+        <img id="qr-image" src="" alt="Code QR WhatsApp">
+      </div>
+
+      <div class="steps">
+        <div class="step-item">
+          <span class="step-num">01</span>
+          <span>Ouvrez <strong>WhatsApp</strong> sur le téléphone du studio.</span>
+        </div>
+        <div class="step-item">
+          <span class="step-num">02</span>
+          <span>Accédez à <strong>Réglages</strong> &gt; <strong>Appareils connectés</strong>.</span>
+        </div>
+        <div class="step-item">
+          <span class="step-num">03</span>
+          <span>Touchez <strong>Connecter un appareil</strong> et pointez la caméra.</span>
+        </div>
+      </div>
+
+      <button id="btn-refresh-scan" onclick="activateSession()" class="btn btn-secondary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/>
+        </svg>
+        <span>Renouveler le code QR</span>
+      </button>
+    </div>
+
+    <!-- ÉTAT 3 : WORKING (Connecté) -->
+    <div id="section-connected" style="display: none;">
+      <div class="connected-box">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto;">
+          <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+        </svg>
+        <div class="connected-phone" id="connected-phone">+226 56 24 05 33</div>
+        <div class="connected-tag">Passerelle active · Moteur Alex opérationnel</div>
+      </div>
+      <p class="subtitle" style="margin-bottom: 20px;">
+        Le studio est prêt à recevoir les messages clients et à orchestrer la production des chansons.
+      </p>
+      <button onclick="activateSession()" class="btn btn-secondary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/>
+        </svg>
+        <span>Relancer la session</span>
+      </button>
+    </div>
+
+    <div class="footer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+      <span>Moteur Velaris v2 · Ingestion HMAC &amp; Isolation étanche</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  let isActionRunning = false;
+  let pollInterval = null;
+  let lastStatus = null;
+
+  function renderStatusBadge(status) {
+    const badgeContainer = document.getElementById('status-badge-container');
+    if (status === 'SCAN_QR_CODE') {
+      badgeContainer.innerHTML = '<div class="status-badge badge-amber"><span class="dot dot-amber dot-pulse"></span><span>En attente du scan</span></div>';
+    } else if (status === 'WORKING') {
+      badgeContainer.innerHTML = '<div class="status-badge badge-emerald"><span class="dot dot-emerald"></span><span>Ligne connectée</span></div>';
+    } else if (status === 'STARTING') {
+      badgeContainer.innerHTML = '<div class="status-badge badge-amber"><span class="dot dot-amber dot-pulse"></span><span>Initialisation de la passerelle…</span></div>';
+    } else {
+      badgeContainer.innerHTML = '<div class="status-badge badge-neutral"><span class="dot dot-neutral"></span><span>Ligne en attente (' + (status || 'Inactif') + ')</span></div>';
+    }
+  }
+
+  function renderState(data) {
+    const status = data.status || 'FAILED';
+    renderStatusBadge(status);
+
+    const idleSection = document.getElementById('section-idle');
+    const scanSection = document.getElementById('section-scan');
+    const connSection = document.getElementById('section-connected');
+
+    if (status === 'WORKING') {
+      idleSection.style.display = 'none';
+      scanSection.style.display = 'none';
+      connSection.style.display = 'block';
+      if (data.phone) {
+        document.getElementById('connected-phone').textContent = data.phone;
+      }
+    } else if (status === 'SCAN_QR_CODE') {
+      idleSection.style.display = 'none';
+      scanSection.style.display = 'block';
+      connSection.style.display = 'none';
+
+      const img = document.getElementById('qr-image');
+      const targetSrc = '/api/qr/image?session=Test&t=' + Date.now();
+      if (!img.src || lastStatus !== 'SCAN_QR_CODE') {
+        img.src = targetSrc;
+      }
+    } else {
+      idleSection.style.display = 'block';
+      scanSection.style.display = 'none';
+      connSection.style.display = 'none';
+    }
+
+    lastStatus = status;
+  }
+
+  async function checkStatus() {
+    try {
+      const res = await fetch('/api/qr/status?session=Test&t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      renderState(data);
+    } catch (err) {
+      renderStatusBadge('Injoignable');
+    }
+  }
+
+  async function activateSession() {
+    if (isActionRunning) return;
+    isActionRunning = true;
+    
+    const btnAct = document.getElementById('btn-activate');
+    const btnRef = document.getElementById('btn-refresh-scan');
+    const oldActHtml = btnAct ? btnAct.innerHTML : '';
+    const oldRefHtml = btnRef ? btnRef.innerHTML : '';
+
+    const loadingHtml = '<svg class="spinner" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><span>Activation en cours…</span>';
+
+    if (btnAct) { btnAct.disabled = true; btnAct.innerHTML = loadingHtml; }
+    if (btnRef) { btnRef.disabled = true; btnRef.innerHTML = loadingHtml; }
+
+    try {
+      renderStatusBadge('STARTING');
+      await fetch('/api/qr/restart?session=Test', { method: 'POST', cache: 'no-store' });
+      setTimeout(async () => {
+        await checkStatus();
+        isActionRunning = false;
+        if (btnAct) { btnAct.disabled = false; btnAct.innerHTML = oldActHtml; }
+        if (btnRef) { btnRef.disabled = false; btnRef.innerHTML = oldRefHtml; }
+      }, 2000);
+    } catch (err) {
+      isActionRunning = false;
+      if (btnAct) { btnAct.disabled = false; btnAct.innerHTML = oldActHtml; }
+      if (btnRef) { btnRef.disabled = false; btnRef.innerHTML = oldRefHtml; }
+      checkStatus();
+    }
+  }
+
+  setInterval(() => {
+    if (lastStatus === 'SCAN_QR_CODE') {
+      const img = document.getElementById('qr-image');
+      if (img && !isActionRunning) {
+        img.src = '/api/qr/image?session=Test&t=' + Date.now();
+      }
+    }
+  }, 15000);
+
+  checkStatus();
+  pollInterval = setInterval(checkStatus, 3000);
+</script>
+</body>
+</html>

@@ -45,6 +45,7 @@ const ingestDeps: IngestServerDeps = {
   log,
   hmacKey: config.wahaWebhookHmacKey,
   protectedSessions: config.protectedSessions,
+  waha,
 };
 
 const sender = new OutboxSender({

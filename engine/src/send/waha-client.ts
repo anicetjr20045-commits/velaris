@@ -96,4 +96,73 @@ export class WahaClient {
     const id = normalizeWaMessageId(obj.id) ?? normalizeWaMessageId(key?.id) ?? normalizeWaMessageId(data?.id);
     return { status: 'sent', waMessageId: id, waKey: waMessageIdKey(id) };
   }
+
+  async getSession(session: string): Promise<{ ok: boolean; status: string; session?: WahaSessionInfo; error?: string }> {
+    try {
+      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json', 'X-Api-Key': this.opts.apiKey },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!res.ok) {
+        return { ok: false, status: 'UNREACHABLE', error: `http_${res.status}` };
+      }
+      const data = (await res.json()) as WahaSessionInfo;
+      return { ok: true, status: data.status || 'UNKNOWN', session: data };
+    } catch (err) {
+      return { ok: false, status: 'UNREACHABLE', error: (err as Error).message };
+    }
+  }
+
+  async restartSession(session: string): Promise<{ ok: boolean; status?: string; error?: string }> {
+    try {
+      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}/restart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { status?: string };
+        return { ok: true, status: data.status || 'STARTING' };
+      }
+      // Repli si /restart non supporté : stop puis start
+      await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+      }).catch(() => undefined);
+      const startRes = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+      }).catch(() => undefined);
+      return { ok: !!startRes?.ok, status: 'STARTING' };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async getQrImage(session: string): Promise<{ ok: boolean; buffer?: Buffer; contentType?: string; error?: string }> {
+    try {
+      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/${encodeURIComponent(session)}/auth/qr?format=image`, {
+        method: 'GET',
+        headers: { 'X-Api-Key': this.opts.apiKey },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!res.ok) {
+        return { ok: false, error: `http_${res.status}` };
+      }
+      const contentType = res.headers.get('content-type') || 'image/png';
+      const arrayBuf = await res.arrayBuffer();
+      return { ok: true, buffer: Buffer.from(arrayBuf), contentType };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
 }
+
+export interface WahaSessionInfo {
+  name: string;
+  status: string;
+  me?: { id: string; pushName?: string } | null;
+  timestamps?: Record<string, unknown>;
+}
+

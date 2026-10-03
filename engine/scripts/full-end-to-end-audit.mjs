@@ -177,9 +177,9 @@ async function main() {
   console.log('  Question en attente :', convState2.rows[0].pending_question);
 
   // --------------------------------------------------------------------------
-  // ÉTAPE 2B : CONFIRMATION DU PRÉNOM & CHOIX DE LA FORMULE
+  // ÉTAPE 2B : CONFIRMATION DU PRÉNOM PAR LE CLIENT
   // --------------------------------------------------------------------------
-  console.log('\n--- 2B. CONFIRMATION DU PRÉNOM & CHOIX FORMULE SIGNATURE ---');
+  console.log('\n--- 2B. CONFIRMATION DU PRÉNOM PAR LE CLIENT ---');
   res = await sendWebhook({
     event: 'message',
     session: 'Test',
@@ -188,24 +188,57 @@ async function main() {
       timestamp: Math.floor(Date.now() / 1000),
       from: CHAT_ID,
       fromMe: false,
-      body: 'Oui c est bien Fatou ! Et je choisis la formule Signature à 3000 F',
+      body: 'Oui c est bien Fatou !',
       hasMedia: false,
       _data: { pushName: 'Mariam' }
     }
   });
-  console.log('  Attente du traitement du tour #3 (verrouillage brief)...');
+  console.log('  Attente de la confirmation du prénom (tour #3)...');
   const t2b = await waitForNextTurn(convId, turnCount);
   turnCount = t2b.count;
   console.log(`  Tour #3 terminé avec outcome: "${t2b.turn.outcome}"`);
 
   const o2b = await pg.query(`
-    SELECT stage, catalogue_code, price_xof, recipient_name_confirmed
+    SELECT stage, recipient_name_confirmed
       FROM orders WHERE id = $1
   `, [orderId]);
-  console.log('  État de la commande après verrouillage :', o2b.rows[0]);
+  console.log('  État de la commande après confirmation prénom :', o2b.rows[0]);
   assert(o2b.rows[0].recipient_name_confirmed === true, 'Prénom Fatou officiellement confirmé');
-  assert(o2b.rows[0].price_xof === 3000, 'Prix Signature 3 000 F CFA attribué');
-  assert(o2b.rows[0].stage === 'lyrics_in_progress', 'Brief complet : commande passée en lyrics_in_progress');
+
+  // L'agent présente maintenant le choix de la formule
+  const convState2b = await pg.query(`SELECT pending_question FROM conversations WHERE id = $1`, [convId]);
+  console.log('  Question en attente :', convState2b.rows[0].pending_question);
+  assert(convState2b.rows[0].pending_question?.key === 'choose_offer', 'L\'agent demande le choix de la formule');
+
+  // --------------------------------------------------------------------------
+  // ÉTAPE 2C : CHOIX DE LA FORMULE SIGNATURE (VERROUILLAGE DU BRIEF)
+  // --------------------------------------------------------------------------
+  console.log('\n--- 2C. CHOIX DE LA FORMULE SIGNATURE (3000 F CFA) ---');
+  res = await sendWebhook({
+    event: 'message',
+    session: 'Test',
+    payload: {
+      id: `false_${CHAT_ID}_MSG2C_${Date.now()}`,
+      timestamp: Math.floor(Date.now() / 1000),
+      from: CHAT_ID,
+      fromMe: false,
+      body: 'Je prends la formule Signature à 3000 F',
+      hasMedia: false,
+      _data: { pushName: 'Mariam' }
+    }
+  });
+  console.log('  Attente du verrouillage du brief (tour #4)...');
+  const t2c = await waitForNextTurn(convId, turnCount);
+  turnCount = t2c.count;
+  console.log(`  Tour #4 terminé avec outcome: "${t2c.turn.outcome}"`);
+
+  const o2c = await pg.query(`
+    SELECT stage, catalogue_code, price_xof
+      FROM orders WHERE id = $1
+  `, [orderId]);
+  console.log('  État de la commande après choix formule :', o2c.rows[0]);
+  assert(o2c.rows[0].price_xof === 3000, 'Prix Signature 3 000 F CFA attribué');
+  assert(o2c.rows[0].stage === 'lyrics_in_progress', 'Brief complet : commande passée en lyrics_in_progress');
 
   // --------------------------------------------------------------------------
   // ÉTAPE 3 : ÉCRITURE & ENVOI DES PAROLES PAR LE GÉRANT (lyrics_author = manager)
@@ -337,13 +370,20 @@ async function main() {
   turnCount = t6.count;
   console.log(`  Tour terminé avec outcome: "${t6.turn.outcome}"`);
 
-  const out6 = await pg.query(`
-    SELECT purpose, body FROM outbound_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 3
-  `, [convId]);
+  const turnLog6 = await pg.query(
+    `SELECT decision FROM agent_turn_logs WHERE turn_id = $1`,
+    [t6.turn.id]
+  );
+  const isReturningGoal = turnLog6.rows[0]?.decision?.utterances?.some(u => u.goal === 'welcome_returning');
+  assert(isReturningGoal, 'Décision FSM : goal welcome_returning activé avec returning_client: true');
+
+  const out6 = await pg.query(
+    `SELECT purpose, body FROM outbound_messages WHERE turn_id = $1 ORDER BY created_at`,
+    [t6.turn.id]
+  );
   console.log('  Réponse de l\'agent à l\'ancien client :');
   out6.rows.forEach(m => console.log(`   - (${m.purpose}): "${m.body}"`));
-  const welcomeReturning = out6.rows.some(m => m.purpose === 'welcome_returning' || m.body.toLowerCase().includes('revoir'));
-  assert(welcomeReturning, 'L\'agent a utilisé l\'accueil chaleureux dédié aux anciens clients ("Content de vous revoir")');
+  assert(out6.rowCount >= 1, 'L\'agent a généré le message d\'accueil et de reprise pour l\'ancien client');
 
   // --------------------------------------------------------------------------
   // ÉTAPE 7 : VÉRIFICATION TÉLÉMÉTRIE, LOGS DE TOURS & CACHE DEEPSEEK
@@ -361,7 +401,7 @@ async function main() {
   turnsLog.rows.forEach((t, i) => {
     console.log(`  [Tour ${i + 1}] outcome: ${t.outcome} | latency: ${t.latency_ms}ms | tokens: ${JSON.stringify(t.tokens)}`);
     assert(t.latency_ms > 0, `Latence tour ${i + 1} tracée`);
-    assert(t.guard_results?.passed === true, `12 Gardes-fous validés au tour ${i + 1}`);
+    assert(Array.isArray(t.guard_results) && t.guard_results.length === 0, `12 Gardes-fous validés au tour ${i + 1} (0 violation)`);
   });
 
   const cacheHits = turnsLog.rows.filter(t => t.tokens?.cacheHit > 0);

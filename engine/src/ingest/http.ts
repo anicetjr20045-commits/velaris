@@ -11,6 +11,7 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Spool } from '../db/spool.js';
+import type { WahaClient } from '../send/waha-client.js';
 import { verifyWahaHmac } from './hmac.js';
 import { normalizeWahaEvent, type NormalizedEvent } from './normalize.js';
 import { processEvent, type ProcessDeps } from './process-event.js';
@@ -21,6 +22,7 @@ export interface IngestServerDeps extends ProcessDeps {
   hmacKey: string;
   spool: Spool;
   log: (line: string, data?: Record<string, unknown>) => void;
+  waha?: WahaClient;
 }
 
 function readBody(req: IncomingMessage): Promise<Buffer> {
@@ -78,8 +80,73 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
 export function createIngestServer(deps: IngestServerDeps): Server {
   return createServer((req, res) => {
     void (async () => {
+      // CORS permissif pour les appels dashboard et pages publiques
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
       if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, at: new Date().toISOString() });
-      const isWebhook = req.url === '/webhooks/waha' || req.url === '/webhook' || req.url === '/api/public/waha-webhook';
+
+      const parsedUrl = new URL(req.url || '/', 'http://localhost');
+
+      // Endpoints publics d'appairage QR Code WhatsApp
+      if (parsedUrl.pathname === '/api/qr/status' && req.method === 'GET') {
+        const session = parsedUrl.searchParams.get('session') || 'Test';
+        if (!deps.waha) return json(res, 503, { ok: false, error: 'waha_not_configured' });
+        const r = await deps.waha.getSession(session);
+        return json(res, 200, {
+          ok: r.ok,
+          session,
+          status: r.status,
+          isScanning: r.status === 'SCAN_QR_CODE',
+          isOnline: r.status === 'WORKING',
+          phone: r.session?.me?.id ? `+${r.session.me.id.split('@')[0]}` : null,
+          pushName: r.session?.me?.pushName || null,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      if (parsedUrl.pathname === '/api/qr/restart' && (req.method === 'POST' || req.method === 'GET')) {
+        const session = parsedUrl.searchParams.get('session') || 'Test';
+        if (deps.protectedSessions?.includes(session)) {
+          return json(res, 403, { ok: false, error: `session_${session}_is_protected` });
+        }
+        if (!deps.waha) return json(res, 503, { ok: false, error: 'waha_not_configured' });
+        const r = await deps.waha.restartSession(session);
+        return json(res, r.ok ? 200 : 500, {
+          ok: r.ok,
+          session,
+          status: r.status || 'STARTING',
+          message: r.ok ? 'Passerelle WhatsApp relancée' : r.error,
+        });
+      }
+
+      if (parsedUrl.pathname === '/api/qr/image' && req.method === 'GET') {
+        const session = parsedUrl.searchParams.get('session') || 'Test';
+        if (!deps.waha) return json(res, 503, { ok: false, error: 'waha_not_configured' });
+        const s = await deps.waha.getSession(session);
+        if (s.status !== 'SCAN_QR_CODE') {
+          return json(res, 404, { ok: false, error: 'not_scanning', status: s.status });
+        }
+        const img = await deps.waha.getQrImage(session);
+        if (!img.ok || !img.buffer) {
+          return json(res, 502, { ok: false, error: 'qr_fetch_failed' });
+        }
+        res.writeHead(200, {
+          'Content-Type': img.contentType || 'image/png',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Content-Length': img.buffer.length,
+        });
+        res.end(img.buffer);
+        return;
+      }
+
+      const isWebhook = parsedUrl.pathname === '/webhooks/waha' || parsedUrl.pathname === '/webhook' || parsedUrl.pathname === '/api/public/waha-webhook';
       if (req.method !== 'POST' || !isWebhook) return json(res, 404, { error: 'not_found' });
 
       let raw: Buffer;

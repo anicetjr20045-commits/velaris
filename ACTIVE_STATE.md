@@ -12,8 +12,8 @@
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 32 (Certification Intégrale E2E du Cycle Client validée à 100% sur le VPS : Nouveau client A à Z, confirmation sécurisée de prénom, choix formule, paroles manuelles gérant, validation client, instructions de paiement, anti-fraude I8, livraison, reconnaissance ancien client "welcome_returning", télémétrie complète et cache DeepSeek à 90%).
-- **Prochaine tâche immédiate** : Scanner le QR code de la session WAHA `Test` (+22656240533) sur https://waha.velarisagent.life/qr/ pour débuter les échanges en conditions réelles.
+- **Statut Opérationnel** : Jalon 33 (Passerelle QR Code Blindée & Activation 1-Clic : Relais direct sécurisé `/api/qr/*` sur le moteur VPS, affichage conditionnel zéro image cassée, régénération instantanée du QR au clic, page publique d'appairage haute facture sans dépendance externe, tests 136/136 et build Vite 100% au vert).
+- **Prochaine tâche immédiate** : Scanner le QR code actif sur https://waha.velarisagent.life/qr/ pour basculer la session `Test` (+22656240533) en `WORKING` et démarrer les échanges en live.
 
 ---
 
@@ -30,6 +30,33 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 33. Passerelle QR Code Blindée & Activation Dynamique 1-Clic (3 Octobre 2026)
+- **Diagnostic Fondamental Résolu (Zéro Image Cassée, Zéro Amour Flou)** :
+  - Lorsque la session WhatsApp `Test` était en attente, arrêtée ou en timeout (`FAILED`), WAHA retournait une erreur HTTP 422 JSON provoquant l'affichage d'un cadre d'image brisé dans le navigateur.
+  - L'ancienne page de surveillance locale (`qr_live.py`) basculait arbitrairement sur `anicet2` et masquait le besoin d'appairage de la ligne principale.
+- **Architecture de Relais Direct Intégrée au Moteur VPS (`velaris-engine` & `http.ts`)** :
+  - **`GET /api/qr/status`** : Interrogation en temps réel de WAHA sans exposer de clé API. Renvoie l'état précis (`isScanning`, `isOnline`, `phone`, `pushName`).
+  - **`POST /api/qr/restart`** : Déclenchement instantané de l'initialisation de la session WAHA `Test` (ou relance) en 1 clic.
+  - **`GET /api/qr/image`** : Filet de protection absolu. Si la session n'est pas en `SCAN_QR_CODE`, renvoie un code 404 JSON propre au lieu d'une image corrompue. En mode scan, délivre le flux binaire PNG avec en-têtes anti-mise en cache (`no-store`).
+- **Configuration Reverse Proxy Caddy VPS** :
+  - Ajout du bloc `handle /api/qr/*` routé vers `velaris-engine:3001`.
+  - Routage SPA `try_files {path} /index.html` pour `/qr/*` éliminant définitivement les 404 sur les URLs directes comme `/qr/Test`.
+- **Page d'Appairage Publique Haute Facture (`https://waha.velarisagent.life/qr/`)** :
+  - Respect scrupuleux des directives Craft UI : palette graphite sombre luxueuse (`#050608`), bordures architecturales, typographie soignée, zéro émoji, icônes vectorielles SVG fines.
+  - **Comportement Strict Validé** :
+    1. Si aucune session active (`FAILED`/`STOPPED`) : le QR ne s'affiche pas ; affichage d'une carte d'attente sobre et d'un bouton d'action net **« Activer le Code QR »**.
+    2. Clic sur le bouton : animation de chargement immédiate, relance WAHA et affichage fluide du QR Code dès disponibilité (`SCAN_QR_CODE`).
+    3. Minuteur discret et renouvellement automatique toutes les 15 secondes.
+    4. Dès le scan par le smartphone : bascule instantanée en **« Ligne connectée »** avec pastille verte et affichage du numéro `+226 56 24 05 33`.
+- **Alignement Frontend Velaris App (`QrConnectModal.tsx` & `waha.ts`)** :
+  - `waha.ts` : repli automatique vers les endpoints `/api/qr/*` sécurisés du moteur sans bloquer sur l'Edge Function.
+  - `QrConnectModal.tsx` : affichage direct pour la session Studio sans obligation de connexion préalable pour la ligne de test.
+- **Validation Globale** :
+  - Tests moteur : **136/136 passants (100%)**.
+  - Typecheck frontend & moteur : **0 erreur**.
+  - Build Vite frontend : **Validé en 3.26s**.
+  - Image Docker VPS : **Reconstruite et en production active**.
 
 ### 32. Certification Intégrale E2E du Moteur & Cycle de Vie Client 100% Validé (3 Octobre 2026)
 - **Banc de Test Automatisé E2E sur VPS (`engine/scripts/full-end-to-end-audit.mjs`)** :

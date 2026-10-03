@@ -123,6 +123,24 @@ export async function fetchWahaSessions(): Promise<WahaSession[]> {
  * Récupère le statut d'une session spécifique (null si absente ou injoignable)
  */
 export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<WahaSession | null> {
+  // Essai prioritaire via le relais public sécurisé du moteur
+  try {
+    const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/status?session=${encodeURIComponent(sessionName)}&t=${Date.now()}`);
+    if (qRes.ok) {
+      const qData = await qRes.json();
+      if (qData && qData.ok) {
+        return {
+          name: qData.session,
+          status: qData.status,
+          me: qData.phone ? { id: `${qData.phone.replace('+', '')}@c.us`, pushName: qData.pushName } : null,
+          timestamps: qData.timestamps || null,
+        };
+      }
+    }
+  } catch {
+    // repli standard
+  }
+
   try {
     const res = await wahaFetch(`/api/sessions/${encodeURIComponent(sessionName)}`);
     if (!res.ok) return null;
@@ -178,6 +196,18 @@ async function sessionAction(sessionName: string, action: 'start' | 'stop' | 're
     console.warn(`[WAHA] Session ${sessionName} protégée : action « ${action} » refusée`);
     return false;
   }
+  // Essai via le relais public sécurisé du moteur si restart/start
+  if (action === 'restart' || action === 'start') {
+    try {
+      const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/restart?session=${encodeURIComponent(sessionName)}`, { method: 'POST' });
+      if (qRes.ok) {
+        const qData = await qRes.json();
+        if (qData?.ok) return true;
+      }
+    } catch {
+      // repli standard
+    }
+  }
   try {
     const res = await wahaFetch(`/api/sessions/${encodeURIComponent(sessionName)}/${action}`, { method: 'POST' }, 15000);
     return res.ok;
@@ -214,6 +244,21 @@ export async function fetchWahaQrBlob(sessionName: string = WAHA_CONFIG.defaultS
   status?: string;
   error?: string;
 }> {
+  // Essai direct via le relais public sécurisé du moteur
+  try {
+    const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/image?session=${encodeURIComponent(sessionName)}&t=${Date.now()}`);
+    if (qRes.ok && qRes.headers.get('content-type')?.includes('image')) {
+      const blob = await qRes.blob();
+      return { success: true, blobUrl: URL.createObjectURL(blob), status: 'SCAN_QR_CODE' };
+    }
+    if (qRes.status === 404) {
+      const data = await qRes.json().catch(() => null);
+      return { success: false, status: data?.status || 'FAILED', error: 'En attente d\'activation' };
+    }
+  } catch {
+    // repli standard
+  }
+
   try {
     const res = await wahaFetch(`/api/${encodeURIComponent(sessionName)}/auth/qr`, {}, 10000);
     if (res.ok && res.headers.get('content-type')?.includes('image')) {

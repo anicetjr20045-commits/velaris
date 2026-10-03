@@ -30,7 +30,7 @@ export interface UnderstandInput {
   stage: string;
   paymentStatus: string;
   pendingQuestion: string | null;
-  offers: ReadonlyArray<{ code: string; label: string }>;
+  offers: ReadonlyArray<{ code: string; label: string; priceXof?: number }>;
   openOrders: ReadonlyArray<{ recipient: string | null; occasion: string | null }>;
 }
 
@@ -96,6 +96,7 @@ Définitions essentielles :
 - shares_story : raconte une histoire, des souvenirs, une épreuve. Ce ne sont PAS des paroles. provides_own_lyrics : dit EXPLICITEMENT fournir ses propres paroles.
 - needs_guidance : le client est perdu, ne sait pas quoi dire.
 - order_song : demande une chanson (y compris une NOUVELLE chanson pour une autre personne).
+- choose_offer : le client choisit une formule ou un tarif (ex: « formule Signature », « celle à 3000 F »). Renseigne fields.offer_code avec le code officiel correspondant (ex: "signature", "essentiel", "prestige").
 
 Format de sortie (toutes les clés obligatoires) :
 {"primary_intent": "...", "secondary_intents": [], "negated": false, "confidence": 0.0-1.0,
@@ -182,6 +183,21 @@ export function validateUnderstanding(raw: Record<string, unknown>, input: Pick<
     const matched = input.offers.find((o) => o.code.toLowerCase() === val || o.label.toLowerCase() === val);
     if (matched) fields.offerCode = { value: matched.code, quote: offer.quote };
     else rejected.push(`offer_code inconnu : ${offer.value}`);
+  }
+  if (!fields.offerCode && (primary === 'choose_offer' || secondary.includes('choose_offer'))) {
+    for (const o of input.offers) {
+      const normCode = normalizeForEvidence(o.code);
+      const normLabel = normalizeForEvidence(o.label);
+      const priceStr = o.priceXof ? String(o.priceXof) : null;
+      if (
+        (normCode && text.includes(normCode)) ||
+        (normLabel && text.includes(normLabel)) ||
+        (priceStr && text.includes(priceStr))
+      ) {
+        fields.offerCode = { value: o.code, quote: input.turnText };
+        break;
+      }
+    }
   }
   const rv = rawFields.voice as { value?: unknown; quote?: unknown } | undefined;
   if (rv && (rv.value === 'male' || rv.value === 'female' || rv.value === 'duo')) {
