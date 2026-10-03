@@ -12,8 +12,8 @@
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 33 (Passerelle QR Code Blindée & Activation 1-Clic : Relais direct sécurisé `/api/qr/*` sur le moteur VPS, affichage conditionnel zéro image cassée, régénération instantanée du QR au clic, page publique d'appairage haute facture sans dépendance externe, tests 136/136 et build Vite 100% au vert).
-- **Prochaine tâche immédiate** : Scanner le QR code actif sur https://waha.velarisagent.life/qr/ pour basculer la session `Test` (+22656240533) en `WORKING` et démarrer les échanges en live.
+- **Statut Opérationnel** : Jalon 34 (Expertise Vercel activée : Plugin officiel Vercel installé avec ses 37 compétences spécialisées intégrées à Antigravity, CLI Vercel 62.2.0 globale, configuration Vite SPA vercel.json opérationnelle sur main, déploiement Vercel actif).
+- **Prochaine tâche immédiate** : Récupérer ou valider le lien Vercel déployé et scanner le QR code actif sur https://waha.velarisagent.life/qr/ pour basculer la session `Test` (+22656240533) en `WORKING` et démarrer les échanges en live.
 
 ---
 
@@ -30,6 +30,16 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 34. Intégration Expert Vercel & Déploiement Actif (3 Octobre 2026)
+- **Installation du Plugin Officiel Vercel (`vercel/vercel-plugin`)** :
+  - Déploiement du catalogue officiel et installation du package `vercel@claude-plugins-official`.
+  - Intégration de l'ensemble des **37 compétences Vercel** (`vercel-cli`, `deployments-cicd`, `env-vars`, `routing-middleware`, `vercel-functions`, `access-protected-vercel-deployment`, etc.) dans l'environnement Antigravity (`/root/.gemini/config/skills/`).
+- **Outillage CLI Global** :
+  - Installation globale de `vercel` CLI (`v62.2.0`) disponible en ligne de commande.
+- **Support Déploiement Vercel** :
+  - `vercel.json` en place sur `origin/main` avec réécriture propre des routes SPA (`/(.*)` -> `/index.html`).
+  - Tolérance zéro rupture : variables Supabase et WAHA configurées avec replis directs de production (`dnwlqgsftauqsyjwhoza`, `https://waha.velarisagent.life`).
 
 ### 33. Passerelle QR Code Blindée & Activation Dynamique 1-Clic (3 Octobre 2026)
 - **Diagnostic Fondamental Résolu (Zéro Image Cassée, Zéro Amour Flou)** :
