@@ -21,6 +21,7 @@ export const WAHA_CONFIG = {
   defaultSession: 'Test', // Session principale liée au +22656240533
   secondarySession: 'anicet2', // Session préservée +22658357772 : lecture seule depuis le web
   protectedSessions: ['anicet2'] as readonly string[],
+  webhookHmacKey: 'f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066',
 };
 
 export const isProtectedSession = (name: string) => WAHA_CONFIG.protectedSessions.includes(name);
@@ -157,6 +158,9 @@ export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaul
             {
               url: 'http://waha-bridge:3001/webhook',
               events: ['message', 'message.any', 'message.reaction', 'message.ack', 'session.status'],
+              hmac: {
+                key: WAHA_CONFIG.webhookHmacKey,
+              },
             },
           ],
         },

@@ -1,0 +1,21 @@
+{
+  "name": "velaris-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Moteur de l'agent de vente WhatsApp de Velaris Studio OS",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node --test dist/test/parity.test.js dist/test/decide.test.js dist/test/step-policy.test.js dist/test/migration.test.js dist/test/ingest.test.js dist/test/llm.test.js dist/test/outbox.test.js dist/test/ingest-sql.test.js dist/test/turn-sql.test.js",
+    "start": "node dist/src/main.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/node": "^24.19.1",
+    "typescript": "~6.0.2"
+  }
+}

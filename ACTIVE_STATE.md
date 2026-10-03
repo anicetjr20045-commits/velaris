@@ -8,11 +8,12 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 2 Octobre 2026
+- **Dernière mise à jour** : 3 Octobre 2026
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 26 (Overhaul Claude Opus 5.5) codé et compilé, **non commité, non déployé**. Paiements, Kie.ai et WAHA passent désormais par des Edge Functions : la migration SQL et le déploiement des fonctions sont requis avant toute mise en ligne (voir `RAPPORT_CLAUDE_OPUS.md` § 10).
+- **Statut Opérationnel** : Jalon 30 (Moteur de vente WhatsApp Velaris Engine déployé sur le VPS en conteneur Node 22 Alpine, sécurité HMAC temps constant active, WAHA routé, 136/136 tests passants à 100%, migration SQL consolidée prête pour Supabase).
+- **Prochaine tâche immédiate** : Coller et exécuter la migration consolidée `supabase/migrations/20261006_master_agent_production.sql` dans le SQL Editor Supabase pour activer instantanément les 31 RPCs et passer l'agent en direct sur WhatsApp.
 
 ---
 
@@ -30,6 +31,56 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 30. Moteur déployé sur VPS, isolation réseau, HMAC cryptographique, migration consolidée (3 Octobre 2026)
+- **Boucle des tours complète (`engine/src/queue/`)** :
+  - `render.ts` : rendu déterministe avec gabarits par étape, vocal de procédure envoyé STRICTEMENT quand le brief est complet et seul, garde-fous G1-G18, fallback automatique.
+  - `run-turn.ts` : pipeline atomique bout-en-bout (`agent_turn_context` -> `understand` via DeepSeek-V3 -> `decideSafely` -> effets commandes et conversations -> `planOutput` -> outbox -> `agent_finish_turn` -> `agent_log_turn`).
+  - `worker.ts` & `sweeper.ts` : worker autonome de consommation de tours avec renouvellement de bail exclusif et sweeper de récupération.
+  - `main.ts` : serveur d'ingestion HTTP (endpoints `/webhook`, `/webhooks/waha`, `/api/public/waha-webhook`), workers de fond, boîte d'envoi et spool de secours.
+- **Suite de tests & typecheck** :
+  - **136/136 tests passants (100%)** sur 24 suites de tests (PGlite Postgres réel, décision pure, invariants P0-P13, HMAC, DeepSeek, Outbox, FSM, baux exclusifs, disjoncteur).
+- **Déploiement sur le VPS (`162.35.113.220`)** :
+  - Ancien `waha-bridge` non sécurisé stoppé et remplacé par `velaris-engine` (conteneur Node 22 Alpine, build Docker natif).
+  - Alias réseau Docker `waha-bridge` configuré : WAHA résout et communique en local direct.
+  - Serveur d'ingestion écoute sur `127.0.0.1:3001` (Caddy sur 80/443, WAHA sur 3000).
+  - Éradication de la faille de sécurité : signature HMAC-SHA256 temps constant obligatoire (`X-Webhook-Hmac`). Tout webhook non signé ou falsifié est rejeté en HTTP 401.
+  - Résolution DNS Docker fiabilisée avec DNS publics Cloudflare/Google (1.1.1.1, 8.8.8.8).
+  - Egress réseau testé et validé depuis le conteneur en direct : DeepSeek répond en 0.8s, Supabase REST répond en 0.2s.
+- **Configuration des sessions WAHA** :
+  - Session `Test` (+22656240533) mise à jour : webhook redirigé depuis Lovable vers `http://waha-bridge:3001/webhook` avec signature HMAC (`f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066`).
+  - Session `anicet2` (+22658357772) protégée et non modifiée.
+  - Sessions studios (`studio_bd1481ad`, `studio_043a33b4`) mises à jour avec signature HMAC.
+- **Migration SQL consolidée de production** :
+  - Fichier unique [`supabase/migrations/20261006_master_agent_production.sql`](file:///root/projets/velaris/supabase/migrations/20261006_master_agent_production.sql) (1 703 lignes, 22 tables, 31 fonctions RPC `agent_*`, 36 transitions de machine à états, RLS étanche, droits `service_role`).
+  - Testée et validée à 100% sur moteur Postgres réel via PGlite.
+  - Prête à être exécutée dans le Supabase SQL Editor.
+
+### 29. Moteur — relevé de production, ingestion, DeepSeek, boîte d'envoi (4 Octobre 2026)
+- **Schéma réel relevé** (OpenAPI via le conteneur waha-bridge, la clé secrète n'a pas quitté le VPS) : 7 tables, identiques à `supabase_schema_init.sql`. **Aucun conflit** avec les migrations 20261004/20261005. Les migrations précédentes (pack de stabilisation, jalon 26 : `profiles`, `credit_transactions`, `song_generations`, `automation_rules.action_type`) **ne sont pas appliquées en production**. Données : quasi uniquement de la démo (13 conversations sans studio, 4 messages, 9 commandes), aucune conversation en double, sessions studio toutes `scanning`/`failed`.
+- **waha-bridge** (VPS `/root/waha-vps-setup/waha-bridge/server.js`, 225 lignes) rapatrié dans `vps/waha-bridge/` (secrets caviardés). **Failles relevées, non corrigées sur le VPS (attend accord)** : clé secrète Supabase et clé WAHA écrites en dur en repli dans le code ; `/webhook` public via Caddy **sans aucune authentification** (injection de messages, modification de statut, envoi d'automatisations depuis la ligne d'un studio vers n'importe quel numéro) ; règles « réaction » appliquées comme mots-clés sur le texte du client ; médias ignorés ; aucun dédoublonnage ni identifiant WhatsApp.
+- **Migration** `supabase/migrations/20261005_agent_ingest.sql` : `agent_record_inbound_event`, `agent_mark_inbound_event`, `agent_ingest_message` (contact + conversation + message + écho + prise de main du gérant + tampon, en une transaction), `agent_ingest_reaction`, `agent_ingest_session_status`, `agent_enqueue_outbox`, `agent_finish_send` (gère l'écho arrivé avant la réponse WAHA), `agent_pending_outbox`, `agent_stale_inbound_events`. 20261004 : `GRANT EXECUTE … TO service_role` explicites.
+- **Moteur** : `config.ts` (démarrage refusé sans clé HMAC ou avec un modèle « reasoner »), `ingest/` (normalisation WAHA, HMAC obligatoire, serveur HTTP, journal de secours sur disque), `db/rest.ts` (PostgREST, fonctions SQL uniquement), `llm/` (interface fournisseur, garde JSON strict, DeepSeek `deepseek-chat` sur `https://api.deepseek.com/v1` en mode JSON, `reasoning_content` ignoré, `<think>` retiré, troncature refusée), `send/` (client WAHA sans nouvel essai sur délai dépassé, boîte d'envoi régulée, URL signées), `main.ts`.
+- **Clé DeepSeek** : dans `engine/.env.local` (ignoré par Git, droits 600). À régénérer : elle a circulé en clair dans la conversation.
+- **Validation** : `tsc` → 0 erreur ; **130/130 tests** (dont 21 + 15 tests SQL réels sur PGlite). Appel DeepSeek réel (4 phrases synthétiques) : JSON pur, 0,8-1,3 s, aucun flot de pensée ; **l'API sert `deepseek-flash` pour l'alias `deepseek-chat`** ; « Kpata là voyons voir le son » mal classé sans exemples (attendu : corpus requis).
+- **Non fait** : rien déployé sur le VPS ni appliqué sur Supabase ; boucle des tours (compréhension → décision → rendu), transcription des vocaux, stockage des médias, exécution des automatisations non écrits. Non commité.
+
+### 28. Construction du moteur — migration SQL et domaine pur (4 Octobre 2026)
+- **Validation d'Anicet** : architecture v2 validée ; rappels : personnalisation totale par studio (prix, canaux par étape), vocal de procédure strictement sur brief complet et seul, silence quand l'étape l'exige, zéro hallucination.
+- **Décisions du § 24 non tranchées explicitement** : valeurs recommandées appliquées par défaut (paiement après paroles pour l'audio, avant pour le texte seul ; relais activé ; identité honnête ; ordre occasion → destinataire → formule ; 2 retouches ; 3 commandes ouvertes ; 6 messages/heure).
+- **Migration** `supabase/migrations/20261004_agent_core.sql` (1 024 lignes, transactionnelle, idempotente) : `studio_personas`, `studio_catalogues`, `studio_step_policies` (verrous : paiement toujours écrit, messages de protection jamais silencieux, vocal sans enregistrement interdit), `studio_templates`, `studio_assets`, `engine_flags`, colonnes de contrôle et de verrou sur `conversations`, `messages` (clé WhatsApp unique), `inbound_events`, `conversation_turns` (tampon unique par conversation), `automation_locks` (bail + jeton de clôture), `outbound_messages`, `orders` à deux pistes (`stage` / `payment_status`) + vidéo, `order_assets`, `order_transitions` (36 lignes), `order_events`, `handoffs`, `agent_turn_logs`, 13 fonctions atomiques, RLS. **Reprise des données existantes** : commandes historiques (livrée → `delivered` + `confirmed`), conversations en pause → contrôle du gérant, index uniques tolérants aux doublons.
+- **Moteur** `engine/` (Node ≥ 22, TypeScript 6 strict, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`) : `src/domain/types.ts`, `orders.ts` (transitions miroir + portes croisées), `decide.ts` (fonction pure : priorités P0-P13, piste paiement, relais, accueil émotionnel, pas en avant, résolution multi-commandes, `assertDecisionInvariants` + `decideSafely`), `step-policy.ts` (canaux par étape, préréglages, verrous).
+- **Validation** : `tsc -p tsconfig.json` → 0 erreur ; `npm test` → **79/79** (parité SQL ↔ TypeScript, 45 tests de décision dont GS-01/02/03/04/07/08/09/11/13/14/15/16/17/19/21, 7 de politique d'étape, 21 d'exécution réelle de la migration sur Postgres via PGlite : double application, reprise, tampon, réservation exclusive, supersession, prise de main, relais, disjoncteur, isolation entre studios, deux pistes, entonnoir).
+- **Non fait** : migration non appliquée sur Supabase (attend l'étape 0.3 : relevé du schéma réel écrit par `waha-bridge`) ; concurrence multi-processus non testée (PGlite = une connexion) ; aucune I/O (ingestion, LLM, WAHA) écrite. Non commité.
+- **Note PRoot** : `node --test` sur un dossier bloque ; le script `npm test` liste les fichiers.
+
+### 27. Architecture définitive de l'agent de vente WhatsApp (3 Octobre 2026)
+- **Source** : `DOSSIER_AGENT_IA_CLAUDE.md` § 5. Livrable : `ARCHITECTURE_AGENT_DEFINITIVE.md` (spécification seule, aucun code de production modifié).
+- **Constat majeur** : dans `velaris-agent`, Sarah (`receptionist.server.ts`) a été **supprimée** le 26/09 par un commit Lovable (`3cd6fe7f`) ; le webhook actuel est un « Agent Silencieux » qui ne répond jamais au client. Le `ACTIVE_STATE.md` de `velaris-agent` (jalons 63-67) est donc inexact sur ce point.
+- **Autres constats** : verrou par conversation en mémoire sur Cloudflare Workers (aucune exclusivité réelle) ; réservation de file non atomique ; remise en file des tours de plus de 45 s ; sessions Velaris abonnées à `message` et `message.any` (doubles livraisons) ; marqueur `[BRIEF_COMPLETE]` dans Sarah ; trois grilles tarifaires contradictoires ; `pause-policy.ts` contradictoire (reprise jamais / reprise à 2 h).
+- **Architecture retenue** : moteur Node sur le VPS (remplace `waha-bridge`), tampon et file de tours en Postgres, bail avec jeton de clôture, outbox pour reconnaître les échos, FSM à 11 étapes doublée d'une table SQL de transitions, extracteur JSON avec citation obligatoire, décision déterministe, gabarits pour les messages critiques, garde-fous G1-G11, passation explicite, autonomie par capacités avec mode ombre.
+- **Plan** : étapes 0 à 8 avec critères de sortie (§ 18) ; 10 décisions à trancher (§ 19).
+- **Version 2 (même jour)** : intégration de `DOSSIER_AGENT_ALEX_REALITE_TERRAIN.md` (5 cas réels) et de la question stratégique d'Anicet. Changements : paiement en piste indépendante (réponse au « numéro de dépôt » à toute étape), plusieurs commandes par conversation, politique de sortie par étape (texte IA / gabarit / vocal du gérant / silence), brief complet ≠ silence, mode relais pendant une prise de main, lecture des messages du gérant + réconciliation à la reprise, accueil émotionnel, interdiction des aveux robotiques, honnêteté d'identité, étapes vidéo, stabilité couche par couche, discipline anti-complexité (§ 21), 23 scénarios de référence (GS-01 à GS-23), 18 décisions (§ 24). Autocritique : la v1 aurait reproduit les cas Fargo, Djalilou (gel nocturne) et Adeline.
+
 ### 26. Overhaul complet Claude Opus 5.5 — sécurité, paiements, WAHA, console de direction (2 Octobre 2026)
 - **Source** : `CLAUDE_MISSION.md` (8 points). Rapport complet : `RAPPORT_CLAUDE_OPUS.md`.
 - **Secrets** : plus aucune clé SasPay / Kie.ai / WAHA dans le code client. Nouvelles Edge Functions : `saspay-checkout`, `kie-generate`, `waha-proxy`, `admin-health` (+ `_shared/http.ts`) ; `saspay-webhook` réécrit (secret obligatoire, HMAC temps constant, 300 s, idempotent).
@@ -45,7 +96,7 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 - **Étude point 8** : architecture agent WhatsApp autonome par studio (file/verrou par conversation, état de commande en base, FSM, compréhension structurée, outils validés, garde-fous de sortie, passation humaine) — `RAPPORT_CLAUDE_OPUS.md` § 9.
 - **Validation** : `tsc -p tsconfig.app.json --noEmit` → 0 erreur ; `npm run build` (tsc -b + vite) → succès en 2.99 s, 0 erreur (avertissement préexistant bundle > 500 kB) ; aucune clé secrète dans `dist/`. Aucun test navigateur, aucune fonction déployée, migration non appliquée.
 - **Actions requises** : révoquer les clés SasPay live, Kie.ai et WAHA (présentes dans l'historique Git) ; appliquer la migration ; `update profiles set is_admin = true where email = …` ; `supabase secrets set …` ; déployer les 5 fonctions (`saspay-webhook --no-verify-jwt`).
-- **Non commité** (en attente de validation).
+- **Commité** (`29e9552`), non déployé.
 
 ### 25. Stabilisation WAHA, QR Code Instantané, Protection Quotas Supabase & Claude Code VPS (2 Octobre 2026)
 - **Résolution Définitive du Scan QR Code WhatsApp** (`src/services/waha.ts`, `src/hooks/useWaha.ts`, `src/components/QrConnectModal.tsx`, `src/components/WhatsAppLinesView.tsx`) :
