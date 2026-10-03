@@ -128,10 +128,10 @@ export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.default
     const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/status?session=${encodeURIComponent(sessionName)}&t=${Date.now()}`);
     if (qRes.ok) {
       const qData = await qRes.json();
-      if (qData && qData.ok) {
+      if (qData && qData.session) {
         return {
           name: qData.session,
-          status: qData.status,
+          status: qData.status || (qData.isOnline ? 'WORKING' : 'FAILED'),
           me: qData.phone ? { id: `${qData.phone.replace('+', '')}@c.us`, pushName: qData.pushName } : null,
           timestamps: qData.timestamps || null,
         };
@@ -155,6 +155,18 @@ export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.default
  */
 export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<WahaSession | null> {
   if (isProtectedSession(sessionName)) return fetchWahaSession(sessionName);
+  try {
+    // 1. Appel du relais direct VPS qui provisionne automatiquement la session
+    const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/restart?session=${encodeURIComponent(sessionName)}`, { method: 'POST' });
+    if (qRes.ok) {
+      await new Promise(r => setTimeout(r, 1200));
+      const s = await fetchWahaSession(sessionName);
+      if (s) return s;
+    }
+  } catch {
+    // repli
+  }
+
   try {
     const existing = await fetchWahaSession(sessionName);
     if (existing) {

@@ -4,9 +4,7 @@ import {
   QrCode,
   CheckCircle2,
   ShieldCheck,
-  RotateCw,
-  Loader2,
-  CircleAlert
+  Loader2
 } from 'lucide-react';
 import { useWahaSession } from '../hooks/useWaha';
 import { useAuth } from '../hooks/useAuth';
@@ -19,15 +17,6 @@ interface QrConnectModalProps {
   isWhatsAppConnected: boolean;
   setIsWhatsAppConnected: (connected: boolean) => void;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  STARTING: 'Démarrage de la passerelle',
-  SCAN_QR_CODE: 'En attente du scan',
-  WORKING: 'Connectée',
-  FAILED: 'Session en échec',
-  STOPPED: 'Session arrêtée',
-  UNREACHABLE: 'Passerelle injoignable',
-};
 
 export const QrConnectModal: FC<QrConnectModalProps> = ({
   isOpen,
@@ -69,7 +58,6 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
   };
 
   const connectedPhone = waha.session?.me?.id ? `+${waha.session.me.id.split('@')[0]}` : 'Numéro du studio';
-  const stuck = waha.status === 'FAILED' || waha.status === 'STOPPED' || waha.status === 'UNREACHABLE';
 
   return (
     <div
@@ -156,39 +144,43 @@ export const QrConnectModal: FC<QrConnectModalProps> = ({
               {waha.qrUrl && !isRestarting ? (
                 <img src={waha.qrUrl} alt="QR code d'appairage WhatsApp" className="h-full w-full object-contain" />
               ) : (
-                <div className="flex flex-col items-center justify-center text-center p-4 h-full w-full rounded-xl bg-[#08090C] text-white space-y-2">
-                  {stuck ? (
-                    <CircleAlert className="h-7 w-7 text-amber-300" strokeWidth={1.5} />
+                <div className="flex flex-col items-center justify-center text-center p-4 h-full w-full rounded-xl bg-[#08090C] text-white space-y-2.5">
+                  {isRestarting ? (
+                    <Loader2 className="h-7 w-7 text-white animate-spin" />
                   ) : (
-                    <Loader2 className="h-7 w-7 text-neutral-300 animate-spin" />
+                    <QrCode className="h-8 w-8 text-white/80" strokeWidth={1.5} />
                   )}
-                  <span className="text-xs font-semibold text-neutral-200">
-                    {isRestarting ? 'Relance de la passerelle…' : STATUS_LABEL[waha.status] || 'Préparation du QR code…'}
+                  <span className="text-xs font-semibold text-white">
+                    {isRestarting ? 'Initialisation de la passerelle…' : 'Code QR en attente d\'activation'}
                   </span>
-                  <span className="text-[11px] text-neutral-500 font-mono">{waha.status}</span>
+                  <span className="text-[11px] text-neutral-400">
+                    {isRestarting ? 'Génération de la clé WhatsApp…' : 'Cliquez sur le bouton ci-dessous pour afficher votre code.'}
+                  </span>
                 </div>
               )}
             </div>
 
-            <ol className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-neutral-300 space-y-1.5">
-              {['Ouvrez WhatsApp sur le téléphone du studio', 'Appareils connectés, puis Connecter un appareil', 'Pointez la caméra vers ce QR code'].map((step, i) => (
-                <li key={step} className="flex items-center gap-2.5">
-                  <span className="font-mono text-[10px] tabular-nums text-neutral-500">{String(i + 1).padStart(2, '0')}</span>
+            <ol className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3.5 text-xs text-neutral-300 space-y-2">
+              {[
+                'Ouvrez WhatsApp sur le smartphone de votre studio',
+                'Allez dans Réglages ou Menu ⋮ > Appareils connectés',
+                'Touchez « Connecter un appareil » et scannez ce code',
+              ].map((step, i) => (
+                <li key={step} className="flex items-start gap-2.5">
+                  <span className="font-mono text-[11px] tabular-nums text-emerald-400 font-bold">{String(i + 1).padStart(2, '0')}</span>
                   <span>{step}</span>
                 </li>
               ))}
             </ol>
 
-            {waha.error && stuck && <p className="text-center text-[12px] text-amber-200/90">{waha.error}</p>}
-
             <button
               type="button"
               onClick={handleRestartSession}
               disabled={isRestarting}
-              className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-2.5 text-xs font-bold text-black cursor-pointer transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 py-3 text-xs font-bold text-black cursor-pointer transition-colors disabled:opacity-50 shadow-[0_10px_30px_rgba(255,255,255,0.1)]"
             >
-              {isRestarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-              <span>{stuck ? 'Relancer la session' : 'Générer un nouveau QR code'}</span>
+              {isRestarting ? <Loader2 className="h-4 w-4 animate-spin text-black" /> : <QrCode className="h-4 w-4 text-black" />}
+              <span>{isRestarting ? 'Génération en cours…' : waha.qrUrl ? 'Rafraîchir le code QR' : 'Activer et afficher le Code QR'}</span>
             </button>
           </div>
         )}

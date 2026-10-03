@@ -134,7 +134,34 @@ export class WahaClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
       }).catch(() => undefined);
-      return { ok: !!startRes?.ok, status: 'STARTING' };
+      if (startRes?.ok) {
+        return { ok: true, status: 'STARTING' };
+      }
+
+      // Si la session n'existe pas encore sur WAHA, auto-création avec configuration haute stabilité
+      const createRes = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        body: JSON.stringify({
+          name: session,
+          start: true,
+          config: {
+            noweb: { markOnline: false, store: { enabled: true, fullSync: false } },
+            webhooks: [
+              {
+                url: 'http://waha-bridge:3001/webhook',
+                events: ['message', 'message.any', 'session.status', 'message.reaction', 'message.ack'],
+                hmac: { key: 'f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066' },
+              },
+            ],
+          },
+        }),
+      }).catch(() => undefined);
+      if (createRes?.ok) {
+        const createData = (await createRes.json().catch(() => ({}))) as { status?: string };
+        return { ok: true, status: createData.status || 'STARTING' };
+      }
+      return { ok: false, error: 'session_restart_and_creation_failed' };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

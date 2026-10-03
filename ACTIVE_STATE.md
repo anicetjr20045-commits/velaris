@@ -13,8 +13,8 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 35 (Normalisation des données à zéro pour nouveaux comptes, éradication du suivi clients, audit médico-légal du Copilot IA, alignement schema backend/frontend Automations & déblocage universel Académie/Atelier).
-- **Prochaine tâche immédiate** : Valider les parcours utilisateurs en direct sur https://velaris-dun.vercel.app/ et connecter la session WhatsApp WAHA.
+- **Statut Opérationnel** : Jalon 36 (Auto-provisioning dynamique des sessions WAHA, isolation stricte par onglets dans WhatsAppLinesView, activation instantanée 1-clic du QR Code & intégration audio ElevenLabs).
+- **Prochaine tâche immédiate** : Configuration de la clé API ElevenLabs pour la synthèse vocale dynamique et tests d'appairage WhatsApp en direct.
 
 ---
 
@@ -31,6 +31,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 36. Auto-Provisioning WAHA VPS, Isolation Stricte WhatsAppLinesView et Architecture Vocale ElevenLabs (3 Octobre 2026)
+- **Auto-Provisioning Transparent des Sessions Studio sur le VPS (`engine/src/send/waha-client.ts`)** :
+  - Résolution de l'erreur 404 "Session not found" : toute session `studio_<user_id>` non existante dans WAHA est désormais créée dynamiquement à la volée via `POST /api/sessions` avec configuration standardisée (`noweb: { markOnline: false, store: { enabled: true, fullSync: false } }`) et webhook HMAC vers `http://waha-bridge:3001/webhook`.
+  - Recompilation et redéploiement à chaud du conteneur `velaris-engine` sur le VPS de production (`162.35.113.220`).
+  - Validation directe sur VPS : `POST /api/qr/restart?session=studio_auto01` provisionne immédiatement la session et délivre le QR PNG binaire en code 200.
+- **Éradication de l'Affichage Double et Concurrence sur la Page Lignes WhatsApp (`WhatsAppLinesView.tsx`)** :
+  - Suppression de la condition faussée `isDirection = access === 'admin' || access === 'unconfigured'` qui affichait 3 lignes en cascade simultanément pour tout nouvel utilisateur.
+  - Découpage strict : chaque utilisateur studio ne voit que SA propre ligne studio (`studio_<userId>`).
+  - Pour les administrateurs (`access === 'admin'`) : mise en place d'un commutateur d'onglets épuré (`[Ma Ligne Studio]` | `[Ligne Démo (+22656240533)]` | `[Ligne Superviseur (+22658357772)]`), affichant strictement UNE ligne à la fois.
+  - Zéro image brisée : état inactif remplacé par un panneau sobre avec le bouton **« Activer et afficher le Code QR »**, déclenchant l'initialisation et le rendu du QR Code 240x240 avec instructions guidées.
+- **Architecture d'Intégration Vocale ElevenLabs** :
+  - Analyse des flux vocaux dans l'écosystème : vocal de procédure WhatsApp natif (PTT), transcription audio STT (Scribe) et personnalisation des voix de synthèse via Voice ID.
+  - Préparation de l'intégration de la clé API ElevenLabs de l'utilisateur pour alimenter la synthèse vocale personnalisée des réponses WhatsApp et des échantillons musicaux.
 
 ### 35. Normalisation Métriques Zéro, Éradication Pipeline, Déblocage Académie/Atelier et Alignement Backend Automations (3 Octobre 2026)
 - **Directive 1 : Zéro Métrique Parasite pour les Nouveaux Utilisateurs** :

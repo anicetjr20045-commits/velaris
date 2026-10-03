@@ -10,21 +10,23 @@ import {
   Terminal,
   Lock,
   Power,
-  Activity
+  Activity,
+  QrCode,
+  Smartphone
 } from 'lucide-react';
 import { useWahaHeartbeat, useWahaSession } from '../hooks/useWaha';
 import { useAuth } from '../hooks/useAuth';
 import { useAdminAccess } from '../hooks/useAdmin';
 import { WAHA_CONFIG, wahaSessionNameFor } from '../services/waha';
 
-const panel = 'rounded-2xl border border-white/[0.08] bg-[#0E1015]';
+const panel = 'rounded-3xl border border-white/[0.08] bg-[#0E1015] shadow-[0_20px_50px_rgba(0,0,0,0.5)]';
 
 const LINK_LABEL: Record<string, { label: string; tone: string; dot: string }> = {
   online: { label: 'En ligne', tone: 'text-emerald-400', dot: 'bg-emerald-400' },
   scan: { label: 'QR à scanner', tone: 'text-amber-300', dot: 'bg-amber-400' },
-  reconnecting: { label: 'Reconnexion', tone: 'text-sky-300', dot: 'bg-sky-400' },
+  reconnecting: { label: 'Initialisation', tone: 'text-sky-300', dot: 'bg-sky-400' },
   connecting: { label: 'Connexion', tone: 'text-neutral-400', dot: 'bg-neutral-500' },
-  offline: { label: 'Hors ligne', tone: 'text-rose-400', dot: 'bg-rose-500' },
+  offline: { label: 'En veille', tone: 'text-neutral-400', dot: 'bg-neutral-500' },
 };
 
 const formatPhone = (id?: string | null) => {
@@ -34,16 +36,14 @@ const formatPhone = (id?: string | null) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Carte d'une ligne WhatsApp                                         */
+/* Carte d'une ligne WhatsApp (Une seule ligne isolée et nette)       */
 /* ------------------------------------------------------------------ */
 
 const LineCard: FC<{
   sessionName: string;
   title: string;
   role: string;
-  /** Ligne préservée : aucune action d'écriture possible depuis le web */
   readOnly?: boolean;
-  /** Le studio connecté peut relancer / déconnecter sa ligne */
   manageable?: boolean;
 }> = ({ sessionName, title, role, readOnly = false, manageable = true }) => {
   const waha = useWahaSession(sessionName, { readOnly });
@@ -61,114 +61,182 @@ const LineCard: FC<{
     setConfirmStop(false);
   };
 
+  const isScanning = waha.isScanning && !!waha.qrUrl;
+
   return (
-    <article className={`${panel} p-5 sm:p-6 space-y-4`}>
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 shrink-0 rounded-xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center font-mono text-[12px] font-bold text-white">
+    <article className={`${panel} p-6 sm:p-8 space-y-6`}>
+      {/* En-tête de la ligne */}
+      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.06] pb-5">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="h-12 w-12 shrink-0 rounded-2xl border border-white/[0.08] bg-white/[0.03] flex items-center justify-center font-mono text-sm font-bold text-white shadow-inner">
             {title.slice(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold tracking-tight text-white">{title}</h3>
-              <span className="rounded-md border border-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-400">{role}</span>
+              <h3 className="text-lg font-bold tracking-tight text-white">{title}</h3>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-300">
+                {role}
+              </span>
               {waha.readOnly && (
-                <span className="inline-flex items-center gap-1 rounded-md border border-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-300">
                   <Lock className="h-2.5 w-2.5" />
                   Préservée
                 </span>
               )}
             </div>
-            <p className="mt-0.5 font-mono text-[12px] text-neutral-500 truncate">session · {sessionName}</p>
+            <p className="mt-1 font-mono text-xs text-neutral-500 truncate">
+              Identifiant de session · <span className="text-neutral-300">{sessionName}</span>
+            </p>
           </div>
         </div>
-        <span className={`inline-flex shrink-0 items-center gap-1.5 font-mono text-[12px] ${meta.tone}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${link.state === 'online' ? 'vx-breathe' : ''}`} />
-          {meta.label}
-        </span>
+
+        <div className="flex items-center gap-2 self-start">
+          <span className={`inline-flex shrink-0 items-center gap-2 rounded-full border border-white/[0.08] bg-[#08090C] px-3 py-1 font-mono text-xs ${meta.tone}`}>
+            <span className={`h-2 w-2 rounded-full ${meta.dot} ${link.state === 'online' ? 'animate-pulse' : ''}`} />
+            {meta.label}
+          </span>
+        </div>
       </header>
 
-      <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.06]">
+      {/* Barre de télémétrie */}
+      <dl className="grid grid-cols-1 sm:grid-cols-3 gap-px overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.06]">
         {[
-          { k: 'Numéro', v: phone ?? '—' },
-          { k: 'Latence', v: link.latencyMs !== null ? `${link.latencyMs} ms` : '—' },
-          { k: 'Statut WAHA', v: waha.status },
+          { k: 'Numéro WhatsApp', v: phone ?? 'Non connecté' },
+          { k: 'Latence Passerelle', v: link.latencyMs !== null ? `${link.latencyMs} ms` : '—' },
+          { k: 'État Session', v: waha.status || 'STARTING' },
         ].map(({ k, v }) => (
-          <div key={k} className="bg-[#08090C] px-3.5 py-3">
+          <div key={k} className="bg-[#08090C] px-4 py-3.5">
             <dt className="font-mono text-[10px] uppercase tracking-widest text-neutral-500">{k}</dt>
-            <dd className="mt-1 truncate font-mono text-[13px] tabular-nums text-white">{v}</dd>
+            <dd className="mt-1 truncate font-mono text-sm tabular-nums text-white font-medium">{v}</dd>
           </div>
         ))}
       </dl>
 
-      {!waha.isOnline && canAct && (
-        <div className="rounded-xl border border-white/[0.06] bg-[#08090C] p-5 flex flex-col sm:flex-row items-center gap-5">
-          <div className="h-44 w-44 shrink-0 rounded-xl bg-white p-2.5 flex items-center justify-center">
-            {waha.qrUrl ? (
-              <img src={waha.qrUrl} alt="QR code d'appairage WhatsApp" className="h-full w-full object-contain" />
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg bg-[#0E1015] p-3 text-center">
-                <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
-                <span className="text-[11px] text-neutral-400">{waha.status === 'FAILED' ? 'Session à relancer' : 'Préparation du QR'}</span>
-              </div>
-            )}
+      {/* État 1 : La ligne est EN LIGNE */}
+      {waha.isOnline ? (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.04] p-6 text-center space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400">
+            <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} />
           </div>
-          <div className="space-y-3 text-sm text-neutral-300">
-            <p>WhatsApp sur le téléphone du studio, puis <strong className="text-white">Appareils connectés</strong> et <strong className="text-white">Connecter un appareil</strong>.</p>
-            <p className="text-[12px] text-neutral-500">Le QR se renouvelle seul toutes les 18 secondes. Une session en échec est relancée automatiquement (3 tentatives).</p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => run(waha.restart)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-black hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-              Relancer la session
-            </button>
+          <div>
+            <h4 className="font-mono text-xl font-bold tabular-nums text-white">{phone ?? 'Ligne connectée'}</h4>
+            <p className="text-xs text-emerald-300/90 mt-1 font-mono">Passerelle WhatsApp active · Messages entrants & sortants opérationnels</p>
           </div>
-        </div>
-      )}
 
-      {(waha.isOnline || !canAct) && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[13px] text-neutral-400">
-            {waha.readOnly
-              ? 'Ligne de gouvernance : surveillée en lecture seule, aucune action possible depuis le web.'
-              : waha.isOnline
-                ? 'Réception des briefs et envois actifs. Reconnexion automatique en cas de coupure.'
-                : 'Ligne surveillée.'}
-          </p>
-          {canAct && waha.isOnline && (
-            confirmStop ? (
-              <div className="flex items-center gap-2">
+          {canAct && (
+            <div className="pt-2 max-w-xs mx-auto">
+              {confirmStop ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(waha.stop)}
+                    className="flex-1 rounded-full border border-rose-500/40 bg-rose-500/20 py-2.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/30 cursor-pointer transition-colors"
+                  >
+                    Confirmer la déconnexion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmStop(false)}
+                    className="flex-1 rounded-full border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs text-neutral-300 hover:text-white cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmStop(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 cursor-pointer transition-colors"
+                >
+                  <Power className="h-3.5 w-3.5" />
+                  Déconnecter cette ligne
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* État 2 : La ligne est EN ATTENTE DE SCAN ou EN VEILLE */
+        <div className="rounded-2xl border border-white/[0.08] bg-[#08090C] p-6 space-y-6">
+          {isScanning ? (
+            <div className="flex flex-col md:flex-row items-center justify-center gap-8">
+              {/* Conteneur QR Code Blanc Pur Haute Netteté */}
+              <div className="relative h-60 w-60 shrink-0 rounded-2xl bg-white p-3.5 flex items-center justify-center shadow-[0_10px_40px_rgba(255,255,255,0.05)] border border-white/20">
+                <img
+                  src={waha.qrUrl!}
+                  alt="QR code d'appairage WhatsApp"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+
+              {/* Instructions de connexion claires */}
+              <div className="space-y-4 max-w-sm text-left">
+                <div>
+                  <h4 className="text-base font-bold text-white flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-emerald-400" />
+                    Scannez pour connecter votre WhatsApp
+                  </h4>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    La passerelle écoute en direct. Le QR code se rafraîchit automatiquement.
+                  </p>
+                </div>
+
+                <ol className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 text-xs text-neutral-300 space-y-2">
+                  <li className="flex items-start gap-2.5">
+                    <span className="font-mono text-[11px] tabular-nums text-emerald-400 font-bold">01</span>
+                    <span>Ouvrez WhatsApp sur le smartphone de votre studio.</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="font-mono text-[11px] tabular-nums text-emerald-400 font-bold">02</span>
+                    <span>Allez dans <strong>Réglages</strong> ou <strong>Menu ⋮</strong> &gt; <strong>Appareils connectés</strong>.</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="font-mono text-[11px] tabular-nums text-emerald-400 font-bold">03</span>
+                    <span>Touchez <strong>Connecter un appareil</strong> et pointez la caméra vers ce code.</span>
+                  </li>
+                </ol>
+
+                {canAct && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(waha.restart)}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-4 py-2 text-xs font-medium text-neutral-200 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+                    <span>Rafraîchir le code QR</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Session arrêtée / en veille : bouton d'activation 1-clic direct */
+            <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 max-w-md mx-auto">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-white/[0.08] bg-white/[0.03] text-white/80 shadow-inner">
+                <QrCode className="h-8 w-8" strokeWidth={1.5} />
+              </div>
+              <div className="space-y-1.5">
+                <h4 className="text-base font-bold text-white">La passerelle WhatsApp est prête</h4>
+                <p className="text-xs text-neutral-400 leading-relaxed">
+                  Cliquez sur le bouton pour initialiser la session et afficher instantanément votre code QR d'appairage.
+                </p>
+              </div>
+
+              {canAct ? (
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => run(waha.stop)}
-                  className="rounded-full border border-rose-500/40 bg-rose-500/15 px-3.5 py-1.5 text-[13px] font-semibold text-rose-200 hover:bg-rose-500/25 cursor-pointer"
+                  onClick={() => run(waha.restart)}
+                  className="inline-flex items-center gap-2.5 rounded-full bg-white hover:bg-neutral-200 px-6 py-3 text-xs font-bold text-black transition-all cursor-pointer disabled:opacity-50 shadow-[0_10px_30px_rgba(255,255,255,0.15)]"
                 >
-                  Confirmer
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin text-black" /> : <QrCode className="h-4 w-4 text-black" />}
+                  <span>{busy ? 'Initialisation en cours…' : 'Activer et afficher le Code QR'}</span>
                 </button>
-                <button type="button" onClick={() => setConfirmStop(false)} className="rounded-full border border-white/[0.08] px-3.5 py-1.5 text-[13px] text-neutral-300 cursor-pointer">
-                  Annuler
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmStop(true)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:border-rose-500/40 hover:text-rose-300 transition-colors cursor-pointer"
-              >
-                <Power className="h-3.5 w-3.5" />
-                Déconnecter
-              </button>
-            )
-          )}
-          {link.state === 'offline' && canAct && (
-            <button type="button" onClick={() => link.reconnect()} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3.5 py-1.5 text-[13px] text-white cursor-pointer">
-              <RotateCw className="h-3.5 w-3.5" />
-              Reconnecter
-            </button>
+              ) : (
+                <p className="text-xs text-neutral-500 font-mono">Ligne en lecture seule</p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -177,7 +245,7 @@ const LineCard: FC<{
 };
 
 /* ------------------------------------------------------------------ */
-/* Console de test d'envoi                                            */
+/* Console de test d'envoi en direct                                  */
 /* ------------------------------------------------------------------ */
 
 const SendConsole: FC<{ sessionName: string }> = ({ sessionName }) => {
@@ -200,13 +268,13 @@ const SendConsole: FC<{ sessionName: string }> = ({ sessionName }) => {
   };
 
   return (
-    <section className={`${panel} p-5 sm:p-6 space-y-4`}>
+    <section className={`${panel} p-6 sm:p-7 space-y-4`}>
       <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
           <Terminal className="h-4 w-4 text-neutral-300" strokeWidth={1.6} />
-          Test d'envoi depuis {sessionName}
+          Tester un envoi direct depuis {sessionName}
         </h2>
-        <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-500">Envoi réel</span>
+        <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-500">Test en direct</span>
       </div>
       <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-[200px_1fr_auto] gap-3">
         <input
@@ -215,7 +283,7 @@ const SendConsole: FC<{ sessionName: string }> = ({ sessionName }) => {
           onChange={e => setPhone(e.target.value)}
           placeholder="+226 70 00 00 00"
           aria-label="Numéro destinataire"
-          className="rounded-lg border border-white/[0.08] bg-[#08090C] px-3 py-2 font-mono text-[13px] text-white outline-none focus:border-white/25"
+          className="rounded-xl border border-white/[0.08] bg-[#08090C] px-3.5 py-2.5 font-mono text-xs text-white outline-none focus:border-white/30"
           required
         />
         <input
@@ -223,20 +291,20 @@ const SendConsole: FC<{ sessionName: string }> = ({ sessionName }) => {
           value={message}
           onChange={e => setMessage(e.target.value)}
           aria-label="Message de test"
-          className="rounded-lg border border-white/[0.08] bg-[#08090C] px-3 py-2 text-[13px] text-white outline-none focus:border-white/25"
+          className="rounded-xl border border-white/[0.08] bg-[#08090C] px-3.5 py-2.5 text-xs text-white outline-none focus:border-white/30"
           required
         />
         <button
           type="submit"
           disabled={sending}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-black hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-xs font-bold text-black hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer"
         >
           {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
           Envoyer
         </button>
       </form>
       {result && (
-        <div role="status" className={`flex items-center gap-2 rounded-lg border p-3 text-[13px] ${
+        <div role="status" className={`flex items-center gap-2 rounded-xl border p-3.5 text-xs ${
           result.success ? 'border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300' : 'border-rose-500/20 bg-rose-500/[0.06] text-rose-300'
         }`}>
           {result.success ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
@@ -248,64 +316,148 @@ const SendConsole: FC<{ sessionName: string }> = ({ sessionName }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* Vue                                                                */
+/* Vue Principale avec Onglets Dédiés (Zéro Double Code, Zéro Slop)   */
 /* ------------------------------------------------------------------ */
 
 export const WhatsAppLinesView: FC = () => {
   const { user, openAuthModal } = useAuth();
   const access = useAdminAccess();
   const ownSession = wahaSessionNameFor(user?.id);
-  const isDirection = access === 'admin' || access === 'unconfigured';
+  // Seul l'administrateur formel a accès aux autres lignes
+  const isRealAdmin = access === 'admin';
+
+  // Gestion des onglets pour éviter toute superposition
+  const [activeTab, setActiveTab] = useState<'studio' | 'test' | 'supervision'>('studio');
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-16">
+      {/* En-tête de page */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-neutral-500">
-            <Radio className="h-3.5 w-3.5" strokeWidth={1.6} />
+            <Radio className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.6} />
             Passerelle WAHA · {new URL(WAHA_CONFIG.baseUrl).host}
           </div>
           <h1 className="mt-1.5 text-3xl sm:text-4xl font-bold tracking-tight text-white">Lignes WhatsApp</h1>
           <p className="mt-1.5 max-w-xl text-sm text-neutral-400">
-            Chaque studio pilote uniquement sa propre ligne. Sonde toutes les 20 s, reconnexion automatique et QR renouvelé en continu.
+            Chaque studio dispose de sa propre ligne WhatsApp dédiée et isolée pour recevoir les briefs et livrer les chansons.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-white/[0.08] px-3 py-1 font-mono text-[11px] text-neutral-400">
-          <Activity className="h-3 w-3" />
-          Transport {WAHA_CONFIG.mode === 'proxy' ? 'proxy sécurisé' : 'direct'}
+        <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 font-mono text-xs text-neutral-400">
+          <Activity className="h-3 w-3 text-emerald-400" />
+          Multi-tenant étanche
         </span>
       </div>
 
-      {!user ? (
-        <section className={`${panel} p-8 text-center space-y-4`}>
-          <ShieldCheck className="mx-auto h-8 w-8 text-neutral-400" strokeWidth={1.4} />
-          <div>
-            <h2 className="text-lg font-semibold text-white">Connectez votre studio pour lier votre ligne</h2>
-            <p className="mx-auto mt-1.5 max-w-md text-sm text-neutral-400">
-              En démonstration, aucune ligne réelle n'est sollicitée. Votre compte vous attribue une session WhatsApp privée et étanche.
-            </p>
-          </div>
+      {/* Si l'utilisateur est connecté et administrateur : Onglets de sélection */}
+      {user && isRealAdmin && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] pb-3">
           <button
             type="button"
-            onClick={() => openAuthModal()}
-            className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+            onClick={() => setActiveTab('studio')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === 'studio'
+                ? 'bg-white text-black font-bold'
+                : 'border border-white/[0.08] text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+            }`}
           >
-            Créer mon studio ou me connecter
+            Ma ligne studio ({ownSession})
           </button>
-        </section>
-      ) : (
-        <>
-          <LineCard sessionName={ownSession} title="Ma ligne studio" role="Réception des briefs" />
-          <SendConsole sessionName={ownSession} />
+          <button
+            type="button"
+            onClick={() => setActiveTab('test')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === 'test'
+                ? 'bg-white text-black font-bold'
+                : 'border border-white/[0.08] text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            Ligne principale de démonstration (+226 56 24 05 33)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('supervision')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === 'supervision'
+                ? 'bg-white text-black font-bold'
+                : 'border border-white/[0.08] text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            Ligne superviseur (+226 58 35 77 72)
+          </button>
+        </div>
+      )}
 
-          {isDirection && (
-            <section className="space-y-4">
-              <h2 className="font-mono text-[11px] uppercase tracking-widest text-neutral-500">Lignes de la direction</h2>
-              <LineCard sessionName={WAHA_CONFIG.defaultSession} title="Ligne principale" role="Studio Velaris" />
-              <LineCard sessionName={WAHA_CONFIG.secondarySession} title="Velaris Digital" role="Supervision" readOnly manageable={false} />
-            </section>
+      {/* Rendu selon l'état de connexion */}
+      {!user ? (
+        /* Visiteur non connecté : affichage de la ligne de test en découverte */
+        <div className="space-y-6">
+          <section className={`${panel} p-6 border-amber-500/20 bg-amber-500/[0.02]`}>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-6 w-6 text-amber-400 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">Mode découverte · Ligne principale</h3>
+                  <p className="text-xs text-neutral-400">
+                    Vous visualisez la ligne de test officielle (+226 56 24 05 33). Pour avoir votre propre ligne privée étanche, créez votre studio.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => openAuthModal()}
+                className="shrink-0 rounded-full bg-white px-5 py-2 text-xs font-bold text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                Créer mon studio privé
+              </button>
+            </div>
+          </section>
+
+          <LineCard
+            sessionName={WAHA_CONFIG.defaultSession}
+            title="Ligne principale Studio"
+            role="Démonstration officielle"
+            manageable={true}
+          />
+          <SendConsole sessionName={WAHA_CONFIG.defaultSession} />
+        </div>
+      ) : (
+        /* Utilisateur connecté : affichage d'une SEULE ligne à la fois */
+        <div className="space-y-6">
+          {activeTab === 'studio' && (
+            <>
+              <LineCard
+                sessionName={ownSession}
+                title="Ma ligne studio"
+                role="Réception & Livraison"
+                manageable={true}
+              />
+              <SendConsole sessionName={ownSession} />
+            </>
           )}
-        </>
+
+          {activeTab === 'test' && isRealAdmin && (
+            <>
+              <LineCard
+                sessionName={WAHA_CONFIG.defaultSession}
+                title="Ligne principale Studio"
+                role="Démonstration officielle"
+                manageable={true}
+              />
+              <SendConsole sessionName={WAHA_CONFIG.defaultSession} />
+            </>
+          )}
+
+          {activeTab === 'supervision' && isRealAdmin && (
+            <LineCard
+              sessionName={WAHA_CONFIG.secondarySession}
+              title="Velaris Digital"
+              role="Supervision direction"
+              readOnly={true}
+              manageable={false}
+            />
+          )}
+        </div>
       )}
     </div>
   );
