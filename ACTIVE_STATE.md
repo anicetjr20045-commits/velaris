@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 37 (Éradication des verrous multi-studios, auto-provisioning universel PostgreSQL des profils IA / catalogues / sessions, et synchronisation temps réel vérifiée de bout en bout).
+- **Statut Opérationnel** : Jalon 38 (Calibration de la cadence humaine à 20s [14s de lecture + 6s de frappe WhatsApp], 136/136 tests validés, déployé et actif sur le VPS de production).
 - **Prochaine tâche immédiate** : Vérification live du flux de réponse de l'agent WhatsApp sur un compte fraîchement créé et appairage QR.
 
 ---
@@ -31,6 +31,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 38. Calibration Cadence Humaine 20s & Déploiement Production VPS (3 Octobre 2026)
+- **Directive du Fondateur** : Application d'un délai total de 20 secondes avant réponse pour rendre le dialogue 100% indiscutable humainement.
+- **Architecture de Timing Naturelle (`engine/src/send/outbox.ts`)** :
+  - *Phase 1 (Silence de lecture - 14 secondes)* : Pause silencieuse où rien ne bouge sur WhatsApp, simulant la prise en main du smartphone et la lecture attentive du message client.
+  - *Phase 2 (Indicateur de frappe - ~5 à 6 secondes)* : Déclenchement de l'icône verte « en train d'écrire... » via WAHA `/api/startTyping` pendant le temps de frappe proportionnel à la longueur du texte.
+  - *Phase 3 (Distribution)* : Envoi à la 20e seconde pile et extinction de l'indicateur d'écriture via `/api/stopTyping`.
+- **Validation Complète du Moteur** :
+  - TypeScript : 0 erreur de type (`tsc --noEmit`).
+  - Suite de tests : **136/136 tests passés au vert (24 suites, 0 échec)**.
+- **Déploiement VPS (`162.35.113.220`)** :
+  - Bundle `dist/` synchronisé sur le VPS dans `/root/waha-vps-setup/velaris-engine`.
+  - Image Docker `velaris-engine:latest` reconstruite avec succès.
+  - Conteneur relancé et opérationnel à l'écoute sur le port 3001.
 
 ### 37. Onboarding Universel Multi-Studios & Autonomie Réelle de l'Agent WhatsApp (3 Octobre 2026)
 - **Audit de Réalité Rigoureux (Tolérance Zéro Spéculation)** :

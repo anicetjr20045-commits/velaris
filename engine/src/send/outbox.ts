@@ -70,7 +70,10 @@ export function enqueueOutbox(db: Db, i: EnqueueInput): Promise<string> {
   });
 }
 
-/** Délai « humain » avant un texte : 25 ms par caractère, entre 1,5 s et 6 s. */
+/** Pause silencieuse de lecture avant le déclenchement de la frappe (totalisant 20s de délai humain). */
+export const READING_PAUSE_MS = 14_000;
+
+/** Délai « humain » de frappe avant un texte : 25 ms par caractère, entre 1,5 s et 6 s. */
 export function humanDelayMs(row: Pick<OutboxRow, 'kind' | 'body'>): number {
   if (row.kind !== 'text') return 1_500;
   return Math.min(6_000, Math.max(1_500, (row.body?.length ?? 0) * 25));
@@ -134,8 +137,13 @@ export class OutboxSender {
     let result: SendResult;
     try {
       const content = await this.contentOf(row);
-      if (content.kind === 'text') await waha.typing(row.session_name, row.chat_id, true);
-      await this.sleep(humanDelayMs(row));
+      if (content.kind === 'text') {
+        await this.sleep(READING_PAUSE_MS);
+        await waha.typing(row.session_name, row.chat_id, true);
+        await this.sleep(humanDelayMs(row));
+      } else {
+        await this.sleep(READING_PAUSE_MS);
+      }
       result = await waha.send(row.session_name, row.chat_id, content);
       if (content.kind === 'text') await waha.typing(row.session_name, row.chat_id, false);
     } catch (err) {
