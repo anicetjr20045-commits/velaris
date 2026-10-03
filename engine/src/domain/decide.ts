@@ -290,9 +290,9 @@ function briefUpdate(input: DecisionInput, orderId: string | null): BriefUpdate 
   // Un « oui » / « non » n'agit que sur la question posée, et sur rien d'autre (cas Adeline)
   const pq = input.conversation.pendingQuestion;
   const aboutThisOrder = pq !== null && (pq.orderId === orderId || pq.orderId === null);
-  if (pq?.key === 'confirm_recipient_name' && aboutThisOrder && f.recipientName === undefined) {
+  if (pq?.key === 'confirm_recipient_name' && aboutThisOrder) {
     if (u.primaryIntent === 'confirm_yes') patch.recipient_name_confirmed = true;
-    if (u.primaryIntent === 'confirm_no') {
+    if (u.primaryIntent === 'confirm_no' && f.recipientName === undefined) {
       patch.recipient_name = null;
       allowClear.push('recipient_name');
     }

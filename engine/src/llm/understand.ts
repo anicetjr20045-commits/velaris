@@ -178,7 +178,9 @@ export function validateUnderstanding(raw: Record<string, unknown>, input: Pick<
   const change = ex('change_request'); if (change) fields.changeRequest = change;
   const offer = ex('offer_code');
   if (offer) {
-    if (input.offers.some((o) => o.code === offer.value)) fields.offerCode = offer;
+    const val = offer.value.toLowerCase().trim();
+    const matched = input.offers.find((o) => o.code.toLowerCase() === val || o.label.toLowerCase() === val);
+    if (matched) fields.offerCode = { value: matched.code, quote: offer.quote };
     else rejected.push(`offer_code inconnu : ${offer.value}`);
   }
   const rv = rawFields.voice as { value?: unknown; quote?: unknown } | undefined;
