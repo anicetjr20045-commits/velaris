@@ -4,25 +4,24 @@ import {
   MessageSquare, 
   UserPlus, 
   Zap, 
-  Smartphone, 
-  ArrowRight
+  Smartphone
 } from 'lucide-react';
 import type { Order, StudioMetrics } from '../types';
 
 interface RevenusViewProps {
   orders: Order[];
   metrics?: StudioMetrics;
-  onOpenPipeline?: () => void;
   onOpenConversations?: () => void;
   onOpenVentes?: () => void;
+  isWhatsAppConnected?: boolean;
 }
 
 export const RevenusView: FC<RevenusViewProps> = ({
   orders,
   metrics,
-  onOpenPipeline,
   onOpenConversations,
   onOpenVentes,
+  isWhatsAppConnected = false,
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('Aujourd\'hui');
 
@@ -35,7 +34,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
     'Cette année',
   ];
 
-  const totalCA = metrics?.totalRevenue ?? 3644400;
+  const totalCA = metrics?.totalRevenue ?? 0;
   const todayRevenue = orders.filter(o => o.createdAt.includes('min')).reduce((sum, o) => sum + (o.amount || 0), 0);
   const todaySalesCount = orders.filter(o => o.createdAt.includes('min')).length;
 
@@ -134,38 +133,38 @@ export const RevenusView: FC<RevenusViewProps> = ({
             <MessageSquare className="h-4 w-4 text-neutral-500 group-hover:text-white transition-colors" />
           </div>
           <div className="text-3xl font-bold font-mono tracking-tight text-white">
-            126
+            {metrics?.adLeadsCount ?? 0}
           </div>
           <div className="text-xs text-neutral-400">
             Messages reçus sur vos numéros connectés
           </div>
         </div>
 
-        {/* Nouveaux clients (7 jours) */}
+        {/* Nouveaux clients */}
         <div 
-          onClick={onOpenPipeline}
+          onClick={onOpenVentes}
           className="rounded-xl border border-white/[0.08] bg-[#08090C] p-5 hover:border-white/20 transition-all cursor-pointer group shadow-sm space-y-2"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Nouveaux Prospects</span>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Total Commandes</span>
             <UserPlus className="h-4 w-4 text-neutral-500 group-hover:text-white transition-colors" />
           </div>
           <div className="text-3xl font-bold font-mono tracking-tight text-white">
-            42
+            {orders.length}
           </div>
           <div className="text-xs text-neutral-400">
-            Nouveaux leads qualifiés sur 7 jours
+            Commandes et fiches enregistrées
           </div>
         </div>
 
-        {/* Automatisations envoyées aujourd'hui */}
+        {/* Automatisations */}
         <div className="rounded-xl border border-white/[0.08] bg-[#08090C] p-5 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Déclenchements IA</span>
             <Zap className="h-4 w-4 text-neutral-500" />
           </div>
           <div className="text-3xl font-bold font-mono tracking-tight text-white">
-            1
+            0
           </div>
           <div className="text-xs text-neutral-400">
             Automatisations WhatsApp exécutées aujourd'hui
@@ -179,7 +178,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
             <Smartphone className="h-4 w-4 text-neutral-500" />
           </div>
           <div className="text-3xl font-bold font-mono tracking-tight text-white">
-            0/1
+            {isWhatsAppConnected ? '1/1' : '0/1'}
           </div>
           <div className="text-xs text-neutral-400">
             Sessions WAHA actives pour votre studio
@@ -231,28 +230,6 @@ export const RevenusView: FC<RevenusViewProps> = ({
             Aucune vente sur cette période.
           </p>
         )}
-      </div>
-
-      {/* 4. Section Où en sont tes clients (30 jours) */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#08090C] p-6 shadow-sm">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-neutral-400">PIPELINE ACTIF</div>
-            <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
-              Suivi de l'Entonnoir Clients (30 jours)
-            </h3>
-            <p className="text-xs text-neutral-400 mt-0.5">
-              187 prospects qualifiés et fiches en cours d'avancement
-            </p>
-          </div>
-          <button
-            onClick={onOpenPipeline}
-            className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer shadow-sm"
-          >
-            <span>Ouvrir le Kanban</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
       </div>
     </div>
   );

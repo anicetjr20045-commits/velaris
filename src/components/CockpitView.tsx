@@ -259,30 +259,30 @@ export const CockpitView: FC<CockpitViewProps> = ({
           value={metrics.totalRevenue}
           suffix={metrics.currency}
           icon={Wallet}
-          footnote="+34 % ce mois"
+          footnote={metrics.totalRevenue > 0 ? "+34 % ce mois" : "Encaissements réels"}
           footIcon={TrendingUp}
           tone="text-emerald-400"
-          trend={[12, 15, 14, 19, 18, 24, 23, 29, 31, 30, 36, 41]}
+          trend={metrics.totalRevenue > 0 ? [12, 15, 14, 19, 18, 24, 23, 29, 31, 30, 36, 41] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
         />
         <KpiCard
           index={1}
           label="Chansons livrées"
           value={metrics.ordersDelivered}
           icon={CheckCircle}
-          footnote={`${metrics.ordersActive} en production`}
+          footnote={metrics.ordersActive > 0 ? `${metrics.ordersActive} en production` : "0 en cours"}
           footIcon={ArrowUpRight}
           tone="text-white"
-          trend={[8, 10, 9, 13, 12, 15, 17, 16, 19, 22, 21, 25]}
+          trend={metrics.ordersDelivered > 0 ? [8, 10, 9, 13, 12, 15, 17, 16, 19, 22, 21, 25] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
         />
         <KpiCard
           index={2}
           label="Prospects WhatsApp"
           value={metrics.adLeadsCount}
           icon={Users}
-          footnote="65 F / lead en moyenne"
+          footnote={metrics.adLeadsCount > 0 ? "65 F / lead en moyenne" : "Contacts qualifiés"}
           footIcon={MessagesSquare}
           tone="text-sky-400"
-          trend={[20, 18, 24, 22, 27, 25, 30, 34, 31, 36, 35, 40]}
+          trend={metrics.adLeadsCount > 0 ? [20, 18, 24, 22, 27, 25, 30, 34, 31, 36, 35, 40] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
         />
         <KpiCard
           index={3}
@@ -290,10 +290,10 @@ export const CockpitView: FC<CockpitViewProps> = ({
           value={metrics.conversionRate}
           suffix="%"
           icon={Percent}
-          footnote="Formule 3 000 F en tête"
+          footnote={metrics.conversionRate > 0 ? "Formule 3 000 F en tête" : "Taux de transformation"}
           footIcon={ArrowUpRight}
           tone="text-[#E5B54F]"
-          trend={[14, 16, 15, 17, 19, 18, 20, 21, 20, 22, 23, 24]}
+          trend={metrics.conversionRate > 0 ? [14, 16, 15, 17, 19, 18, 20, 21, 20, 22, 23, 24] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
         />
       </div>
 

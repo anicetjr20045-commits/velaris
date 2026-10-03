@@ -3,7 +3,6 @@ import {
   LayoutGrid,
   Wallet,
   MessagesSquare,
-  Columns3,
   TrendingUp,
   Smartphone,
   Zap,
@@ -29,7 +28,6 @@ import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
 import { CockpitView } from './CockpitView';
 import { ConversationsView } from './ConversationsView';
-import { PipelineView } from './PipelineView';
 import { AutomationsView } from './AutomationsView';
 import { WhatsAppLinesView } from './WhatsAppLinesView';
 import { VentesCaisseView } from './VentesCaisseView';
@@ -127,8 +125,14 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         { id: 'revenus' as StudioTab, label: 'Mes revenus', icon: LayoutGrid },
         { id: 'ventes' as StudioTab, label: 'Ventes & Caisse', icon: Wallet },
         { id: 'conversations' as StudioTab, label: 'Discussions WhatsApp', icon: MessagesSquare, count: unreadCount },
-        { id: 'pipeline' as StudioTab, label: 'Suivi clients', icon: Columns3 },
         { id: 'analyste' as StudioTab, label: 'Analyste & Copilot IA', icon: TrendingUp },
+      ]
+    },
+    {
+      title: 'Création & Formation',
+      items: [
+        { id: 'studio_ai' as StudioTab, label: 'Atelier Studio IA', icon: Music2 },
+        { id: 'academy' as StudioTab, label: 'Académie Studio', icon: GraduationCap },
       ]
     },
     {
@@ -140,10 +144,8 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
       ]
     },
     {
-      title: 'Supervision & administration',
+      title: 'Supervision',
       items: [
-        { id: 'studio_ai' as StudioTab, label: 'Atelier Studio IA', icon: Music2 },
-        { id: 'academy' as StudioTab, label: 'Académie Studio', icon: GraduationCap },
         { id: 'admin' as StudioTab, label: 'Console Admin', icon: Crown },
       ]
     }
@@ -493,15 +495,6 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               />
             )}
 
-            {currentTab === 'pipeline' && (
-              <PipelineView
-                orders={orders}
-                onSelectLeadForStudio={(leadId) => {
-                  const matched = orders.find(o => o.id === leadId);
-                  openOrderInStudio(matched ? matched.id : orders[0]?.id || 'ORD-9821');
-                }}
-              />
-            )}
 
             {currentTab === 'automations' && (
               <AutomationsView />

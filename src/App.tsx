@@ -10,14 +10,13 @@ import { NewOrderModal } from './components/NewOrderModal';
 import { AuthModal } from './components/AuthModal';
 import { CosmicBackground } from './components/CosmicBackground';
 import { INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
-import { REAL_STUDIO_METRICS } from './data/realProductionData';
 import { useWahaSession } from './hooks/useWaha';
 import { useAuth } from './hooks/useAuth';
 import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 
 export function App() {
-  const { user, openAuthModal, isDemoMode } = useAuth();
+  const { user, isDemoMode } = useAuth();
   const sessionName = user ? (`studio_${user.id.slice(0, 8)}`) : 'Test';
   // Visiteurs non connectés : aucune sonde WAHA (le site public ne doit pas solliciter la passerelle)
   const waha = useWahaSession(sessionName, { enabled: !!user, syncToStudio: true });
@@ -38,7 +37,7 @@ export function App() {
 
   // Initialize orders with user-scoped or demo persistence
   const [orders, setOrders] = useState<Order[]>(() => {
-    if (typeof window === 'undefined') return INITIAL_ORDERS;
+    if (typeof window === 'undefined') return [];
     try {
       const saved = localStorage.getItem('velaris_studio_orders_demo');
       if (saved) {
@@ -48,10 +47,10 @@ export function App() {
     } catch {
       // ignore
     }
-    return INITIAL_ORDERS;
+    return [];
   });
 
-  const [selectedOrderId, setSelectedOrderId] = useState<string>(() => orders[0]?.id || INITIAL_ORDERS[0].id);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>(() => orders[0]?.id || '');
   const [manualConnected, setManualConnected] = useState<boolean | null>(null);
   const isWhatsAppConnected = manualConnected !== null ? manualConnected : waha.isOnline;
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
@@ -79,19 +78,12 @@ export function App() {
       });
     } else if (isDemoMode) {
       setOrders(INITIAL_ORDERS);
-      setSelectedOrderId(INITIAL_ORDERS[0].id);
+      setSelectedOrderId(INITIAL_ORDERS[0]?.id || '');
     }
   }, [user, isDemoMode]);
 
-  // Dynamic metrics: computed from user's live studio orders, or demo metrics if visitor
+  // Dynamic metrics: computed from user's live studio orders (starts strictly at zero for new users)
   const currentMetrics: StudioMetrics = useMemo(() => {
-    if (!user) {
-      return {
-        ...REAL_STUDIO_METRICS,
-        currency: 'FCFA',
-      };
-    }
-
     const delivered = orders.filter((o) => o.status === 'livre');
     const active = orders.filter((o) => o.status !== 'livre');
     const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
@@ -104,7 +96,7 @@ export function App() {
       conversionRate: orders.length > 0 ? Math.round((delivered.length / orders.length) * 100) : 0,
       currency: 'FCFA',
     };
-  }, [user, orders]);
+  }, [orders]);
 
   // Switch to studio with a specific order
   const handleSelectOrderForStudio = (orderId: string) => {
@@ -167,18 +159,10 @@ export function App() {
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
             <LandingPage
               onOpenStudio={() => {
-                if (!user && !isDemoMode) {
-                  openAuthModal('login');
-                  return;
-                }
                 setActiveTab('studio');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onOpenCockpit={() => {
-                if (!user && !isDemoMode) {
-                  openAuthModal('login');
-                  return;
-                }
                 setActiveTab('cockpit');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}

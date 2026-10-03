@@ -1,9 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { 
-  REAL_CONVERSATIONS, 
-  REAL_AUTOMATION_RULES, 
-  REAL_STUDIO_METRICS 
-} from '../data/realProductionData';
 import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLead, StudioMetrics } from '../types';
 
 /* Bornes des listes chargées par le Studio (protège les quotas gratuits Supabase) */
@@ -63,9 +58,6 @@ function mapFunnelStage(stage: string): 'en_discussion' | 'nouveau' | 'devis' | 
  */
 export async function getLiveConversations(): Promise<ConversationItem[]> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const isUser = !!session?.user;
-
     const { data, error } = await supabase
       .from('conversations')
       .select('id, funnel_stage, summary, last_message_at, contacts(name, phone)')
@@ -73,11 +65,11 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       .limit(LIST_LIMIT);
 
     if (error) {
-      return isUser ? [] : REAL_CONVERSATIONS;
+      return [];
     }
 
     if (!data || data.length === 0) {
-      return isUser ? [] : REAL_CONVERSATIONS;
+      return [];
     }
 
     return data.map((c: any) => ({
@@ -100,9 +92,6 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
  */
 export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const isUser = !!session?.user;
-
     const { data, error } = await supabase
       .from('automation_rules')
       .select('id, name, trigger_value, action_type, text_body, media_path, caption, enabled')
@@ -110,11 +99,11 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
       .limit(200);
 
     if (error) {
-      return isUser ? [] : REAL_AUTOMATION_RULES;
+      return [];
     }
 
     if (!data || data.length === 0) {
-      return isUser ? [] : REAL_AUTOMATION_RULES;
+      return [];
     }
 
     return data.map((r: any) => ({
@@ -291,8 +280,8 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
   const empty: StudioMetrics = { totalRevenue: 0, ordersDelivered: 0, ordersActive: 0, adLeadsCount: 0, conversionRate: 0, currency: 'FCFA' };
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    // Visiteur : métriques de démonstration, aucune requête réseau
-    if (!session?.user) return REAL_STUDIO_METRICS;
+    // Visiteur ou nouveau studio : métriques initialisées à zéro
+    if (!session?.user) return empty;
 
     // Utilisateur connecté : métriques STRICTEMENT isolées à son studio (RLS)
     const [balanceRes, ordersRes, convRes] = await Promise.all([

@@ -13,8 +13,8 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 34 (Expertise Vercel activée & Validée en Direct : Déploiement https://velaris-dun.vercel.app/ 100% opérationnel, réécritures SPA Vite validées sans 404 sur les routes profondes, passerelle QR live active en SCAN_QR_CODE).
-- **Prochaine tâche immédiate** : Scanner le QR code actif sur https://waha.velarisagent.life/qr/ ou directement dans la modal Vercel pour basculer la session `Test` (+22656240533) en `WORKING` et démarrer les échanges en live.
+- **Statut Opérationnel** : Jalon 35 (Normalisation des données à zéro pour nouveaux comptes, éradication du suivi clients, audit médico-légal du Copilot IA, alignement schema backend/frontend Automations & déblocage universel Académie/Atelier).
+- **Prochaine tâche immédiate** : Valider les parcours utilisateurs en direct sur https://velaris-dun.vercel.app/ et connecter la session WhatsApp WAHA.
 
 ---
 
@@ -31,6 +31,37 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 35. Normalisation Métriques Zéro, Éradication Pipeline, Déblocage Académie/Atelier et Alignement Backend Automations (3 Octobre 2026)
+- **Directive 1 : Zéro Métrique Parasite pour les Nouveaux Utilisateurs** :
+  - `RevenusView.tsx` & `VentesCaisseView.tsx` : Remplacement de tous les totaux statiques en dur (3 644 400 F, 2 420 000 F Wave, 1 224 400 F OM, 126 messages, 42 prospects) par des réductions dynamiques initialisées à 0 F CFA.
+  - `App.tsx` & `supabase.ts` : Suppression du fallback sur les métriques du studio de production pour les nouveaux comptes. Les métriques d'un nouvel utilisateur démarrent strictement à 0 F CFA, 0 commande, 0 contact.
+  - `CockpitView.tsx` : Sparklines et tendances adaptées pour afficher un palier neutre sans variation artificielle à l'ouverture d'un nouveau compte.
+- **Directive 2 : Élimination Intégrale de la Section « Suivi clients »** :
+  - `StudioAppLayout.tsx` : Suppression de l'élément de menu `pipeline` ("Suivi clients") de la navigation studio, suppression de l'import et du rendu conditionnel de `PipelineView`.
+  - `RevenusView.tsx` : Suppression complète de la section 4 ("Suivi de l'Entonnoir Clients (30 jours)" et son bouton vers le Kanban).
+- **Directive 3 : Cartographie Rigoureuse et Non Spéculative des Capacités Réelles du Copilot IA** :
+  - Audit complet de `src/services/copilot.ts` et `src/components/StudioCopilotView.tsx` :
+    1. Résolution de dossiers et recherche multi-tables PostgreSQL (`contacts`, `conversations`, `messages`, `orders`).
+    2. Rédaction de paroles sur mesure avec respect de la contrainte Suno (3 000 caractères max).
+    3. Production audio Suno via Kie.ai (débit de 1 crédit studio à 85 F CFA et polling automatique jusqu'à obtention du mp3).
+    4. Livraison WhatsApp 1-clic via la passerelle WAHA (`/api/sendText`, `/api/sendFile`).
+    5. Réponses et relances commerciales contextuelles adaptées aux 4 étapes du funnel.
+    6. Télémétrie des ventes et marges en temps réel.
+    7. Base de connaissances académique et tarification.
+    8. Gestion des crédits studio (85 F/crédit, micro-consommations Copilot de 0.05 crédit).
+- **Directive 4 : Cohérence Totale Frontend & Backend de la Page Automatisations** :
+  - Diagnostic & Correction Schema PostgreSQL (`aws-1-eu-west-1.pooler.supabase.com:6543`) :
+    - Colonnes ajoutées sur `public.automation_rules` : `action_type TEXT NOT NULL DEFAULT 'send_text'`, `media_path TEXT`, `caption TEXT`.
+    - Contrainte `text_body NOT NULL` levée pour autoriser les envois de médias purs (vocal, vidéo, catalogue).
+    - `user_id` configuré avec valeur par défaut `auth.uid()`.
+  - Création du Bucket Supabase Storage `product-files` :
+    - Bucket public créé avec politiques RLS de lecture publique et insertion/suppression authentifiée.
+  - Vérification de l'endpoint REST Supabase : code HTTP 200 OK avec toutes les colonnes requises.
+- **Directive 5 : Disponibilité Universelle de l'Académie Studio et de l'Atelier Studio IA** :
+  - `StudioAppLayout.tsx` : Restructuration de la navigation latérale. Création d'un groupe dédié de premier plan « Création & Formation » regroupant « Atelier Studio IA » et « Académie Studio », accessibles sans restriction à l'ensemble des utilisateurs connectés ou en découverte.
+  - Isolement strict de la console d'administration sous le groupe « Supervision ».
+  - `App.tsx` : Levée des verrous d'authentification bloquants à l'ouverture de l'atelier ou du cockpit depuis la vitrine.
 
 ### 34. Intégration Expert Vercel & Déploiement Actif (3 Octobre 2026)
 - **Installation du Plugin Officiel Vercel (`vercel/vercel-plugin`)** :

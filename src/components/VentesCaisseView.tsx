@@ -86,11 +86,11 @@ export const VentesCaisseView: FC<VentesCaisseViewProps> = ({
   );
   const filteredTotal = filteredOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
 
-  const totalCaisse = 3644400;
-  const waveTotal = 2420000;
-  const omTotal = 1224400;
-  const waveShare = waveTotal / totalCaisse;
-  const omShare = omTotal / totalCaisse;
+  const totalCaisse = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+  const waveTotal = orders.filter(o => o.paymentMethod.toLowerCase().includes('wave')).reduce((sum, o) => sum + (o.amount || 0), 0);
+  const omTotal = orders.filter(o => o.paymentMethod.toLowerCase().includes('orange') || o.paymentMethod.toLowerCase().includes('moov')).reduce((sum, o) => sum + (o.amount || 0), 0);
+  const waveShare = totalCaisse > 0 ? waveTotal / totalCaisse : 0;
+  const omShare = totalCaisse > 0 ? omTotal / totalCaisse : 0;
 
   const animatedTotal = useCountUp(totalCaisse, 1100);
   const animatedWave = useCountUp(waveTotal, 1100);
