@@ -11,9 +11,10 @@
 - **Dernière mise à jour** : 3 Octobre 2026
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
+- **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 34 (Expertise Vercel activée : Plugin officiel Vercel installé avec ses 37 compétences spécialisées intégrées à Antigravity, CLI Vercel 62.2.0 globale, configuration Vite SPA vercel.json opérationnelle sur main, déploiement Vercel actif).
-- **Prochaine tâche immédiate** : Récupérer ou valider le lien Vercel déployé et scanner le QR code actif sur https://waha.velarisagent.life/qr/ pour basculer la session `Test` (+22656240533) en `WORKING` et démarrer les échanges en live.
+- **Statut Opérationnel** : Jalon 34 (Expertise Vercel activée & Validée en Direct : Déploiement https://velaris-dun.vercel.app/ 100% opérationnel, réécritures SPA Vite validées sans 404 sur les routes profondes, passerelle QR live active en SCAN_QR_CODE).
+- **Prochaine tâche immédiate** : Scanner le QR code actif sur https://waha.velarisagent.life/qr/ ou directement dans la modal Vercel pour basculer la session `Test` (+22656240533) en `WORKING` et démarrer les échanges en live.
 
 ---
 
