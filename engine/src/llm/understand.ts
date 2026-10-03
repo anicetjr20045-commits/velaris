@@ -39,7 +39,7 @@ export interface UnderstandResult {
   raw: Record<string, unknown> | null;
   rejected: string[];
   model: string | null;
-  tokens: { prompt: number; completion: number } | null;
+  tokens: { prompt: number; completion: number; cacheHit?: number } | null;
   latencyMs: number;
   /** Fournisseur indisponible : le tour doit être retenu et retenté, pas traité comme incompris (§ 5.3). */
   providerFailed: boolean;
@@ -264,7 +264,7 @@ export async function understand(provider: LlmProvider, input: UnderstandInput):
       raw: r.data,
       rejected: v.rejected,
       model: r.model,
-      tokens: { prompt: r.usage.promptTokens, completion: r.usage.completionTokens },
+      tokens: { prompt: r.usage.promptTokens, completion: r.usage.completionTokens, cacheHit: r.usage.cacheHitTokens },
       latencyMs: r.latencyMs,
       providerFailed: false,
     };
