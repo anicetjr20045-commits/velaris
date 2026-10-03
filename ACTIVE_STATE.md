@@ -12,8 +12,8 @@
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 31 (Migration de production 100% appliquée sur Supabase avec 22 tables et 31 RPCs, persona et catalogue initialisés, correction chirurgicale de garde d'envoi appliquée, pipeline bout-en-bout testé et validé en conditions réelles avec DeepSeek-V3 et WAHA sur le VPS).
-- **Prochaine tâche immédiate** : Scanner le QR code de la session WAHA `Test` (+22656240533) pour que WAHA diffuse directement les messages sortants sur WhatsApp.
+- **Statut Opérationnel** : Jalon 32 (Certification Intégrale E2E du Cycle Client validée à 100% sur le VPS : Nouveau client A à Z, confirmation sécurisée de prénom, choix formule, paroles manuelles gérant, validation client, instructions de paiement, anti-fraude I8, livraison, reconnaissance ancien client "welcome_returning", télémétrie complète et cache DeepSeek à 90%).
+- **Prochaine tâche immédiate** : Scanner le QR code de la session WAHA `Test` (+22656240533) sur https://waha.velarisagent.life/qr/ pour débuter les échanges en conditions réelles.
 
 ---
 
@@ -30,6 +30,26 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 32. Certification Intégrale E2E du Moteur & Cycle de Vie Client 100% Validé (3 Octobre 2026)
+- **Banc de Test Automatisé E2E sur VPS (`engine/scripts/full-end-to-end-audit.mjs`)** :
+  - Exécution en conditions réelles sur le moteur de production port 3001 du VPS avec signature HMAC sha256 et base Supabase réelle.
+  - **Étape 1 (Accueil)** : Ingestion nouveau client, initialisation conversation et commande `collecting_brief`, message d'accueil et présentation des offres sans vocal prématuré.
+  - **Étape 2 (Brief & Prénom)** : Extraction instantanée occasion (`anniversaire`), prénom (`Fatou`), relation (`mère`). L'agent pose la question de vérification de prononciation chantée (`confirm_recipient_name`).
+  - **Étape 2B (Confirmation du prénom)** : Client valide le prénom. Le moteur verrouille `recipient_name_confirmed = true` et présente officiellement les tarifs.
+  - **Étape 2C (Choix de la formule)** : Client choisit la formule Signature (3 000 F CFA). Le moteur verrouille le brief complet et bascule la commande en `lyrics_in_progress`.
+  - **Étape 3 (Paroles par le gérant - `lyrics_author = manager`)** : Le gérant transmet ses paroles officielles sur WhatsApp (`fromMe: true`). L'agent se met en retrait (`human_control_no_relay`), la commande passe en `lyrics_sent`.
+  - **Étape 4 (Validation client & Instructions de paiement)** : Le client valide le texte avec émotion. Le moteur bascule en `lyrics_validated` et expédie immédiatement les instructions de paiement officielles avec coordonnées Orange Money / Wave et montant exact (3 000 F CFA).
+  - **Étape 5 (Déclaration client & Garde-fou anti-fraude I8)** : Le client affirme avoir payé. Le moteur passe la commande en `payment_status = 'claimed'`. L'agent ne confirme JAMAIS de paiement frauduleusement (règle I8 respectée à la lettre). Le gérant confirme en base et livre la commande (`delivered`).
+  - **Étape 6 (Reconnaissance Ancien Client - Returning Client)** : Le client revient quelques semaines plus tard. `agent_contact_facts` relève `delivered_orders = 1`. Le moteur active le goal `welcome_returning`, accueille avec chaleur le client fidèle (*"heureux de vous retrouver pour ce beau projet"*) et ne lui réexpédie AUCUN vocal de procédure superflu.
+  - **Étape 7 (Télémétrie & DeepSeek Context Caching)** : 5/5 tours ont bénéficié du cache préfixe DeepSeek avec 2 176 tokens en cache sur 2 400 (~90% d'économie, latence moyenne 1,8 s). Zéro violation de garde-fous sur tous les tours.
+- **Corrections Appliquées & Certifiées** :
+  - `decide.ts` : Validation de `confirm_recipient_name` même lorsque le client répète le prénom dans sa confirmation positive.
+  - `understand.ts` : Définition explicite de l'intention `choose_offer` et résolution défensive multi-critères (code, libellé, tarif en chiffres) en cas d'omission par le modèle.
+- **Déploiement Production VPS** :
+  - Image Docker `velaris-engine:latest` reconstruite et relancée en production.
+  - Suite de tests unitaire : **136/136 tests passants à 100%**.
+  - Banc E2E d'audit : **100% de réussite sur l'ensemble des assertions**.
 
 ### 31. Production validée de bout en bout, schéma Supabase actif, correction chirurgicale de garde d'envoi (3 Octobre 2026)
 - **Base de données Supabase de production (`dnwlqgsftauqsyjwhoza`)** :
