@@ -12,8 +12,8 @@
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 30 (Moteur de vente WhatsApp Velaris Engine déployé sur le VPS en conteneur Node 22 Alpine, sécurité HMAC temps constant active, WAHA routé, 136/136 tests passants à 100%, migration SQL consolidée prête pour Supabase).
-- **Prochaine tâche immédiate** : Coller et exécuter la migration consolidée `supabase/migrations/20261006_master_agent_production.sql` dans le SQL Editor Supabase pour activer instantanément les 31 RPCs et passer l'agent en direct sur WhatsApp.
+- **Statut Opérationnel** : Jalon 31 (Migration de production 100% appliquée sur Supabase avec 22 tables et 31 RPCs, persona et catalogue initialisés, correction chirurgicale de garde d'envoi appliquée, pipeline bout-en-bout testé et validé en conditions réelles avec DeepSeek-V3 et WAHA sur le VPS).
+- **Prochaine tâche immédiate** : Scanner le QR code de la session WAHA `Test` (+22656240533) pour que WAHA diffuse directement les messages sortants sur WhatsApp.
 
 ---
 
@@ -30,6 +30,32 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 31. Production validée de bout en bout, schéma Supabase actif, correction chirurgicale de garde d'envoi (3 Octobre 2026)
+- **Base de données Supabase de production (`dnwlqgsftauqsyjwhoza`)** :
+  - Migration consolidée `20261006_master_agent_production.sql` exécutée avec succès via pooler IPv4.
+  - 22 tables réelles créées, 31 RPCs `agent_*` fonctionnelles, 36 transitions de machine à états en place.
+  - Rechargement à chaud du cache PostgREST via `NOTIFY pgrst, 'reload schema'` : disparition immédiate des 404 sur les RPCs.
+- **Initialisation du Studio & Catalogue en base** :
+  - Profil studio configuré pour Anicet (`043a33b4-429c-4056-b333-ee61d4c0a515`) : studio `Velaris Studio`, agent `Alex`, gérant `Anicet`, ton `chaleureux`, adresse formelle (`vous`), `delivery_mode = 'live'`, politique zéro émoji (`none`), capacités activées (`cap_reception`, `cap_procedure_voice`, `cap_payment`, `cap_lyrics_followup`).
+  - Catalogue 3 formules inséré et verrouillé :
+    - *Essentiel* : 1 200 F CFA (1 couplet, 1 refrain, audio)
+    - *Signature* : 3 000 F CFA (chanson complète 2 couplets, audio)
+    - *Prestige* : 5 000 F CFA (chanson complète + clip vidéo diaporama photos souvenir)
+  - Coordonnées de paiement configurées : Orange Money et Wave (+22656240533, Anicet).
+  - Sessions WAHA reliées : `Test` (+22656240533) et `studio_043a33b4` rattachées avec `engine_owner = 'velaris_engine'`. Session `anicet2` préservée intacte.
+- **Résolution chirurgicale de la garde d'envoi (`agent_begin_send`)** :
+  - Diagnostic précis : `agent_finish_turn` supprimait le verrou exclusif `automation_locks` dès la fin du calcul, provoquant l'annulation des messages sortants en `lost_lock` par l'outbox asynchrone.
+  - Correction appliquée : `agent_begin_send` valide désormais l'envoi si le tour s'est achevé avec succès (`status = 'done'`) avec le même jeton, tout en protégeant rigoureusement contre les tours volés, les supersessions et les dépassements de cadence.
+  - Validé sur la base de données de production et intégré aux migrations.
+- **Test bout-en-bout validé en conditions réelles** :
+  - Webhook signé envoyé au moteur sur le VPS (`velaris-engine:latest`).
+  - Ingestion instantanée, horodatage et déduplication validés (HTTP 200).
+  - Réservation du tour par le worker `vps-worker-1` après la fenêtre de silence.
+  - Appel DeepSeek-V3 (`deepseek-chat`) exécuté en 3,2 s, analyse d'intention impeccable, zéro balise `<think>`.
+  - Décision et rendu conformes aux directives Alex (0 émoji, écoute bienveillante, questions d'approfondissement précises).
+  - Boîte d'envoi a pris en charge les messages et a tenté la distribution via WAHA.
+  - Suite de tests : **136/136 tests passants à 100%**.
 
 ### 30. Moteur déployé sur VPS, isolation réseau, HMAC cryptographique, migration consolidée (3 Octobre 2026)
 - **Boucle des tours complète (`engine/src/queue/`)** :

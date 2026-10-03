@@ -713,11 +713,37 @@ BEGIN
   END IF;
 
   IF o.origin = 'agent' THEN
-    IF NOT EXISTS (SELECT 1 FROM automation_locks
-                    WHERE conversation_id = o.conversation_id AND token = o.lock_token AND lease_until > now()) THEN
+    IF NOT (
+      EXISTS (
+        SELECT 1 FROM automation_locks
+         WHERE conversation_id = o.conversation_id AND token = o.lock_token AND lease_until > now()
+      )
+      OR
+      EXISTS (
+        SELECT 1 FROM conversation_turns
+         WHERE id = o.turn_id AND lock_token = o.lock_token AND status = 'done'
+      )
+    ) THEN
       UPDATE outbound_messages SET status = 'cancelled', error = 'lost_lock' WHERE id = p_outbox;
       RETURN 'lost_lock';
     END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM automation_locks
+       WHERE conversation_id = o.conversation_id AND token > o.lock_token
+    ) THEN
+      UPDATE outbound_messages SET status = 'cancelled', error = 'superseded' WHERE id = p_outbox;
+      RETURN 'superseded';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM conversation_turns
+       WHERE conversation_id = o.conversation_id AND lock_token > o.lock_token
+    ) THEN
+      UPDATE outbound_messages SET status = 'cancelled', error = 'superseded' WHERE id = p_outbox;
+      RETURN 'superseded';
+    END IF;
+
     IF EXISTS (SELECT 1 FROM conversation_turns WHERE conversation_id = o.conversation_id AND status = 'collecting') THEN
       UPDATE outbound_messages SET status = 'cancelled', error = 'superseded' WHERE id = p_outbox;
       RETURN 'superseded';
