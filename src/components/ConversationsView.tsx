@@ -243,15 +243,22 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     detectedOccasion = 'Entreprise & Publicité';
   }
 
-  // Détection du prénom avec filtrage des mots d'arrêt
+  // Détection du prénom avec filtrage des mots d'arrêt et relations
   let recipientName = '';
-  const pourMatch = allInboundText.match(/\bpour\s+([a-zà-ÿ]{2,18})/i);
-  const nomMatch = allInboundText.match(/\b(nom|prénom|prenom)\s+(c'est|est|:)?\s*([a-zà-ÿ]{2,18})/i);
-  const appelleMatch = allInboundText.match(/\bs'appelle\s+([a-zà-ÿ]{2,18})/i);
-  const cestMatch = allInboundText.match(/\bc'est\s+([a-zà-ÿ]{2,18})/i);
-  const destinataireMatch = allInboundText.match(/\bdestinataire\s*[:=]?\s*([a-zà-ÿ]{2,18})/i);
+  const pourMatch = allInboundText.match(/\bpour\s+(?:un|une|mon|ma|mes|son|sa)?\s*([a-zà-ÿ-]{2,18})/i);
+  const nomMatch = allInboundText.match(/\b(noms?|prénoms?|prenoms?)\s*(?:sont|c'est|est|:)?\s*([a-zà-ÿ-]{2,18})/i);
+  const appelleMatch = allInboundText.match(/\bs'appelle\s+([a-zà-ÿ-]{2,18})/i);
+  const cestMatch = allInboundText.match(/\bc'est\s+([a-zà-ÿ-]{2,18})/i);
+  const destinataireMatch = allInboundText.match(/\bdestinataire\s*[:=]?\s*([a-zà-ÿ-]{2,18})/i);
 
-  const stopWords = ['pour', 'une', 'un', 'des', 'du', 'de', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'lui', 'elle', 'moi', 'nous', 'vous', 'eux', 'ce', 'cet', 'cette', 'faire', 'avoir', 'le', 'la', 'les', 'qui', 'quoi', 'comment', 'bien', 'bon', 'super', 'vrai', 'vraiment', 'trop', 'parti', 'feter', 'fêter', 'celebrer', 'célébrer', 'notre', 'votre', 'leur', 'aussi', 'dot', 'mariage', 'rendre', 'hommage', 'anniversaire', 'chanson', 'musique', 'titre', 'texte', 'projet', 'surprise', 'cadeau'];
+  const stopWords = [
+    'pour', 'une', 'un', 'des', 'du', 'de', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'lui', 'elle', 'moi', 'nous', 'vous', 'eux',
+    'ce', 'cet', 'cette', 'faire', 'avoir', 'le', 'la', 'les', 'qui', 'quoi', 'comment', 'bien', 'bon', 'super', 'vrai', 'vraiment',
+    'trop', 'parti', 'feter', 'fêter', 'celebrer', 'célébrer', 'notre', 'votre', 'leur', 'aussi', 'dot', 'mariage', 'rendre', 'hommage',
+    'anniversaire', 'danniversaire', 'chanson', 'musique', 'titre', 'texte', 'projet', 'surprise', 'cadeau', 'ami', 'amie', 'amis',
+    'amies', 'pote', 'potes', 'copain', 'copine', 'frere', 'frère', 'soeur', 'sœur', 'pere', 'père', 'mere', 'mère', 'papa', 'maman',
+    'collègue', 'collegue', 'patron', 'mari', 'femme', 'epoux', 'époux', 'epouse', 'épouse', 'personne', 'quelqu'
+  ];
 
   const testNameCandidate = (candidate?: string) => {
     if (!candidate) return '';
@@ -264,18 +271,17 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     recipientName = testNameCandidate(appelleMatch[1]);
   } else if (destinataireMatch && testNameCandidate(destinataireMatch[1])) {
     recipientName = testNameCandidate(destinataireMatch[1]);
-  } else if (nomMatch && testNameCandidate(nomMatch[3])) {
-    recipientName = testNameCandidate(nomMatch[3]);
+  } else if (nomMatch && testNameCandidate(nomMatch[2] || nomMatch[3])) {
+    recipientName = testNameCandidate(nomMatch[2] || nomMatch[3]);
   } else if (pourMatch && testNameCandidate(pourMatch[1])) {
     recipientName = testNameCandidate(pourMatch[1]);
   } else if (cestMatch && testNameCandidate(cestMatch[1])) {
     recipientName = testNameCandidate(cestMatch[1]);
   }
 
-  // Détection si le client mentionne un tiers (lien de parenté) sans avoir encore précisé son prénom
-  const hasRelationWithoutName = /\b(mon|ma|mes|notre|nos)\s+(frère|frere|soeur|sœur|père|pere|maman|mère|mere|mari|femme|épouse|epouse|ami|amie|bestie|collègue|collegue|patron|bébé|bebe|fils|fille|grand-mère|grand-pere|grand mère|grand pere)\b/i.test(allInboundText);
-
-  if (!recipientName && !hasRelationWithoutName && conv.name && !conv.name.startsWith('+') && !conv.name.toLowerCase().includes('client')) {
+  // Ne jamais attribuer conv.name comme destinataire par défaut, sauf si le client commande explicitement pour lui-même
+  const isForSelf = /\b(pour moi|mon propre|c'est moi|pour mon anniversaire)\b/i.test(allInboundText);
+  if (!recipientName && isForSelf && conv.name && !conv.name.startsWith('+') && !conv.name.toLowerCase().includes('client')) {
     recipientName = conv.name.split(' ')[0];
   }
 
@@ -468,10 +474,19 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   }
 
   // 13. Brief partiel (occasion détectée mais prénom ou détails requis)
-  const hasOccasionSignal = /\b(anniversaire|mariage|hommage|amour|naissance|bapteme|baptême|fête|fete|mere|mère|pere|père|entreprise|societe)\b/i.test(allInboundText);
+  const hasOccasionSignal = /\b(anniversaire|danniversaire|mariage|hommage|amour|naissance|bapteme|baptême|fête|fete|mere|mère|pere|père|entreprise|societe)\b/i.test(allInboundText);
   if (hasOccasionSignal) {
     let questionText = `C'est bien noté pour l'anniversaire ! Quel est le prénom de la personne à célébrer, sa date d'anniversaire, et 2 ou 3 souvenirs marquants ?`;
-    if (detectedOccasion === 'Mariage') {
+
+    if (detectedOccasion === 'Anniversaire') {
+      if (/\b(ami|amie|pote|copain|copine)\b/i.test(allInboundText)) {
+        questionText = `C'est une superbe attention pour votre ami(e) ! Quel est son prénom, sa date d'anniversaire, et 2 ou 3 anecdotes complices ou souvenirs à glisser dans la chanson ?`;
+      } else if (/\b(frère|frere|soeur|sœur)\b/i.test(allInboundText)) {
+        questionText = `C'est une magnifique surprise fraternelle ! Quel est le prénom de votre frère / sœur, sa date d'anniversaire, et 2 ou 3 souvenirs marquants ?`;
+      } else if (/\b(maman|mère|mere|papa|père|pere)\b/i.test(allInboundText)) {
+        questionText = `Un merveilleux cadeau familial ! Quel est son prénom ou surnom, sa date d'anniversaire, et les qualités qui vous touchent le plus chez lui / elle ?`;
+      }
+    } else if (detectedOccasion === 'Mariage') {
       questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des mariés, la date de la célébration et un souvenir marquant ?`;
     } else if (detectedOccasion === 'Hommage') {
       questionText = `Toutes nos pensées vous accompagnent. Quel est le nom de la personne à honorer et les souvenirs que vous souhaitez immortaliser ?`;

@@ -8,25 +8,15 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (21:42 UTC)
-- **Statut Opérationnel** : **Jalon 58 100% Validé & Déployé** (Moteur d'Analyse Contextuelle Exhaustif & Testé sur 25 Scénarios Réels WhatsApp, Zéro Erreur, Zéro Robotisme).
+- **Dernière mise à jour** : 4 Octobre 2026 (21:50 UTC)
+- **Statut Opérationnel** : **Jalon 59 100% Validé & Déployé** (Reconnaissance fine des commandes pour un tiers / ami, filtrage strict de l'identité expéditeur et questions chaleureuses contextuelles).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Moteur d'Analyse Contextuelle Exhaustif (14 Situations Réelles Couvertes)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
-    - 1. *Dépôt signalé / Preuve reçue* : détection Wave/OM/Moov/capture -> confirmation 18 min + bouton **`Encaisser`**.
-    - 2. *Statut de commande ("C'est prêt ?", "Où en est ma chanson ?")* : réassurance en direct sur le mixage/mastering en cours.
-    - 3. *Validation des paroles* (*« Je prends le premier montage »*, *« Texte validé »*) : proposition immédiate de mise en audio + bouton de caisse.
-    - 4. *Demande de retouches* : accusé de réception bienveillant pour ajustement.
-    - 5. *Délai / Urgence ("combien de temps", "urgent", "ce soir")* : garantie claire de livraison 18 min chrono.
-    - 6. *Tarifs & Coordonnées* : détection intelligente de l'opérateur demandé (Moov, Wave, OM) et envoi des coordonnées ciblées (+226 05 77 73 08).
-    - 7. *Échantillon & Fonctionnement* : lien direct vers l'extrait audio démo.
-    - 8. *Photos & Vidéo montage* : consignes claires pour 3 à 5 photos.
-    - 9. *Styles musicaux & Voix (Afro, Gospel, Rumba, Acoustique, langues)* : guide des options studio.
-    - 10. *Note vocale seule* : confirmation d'écoute attentive.
-    - 11. *Faisabilité événement (Baptême, Entreprise, Dot, etc.)* : réponse personnalisée selon l'occasion.
-    - 12. *Brief complet* : génération paroles 1-clic (**`Paroles`**).
-    - 13. *Brief partiel* : question sur-mesure selon l'occasion.
-    - 14. *Accueil & Silence intelligent* : silence studio en attente ou formule de courtoisie terminale.
-  - **Résultat de la Suite de Tests Automatisée** : 25/25 cas réels validés avec 100% de succès.
+  - **Prise en charge du scénario tiers (« pour un ami », « pour ma soeur », etc.)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+    - L'assistant ne confond plus jamais le nom de l'expéditeur WhatsApp (`conv.name`) avec le destinataire de la chanson lorsque la commande concerne un tiers.
+    - Reconnaissance immédiate de l'occasion Anniversaire même avec des fautes d'inattention de frappe mobile (*« danniversaire »*).
+    - Déclenchement du statut `brief_incomplet` avec le badge `Prénom & Détails`.
+    - Suggestion sur-mesure ultra-chaleureuse : *« C'est une superbe attention pour votre ami(e) ! Quel est son prénom, sa date d'anniversaire, et 2 ou 3 anecdotes complices ou souvenirs à glisser dans la chanson ? »*.
+  - **Résultat de la Suite de Tests Automatisée** : 9/9 cas cibles + 25/25 cas réels validés avec 100% de succès.
 - **Prochaine tâche exacte** :
   1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
   2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
@@ -46,6 +36,16 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 59. Reconnaissance Fine des Demandes pour un Tiers (Ami, Famille) & Filtrage Prénom (4 Octobre 2026)
+- **Résolution du Cas Réel « Chanson danniversaire pour un ami »** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - **Suppression du fallback abusif** : `conv.name` n'est plus attribué au destinataire par défaut. Seules les commandes expressément pour soi-même (*« pour moi »*, *« mon propre anniversaire »*) reprennent ce prénom.
+  - **Enrichissement des Stop Words** : inclusion de `ami`, `amie`, `pote`, `danniversaire`, `frere`, `soeur`, `pere`, `mere`, `quelqu'`, etc.
+  - **Regex d'extraction enrichie** : gestion des articles indéfinis et possessifs (`pour un ami`, `pour ma mère`), gestion des prénoms composés (`Jean-Marc`) et pluriels (`noms`, `prénoms`).
+  - **Formulation contextuelle ciblée** : question spécifique amitié demandant des anecdotes complices.
+- **Validation Globale** :
+  - Tests unitaires et stress tests : 100% au vert.
+  - Build Vite & TypeScript : Build propre en 5.30s (`tsc -b && vite build` avec 0 erreur).
 
 ### 58. Moteur d'Analyse Contextuelle Exhaustif & Testé sur 25 Scénarios Réels (4 Octobre 2026)
 - **Couverture Exhaustive de 14 Situations Types** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
