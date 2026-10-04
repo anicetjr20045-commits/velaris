@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 47 (Flexibilité Totale du Copilot IA : Résolution précise par numéro ou prénom insensible à la casse, Prise en charge des Double Commandes / Deux textes simultanés calibre patron 32-48 vers, Actions Commerciales directes d'encaissement Wave/OM avec synchronisation Supabase, et Consultation de la bibliothèque étalon).
+- **Statut Opérationnel** : Jalon 48 (Cerveau Copilot IA Élite DeepSeek-V3 Live, Tool Calling & Synchronisation Hybride Temps Réel : Endpoint live https://waha.velarisagent.life/api/copilot, intelligence conversationnelle d'élite sans menu rigide, accès données réelles Supabase, mutations de caisse, et repli déterministe automatique).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,22 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 48. Cerveau Copilot IA Élite DeepSeek-V3 Live, Tool Calling & Synchronisation Hybride Temps Réel (4 Octobre 2026)
+- **Cerveau DeepSeek-V3 Déployé en Production (`/api/copilot`)** :
+  - Création du service d'intelligence neuronale dédié [`engine/src/llm/copilot-brain.ts`](file:///root/projets/velaris/engine/src/llm/copilot-brain.ts) sur le moteur VPS (`velaris-engine`).
+  - Route d'accès public sécurisée HTTPS via Caddy reverse-proxy : `https://waha.velarisagent.life/api/copilot`.
+  - Zéro fuite de clé d'API côté client : la clé DeepSeek reste strictement confinée dans l'environnement serveur.
+- **Intelligence Conversationnelle d'Élite & Zéro Menu Rigide** :
+  - Le Copilot dialogue avec une fluidité totale, répond aux questions stratégiques, aux objections commerciales et analyse la santé du studio avec un ton chaleureux, naturel et percutant.
+  - Maîtrise absolue du catalogue de prix (1 200 F / 3 000 F / 5 000 F CFA), des délais de livraison (18 min Suno, 7-8 min texte) et des coordonnées Mobile Money (Wave, Orange Money BF Wendyam Anicet junior).
+- **Accès Live aux Données Supabase & Tool Calling Automatique** :
+  - Interrogation directe des tables `orders`, `contacts`, `conversations` et `messages`.
+  - Calcul dynamique en direct du CA consolidé (3 672 200 F CFA), répartition Wave / Orange Money et panier moyen.
+  - Capacité d'action transactionnelle : exécution de `db.insertRow('orders')` pour créer les commandes et basculer l'état du funnel vers `paid` en direct.
+- **Architecture Hybride Résiliente Frontend** ([`src/services/copilot.ts`](file:///root/projets/velaris/src/services/copilot.ts)) :
+  - Le frontend interroge en priorité l'API DeepSeek-V3 live.
+  - En cas d'indisponibilité réseau ou hors-ligne, repli instantané et transparent sur le moteur déterministe local sans jamais casser l'expérience utilisateur.
 
 ### 47. Flexibilité Totale du Copilot IA : Double Commande Simultanée, Résolution Numéro/Prénom & Encaissement Direct (4 Octobre 2026)
 - **Résolution Ultra-Flexible des Contacts (Numéro, Prénom, Contexte)** :

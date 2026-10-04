@@ -15,6 +15,8 @@ import type { WahaClient } from '../send/waha-client.js';
 import { verifyWahaHmac } from './hmac.js';
 import { normalizeWahaEvent, type NormalizedEvent } from './normalize.js';
 import { processEvent, type ProcessDeps } from './process-event.js';
+import { runCopilotBrain } from '../llm/copilot-brain.js';
+import type { DeepSeekProvider } from '../llm/deepseek.js';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -23,6 +25,7 @@ export interface IngestServerDeps extends ProcessDeps {
   spool: Spool;
   log: (line: string, data?: Record<string, unknown>) => void;
   waha?: WahaClient;
+  llmProvider?: DeepSeekProvider;
 }
 
 function readBody(req: IncomingMessage): Promise<Buffer> {
@@ -144,6 +147,38 @@ export function createIngestServer(deps: IngestServerDeps): Server {
         });
         res.end(img.buffer);
         return;
+      }
+
+      // Endpoint intelligent Copilot IA (DeepSeek V3)
+      if (parsedUrl.pathname === '/api/copilot' && req.method === 'POST') {
+        if (!deps.llmProvider) return json(res, 503, { ok: false, error: 'llm_not_configured' });
+        let body: any;
+        try {
+          const raw = await readBody(req);
+          body = JSON.parse(raw.toString('utf8'));
+        } catch {
+          return json(res, 400, { ok: false, error: 'invalid_json_body' });
+        }
+
+        try {
+          const brainRes = await runCopilotBrain({
+            prompt: body.prompt || '',
+            history: body.history || [],
+            sessionName: body.sessionName || 'Test',
+            user: body.user || null,
+            clientContext: body.context || null,
+          }, {
+            db: deps.db as any,
+            llm: deps.llmProvider,
+            waha: deps.waha,
+            log: deps.log,
+          });
+
+          return json(res, 200, { ok: true, data: brainRes });
+        } catch (err: any) {
+          deps.log('api/copilot execution error', { error: err.message });
+          return json(res, 500, { ok: false, error: err.message || 'copilot_brain_error' });
+        }
       }
 
       const isWebhook = parsedUrl.pathname === '/webhooks/waha' || parsedUrl.pathname === '/webhook' || parsedUrl.pathname === '/api/public/waha-webhook';

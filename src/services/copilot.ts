@@ -781,8 +781,44 @@ export async function askCopilot(
   user: any,
   context: CopilotContext = {}
 ): Promise<CopilotMessage> {
+  // 1. Tenter l'appel au cerveau d'élite DeepSeek-V3 en temps réel (API live waha.velarisagent.life/api/copilot)
+  try {
+    const res = await fetch('https://waha.velarisagent.life/api/copilot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        history: history.map(h => ({ role: h.role, text: h.text })),
+        sessionName,
+        user: user ? { id: user.id, email: user.email } : null,
+        context: {
+          orders: context.orders,
+          metrics: context.metrics,
+        },
+      }),
+      signal: AbortSignal.timeout(18_000),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json.ok && json.data) {
+        debitAiPromptCredit(`Copilot IA (DeepSeek V3) : ${prompt.trim().slice(0, 40)}`);
+        return {
+          id: json.data.id || `copilot_${Date.now()}`,
+          role: 'assistant',
+          text: json.data.text,
+          timestamp: json.data.timestamp || new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          toolsExecuted: json.data.toolsExecuted || ['deepseek_chat_v3_reasoning'],
+          actionCard: json.data.actionCard || undefined,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Copilot live API unreachable, falling back to local engine:', err);
+  }
+
+  // 2. Repli instantané sur le moteur local déterministe
   const answer = await answerCopilot(prompt, history, sessionName, user, context);
-  // Micro-crédit Copilot (0.05) : débité une fois la réponse produite, jamais sur une erreur
   debitAiPromptCredit(`Copilot IA : ${prompt.trim().slice(0, 40)}`);
   return answer;
 }
