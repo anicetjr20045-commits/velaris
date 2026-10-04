@@ -12,19 +12,19 @@ import {
   Download,
   ExternalLink,
   FileText,
-  Hand,
+  Headphones,
   Loader2,
   Mail,
   MailOpen,
   MessageCircle,
   Mic,
+  PlayCircle,
   Receipt,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
-  Tags,
-  Truck,
+  Tag,
   WandSparkles,
   X,
   type LucideIcon
@@ -162,13 +162,44 @@ interface OutgoingMessage extends ThreadMessage {
   sentAt: number;
 }
 
-const SNIPPETS: { label: string; icon: LucideIcon; text: string }[] = [
-  { label: 'Accueil', icon: Hand, text: "Bonjour et bienvenue au Studio. Nous composons des chansons sur-mesure pour vos moments importants. Pour qui souhaitez-vous la chanson, et pour quelle occasion ?" },
-  { label: 'Brief vocal', icon: Mic, text: "Pour démarrer l'écriture de votre chanson, envoyez-nous une note vocale : le prénom du destinataire, l'occasion et deux ou trois souvenirs qui vous tiennent à cœur." },
-  { label: 'Formule 3 000 F', icon: Tags, text: 'Notre formule à 3 000 FCFA comprend les paroles sur-mesure, 2 masters audio HD et la livraison en 18 minutes.' },
-  { label: 'Paiement', icon: Receipt, text: 'Vous pouvez régler par Wave ou Orange Money. Envoyez la capture du paiement ici et la production démarre aussitôt.' },
-  { label: 'Paiement reçu', icon: CheckCircle2, text: 'Paiement bien reçu, merci. Votre commande passe immédiatement en production studio. Livraison du morceau dans 18 minutes.' },
-  { label: 'Livraison', icon: Truck, text: 'Votre chanson est prête. Écoutez-la et dites-nous ce que vous en pensez. Merci pour votre confiance.' },
+interface QuickShortcut {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  text: string;
+}
+
+const QUICK_SHORTCUTS: QuickShortcut[] = [
+  {
+    id: 'brief',
+    label: 'Brief',
+    icon: FileText,
+    text: "Pour composer votre chanson sur-mesure : quel est le prénom de la personne, l'occasion (anniversaire, mariage, amour...) et 2 ou 3 petits souvenirs ou anecdotes complices ?",
+  },
+  {
+    id: 'tarif',
+    label: 'Tarifs (3 000 F)',
+    icon: Tag,
+    text: "La formule complète est à 3 000 F CFA (paroles complètes sur-mesure + 2 versions audio HD livrées en 18 min chrono). Paiement disponible par Wave, Orange Money ou Moov au +226 05 77 73 08. Dès que vous avez la capture, envoyez-la ici !",
+  },
+  {
+    id: 'extrait',
+    label: 'Extrait démo',
+    icon: PlayCircle,
+    text: "Voici un extrait pour vous donner une idée de la qualité studio : https://waha.velarisagent.life/demo/sample-afro.mp3\nNous adaptons le style selon vos souhaits !",
+  },
+  {
+    id: 'mix',
+    label: 'Mix en cours',
+    icon: Headphones,
+    text: "Votre chanson est actuellement en plein mixage et mastering au studio ! Ça sort d'ici quelques minutes.",
+  },
+  {
+    id: 'livraison',
+    label: 'Livraison',
+    icon: CheckCircle2,
+    text: "Votre chanson personnalisée est prête ! Écoutez-la et dites-moi ce que vous en pensez. Merci pour votre confiance !",
+  },
 ];
 
 interface NextStepData {
@@ -818,7 +849,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [outgoing, setOutgoing] = useState<Record<string, OutgoingMessage[]>>({});
   const [cashModalOpen, setCashModalOpen] = useState(false);
   const [isCashing, setIsCashing] = useState(false);
-  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => new Set());
 
   const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
 
@@ -1073,9 +1103,9 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.metaKey || e.ctrlKey) return;
       const idx = Number(e.code.replace('Digit', '')) - 1;
-      if (Number.isInteger(idx) && idx >= 0 && idx < SNIPPETS.length) {
+      if (Number.isInteger(idx) && idx >= 0 && idx < QUICK_SHORTCUTS.length) {
         e.preventDefault();
-        insertRef.current(SNIPPETS[idx].text);
+        insertRef.current(QUICK_SHORTCUTS[idx].text);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1105,13 +1135,11 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     return analyzeNextStep(selectedConv, thread);
   }, [selectedConv, thread]);
 
-  const suggestionKey = selectedConv && nextStep ? `${selectedConv.id}-${thread[thread.length - 1]?.id || thread.length}-${nextStep.stageKey}` : '';
-  const activeNextStep = suggestionKey && dismissedSuggestions.has(suggestionKey) ? null : nextStep;
-
   const handleGenerateLyricsForChat = () => {
-    if (!selectedConv || !nextStep) return;
-    const occ = nextStep.detectedOccasion || 'Anniversaire';
-    const name = nextStep.recipientName || (selectedConv.name.startsWith('+') ? 'Destinataire' : selectedConv.name);
+    if (!selectedConv) return;
+    const occ = nextStep?.detectedOccasion || 'Anniversaire';
+    const rawName = nextStep?.recipientName || (selectedConv.name.startsWith('+') ? 'Destinataire' : selectedConv.name.split(' ')[0]);
+    const name = rawName || 'Destinataire';
     const song = generateHouseStyleSong({
       recipient: name,
       occasion: occ,
@@ -1123,7 +1151,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     }
     showFeedback({
       success: true,
-      message: `Paroles complètes générées (${song.lineCount} vers Suno). Prêtes à être relues et envoyées !`,
+      message: `Texte généré pour ${name} (${occ}) ! Vous avez juste à relire et cliquer sur Envoyer.`,
     });
   };
 
@@ -1589,109 +1617,54 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
               {/* Dock de réponses rapides + compositeur */}
               <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
-                {/* 🧭 Assistant Prochaine Étape (Micro-barre discrète 1-clic) */}
-                {activeNextStep && (
-                  <div className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.08] bg-[#0E1015]/95 px-3 py-1.5 backdrop-blur-sm transition-all">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="shrink-0 rounded-md border border-white/[0.12] bg-white/[0.05] px-2 py-0.5 font-mono text-[10.5px] font-medium text-neutral-300">
-                        {activeNextStep.stageBadge}
-                      </span>
-                      <p
-                        className="truncate text-xs text-neutral-300 font-sans cursor-pointer hover:text-white transition-colors"
-                        title={`${activeNextStep.recommendedReply}\n\n(Cliquer pour insérer dans le compositeur)`}
-                        onClick={() => {
-                          setReplyText(activeNextStep.recommendedReply);
-                          composerRef.current?.focus();
-                        }}
-                      >
-                        {activeNextStep.recommendedReply.replace(/\n+/g, ' ')}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {activeNextStep.actionKind === 'cash' && (
+                {/* ⚡ Raccourcis WhatsApp & Actions Clés */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    {QUICK_SHORTCUTS.map((snip, i) => {
+                      const Icon = snip.icon;
+                      return (
                         <button
+                          key={snip.id}
                           type="button"
-                          onClick={() => setCashModalOpen(true)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11.5px] font-medium text-emerald-300 hover:bg-emerald-400/20 transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            if (e.shiftKey) {
+                              insertSnippet(snip.text);
+                            } else {
+                              sendText(snip.text);
+                            }
+                          }}
+                          title={`${snip.text}\n\n• Clic : Envoyer directement sur WhatsApp\n• Maj+Clic (ou Alt+${i + 1}) : Insérer dans le champ pour modifier`}
+                          className="group/snip inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] font-medium text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/[0.07] active:scale-95 transition-all cursor-pointer"
                         >
-                          <Receipt className="h-3 w-3" />
-                          <span>Encaisser</span>
+                          <Icon className="h-3.5 w-3.5 text-neutral-400 group-hover/snip:text-white" strokeWidth={1.5} />
+                          <span>{snip.label}</span>
+                          <span className="hidden xl:inline font-mono text-[10px] text-neutral-600 group-hover/snip:text-neutral-400">{i + 1}</span>
                         </button>
-                      )}
-
-                      {activeNextStep.actionKind === 'lyrics' && (
-                        <button
-                          type="button"
-                          onClick={handleGenerateLyricsForChat}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[#E5B54F]/30 bg-[#E5B54F]/10 px-2.5 py-1 text-[11.5px] font-medium text-[#F1DDB4] hover:bg-[#E5B54F]/20 transition-colors cursor-pointer"
-                        >
-                          <Sparkles className="h-3 w-3 text-[#E5B54F]" />
-                          <span>Paroles</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyText(activeNextStep.recommendedReply);
-                          composerRef.current?.focus();
-                        }}
-                        title="Insérer dans le champ pour modifier"
-                        className="px-2.5 py-1 text-[11.5px] text-neutral-400 hover:text-white rounded-lg border border-white/[0.08] hover:border-white/20 transition-colors cursor-pointer"
-                      >
-                        Insérer
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => sendText(activeNextStep.recommendedReply)}
-                        disabled={isSending}
-                        className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-[11.5px] font-semibold text-black hover:bg-neutral-200 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
-                      >
-                        <ArrowUp className="h-3 w-3 stroke-[2.5]" />
-                        <span>Envoyer</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (suggestionKey) {
-                            setDismissedSuggestions((prev) => new Set(prev).add(suggestionKey));
-                          }
-                        }}
-                        title="Masquer la suggestion"
-                        aria-label="Masquer la suggestion"
-                        className="p-1 rounded text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.05] transition-colors cursor-pointer"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
 
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                  {SNIPPETS.map((snip, i) => {
-                    const Icon = snip.icon;
-                    const active = replyText === snip.text;
-                    return (
-                      <button
-                        key={snip.label}
-                        type="button"
-                        onClick={(e) => insertSnippet(snip.text, e.shiftKey)}
-                        title={`${snip.text}\n\nAlt+${i + 1} pour insérer · Maj+clic pour envoyer directement`}
-                        className={`group/snip inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] transition-colors duration-200 cursor-pointer ${
-                          active
-                            ? 'border-[#E5B54F]/40 bg-[#E5B54F]/10 text-[#F1DDB4]'
-                            : 'border-white/[0.08] bg-white/[0.02] text-[#A3A3A3] hover:text-white hover:border-white/20'
-                        }`}
-                      >
-                        <Icon className="h-3 w-3" strokeWidth={1.5} />
-                        {snip.label}
-                        <span className="hidden lg:inline font-mono text-[10.5px] text-neutral-600 group-hover/snip:text-neutral-500">{i + 1}</span>
-                      </button>
-                    );
-                  })}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    <button
+                      type="button"
+                      onClick={handleGenerateLyricsForChat}
+                      title="Générer automatiquement le texte des paroles et le placer dans la boîte de saisie"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5B54F]/30 bg-[#E5B54F]/10 px-3 py-1.5 text-[12px] font-semibold text-[#F1DDB4] hover:bg-[#E5B54F]/20 hover:border-[#E5B54F]/50 active:scale-95 transition-all cursor-pointer shrink-0"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" strokeWidth={2} />
+                      <span>Générer le texte</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCashModalOpen(true)}
+                      title="Encaisser la commande (Caisse Wave / Orange Money / Moov)"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[12px] font-semibold text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/50 active:scale-95 transition-all cursor-pointer shrink-0"
+                    >
+                      <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <span>Encaisser</span>
+                    </button>
+                  </div>
                 </div>
 
                 {recorderOpen ? (

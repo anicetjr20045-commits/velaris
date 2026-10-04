@@ -8,15 +8,18 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (22:04 UTC)
-- **Statut Opérationnel** : **Jalon 60 100% Validé & Déployé** (Humanisation intégrale du ton WhatsApp, éradication des formulations robotiques, langage naturel direct et fluide).
+- **Dernière mise à jour** : 4 Octobre 2026 (22:18 UTC)
+- **Statut Opérationnel** : **Jalon 61 100% Validé & Déployé** (Suppression de l'agent auto-répondeur et des devinettes, mise en place de la barre de raccourcis WhatsApp directs 1-clic et du bouton Générateur de texte).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Humanisation Totale des Réponses Suggérées (14 Situations)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
-    - *Accueil ("Bonjour")* : Remplacement du questionnaire solennel de 3 lignes par un accueil humain simple : *« Bonjour ! Comment allez-vous ? Comment pouvons-nous vous aider aujourd'hui ? »*.
-    - *Brief partiel ("chanson d'anniversaire pour un ami")* : Éradication du questionnaire d'enquête lourd -> question directe : *« Super idée pour votre ami ! Il s'appelle comment et c'est prévu pour quel jour ? »*.
-    - *Tarifs* : Annonce claire et directe : *« La formule complète est à 3 000 F (chanson sur-mesure + 2 versions audio en 18 min)... »*.
-    - *Paiement reçu, Délais, Échantillons, Retouches* : Tous reformulés en style parlé WhatsApp spontané, chaleureux et professionnel.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (Build propre en 5.37s).
+  - **Zéro Agent Autonome** : L'IA ne répond plus automatiquement sur WhatsApp. Le studio garde le contrôle total et exclusif des envois.
+  - **Zéro Suggestion Devinette Encombrante** : La micro-barre qui tentait de deviner l'étape est retirée au profit de raccourcis fixes, clairs et immédiats.
+  - **Barre de Raccourcis WhatsApp Directs 1-Clic** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+    - 5 raccourcis essentiels prêts à partir en 1 clic : `Brief`, `Tarifs (3 000 F)`, `Extrait démo`, `Mix en cours`, `Livraison`.
+    - Clic = envoi immédiat sur WhatsApp. Maj+Clic = insertion dans le champ pour personnalisation.
+  - **Générateur de Paroles 1-Clic (`Générer le texte`)** :
+    - Déclenchement instantané à l'étape du brief : génère les 32-48 vers Suno complets adaptés à l'occasion et au destinataire, les place directement dans la boîte de saisie pour relecture et envoi direct.
+    - Bouton `Encaisser` intégré à côté pour les encaissements directs caisse.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (Build propre en 5.31s).
 - **Prochaine tâche exacte** :
   1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
   2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
@@ -36,6 +39,17 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 61. Raccourcis WhatsApp Directs 1-Clic & Générateur de Paroles Simplifié (4 Octobre 2026)
+- **Éradication de l'Agent Auto et des Devinettes Artificielles** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - Suppression de la micro-barre de devinette d'étape qui imposait des formulations.
+  - Confirmation du silence absolu de l'agent automatique (100% contrôle manuel studio).
+- **Barre de Raccourcis Directs & Actions Clés** :
+  - Raccourcis fixes : `Brief`, `Tarifs (3 000 F)`, `Extrait démo`, `Mix en cours`, `Livraison`.
+  - Bouton `Générer le texte` : compose les paroles selon le brief et remplit la boîte de dialogue en 1 clic.
+  - Bouton `Encaisser` : ouvre la caisse immédiate Mobile Money.
+- **Validation Globale** :
+  - Build Vite & TypeScript : Build propre en 5.31s (`tsc -b && vite build` avec 0 erreur).
 
 ### 60. Humanisation Intégrale du Ton WhatsApp & Langage Naturel (4 Octobre 2026)
 - **Éradication des Textes Robotiques** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
