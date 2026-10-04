@@ -49,14 +49,15 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 - **Qualité Poétique & Incorporation des Anecdotes Réelles** :
   - Respect de la structure standard Suno (32 à 48 vers complets) avec `[Intro]`, `[Couplet 1]`, `[Pré-Refrain]`, `[Refrain]`, `[Couplet 2]`, `[Pont]`, `[Refrain Final]`, `[Outro]`.
   - Tissage automatique des vrais souvenirs et détails fournis par le client dans le Couplet 2 et le Pont.
-- **Barre de Raccourcis Compacte Ultra-Ergonomique** :
-  - Intégration des 2 médias clés récupérés sur le stockage public Supabase :
-    - *Vocal procédure* : `procedure-vocal.mp3`
-    - *Exemple vidéo* : `video-demo.mp4`
+- **Barre de Raccourcis Compacte Ultra-Ergonomique & Déroulant « Autres » Débloqué** :
+  - Déplacement du menu `Autres ▾` hors du conteneur `overflow-x-auto` avec `z-[70]` pour éliminer le clipping CSS : ouverture instantanée et fluide.
+  - Support tactile étendu (`mousedown` + `touchstart`) pour fermeture ergonomique au clic extérieur.
   - 5 boutons visibles compacts + menu déroulant `Autres ▾` rassemblant les 11 formulations habituelles simplifiées (Paiement Wave/OM, Wave CI, Tarifs 1200/3000, Style doux/dansant, Validation texte, Délai 20 min, Règle 2 versions, Mixage, Livraison, Avis client, Accueil).
-  - Envoi natif média via `sendWahaFileMessage` avec repli automatique sur le lien textuel en cas de besoin.
+- **Envoi des Médias Bruts (Zéro Titre, Zéro Légende)** :
+  - Suppression intégrale de tout texte d'introduction, titre ou légende lors de l'envoi de fichiers (vocal de procédure, exemple vidéo, etc.).
+  - Le média part brut directement sur WhatsApp via `sendWahaFileMessage` (omission stricte du champ `caption`), garantissant un lecteur épuré sans texte parasite.
 - **Validation Globale** :
-  - Build Vite & TypeScript : Build propre en 4.93s (`tsc -b && vite build` avec 0 erreur).
+  - Build Vite & TypeScript : Build propre en 3.90s (`tsc -b && vite build` avec 0 erreur).
 
 
 ### 61. Raccourcis WhatsApp Directs 1-Clic & Générateur de Paroles Simplifié (4 Octobre 2026)

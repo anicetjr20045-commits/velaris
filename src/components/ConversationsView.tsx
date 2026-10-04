@@ -179,7 +179,7 @@ const PRIMARY_SHORTCUTS: QuickShortcut[] = [
     id: 'procedure_voice',
     label: 'Vocal procédure',
     icon: Mic,
-    text: "Voici notre note vocale explicative (30s) pour votre commande : https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3",
+    text: "https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3",
     mediaUrl: 'https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3',
     mediaType: 'audio',
     mediaFilename: 'procedure-vocal.mp3',
@@ -188,7 +188,7 @@ const PRIMARY_SHORTCUTS: QuickShortcut[] = [
     id: 'video_demo',
     label: 'Exemple vidéo',
     icon: Video,
-    text: "Voici un exemple de nos modèles vidéo avec photos : https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4",
+    text: "https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4",
     mediaUrl: 'https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4',
     mediaType: 'video',
     mediaFilename: 'video-demo.mp4',
@@ -1022,16 +1022,18 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent | globalThis.MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | globalThis.MouseEvent | TouchEvent) => {
       if (moreShortcutsRef.current && !moreShortcutsRef.current.contains(e.target as Node)) {
         setMoreShortcutsOpen(false);
       }
     };
     if (moreShortcutsOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [moreShortcutsOpen]);
 
@@ -1254,7 +1256,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     );
   };
 
-  const sendFileMedia = async (url: string, caption?: string, mimetype?: string, filename?: string) => {
+  const sendFileMedia = async (url: string, mimetype?: string, filename?: string) => {
     if (!selectedConv || isSending) return;
     const conv = selectedConv;
     const localId = `media-${Date.now()}`;
@@ -1262,7 +1264,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     pushOutgoing(conv.id, {
       id: localId,
       inbound: false,
-      body: caption ? `${caption}\n${url}` : displayLabel,
+      body: displayLabel,
       createdAt: stampOf(new Date()),
       receipt: 'pending',
       sentAt: Date.now(),
@@ -1278,22 +1280,23 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     }
 
     try {
-      const res = await sendWahaFileMessage(conv.phone, url, sessionName, { caption, mimetype, filename });
+      // Envoi du fichier brut sans aucun titre ni légende
+      const res = await sendWahaFileMessage(conv.phone, url, sessionName, { mimetype, filename });
       patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
       if (res.success) {
-        recordOutboundMessage(conv.id, caption || url);
+        recordOutboundMessage(conv.id, url);
         showFeedback({ success: true, message: `${displayLabel} envoyé à ${conv.phone}.` });
       } else {
-        const textFallback = caption ? `${caption}\n${url}` : url;
-        const textRes = await sendWahaTextMessage(conv.phone, textFallback, sessionName);
+        // En cas de repli : lien pur sans aucun texte introductif
+        const textRes = await sendWahaTextMessage(conv.phone, url, sessionName);
         patchOutgoing(conv.id, localId, { receipt: textRes.success ? 'sent' : 'failed', waId: textRes.messageId, sentAt: Date.now() });
         showFeedback({
           success: textRes.success,
-          message: textRes.success ? `Lien ${displayLabel} envoyé à ${conv.phone}.` : "Erreur d'envoi du média.",
+          message: textRes.success ? `${displayLabel} envoyé à ${conv.phone}.` : "Erreur d'envoi du média.",
         });
       }
     } catch {
-      showFeedback({ success: false, message: `Erreur d'envoi du média vers WhatsApp.` });
+      showFeedback({ success: false, message: "Erreur d'envoi du média vers WhatsApp." });
     } finally {
       setIsSending(false);
     }
@@ -1305,9 +1308,9 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
       return;
     }
     if (shortcut.mediaUrl) {
+      // Envoi strict du fichier pur : AUCUN titre ni légende
       sendFileMedia(
         shortcut.mediaUrl,
-        shortcut.id === 'video_demo' ? "Voici un exemple de notre modèle vidéo avec photos !" : undefined,
         shortcut.mediaType === 'audio' ? 'audio/mpeg' : 'video/mp4',
         shortcut.mediaFilename
       );
@@ -1861,30 +1864,33 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               {/* Dock de réponses rapides + compositeur */}
               <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
                 {/* ⚡ Raccourcis WhatsApp & Actions Clés */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                    {PRIMARY_SHORTCUTS.map((snip, i) => {
-                      const Icon = snip.icon;
-                      return (
-                        <button
-                          key={snip.id}
-                          type="button"
-                          onClick={(e) => handleShortcutClick(snip, e.shiftKey)}
-                          title={`${snip.text}\n\n• Clic : Envoyer directement sur WhatsApp\n• Maj+Clic (ou Alt+${i + 1}) : Insérer dans le champ pour modifier`}
-                          className="group/snip inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] font-medium text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/[0.07] active:scale-95 transition-all cursor-pointer"
-                        >
-                          {Icon && <Icon className="h-3.5 w-3.5 text-neutral-400 group-hover/snip:text-white" strokeWidth={1.5} />}
-                          <span>{snip.label}</span>
-                          <span className="hidden xl:inline font-mono text-[10px] text-neutral-600 group-hover/snip:text-neutral-400">{i + 1}</span>
-                        </button>
-                      );
-                    })}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5 relative">
+                  <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+                    {/* Défilement horizontal des 5 raccourcis prioritaires */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                      {PRIMARY_SHORTCUTS.map((snip, i) => {
+                        const Icon = snip.icon;
+                        return (
+                          <button
+                            key={snip.id}
+                            type="button"
+                            onClick={(e) => handleShortcutClick(snip, e.shiftKey)}
+                            title={`${snip.text}\n\n• Clic : Envoyer directement sur WhatsApp\n• Maj+Clic (ou Alt+${i + 1}) : Insérer dans le champ pour modifier`}
+                            className="group/snip inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] font-medium text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/[0.07] active:scale-95 transition-all cursor-pointer"
+                          >
+                            {Icon && <Icon className="h-3.5 w-3.5 text-neutral-400 group-hover/snip:text-white" strokeWidth={1.5} />}
+                            <span>{snip.label}</span>
+                            <span className="hidden xl:inline font-mono text-[10px] text-neutral-600 group-hover/snip:text-neutral-400">{i + 1}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                    {/* Menu déroulant compact "Autres ▾" */}
-                    <div className="relative" ref={moreShortcutsRef}>
+                    {/* Menu déroulant compact "Autres ▾" - PLACÉ HORS DU CONTENEUR overflow-x-auto */}
+                    <div className="relative shrink-0" ref={moreShortcutsRef}>
                       <button
                         type="button"
-                        onClick={() => setMoreShortcutsOpen(!moreShortcutsOpen)}
+                        onClick={() => setMoreShortcutsOpen((prev) => !prev)}
                         title="Autres réponses fréquentes & messages types"
                         className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-all cursor-pointer ${
                           moreShortcutsOpen
@@ -1897,7 +1903,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                       </button>
 
                       {moreShortcutsOpen && (
-                        <div className="absolute bottom-full left-0 mb-2 w-72 sm:w-80 rounded-xl border border-white/[0.12] bg-[#0E1015] p-1.5 shadow-2xl z-50 vx-fade-in space-y-0.5 max-h-72 overflow-y-auto no-scrollbar">
+                        <div className="absolute bottom-full left-0 mb-2 w-72 sm:w-80 rounded-xl border border-white/[0.12] bg-[#0E1015] p-1.5 shadow-2xl z-[70] vx-fade-in space-y-0.5 max-h-72 overflow-y-auto no-scrollbar">
                           <div className="px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-neutral-500 border-b border-white/[0.06] mb-1">
                             Raccourcis Fréquents (Clic = Envoi direct)
                           </div>

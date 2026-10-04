@@ -399,12 +399,15 @@ export async function sendWahaFileMessage(
   const file: Record<string, unknown> = { url };
   if (options?.mimetype) file.mimetype = options.mimetype;
   if (options?.filename) file.filename = options.filename;
-  return postSend('/api/sendFile', {
+  const payload: Record<string, unknown> = {
     session: sessionName,
     chatId: toChatId(chatId),
     file,
-    caption: options?.caption,
-  });
+  };
+  if (options?.caption?.trim()) {
+    payload.caption = options.caption.trim();
+  }
+  return postSend('/api/sendFile', payload);
 }
 
 /**
