@@ -172,7 +172,21 @@ const SNIPPETS: { label: string; icon: LucideIcon; text: string }[] = [
 ];
 
 interface NextStepData {
-  stageKey: 'accueil' | 'brief_incomplet' | 'brief_complet' | 'extrait' | 'paiement_demande' | 'paiement_recu' | 'retouches';
+  stageKey:
+    | 'accueil'
+    | 'brief_incomplet'
+    | 'brief_complet'
+    | 'vocal_recu'
+    | 'faisabilite'
+    | 'styles'
+    | 'photos'
+    | 'extrait'
+    | 'delai'
+    | 'suivi_production'
+    | 'validation_texte'
+    | 'paiement_demande'
+    | 'paiement_recu'
+    | 'retouches';
   stageBadge: string;
   detectedIntent: string;
   detectedOccasion: string;
@@ -186,7 +200,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
 
   const lastMsg = messages[messages.length - 1];
 
-  // 1. RÈGLE MAÎTRESSE : Si le dernier message vient du studio, IL N'Y A RIEN À DIRE
+  // 1. RÈGLE MAÎTRESSE : Si le dernier message vient du studio, silence absolu
   // Le studio a déjà répondu. On attend le client en silence. Zéro spam robotique.
   if (lastMsg && !lastMsg.inbound) {
     return null;
@@ -194,57 +208,85 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
 
   const inbounds = messages.filter((m) => m.inbound);
   const lastInbound = inbounds[inbounds.length - 1];
-  if (!lastInbound || !lastInbound.body) return null;
+  if (!lastInbound || (!lastInbound.body && !lastInbound.voice)) return null;
 
-  const lastText = lastInbound.body.trim().toLowerCase();
+  // Normalisation des apostrophes typographiques pour robustesse mobile/WhatsApp
+  const rawLastText = (lastInbound.body || '').trim().toLowerCase();
+  const lastText = rawLastText.replace(/[’‘`]/g, "'");
 
-  // 2. RÈGLE DE CLÔTURE POLIE : Si le client dit simplement merci, ok, d'accord
-  // Silence d'or, pas de message superflu.
-  const isPoliteClosing = /^(merci|merci bcp|merci beaucoup|d'accord|daccord|dac|ok|okay|super|parfait|c'est noté|c est note|bien reçu|bien recu|bonne nuit|bonne journée|bonsoir|bonjour|amen|merci bien)[\s.!🙏✨]*$/i.test(lastText);
+  // 2. RÈGLE DE CLÔTURE POLIE : Silence d'or sur formules de politesse sans question ouverte
+  const isPoliteClosing = /^(merci|d'accord|daccord|dac|ok|okay|super|parfait|c'est noté|c est note|bien reçu|bien recu|bonne nuit|bonne journée|bonsoir|amen|que dieu|top\b)/i.test(lastText) &&
+    !/\b(mais|combien|prix|retouche|changer|retoucher|quand|delai|délai|numero|numéro|wave|orange|moov|envoyez|transfert|prêt|pret)\b/i.test(lastText) &&
+    lastText.length < 80;
+
   if (isPoliteClosing && inbounds.length > 1) {
     return null;
   }
 
-  const allInboundText = inbounds.map((m) => m.body).join(' ').toLowerCase();
+  const allInboundText = inbounds.map((m) => (m.body || '').replace(/[’‘`]/g, "'")).join(' ').toLowerCase();
 
-  // Détection d'occasion
+  // Détection d'occasion avec support singulier & pluriel
   let detectedOccasion = 'Anniversaire';
-  if (/\b(mariage|marier|fianc|dot|époux|epoux|epouse)\b/i.test(allInboundText)) {
+  if (/\b(mariages?|marier|fianc\w*|dots?|époux|epoux|épouse?s?|epouses?|mariés?|maries?)\b/i.test(allInboundText)) {
     detectedOccasion = 'Mariage';
-  } else if (/\b(hommage|deuil|décès|deces|rip|mémoire|memoire|funerailles|enterrement)\b/i.test(allInboundText)) {
+  } else if (/\b(hommages?|deuils?|décès|deces|rip|mémoires?|memoires?|funérailles|funerailles|enterrements?|défunts?|defunts?|grand-mère|grand-pere|grand mère|grand pere)\b/i.test(allInboundText)) {
     detectedOccasion = 'Hommage';
-  } else if (/\b(amour|amoureux|chéri|cheri|cherie|chérie|coeur|bébé|bebe|couple)\b/i.test(allInboundText)) {
+  } else if (/\b(amours?|amoureux|amoureuse|chéris?|cheris?|chérie?s?|cherie?s?|cœurs?|coeurs?|bébés?|bebes?|couples?|saint-valentin|st valentin)\b/i.test(allInboundText)) {
     detectedOccasion = 'Amour';
-  } else if (/\b(naissance|bapteme|baptême|nouveau-né|bebe)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Naissance';
-  } else if (/\b(mere|mère|maman|fête des mères)\b/i.test(allInboundText)) {
+  } else if (/\b(naissances?|baptêmes?|baptemes?|nouveau-nés?|nouveau nes?|accouchements?)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Naissance & Baptême';
+  } else if (/\b(mères?|meres?|mamans?|fête des mères|fete des meres)\b/i.test(allInboundText)) {
     detectedOccasion = 'Fête des mères';
-  } else if (/\b(pere|père|papa|fête des pères)\b/i.test(allInboundText)) {
+  } else if (/\b(pères?|peres?|papas?|fête des pères|fete des peres)\b/i.test(allInboundText)) {
     detectedOccasion = 'Fête des pères';
+  } else if (/\b(entreprises?|sociétés?|societes?|boutiques?|magasins?|commerces?|publicités?|publicites?|pubs?|solaires?|ventes?)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Entreprise & Publicité';
   }
 
-  // Détection du prénom
+  // Détection du prénom avec filtrage des mots d'arrêt
   let recipientName = '';
-  const pourMatch = allInboundText.match(/\bpour\s+([A-ZÀ-Ÿa-zà-ÿ]{2,18})/i);
-  const nomMatch = allInboundText.match(/\b(nom|prénom|prenom)\s+(c'est|est|:)?\s*([A-ZÀ-Ÿa-zà-ÿ]{2,18})/i);
-  const appelleMatch = allInboundText.match(/\bs'appelle\s+([A-ZÀ-Ÿa-zà-ÿ]{2,18})/i);
-  if (appelleMatch && appelleMatch[1]) {
-    recipientName = appelleMatch[1].charAt(0).toUpperCase() + appelleMatch[1].slice(1).toLowerCase();
-  } else if (nomMatch && nomMatch[3]) {
-    recipientName = nomMatch[3].charAt(0).toUpperCase() + nomMatch[3].slice(1).toLowerCase();
-  } else if (pourMatch && pourMatch[1]) {
-    const raw = pourMatch[1].toLowerCase();
-    if (!['une', 'un', 'mon', 'ma', 'mes', 'son', 'sa', 'lui', 'elle', 'moi', 'ce', 'cet'].includes(raw)) {
-      recipientName = raw.charAt(0).toUpperCase() + raw.slice(1);
-    }
+  const pourMatch = allInboundText.match(/\bpour\s+([a-zà-ÿ]{2,18})/i);
+  const nomMatch = allInboundText.match(/\b(nom|prénom|prenom)\s+(c'est|est|:)?\s*([a-zà-ÿ]{2,18})/i);
+  const appelleMatch = allInboundText.match(/\bs'appelle\s+([a-zà-ÿ]{2,18})/i);
+  const cestMatch = allInboundText.match(/\bc'est\s+([a-zà-ÿ]{2,18})/i);
+  const destinataireMatch = allInboundText.match(/\bdestinataire\s*[:=]?\s*([a-zà-ÿ]{2,18})/i);
+
+  const stopWords = ['pour', 'une', 'un', 'des', 'du', 'de', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'lui', 'elle', 'moi', 'nous', 'vous', 'eux', 'ce', 'cet', 'cette', 'faire', 'avoir', 'le', 'la', 'les', 'qui', 'quoi', 'comment', 'bien', 'bon', 'super', 'vrai', 'vraiment', 'trop', 'parti', 'feter', 'fêter', 'celebrer', 'célébrer', 'notre', 'votre', 'leur', 'aussi', 'dot', 'mariage', 'rendre', 'hommage', 'anniversaire', 'chanson', 'musique', 'titre', 'texte', 'projet', 'surprise', 'cadeau'];
+
+  const testNameCandidate = (candidate?: string) => {
+    if (!candidate) return '';
+    const clean = candidate.toLowerCase().trim();
+    if (stopWords.includes(clean)) return '';
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  };
+
+  if (appelleMatch && testNameCandidate(appelleMatch[1])) {
+    recipientName = testNameCandidate(appelleMatch[1]);
+  } else if (destinataireMatch && testNameCandidate(destinataireMatch[1])) {
+    recipientName = testNameCandidate(destinataireMatch[1]);
+  } else if (nomMatch && testNameCandidate(nomMatch[3])) {
+    recipientName = testNameCandidate(nomMatch[3]);
+  } else if (pourMatch && testNameCandidate(pourMatch[1])) {
+    recipientName = testNameCandidate(pourMatch[1]);
+  } else if (cestMatch && testNameCandidate(cestMatch[1])) {
+    recipientName = testNameCandidate(cestMatch[1]);
   }
-  if (!recipientName && conv.name && !conv.name.startsWith('+') && !conv.name.toLowerCase().includes('client')) {
+
+  // Détection si le client mentionne un tiers (lien de parenté) sans avoir encore précisé son prénom
+  const hasRelationWithoutName = /\b(mon|ma|mes|notre|nos)\s+(frère|frere|soeur|sœur|père|pere|maman|mère|mere|mari|femme|épouse|epouse|ami|amie|bestie|collègue|collegue|patron|bébé|bebe|fils|fille|grand-mère|grand-pere|grand mère|grand pere)\b/i.test(allInboundText);
+
+  if (!recipientName && !hasRelationWithoutName && conv.name && !conv.name.startsWith('+') && !conv.name.toLowerCase().includes('client')) {
     recipientName = conv.name.split(' ')[0];
   }
 
-  // 1. Paiement signalé / Justificatif reçu
-  const isPaymentClaim = /\b(payé|paye|dépot|depot|versement|transfert|capture|envoyé|envoye|recu|reçu|transaction|quittance)\b/i.test(lastText) &&
-    !/\b(comment|combien|ou payer|sur quel|quel numero|quel numéro|le prix)\b/i.test(lastText);
+  // 1. Paiement signalé / Justificatif reçu (Cash is King !)
+  const isPendingCoords = /\b(envoyez|donnez|partagez|sur quel|quel|ou payer|où payer)\s*(le|votre|un)?\s*(numéro|numero|compte)?\b/i.test(lastText) ||
+    /\b(je fais|je vais faire|vais faire|je ferai|je vais transférer|vais transferer|je transfère|je transfere)\b/i.test(lastText);
+
+  const isPaymentClaim = !isPendingCoords && (
+    /\b(payé|paye|dépot fait|depot fait|transfert fait|transfert effectué|capture|quittance|reçu wave|recu wave)\b/i.test(lastText) ||
+    (/\b(j'ai|jai|je viens de|vient de|déjà|deja|voici|voila)\b.*\b(payé|paye|dépot|depot|versement|transfert|capture|envoyé|envoye|recu|reçu)\b/i.test(lastText))
+  );
 
   if (isPaymentClaim) {
     return {
@@ -258,31 +300,31 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     };
   }
 
-  // 2. Demande de tarif & coordonnées
-  const isPriceInquiry = /\b(combien|prix|tarif|tarifs|cout|coût|payer|paiement|moyen|numero|numéro|compte|wave|orange money|moov)\b/i.test(lastText);
-  if (isPriceInquiry) {
+  // 2. Statut de production / Suivi de commande ("C'est prêt ?", "Où en est la chanson ?")
+  const isDeliveryStatusInquiry = /\b(c'est prêt|c est pret|c'est pret|c est prêt|ou en est|où en est|quand est-ce que|quand est ce que|vous en êtes où|vous en etes ou|avancement)\b/i.test(lastText);
+  if (isDeliveryStatusInquiry) {
     return {
-      stageKey: 'paiement_demande',
-      stageBadge: 'Tarifs & Dépôt',
-      detectedIntent: 'Demande de tarif ou de coordonnées',
+      stageKey: 'suivi_production',
+      stageBadge: 'Suivi studio',
+      detectedIntent: 'Demande de statut de commande',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes + 2 versions audio HD + livraison en 18 min).\n\nRèglement possible par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n\nDès le dépôt fait, envoyez simplement la capture ici !`,
+      recommendedReply: `Votre commande est actuellement en cours de finalisation au studio ! Le mixage et le mastering sont presque terminés. Vous recevrez vos fichiers audio d'ici quelques minutes.`,
       actionKind: 'reply',
     };
   }
 
-  // 3. Demande d'extrait / exemple
-  const isSampleRequest = /\b(extrait|extraits|exemple|exemples|echantillon|échantillon|écouter|ecouter|demo|démo|comment ça sonne|voir un modèle|comment ca se passe)\b/i.test(lastText);
-  if (isSampleRequest) {
+  // 3. Validation des paroles / Choix de version
+  const isLyricsValidation = /\b(valide|validé|validee|valider|je prends le|je prends la|le premier|le 1er|la première|la 1ere|texte me va|paroles me va|c'est bon pour le texte|c'est bon pour les paroles|parfait pour le texte|on lance|lancez l'audio|lancer l'audio|lancez la musique|lancer la musique)\b/i.test(lastText);
+  if (isLyricsValidation) {
     return {
-      stageKey: 'extrait',
-      stageBadge: 'Échantillon',
-      detectedIntent: 'Demande d\'écoute ou d\'exemple',
+      stageKey: 'validation_texte',
+      stageBadge: 'Paroles validées',
+      detectedIntent: 'Validation du texte par le client',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Voici un extrait représentatif de nos productions en studio (style acoustique afro-love) : https://waha.velarisagent.life/demo/sample-afro.mp3\n\nNous adaptons le style selon vos souhaits. Qu'en pensez-vous ?`,
-      actionKind: 'reply',
+      recommendedReply: `Parfait, paroles validées avec succès ! Pour lancer la composition musicale et le mastering en studio, vous pouvez effectuer le règlement de 3 000 F CFA par Wave, Orange Money ou Moov (+226 05 77 73 08). Vos 2 versions audio HD vous seront livrées en 18 minutes chrono !`,
+      actionKind: 'cash',
     };
   }
 
@@ -300,35 +342,154 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     };
   }
 
-  // 5. Brief complet (prénom + occasion identifiés)
+  // 5. Demande de délai / Urgence
+  const isDelayInquiry = /\b(delai|délai|combien de temps|combien d'heure|combien de jour|combien de minute|livrer quand|livraison quand|temps de|urgent|urgence|aujourd'hui|ce soir|ce matin)\b/i.test(lastText);
+  if (isDelayInquiry) {
+    return {
+      stageKey: 'delai',
+      stageBadge: 'Délai 18 min',
+      detectedIntent: 'Demande de délai de livraison ou urgence',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Nos chansons personnalisées sont créées et masterisées en 18 minutes chrono après validation des paroles et du dépôt ! Vous recevez 2 versions audio haute définition prêtes à offrir.`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 6. Demande de tarif & coordonnées de dépôt (Moov, Wave, OM)
+  const isPriceInquiry = /\b(combien|prix|tarif|tarifs|cout|coût|payer|paiement|moyen|numero|numéro|compte|wave|orange money|moov|modalite|modalités)\b/i.test(lastText) || isPendingCoords;
+  if (isPriceInquiry) {
+    const asksMoov = /\bmoov\b/i.test(lastText);
+    const asksWave = /\bwave\b/i.test(lastText);
+    const asksOM = /\b(orange|om)\b/i.test(lastText);
+
+    let paymentDetails = `Règlement direct par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n• Moov Money : +226 05 77 73 08`;
+    if (asksMoov) {
+      paymentDetails = `Règlement Moov Money au : +226 05 77 73 08 (Wendyam Anicet junior).\n(Également disponible sur Wave et Orange Money au même numéro).`;
+    } else if (asksWave) {
+      paymentDetails = `Règlement Wave au : +226 05 77 73 08 (Wendyam Anicet junior).\n(Également disponible sur Orange Money et Moov au même numéro).`;
+    } else if (asksOM) {
+      paymentDetails = `Règlement Orange Money au : +226 05 77 73 08 (Wendyam Anicet junior).\n(Également disponible sur Wave et Moov au même numéro).`;
+    }
+
+    return {
+      stageKey: 'paiement_demande',
+      stageBadge: 'Tarifs & Dépôt',
+      detectedIntent: 'Demande de tarif ou de coordonnées',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes sur-mesure + 2 versions audio HD + livraison en 18 min).\n\n${paymentDetails}\n\nDès le dépôt fait, envoyez simplement la capture ici !`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 7. Demande d'extrait / exemple / comment ça se passe
+  const isSampleRequest = /\b(extrait|extraits|exemple|exemples|echantillon|échantillon|écouter|ecouter|demo|démo|comment ça sonne|voir un modèle|comment ca se passe|comment ça se passe|comment fonctionne)\b/i.test(lastText);
+  if (isSampleRequest) {
+    return {
+      stageKey: 'extrait',
+      stageBadge: 'Échantillon démo',
+      detectedIntent: 'Demande d\'écoute ou de démonstration',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Voici un extrait représentatif de nos productions en studio (style acoustique afro-love) : https://waha.velarisagent.life/demo/sample-afro.mp3\n\nNous adaptons le style selon vos souhaits (afro-love, rumba, gospel, acoustique). Dites-moi ce que vous en pensez !`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 8. Demande de photos / vidéo
+  const isPhotoInquiry = /\b(photo|photos|video|vidéo|montage|diaporama|clip|visuel)\b/i.test(lastText);
+  if (isPhotoInquiry) {
+    return {
+      stageKey: 'photos',
+      stageBadge: 'Photos & Vidéo',
+      detectedIntent: 'Question sur les photos ou le montage vidéo',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Oui, nous pouvons intégrer vos plus belles photos dans une vidéo diaporama HD synchronisée sur la musique de votre chanson ! Vous pouvez nous envoyer 3 à 5 photos directement ici sur WhatsApp.`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 9. Demande de styles musicaux / voix / langue
+  const isStyleInquiry = /\b(style|styles|genre|genres|rythme|rythmes|afro|rumba|gospel|acoustique|zouglou|reggae|rap|voix homme|voix femme|voix masculine|voix feminine|voix féminine|moore|mooré|dioula)\b/i.test(lastText);
+  if (isStyleInquiry) {
+    return {
+      stageKey: 'styles',
+      stageBadge: 'Styles & Voix',
+      detectedIntent: 'Question sur les genres musicaux et voix',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Nous composons dans tous les styles : Afro-love, Rumba, Acoustique guitare/piano, Gospel, Zouglou ou Reggae, avec voix masculine ou féminine selon votre choix. Quel style préférez-vous ?`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 10. Note vocale brute reçue (sans texte ou courte)
+  const isPureVoice = (/^\s*(🎙️|\u{1F399})/u.test(lastInbound.body || '') || !!lastInbound.voice) && lastText.length < 15;
+  if (isPureVoice) {
+    return {
+      stageKey: 'vocal_recu',
+      stageBadge: 'Note vocale',
+      detectedIntent: 'Note vocale reçue',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Note vocale bien reçue ! Je l'écoute avec attention pour relever tous les détails de votre chanson personnalisée.`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 11. Demande de faisabilité par occasion spécifique (ex: Baptême, Entreprise, etc.)
+  const isFeasibilityQuestion = /\b(est-ce que|est ce que|vous faites|faites-vous|possible de|est-il possible|y a-t-il moyen)\b/i.test(lastText) || /\?$/.test(lastText);
+  if (isFeasibilityQuestion && detectedOccasion !== 'Anniversaire') {
+    return {
+      stageKey: 'faisabilite',
+      stageBadge: 'Faisabilité',
+      detectedIntent: `Faisabilité pour ${detectedOccasion}`,
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Absolument ! Nous composons régulièrement pour les célébrations de ${detectedOccasion.toLowerCase()}. Quel est le prénom de la personne à honorer et la date prévue ?`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 12. Brief complet (prénom + occasion ou détails fournis)
   const isBriefComplete = !!recipientName && (allInboundText.length > 25 || inbounds.length >= 2);
   if (isBriefComplete) {
     return {
       stageKey: 'brief_complet',
       stageBadge: 'Brief prêt',
-      detectedIntent: `Prêt pour l'écriture pour ${recipientName}`,
+      detectedIntent: `Prêt pour l'écriture pour ${recipientName} (${detectedOccasion})`,
       detectedOccasion,
       recipientName,
-      recommendedReply: `Tout est bien noté pour ${recipientName} ! Notre studio lance la rédaction de vos paroles complètes sur-mesure. Je vous transmets le texte d'ici quelques instants.`,
+      recommendedReply: `Tout est bien noté pour ${recipientName} (${detectedOccasion}) ! Notre studio lance la rédaction de vos paroles complètes sur-mesure. Je vous transmets le texte d'ici quelques instants pour validation.`,
       actionKind: 'lyrics',
     };
   }
 
-  // 6. Brief partiel (occasion détectée mais prénom manquant)
-  const hasOccasionSignal = /\b(anniversaire|mariage|hommage|amour|naissance|fête|fete)\b/i.test(allInboundText);
+  // 13. Brief partiel (occasion détectée mais prénom ou détails requis)
+  const hasOccasionSignal = /\b(anniversaire|mariage|hommage|amour|naissance|bapteme|baptême|fête|fete|mere|mère|pere|père|entreprise|societe)\b/i.test(allInboundText);
   if (hasOccasionSignal) {
     let questionText = `C'est bien noté pour l'anniversaire ! Quel est le prénom de la personne à célébrer, sa date d'anniversaire, et 2 ou 3 souvenirs marquants ?`;
     if (detectedOccasion === 'Mariage') {
-      questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des mariés, la date et un souvenir marquant ?`;
+      questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des mariés, la date de la célébration et un souvenir marquant ?`;
     } else if (detectedOccasion === 'Hommage') {
       questionText = `Toutes nos pensées vous accompagnent. Quel est le nom de la personne à honorer et les souvenirs que vous souhaitez immortaliser ?`;
     } else if (detectedOccasion === 'Amour') {
       questionText = `Superbe projet ! Quel est le prénom de votre bien-aimé(e) et les petites attentions qui rendent votre histoire unique ?`;
+    } else if (detectedOccasion === 'Naissance & Baptême') {
+      questionText = `Félicitations ! Quel est le prénom du bébé / de l'enfant, la date de la célébration et un vœu chaleureux de la famille ?`;
+    } else if (detectedOccasion === 'Fête des mères') {
+      questionText = `Un magnifique cadeau pour maman ! Quel est son prénom ou surnom, et 2 ou 3 qualités qui vous touchent chez elle ?`;
+    } else if (detectedOccasion === 'Fête des pères') {
+      questionText = `Superbe hommage pour papa ! Quel est son prénom et les valeurs fortes qu'il vous a transmises ?`;
+    } else if (detectedOccasion === 'Entreprise & Publicité') {
+      questionText = `Excellente initiative ! Quel est le nom de l'entreprise, votre activité, localisation et vos numéros de contact ?`;
     }
 
     return {
       stageKey: 'brief_incomplet',
-      stageBadge: 'Prénom & Date',
+      stageBadge: 'Prénom & Détails',
       detectedIntent: 'Précisions nécessaires pour le brief',
       detectedOccasion,
       recipientName,
@@ -337,7 +498,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     };
   }
 
-  // 7. Accueil (Uniquement si premier message)
+  // 14. Accueil (Uniquement si premier message)
   if (inbounds.length <= 1) {
     return {
       stageKey: 'accueil',
@@ -345,7 +506,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Nouveau contact',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Bonjour et bienvenue au Studio Velaris. Pour qui aimeriez-vous créer cette chanson, et pour quelle occasion ?`,
+      recommendedReply: `Bonjour et bienvenue au Studio Velaris. Pour qui aimeriez-vous créer cette chanson, et pour quelle occasion précieuse (anniversaire, mariage, hommage, amour) ?`,
       actionKind: 'reply',
     };
   }
