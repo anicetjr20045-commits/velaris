@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FC, type MouseEvent } from 'react';
 import {
   AlertCircle,
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   ArrowUp,
   Check,
@@ -34,6 +36,7 @@ import {
   WAHA_CONFIG,
   fetchWahaMessageAcks,
   markWahaChatSeen,
+  setWahaChatArchived,
   sendWahaTextMessage,
   sendWahaVoiceMessage,
   wahaSessionNameFor,
@@ -43,8 +46,14 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useStudioLive } from '../hooks/useStudioLive';
 import { useWahaHeartbeat } from '../hooks/useWaha';
-import { getLiveConversations, getLiveMessages, recordOutboundMessage } from '../services/supabase';
-import { applyReadState, setConversationUnread, useReadState } from '../services/readState';
+import {
+  getLiveConversations,
+  getLiveMessages,
+  recordOutboundMessage,
+  updateConversationArchiveStatus,
+  updateConversationReadStatus
+} from '../services/supabase';
+import { applyReadState, setConversationUnread, setConversationArchived, useReadState } from '../services/readState';
 import { WaveformPlayer } from './WaveformPlayer';
 import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 
@@ -52,7 +61,7 @@ interface ConversationsViewProps {
   onOpenOrderForStudio?: (name: string) => void;
 }
 
-type InboxFilter = 'all' | 'unread' | ConversationItem['status'];
+type InboxFilter = 'all' | 'unread' | 'archived' | ConversationItem['status'];
 
 const STATUS_META: Record<ConversationItem['status'], { label: string; dot: string }> = {
   nouveau: { label: 'Nouveau', dot: 'bg-sky-400' },
@@ -178,7 +187,10 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     [user?.id]
   );
   const readState = useReadState();
-  const conversations = useMemo(() => applyReadState(rawConversations, readState), [rawConversations, readState]);
+  const conversations = useMemo(
+    () => applyReadState(rawConversations, readState.readOverrides, readState.archiveOverrides),
+    [rawConversations, readState]
+  );
 
   const [selectedId, setSelectedId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -196,7 +208,22 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const selectedConv = conversations.find(c => c.id === selectedId) || conversations[0] || null;
+  const term = searchTerm.toLowerCase();
+  const searched = conversations.filter(c =>
+    c.name.toLowerCase().includes(term) || c.phone.includes(searchTerm) || c.preview.toLowerCase().includes(term)
+  );
+  const activeConversations = searched.filter(c => !c.isArchived);
+  const archivedConversations = searched.filter(c => !!c.isArchived);
+
+  const filteredConversations = searched.filter(c => {
+    if (filter === 'archived') return !!c.isArchived;
+    if (c.isArchived) return false;
+    if (filter === 'all') return true;
+    if (filter === 'unread') return c.unread;
+    return c.status === filter;
+  });
+
+  const selectedConv = (selectedId ? conversations.find(c => c.id === selectedId) : null) || filteredConversations[0] || conversations[0] || null;
   const activeId = selectedConv?.id ?? '';
 
   /* Historique réel du studio connecté (Realtime + polling) */
@@ -208,19 +235,12 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     { enabled: !!user && !!activeId, pollMs: 15000 }
   );
 
-  const term = searchTerm.toLowerCase();
-  const searched = conversations.filter(c =>
-    c.name.toLowerCase().includes(term) || c.phone.includes(searchTerm) || c.preview.toLowerCase().includes(term)
-  );
-  const filteredConversations = searched.filter(c =>
-    filter === 'all' ? true : filter === 'unread' ? c.unread : c.status === filter
-  );
-
   const filters: { id: InboxFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'Tous', count: searched.length },
-    { id: 'unread', label: 'Non lus', count: searched.filter(c => c.unread).length },
-    { id: 'nouveau', label: 'Nouveaux', count: searched.filter(c => c.status === 'nouveau').length },
-    { id: 'devis', label: 'Devis', count: searched.filter(c => c.status === 'devis').length },
+    { id: 'all', label: 'Tous', count: activeConversations.length },
+    { id: 'unread', label: 'Non lus', count: activeConversations.filter(c => c.unread).length },
+    { id: 'nouveau', label: 'Nouveaux', count: activeConversations.filter(c => c.status === 'nouveau').length },
+    { id: 'devis', label: 'Devis', count: activeConversations.filter(c => c.status === 'devis').length },
+    { id: 'archived', label: 'Archivés', count: archivedConversations.length },
   ];
 
   const history: ThreadMessage[] = useMemo(() => {
@@ -301,14 +321,42 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const markRead = (conv: ConversationItem) => {
     if (!conv.unread) return;
     setConversationUnread(conv, false);
-    // Coches bleues côté client : uniquement pour le studio connecté
-    if (user && conv.phone) markWahaChatSeen(conv.phone, sessionName);
+    if (user) {
+      updateConversationReadStatus(conv.id, false);
+      if (conv.phone) markWahaChatSeen(conv.phone, sessionName);
+    }
   };
 
   const toggleUnread = (conv: ConversationItem, e?: MouseEvent) => {
     e?.stopPropagation();
-    if (conv.unread) markRead(conv);
-    else setConversationUnread(conv, true);
+    const nextUnread = !conv.unread;
+    setConversationUnread(conv, nextUnread);
+    if (user) {
+      updateConversationReadStatus(conv.id, nextUnread);
+      if (!nextUnread && conv.phone) {
+        markWahaChatSeen(conv.phone, sessionName);
+      }
+    }
+  };
+
+  const toggleArchive = async (conv: ConversationItem, e?: MouseEvent) => {
+    e?.stopPropagation();
+    const nextArchived = !conv.isArchived;
+    setConversationArchived(conv, nextArchived);
+
+    if (user) {
+      updateConversationArchiveStatus(conv.id, nextArchived);
+      if (conv.phone) {
+        setWahaChatArchived(conv.phone, nextArchived, sessionName);
+      }
+    }
+
+    showFeedback({
+      success: true,
+      message: nextArchived
+        ? `Discussion avec ${conv.name} archivée.`
+        : `Discussion avec ${conv.name} désarchivée.`,
+    });
   };
 
   const selectConversation = (conv: ConversationItem) => {
@@ -441,7 +489,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   const cleanPhone = selectedConv ? selectedConv.phone.replace(/[^0-9]/g, '') : '';
   const whatsappDirectUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(replyText || '')}` : '#';
-  const unreadTotal = conversations.filter(c => c.unread).length;
+  const unreadTotal = conversations.filter(c => !c.isArchived && c.unread).length;
   const linkMeta = LINK_META[link.state];
   const secure = WAHA_CONFIG.baseUrl.startsWith('https://');
   const beatTitle = [
@@ -532,11 +580,23 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
           <div className="flex-1 overflow-y-auto max-h-[60vh] lg:max-h-none">
             {filteredConversations.length === 0 ? (
               <div className="p-10 text-center space-y-2">
-                <MessageCircle className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
-                <p className="text-[13px] font-medium text-neutral-300">Aucune discussion ici</p>
-                <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
-                  Dès qu'un client écrit sur votre numéro WhatsApp Studio, sa conversation apparaît dans cette liste.
-                </p>
+                {filter === 'archived' ? (
+                  <>
+                    <Archive className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
+                    <p className="text-[13px] font-medium text-neutral-300">Aucune discussion archivée</p>
+                    <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
+                      Les discussions que vous archivez apparaîtront ici sans encombrer votre boîte principale.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
+                    <p className="text-[13px] font-medium text-neutral-300">Aucune discussion ici</p>
+                    <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
+                      Dès qu'un client écrit sur votre numéro WhatsApp Studio, sa conversation apparaît dans cette liste.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               filteredConversations.map((conv, i) => {
@@ -575,15 +635,30 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         </span>
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => toggleUnread(conv, e)}
-                      title={conv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
-                      aria-label={conv.unread ? `Marquer ${conv.name} comme lu` : `Marquer ${conv.name} comme non lu`}
-                      className="absolute right-2.5 bottom-2.5 flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/[0.06] opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 cursor-pointer"
-                    >
-                      {conv.unread ? <MailOpen className="h-3.5 w-3.5" strokeWidth={1.6} /> : <Mail className="h-3.5 w-3.5" strokeWidth={1.6} />}
-                    </button>
+                    <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleArchive(conv, e)}
+                        title={conv.isArchived ? 'Désarchiver la discussion' : 'Archiver la discussion'}
+                        aria-label={conv.isArchived ? `Désarchiver ${conv.name}` : `Archiver ${conv.name}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                      >
+                        {conv.isArchived ? (
+                          <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.6} />
+                        ) : (
+                          <Archive className="h-3.5 w-3.5" strokeWidth={1.6} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => toggleUnread(conv, e)}
+                        title={conv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
+                        aria-label={conv.unread ? `Marquer ${conv.name} comme lu` : `Marquer ${conv.name} comme non lu`}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                      >
+                        {conv.unread ? <MailOpen className="h-3.5 w-3.5" strokeWidth={1.6} /> : <Mail className="h-3.5 w-3.5" strokeWidth={1.6} />}
+                      </button>
+                    </div>
                   </div>
                 );
               })
@@ -619,6 +694,19 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
+                    onClick={() => toggleArchive(selectedConv)}
+                    title={selectedConv.isArchived ? 'Désarchiver la discussion' : 'Archiver la discussion'}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
+                  >
+                    {selectedConv.isArchived ? (
+                      <ArchiveRestore className="h-3 w-3" strokeWidth={1.5} />
+                    ) : (
+                      <Archive className="h-3 w-3" strokeWidth={1.5} />
+                    )}
+                    <span className="hidden md:inline">{selectedConv.isArchived ? 'Désarchiver' : 'Archiver'}</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => toggleUnread(selectedConv)}
                     title={selectedConv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
                     className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
@@ -648,6 +736,22 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   </a>
                 </div>
               </div>
+
+              {selectedConv.isArchived && (
+                <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2 border-b border-white/[0.08] bg-white/[0.02] text-[12px] text-neutral-400">
+                  <span className="flex items-center gap-1.5">
+                    <Archive className="h-3.5 w-3.5 text-neutral-500" strokeWidth={1.5} />
+                    Discussion archivée (masquée de la boîte principale)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleArchive(selectedConv)}
+                    className="text-white hover:underline cursor-pointer font-medium"
+                  >
+                    Désarchiver
+                  </button>
+                </div>
+              )}
 
               {selectedConv.facts && (
                 <div className="flex gap-2.5 px-4 sm:px-5 py-2.5 border-b border-white/[0.08] bg-[#E5B54F]/[0.03]">

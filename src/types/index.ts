@@ -55,6 +55,8 @@ export interface ConversationItem {
   facts?: string;
   fullMessage?: string;
   unread?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 export interface PipelineLead {

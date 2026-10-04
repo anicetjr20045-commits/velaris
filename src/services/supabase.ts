@@ -60,7 +60,7 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
   try {
     const { data, error } = await supabase
       .from('conversations')
-      .select('id, funnel_stage, summary, last_message_at, contacts(name, phone)')
+      .select('id, funnel_stage, summary, last_message_at, ack_log, contacts(name, phone)')
       .order('last_message_at', { ascending: false })
       .limit(LIST_LIMIT);
 
@@ -72,16 +72,35 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       return [];
     }
 
-    return data.map((c: any) => ({
-      id: c.id,
-      name: c.contacts?.name || 'Client WhatsApp',
-      phone: c.contacts?.phone || '',
-      lastExchange: c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : 'Récent',
-      status: mapFunnelStage(c.funnel_stage),
-      preview: c.summary ? c.summary.slice(0, 90) + '...' : 'En discussion WhatsApp',
-      facts: c.summary,
-      unread: c.funnel_stage === 'new',
-    }));
+    return data.map((c: any) => {
+      const ack = c.ack_log || {};
+      const isArchived = Boolean(ack.archived);
+
+      // Statut non-lu fiable :
+      // 1. Si ack.unread est explicitement défini (ex. forcé manuellement)
+      // 2. Si un message a été reçu après la dernière consultation (last_message_at > last_read_at)
+      // 3. Sinon, par défaut le statut funnel_stage === 'new'
+      let unread = c.funnel_stage === 'new';
+      if (typeof ack.unread === 'boolean') {
+        unread = ack.unread;
+      }
+      if (ack.last_read_at && c.last_message_at) {
+        unread = new Date(c.last_message_at).getTime() > new Date(ack.last_read_at).getTime();
+      }
+
+      return {
+        id: c.id,
+        name: c.contacts?.name || 'Client WhatsApp',
+        phone: c.contacts?.phone || '',
+        lastExchange: c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : 'Récent',
+        status: mapFunnelStage(c.funnel_stage),
+        preview: c.summary ? c.summary.slice(0, 90) + '...' : 'En discussion WhatsApp',
+        facts: c.summary,
+        unread,
+        isArchived,
+        archivedAt: ack.archived_at || undefined,
+      };
+    });
   } catch {
     return [];
   }
@@ -610,4 +629,65 @@ export async function recordOutboundMessage(conversationId: string, body: string
     return false;
   }
 }
+
+/**
+ * Met à jour le statut d'archivage d'une conversation dans Supabase (diffusion Realtime immédiate)
+ */
+export async function updateConversationArchiveStatus(conversationId: string, isArchived: boolean): Promise<boolean> {
+  try {
+    const { data: current } = await supabase
+      .from('conversations')
+      .select('ack_log')
+      .eq('id', conversationId)
+      .maybeSingle();
+
+    const ackLog = (current?.ack_log as Record<string, unknown>) || {};
+    const updatedAckLog = {
+      ...ackLog,
+      archived: isArchived,
+      archived_at: isArchived ? new Date().toISOString() : null,
+    };
+
+    const { error } = await supabase
+      .from('conversations')
+      .update({ ack_log: updatedAckLog, updated_at: new Date().toISOString() })
+      .eq('id', conversationId);
+
+    return !error;
+  } catch (err) {
+    console.error('Error updating conversation archive status:', err);
+    return false;
+  }
+}
+
+/**
+ * Met à jour le statut de lecture d'une conversation dans Supabase (diffusion Realtime immédiate)
+ */
+export async function updateConversationReadStatus(conversationId: string, unread: boolean): Promise<boolean> {
+  try {
+    const { data: current } = await supabase
+      .from('conversations')
+      .select('ack_log')
+      .eq('id', conversationId)
+      .maybeSingle();
+
+    const ackLog = (current?.ack_log as Record<string, unknown>) || {};
+    const updatedAckLog = {
+      ...ackLog,
+      unread: unread,
+      last_read_at: unread ? null : new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('conversations')
+      .update({ ack_log: updatedAckLog, updated_at: new Date().toISOString() })
+      .eq('id', conversationId);
+
+    return !error;
+  } catch (err) {
+    console.error('Error updating conversation read status:', err);
+    return false;
+  }
+}
+
 

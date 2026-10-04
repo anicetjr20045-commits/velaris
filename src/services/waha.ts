@@ -183,11 +183,11 @@ export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaul
         name: sessionName,
         start: true,
         config: {
-          noweb: { markOnline: false, store: { enabled: true, fullSync: false } },
+          noweb: { markOnline: false, store: { enabled: true, fullSync: true } },
           webhooks: [
             {
               url: 'http://waha-bridge:3001/webhook',
-              events: ['message', 'message.any', 'message.reaction', 'message.ack', 'session.status'],
+              events: ['message', 'message.any', 'message.reaction', 'message.ack', 'chat.archive', 'session.status'],
               hmac: {
                 key: WAHA_CONFIG.webhookHmacKey,
               },
@@ -396,6 +396,27 @@ export async function markWahaChatSeen(chatId: string, sessionName: string = WAH
     const res = await wahaFetch('/api/sendSeen', {
       method: 'POST',
       body: JSON.stringify({ session: sessionName, chatId: toChatId(chatId) }),
+    }, 8000);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Archive ou désarchive une discussion côté WhatsApp
+ */
+export async function setWahaChatArchived(
+  chatId: string,
+  archived: boolean,
+  sessionName: string = WAHA_CONFIG.defaultSession
+): Promise<boolean> {
+  if (isProtectedSession(sessionName)) return false;
+  try {
+    const chat = encodeURIComponent(toChatId(chatId));
+    const action = archived ? 'archive' : 'unarchive';
+    const res = await wahaFetch(`/api/${encodeURIComponent(sessionName)}/chats/${chat}/${action}`, {
+      method: 'POST',
     }, 8000);
     return res.ok;
   } catch {

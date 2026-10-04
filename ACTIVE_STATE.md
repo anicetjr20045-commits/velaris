@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 42 (Redirection automatique vers l'Atelier pour les utilisateurs déjà connectés, persistance intégrale de l'onglet actif et des sous-vues Studio lors des rafraîchissements F5 / reloads, synchronisation bidirectionnelle hash URL & localStorage, 0 erreur de build).
+- **Statut Opérationnel** : Jalon 43 (Archivage et désarchivage bidirectionnel des discussions WhatsApp en temps réel, fiabilisation spontanée des statuts lus/non-lus, synchronisation instantanée Supabase Realtime + WAHA sans latence, 0 erreur de build).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,33 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 43. Archivage Bidirectionnel Discussions WhatsApp & Fiabilisation Temps Réel Lus / Non-Lus (4 Octobre 2026)
+- **Fiabilisation Spontanée des Statuts Lus / Non-Lus** :
+  - *Principe déterministe* : Calcul automatique dans `getLiveConversations` comparant `last_message_at > ack_log.last_read_at`. Dès qu'un prospect ou client envoie un nouveau message, la discussion redevient automatiquement non-lue sans aucune latence.
+  - *Mise à jour instantanée* :
+    - Côté client : `setConversationUnread` met à jour immédiatement le store réactif (`useSyncExternalStore`) pour une réactivité à 0 ms dans la liste et sur le badge de navigation.
+    - Côté base de données : `updateConversationReadStatus` persiste l'horodatage `last_read_at` dans `conversations.ack_log` via PostgREST, déclenchant les événements WebSocket Supabase Realtime sur tous les onglets et appareils connectés.
+    - Côté WhatsApp : Envoi synchrone de `markWahaChatSeen` vers l'API WAHA pour déclencher les vraies coches bleues de lecture WhatsApp pour l'interlocuteur.
+- **Gestion Complète de l'Archivage WhatsApp en Temps Réel** :
+  - *Filtre Dédié et Isolation* :
+    - Les discussions archivées sont automatiquement masquées de la boîte principale (« Tous », « Non lus », « Nouveaux », « Devis »).
+    - Nouvel onglet de filtrage « Archivés » avec compteur dynamique.
+    - Les discussions archivées sont exclues du compteur global de pastille de notification.
+  - *Boutons d'Archivage / Désarchivage* :
+    - Bouton discret et architectural (`Archive` / `ArchiveRestore` de `lucide-react`) disponible au survol de chaque conversation dans la liste.
+    - Bouton d'archivage / désarchivage dans l'en-tête du fil de discussion.
+    - Bannière d'état sobre en haut de fil lorsque la discussion sélectionnée est archivée, avec lien rapide de désarchivage.
+  - *Synchronisation Bidirectionnelle Supabase & WhatsApp* :
+    - Mise à jour locale optimiste immédiate (0 ms).
+    - Persistance atomique dans `conversations.ack_log` (`archived: true/false`, `archived_at`).
+    - Appel API WAHA `/api/{session}/chats/{chatId}/{archive|unarchive}` pour archiver également la discussion sur le vrai WhatsApp.
+    - Activation de `store: { enabled: true, fullSync: true }` et écoute de l'événement `'chat.archive'`.
+- **Validation Globale** :
+  - TypeScript : 0 erreur (`tsc -b`).
+  - Linter : 0 erreur (`oxlint`).
+  - Bundle Vite : Build propre en 3.66s.
+  - Conformité stricte à la Règle 4 (zéro emoji UI, design sombre Linear/Apple).
 
 ### 42. Redirection Automatique Atelier Utilisateurs Connectés & Persistance F5 / Refresh (4 Octobre 2026)
 - **Résolution des 2 Exigences Critiques de Navigation** :

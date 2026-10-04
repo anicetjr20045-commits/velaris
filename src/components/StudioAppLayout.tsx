@@ -114,8 +114,11 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   );
   // Bascules lu / non-lu faites dans la boîte de réception
   const readState = useReadState();
-  const liveConversations = useMemo(() => applyReadState(rawConversations, readState), [rawConversations, readState]);
-  const unreadCount = liveConversations.filter((c) => c.unread).length;
+  const liveConversations = useMemo(
+    () => applyReadState(rawConversations, readState.readOverrides, readState.archiveOverrides),
+    [rawConversations, readState]
+  );
+  const unreadCount = liveConversations.filter((c) => !c.isArchived && c.unread).length;
 
   const navGroups: {
     title: string;
