@@ -542,6 +542,118 @@ export async function createLiveOrder(order: {
 }
 
 /**
+ * Enregistre un paiement direct dans Supabase et met à jour le funnel de la conversation
+ */
+export async function recordDirectPayment(order: {
+  clientName: string;
+  clientPhone: string;
+  amount: number;
+  paymentMethod?: string;
+  recipientName?: string;
+  occasion?: string;
+  notes?: string;
+}): Promise<{ id: string } | null> {
+  try {
+    const cleanPhone = (order.clientPhone || '').replace(/[^\d+]/g, '');
+
+    // 1. Chercher si le contact existe déjà
+    let contactId: string | null = null;
+    if (cleanPhone) {
+      const { data: existing } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('phone', cleanPhone)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        contactId = existing.id;
+      }
+    }
+
+    // 2. Si contact inexistant, le créer
+    if (!contactId) {
+      const { data: newContact, error: contactErr } = await supabase
+        .from('contacts')
+        .insert({
+          name: order.clientName || 'Client WhatsApp',
+          phone: cleanPhone || `+22600000000`,
+          occasion: order.occasion || 'Commande personnalisée',
+          price_quoted_cents: Math.round(order.amount * 100),
+        })
+        .select('id')
+        .single();
+
+      if (contactErr || !newContact) {
+        console.error('Error creating contact for payment:', contactErr);
+        return null;
+      }
+      contactId = newContact.id;
+    }
+
+    // 3. Récupérer ou créer la conversation associée
+    let convId: string | null = null;
+    const { data: existingConv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingConv) {
+      convId = existingConv.id;
+      await supabase
+        .from('conversations')
+        .update({
+          funnel_stage: 'paid',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', convId);
+    } else {
+      const { data: newConv } = await supabase
+        .from('conversations')
+        .insert({
+          contact_id: contactId,
+          funnel_stage: 'paid',
+          summary: `Paiement ${order.amount} F CFA reçu par ${order.paymentMethod || 'Wave'} pour ${order.clientName}`,
+        })
+        .select('id')
+        .single();
+      if (newConv) {
+        convId = newConv.id;
+      }
+    }
+
+    // 4. Insérer la commande payée
+    const { data: ord, error: ordErr } = await supabase
+      .from('orders')
+      .insert({
+        contact_id: contactId,
+        conversation_id: convId,
+        amount_cents: Math.round(order.amount * 100),
+        currency: 'XOF',
+        status: 'validated',
+        stage: 'in_production',
+        payment_method: order.paymentMethod || 'Wave',
+        recipient_name: order.recipientName || order.clientName,
+        occasion: order.occasion || 'Commande personnalisée',
+        notes: order.notes || `Paiement direct reçu via ${order.paymentMethod || 'Wave'}`,
+      })
+      .select('id')
+      .single();
+
+    if (ordErr || !ord) {
+      console.error('Error creating order in recordDirectPayment:', ordErr);
+      return null;
+    }
+
+    return { id: ord.id };
+  } catch (err) {
+    console.error('Exception in recordDirectPayment:', err);
+    return null;
+  }
+}
+
+/**
  * Récupère les messages d'une conversation spécifique (ou de toutes les conversations récentes)
  */
 export async function getLiveMessages(conversationId?: string): Promise<any[]> {

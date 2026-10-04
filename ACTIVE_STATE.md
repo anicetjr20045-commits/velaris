@@ -8,26 +8,25 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (20:45 UTC)
-- **Statut Opérationnel** : **Jalon 55 100% Validé & Déployé** (Refonte Inbox WhatsApp Web 2 Sections avec Badge Vert « 1 », Suppression Section Devis, Mémoire Conversationnelle & Analyse Fidélité Copilot DeepSeek-V3, et Synchronisation Realtime Atelier Studio 1-Clic).
+- **Dernière mise à jour** : 4 Octobre 2026 (21:15 UTC)
+- **Statut Opérationnel** : **Jalon 56 100% Validé & Déployé** (Cockpit Supervisé 1-Clic dans les Discussions WhatsApp, Détection Dynamique de la Prochaine Étape, et Encaissement Direct Caisse & Trésorerie).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Inbox Discussions Style WhatsApp Web** :
-    - Exactement 2 sections épurées : `Discussions` (tous les chats actifs) et `Archivées`.
-    - Bouton toggle filtre rapide pour isoler les `Non lus` en 1 clic avec compteur temps réel.
-    - Pastille verte ronde WhatsApp avec le chiffre `1` (`bg-emerald-500 font-bold text-black`) sur chaque discussion non lue sous l'heure.
-    - Clic sur la discussion = disparition instantanée (0 ms) de la pastille `1`, synchronisation en base Supabase (`conversations.ack_log`) et WAHA sans rechargement.
-    - Éradication totale de l'onglet et des mentions `Devis`.
-  - **Mémoire & Continuité Copilot DeepSeek-V3** :
-    - Résolution automatique du contact dans `req.history` (nom, lien wa.me, numéro).
-    - Extraction certifiée de l'historique complet des commandes Supabase (`orders`) : calcul de `orderCount`, `isRegularClient` (≥ 2 commandes), montant total dépensé, date 1ère et dernière commande.
-    - Réponses directes, factuelles et sans template de message non sollicité.
-    - Bouton d'action et lien Markdown [Ouvrir la discussion WhatsApp](https://wa.me/...) systématique.
-    - Parseur JSON résilient éliminant toute erreur 500 sur le VPS.
-  - **Textes & Atelier Studio (Temps Réel & Retrait de File)** :
-    - Abonnement Supabase Realtime actif sur `orders` et `contacts` pour une mise à jour instantanée des briefs prêts pour le texte.
-    - Génération automatique 1-clic de textes complets (Golden Corpus Velaris 32 à 48 vers).
-    - Bouton *« Confirmer comme fait (Retirer de la file) »* qui met à jour la commande dans Supabase (`paroles_pretes` / `lyrics_validated`) et la retire immédiatement de la file active.
-    - Bouton direct d'envoi WhatsApp avec message pré-formaté sans aucun émoji parasite.
+  - **Cockpit Supervisé 1-Clic dans les Discussions** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+    - L'IA n'intervient jamais de manière autonome : elle est votre copilote d'atelier assis à côté de vous dans le site.
+    - Détection automatique et temps réel de la situation du client :
+      - *Accueil / Nouveau contact* : message d'accueil + proposition du vocal de procédure.
+      - *Brief partiel* : détection de l'occasion (anniversaire, mariage, hommage, amour) et demande ciblée des éléments manquants (prénom, date, souvenirs).
+      - *Demande d'extrait* : réponse bienveillante + envoi de l'extrait audio modèle en 1 clic.
+      - *Brief complet* : proposition des paroles complètes + bouton 1-clic *« Générer le texte (32-48 vers Suno) »*.
+      - *Demande de tarif* : formule 3 000 F CFA + coordonnées Wave et Orange Money.
+      - *Paiement signalé / Justificatif* : message d'accusé de réception 18 min + bouton prioritaire *« Encaisser la commande »*.
+      - *Retouches* : récapitulatif bienveillant des modifications.
+    - Boîte de réponse prête à l'envoi avec 2 options : **`[Envoyer sur WhatsApp]`** (0 ms) ou **`[Modifier]`** (charge dans le champ pour ajuster).
+    - Raccourcis d'actions 1-clic : *Vocal de procédure*, *Extrait audio démo*, *Générer le texte*, *Coordonnées Wave & OM*, *Encaisser*.
+  - **Module d'Encaissement Direct (Caisse & Trésorerie)** :
+    - Bouton **`Encaisser`** présent en permanence dans l'en-tête de chaque discussion et dans le dock assistant.
+    - Modal d'encaissement luxueuse (`CashOrderModal`) : sélection en 1 clic du montant (1 200 F / 3 000 F / 5 000 F ou montant libre), du moyen (Wave / Orange Money / Moov / Espèces), du destinataire et de l'occasion.
+    - Inscription atomique dans la table Supabase `orders` (`recordDirectPayment`), mise à jour du funnel en `paid`, et envoi automatique de la confirmation WhatsApp au client.
 - **Prochaine tâche exacte** :
   1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
   2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
@@ -47,6 +46,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 56. Cockpit Supervisé 1-Clic dans les Discussions WhatsApp & Encaissement Direct Caisse (4 Octobre 2026)
+- **Assistant Prochaine Étape Contextuel 1-Clic** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - Détection automatique de l'intention et de l'avancement (`analyzeNextStep`) sur l'historique complet des messages.
+  - Bandeau d'étape sobre avec badge d'intention (Accueil, Brief partiel, Échantillon, Brief complet, Tarifs, Paiement signalé, Retouches).
+  - Boîte de réponse pré-rédigée au ton Velaris avec validation manuelle en 1 clic : bouton `[Envoyer sur WhatsApp]` et bouton `[Modifier]`.
+  - Boutons d'actions immédiates : *« Vocal de procédure »*, *« Extrait audio démo »*, *« Générer le texte (32-48 vers Suno) »*, *« Coordonnées Wave & OM »*.
+- **Module d'Encaissement Direct 1-Clic & Traçage des Ventes** ([`supabase.ts`](file:///root/projets/velaris/src/services/supabase.ts), [`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - Fonction atomique `recordDirectPayment` : rattachement au contact existant ou création, mise à jour du funnel en `paid`, écriture dans la table `orders` (`amount_cents`, `currency: 'XOF'`).
+  - Composant `CashOrderModal` intégré dans le fil de discussion : forfaits rapides (1 200 F / 3 000 F / 5 000 F / libre), opérateurs Wave / Orange Money / Moov / Espèces.
+  - Option de confirmation automatique au client transmise sur WhatsApp en direct.
+- **Validation Globale** :
+  - Frontend Vite : Build propre en 3.91s (`tsc -b && vite build` avec 0 erreur).
+  - Conformité stricte à la Règle 4 (zéro émoji UI, typographie soignée, graphismes graphite luxueux).
 
 ### 55. Refonte Inbox WhatsApp Web, Mémoire Copilot Fidélité & Atelier Studio Realtime (4 Octobre 2026)
 - **Refonte Inbox Discussion WhatsApp Web** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :

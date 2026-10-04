@@ -9,6 +9,8 @@ import {
   CheckCheck,
   CheckCircle2,
   Clock3,
+  Compass,
+  DollarSign,
   Download,
   ExternalLink,
   FileText,
@@ -18,13 +20,16 @@ import {
   MailOpen,
   MessageCircle,
   Mic,
+  Music,
   Receipt,
   RefreshCw,
   Search,
   ShieldCheck,
+  Sparkles,
   Tags,
   Truck,
   WandSparkles,
+  X,
   type LucideIcon
 } from 'lucide-react';
 import type { ConversationItem } from '../types';
@@ -49,11 +54,13 @@ import { useWahaHeartbeat } from '../hooks/useWaha';
 import {
   getLiveConversations,
   getLiveMessages,
+  recordDirectPayment,
   recordOutboundMessage,
   updateConversationArchiveStatus,
   updateConversationReadStatus
 } from '../services/supabase';
 import { applyReadState, setConversationUnread, setConversationArchived, useReadState } from '../services/readState';
+import { generateHouseStyleSong } from '../services/lyricsCorpus';
 import { WaveformPlayer } from './WaveformPlayer';
 import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 
@@ -167,6 +174,415 @@ const SNIPPETS: { label: string; icon: LucideIcon; text: string }[] = [
   { label: 'Livraison', icon: Truck, text: 'Votre chanson est prête. Écoutez-la et dites-nous ce que vous en pensez. Merci pour votre confiance.' },
 ];
 
+const PROCEDURE_VOICE_TEXT = `Voici comment se déroule la création de votre chanson au Studio Velaris :\n1. Vous nous confiez le prénom, l'occasion et 2 ou 3 souvenirs marquants.\n2. Notre studio rédige vos paroles complètes sur-mesure et vous les envoie pour validation.\n3. Dès confirmation, nous produisons 2 versions audio master haute définition en 18 minutes.`;
+
+const SAMPLE_AUDIO_TEXT = `Avec grand plaisir ! Voici un extrait d'une de nos compositions studio récentes (style acoustique afro-love) : https://waha.velarisagent.life/demo/sample-afro.mp3\n\nNous adaptons le style musical (afro-love, rumba, acoustique, gospel) selon vos souhaits. Dites-moi ce que vous en pensez !`;
+
+const PAYMENT_INFO_TEXT = `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes + 2 versions audio HD + livraison en 18 minutes).\n\nVous pouvez régler par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n\nDès votre dépôt effectué, envoyez simplement la capture ici et nous lançons la production aussitôt !`;
+
+interface NextStepData {
+  stageKey: 'accueil' | 'brief_incomplet' | 'brief_complet' | 'extrait' | 'paiement_demande' | 'paiement_recu' | 'retouches';
+  stageBadge: string;
+  detectedIntent: string;
+  detectedOccasion: string;
+  recipientName: string;
+  recommendedReply: string;
+}
+
+function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): NextStepData {
+  const inbounds = messages.filter((m) => m.inbound);
+  const lastInbound = inbounds[inbounds.length - 1];
+  const lastText = (lastInbound?.body || conv.fullMessage || conv.preview || '').toLowerCase();
+  const allInboundText = inbounds.map((m) => m.body).join(' ').toLowerCase();
+
+  // Détection d'occasion
+  let detectedOccasion = 'Anniversaire';
+  if (/\b(mariage|marier|fianc|dot|époux|epoux|epouse)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Mariage';
+  } else if (/\b(hommage|deuil|décès|deces|rip|mémoire|memoire|funerailles|enterrement)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Hommage';
+  } else if (/\b(amour|amoureux|chéri|cheri|cherie|chérie|coeur|bébé|bebe|couple)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Amour';
+  } else if (/\b(naissance|bapteme|baptême|nouveau-né|bebe)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Naissance';
+  } else if (/\b(mere|mère|maman|fête des mères)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Fête des mères';
+  } else if (/\b(pere|père|papa|fête des pères)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Fête des pères';
+  }
+
+  // Détection du prénom
+  let recipientName = '';
+  const pourMatch = allInboundText.match(/\bpour\s+([A-ZÀ-Ÿa-zà-ÿ]{2,18})/i);
+  const nomMatch = allInboundText.match(/\b(nom|prénom|prenom)\s+(c'est|est|:)?\s*([A-ZÀ-Ÿa-zà-ÿ]{2,18})/i);
+  const appelleMatch = allInboundText.match(/\bs'appelle\s+([A-ZÀ-Ÿa-zà-ÿ]{2,18})/i);
+  if (appelleMatch && appelleMatch[1]) {
+    recipientName = appelleMatch[1].charAt(0).toUpperCase() + appelleMatch[1].slice(1).toLowerCase();
+  } else if (nomMatch && nomMatch[3]) {
+    recipientName = nomMatch[3].charAt(0).toUpperCase() + nomMatch[3].slice(1).toLowerCase();
+  } else if (pourMatch && pourMatch[1]) {
+    const raw = pourMatch[1].toLowerCase();
+    if (!['une', 'un', 'mon', 'ma', 'mes', 'son', 'sa', 'lui', 'elle', 'moi'].includes(raw)) {
+      recipientName = raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+  }
+  if (!recipientName && conv.name && !conv.name.startsWith('+') && !conv.name.toLowerCase().includes('client')) {
+    recipientName = conv.name.split(' ')[0];
+  }
+
+  // 1. Paiement signalé / Justificatif reçu
+  const isPaymentClaim = /\b(payé|paye|dépot|depot|versement|transfert|capture|envoyé|envoye|recu|reçu|transaction|quittance|orange money|wave)\b/i.test(lastText) &&
+    !/\b(comment|combien|ou payer|sur quel|quel numero|quel numéro|le prix)\b/i.test(lastText);
+
+  if (isPaymentClaim) {
+    return {
+      stageKey: 'paiement_recu',
+      stageBadge: 'Justificatif reçu · À encaisser',
+      detectedIntent: 'Le client signale avoir effectué le dépôt',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Paiement bien reçu, merci beaucoup ! Votre commande passe immédiatement en production studio. Livraison de vos versions audio master d'ici 18 minutes.`,
+    };
+  }
+
+  // 2. Demande de tarif & coordonnées
+  const isPriceInquiry = /\b(combien|prix|tarif|tarifs|cout|coût|payer|paiement|moyen|numero|numéro|compte|wave|orange money|moov)\b/i.test(lastText);
+  if (isPriceInquiry) {
+    return {
+      stageKey: 'paiement_demande',
+      stageBadge: 'Demande de tarif & paiement',
+      detectedIntent: 'Le client souhaite connaître les tarifs et les numéros de dépôt',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes + 2 versions audio HD + livraison en 18 minutes).\n\nVous pouvez régler par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n\nDès votre dépôt effectué, envoyez la capture ici et nous lançons la production !`,
+    };
+  }
+
+  // 3. Demande d'extrait / exemple
+  const isSampleRequest = /\b(extrait|extraits|exemple|exemples|echantillon|échantillon|écouter|ecouter|demo|démo|comment ça sonne|voir un modèle)\b/i.test(lastText);
+  if (isSampleRequest) {
+    return {
+      stageKey: 'extrait',
+      stageBadge: 'Demande d\'extrait démo',
+      detectedIntent: 'Le client demande à entendre un échantillon musical',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Avec grand plaisir ! Voici un aperçu de nos productions récentes en studio (style acoustique afro-love). Nous adaptons le style selon vos souhaits. Dites-moi ce que vous en pensez !`,
+    };
+  }
+
+  // 4. Demande de retouches
+  const isRevisionRequest = /\b(retouche|retouches|modifier|modification|changer|changement|corriger|correction|faute|erreur|trompé|trompe|rajouter|ajouter un prenom)\b/i.test(lastText);
+  if (isRevisionRequest) {
+    return {
+      stageKey: 'retouches',
+      stageBadge: 'Demande de retouches',
+      detectedIntent: 'Le client souhaite modifier ou ajuster un détail',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `C'est bien noté pour ces ajustements. Je note tout de suite les corrections à apporter. Y a-t-il un autre détail à modifier avant que nous actualisions le texte ?`,
+    };
+  }
+
+  // 5. Brief complet (prénom + occasion ou détails fournis)
+  const isBriefComplete = !!recipientName && (allInboundText.length > 30 || inbounds.length >= 2);
+  if (isBriefComplete) {
+    return {
+      stageKey: 'brief_complet',
+      stageBadge: `Brief complet · Prêt pour ${recipientName || 'le texte'}`,
+      detectedIntent: 'Les éléments clés sont réunis pour composer les paroles',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Tout est bien noté pour ${recipientName || 'votre chanson'} ! Notre studio prépare vos paroles complètes sur-mesure dès maintenant. Je vous envoie le texte d'ici quelques instants pour validation.`,
+    };
+  }
+
+  // 6. Brief partiel (occasion détectée mais prénom manquant)
+  const hasOccasionSignal = /\b(anniversaire|mariage|hommage|amour|naissance|fête|fete)\b/i.test(allInboundText);
+  if (hasOccasionSignal) {
+    let questionText = `C'est bien noté pour l'anniversaire ! Quel est le prénom de la personne à célébrer, quelle est sa date d'anniversaire, et quels sont 2 ou 3 souvenirs marquants à glisser dans la chanson ?`;
+    if (detectedOccasion === 'Mariage') {
+      questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des deux mariés, la date de la célébration et un souvenir marquant de leur rencontre ?`;
+    } else if (detectedOccasion === 'Hommage') {
+      questionText = `Toutes nos pensées vous accompagnent. Quel est le nom de la personne à honorer et les valeurs ou souvenirs que vous souhaitez immortaliser dans la chanson ?`;
+    } else if (detectedOccasion === 'Amour') {
+      questionText = `Magnifique démarche ! Quel est le prénom de votre bien-aimé(e) et les anecdotes ou qualités qui rendent votre histoire unique ?`;
+    }
+
+    return {
+      stageKey: 'brief_incomplet',
+      stageBadge: `Brief partiel · Prénom & Date requis`,
+      detectedIntent: `Occasion identifiée (${detectedOccasion}), informations complémentaires nécessaires`,
+      detectedOccasion,
+      recipientName,
+      recommendedReply: questionText,
+    };
+  }
+
+  // 7. Accueil (Nouveau contact)
+  return {
+    stageKey: 'accueil',
+    stageBadge: 'Accueil & Découverte',
+    detectedIntent: 'Nouveau contact ou salutations',
+    detectedOccasion,
+    recipientName,
+    recommendedReply: `Bonjour et bienvenue au Studio Velaris. Nous composons des chansons personnalisées uniques pour vos moments précieux. Pour qui aimeriez-vous créer cette chanson, et pour quelle occasion ?`,
+  };
+}
+
+interface CashOrderModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  clientName: string;
+  clientPhone: string;
+  defaultOccasion?: string;
+  defaultRecipient?: string;
+  onConfirm: (data: {
+    amount: number;
+    paymentMethod: string;
+    recipientName: string;
+    occasion: string;
+    sendConfirmWhatsApp: boolean;
+  }) => Promise<void>;
+  isSubmitting?: boolean;
+}
+
+const PRESET_AMOUNTS = [
+  { value: 1200, label: '1 200 F', desc: 'Texte seul' },
+  { value: 3000, label: '3 000 F', desc: 'Standard (2 Masters HD)', badge: 'Recommandé' },
+  { value: 5000, label: '5 000 F', desc: 'Pack VIP (Vidéo & Audio)' },
+];
+
+const PAYMENT_METHODS = ['Wave', 'Orange Money', 'Moov', 'Espèces'];
+
+const CashOrderModal: FC<CashOrderModalProps> = ({
+  isOpen,
+  onClose,
+  clientName,
+  clientPhone,
+  defaultOccasion = 'Anniversaire',
+  defaultRecipient = '',
+  onConfirm,
+  isSubmitting = false,
+}) => {
+  const [selectedAmount, setSelectedAmount] = useState<number>(3000);
+  const [customAmount, setCustomAmount] = useState<string>('');
+  const [isCustom, setIsCustom] = useState<boolean>(false);
+  const [method, setMethod] = useState<string>('Wave');
+  const [recipient, setRecipient] = useState<string>(defaultRecipient || clientName);
+  const [occasion, setOccasion] = useState<string>(defaultOccasion || 'Anniversaire');
+  const [sendWhatsApp, setSendWhatsApp] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRecipient(defaultRecipient || clientName);
+      setOccasion(defaultOccasion || 'Anniversaire');
+      setSelectedAmount(3000);
+      setIsCustom(false);
+      setCustomAmount('');
+    }
+  }, [isOpen, defaultRecipient, clientName, defaultOccasion]);
+
+  if (!isOpen) return null;
+
+  const finalAmount = isCustom ? Number(customAmount) || 0 : selectedAmount;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (finalAmount <= 0) return;
+    onConfirm({
+      amount: finalAmount,
+      paymentMethod: method,
+      recipientName: recipient || clientName,
+      occasion: occasion || 'Commande personnalisée',
+      sendConfirmWhatsApp: sendWhatsApp,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm vx-fade-in">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cash-modal-title"
+        className="w-full max-w-lg rounded-2xl border border-white/[0.12] bg-[#0E1015] p-5 sm:p-6 space-y-5 text-white shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-400/10 text-emerald-300 border border-emerald-400/20">
+                <Receipt className="h-4 w-4" />
+              </span>
+              <h2 id="cash-modal-title" className="font-heading text-lg font-semibold text-white">
+                Encaisser la commande
+              </h2>
+            </div>
+            <p className="text-[13px] text-neutral-400 mt-1">
+              Client : <span className="font-semibold text-neutral-200">{clientName}</span> ({clientPhone})
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="p-1 rounded-lg text-neutral-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[12.5px] font-medium text-neutral-300 mb-2">
+              Montant de la transaction
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {PRESET_AMOUNTS.map((p) => {
+                const active = !isCustom && selectedAmount === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAmount(p.value);
+                      setIsCustom(false);
+                    }}
+                    className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-400/10 text-white'
+                        : 'border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:border-white/20'
+                    }`}
+                  >
+                    <span className="text-sm font-bold">{p.label}</span>
+                    <span className="text-[10.5px] text-neutral-400 mt-0.5">{p.desc}</span>
+                    {p.badge && (
+                      <span className="absolute -top-2 px-1.5 py-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-black uppercase tracking-wider">
+                        {p.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => setIsCustom(!isCustom)}
+                className={`text-[11.5px] underline transition-colors cursor-pointer ${
+                  isCustom ? 'text-emerald-300' : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {isCustom ? 'Utiliser un forfait prédéfini' : 'Saisir un autre montant (montant libre)'}
+              </button>
+              {isCustom && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="100"
+                    placeholder="Montant en F CFA (ex: 7500)"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    className="flex-1 rounded-xl border border-white/[0.12] bg-[#07080B] px-3 py-2 text-sm text-white placeholder:text-neutral-500 outline-none focus:border-emerald-400/40"
+                  />
+                  <span className="font-mono text-xs text-neutral-400">F CFA</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[12.5px] font-medium text-neutral-300 mb-2">
+              Moyen de règlement reçu
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {PAYMENT_METHODS.map((m) => {
+                const active = method === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMethod(m)}
+                    className={`py-2 px-2 rounded-xl border text-xs font-semibold text-center transition-all cursor-pointer ${
+                      active
+                        ? 'border-amber-400/50 bg-amber-400/10 text-[#F1DDB4]'
+                        : 'border-white/[0.08] bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[12px] text-neutral-400 mb-1">Prénom destinataire</label>
+              <input
+                type="text"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="Ex: Marc, Aminata"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#07080B] px-3 py-2 text-xs text-white placeholder:text-neutral-500 outline-none focus:border-white/20"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] text-neutral-400 mb-1">Occasion</label>
+              <input
+                type="text"
+                value={occasion}
+                onChange={(e) => setOccasion(e.target.value)}
+                placeholder="Ex: Anniversaire, Mariage"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#07080B] px-3 py-2 text-xs text-white placeholder:text-neutral-500 outline-none focus:border-white/20"
+              />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={sendWhatsApp}
+              onChange={(e) => setSendWhatsApp(e.target.checked)}
+              className="h-4 w-4 rounded border-white/20 bg-transparent text-emerald-400 focus:ring-0 cursor-pointer"
+            />
+            <span className="text-[12.5px] text-neutral-300">
+              Envoyer la confirmation automatique au client sur WhatsApp
+            </span>
+          </label>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-white/[0.08]">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || finalAmount <= 0}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 text-black font-semibold text-xs hover:bg-emerald-400 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Enregistrement...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Valider l'encaissement ({finalAmount.toLocaleString('fr-FR')} F)</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const ACK_POLL_MS = 5000;
 const ACK_WATCH_MS = 3 * 60 * 1000;
 
@@ -196,6 +612,8 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [recorderOpen, setRecorderOpen] = useState(false);
   const [outgoing, setOutgoing] = useState<Record<string, OutgoingMessage[]>>({});
+  const [cashModalOpen, setCashModalOpen] = useState(false);
+  const [isCashing, setIsCashing] = useState(false);
 
   const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
 
@@ -475,6 +893,77 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     a.download = `velaris_conversations_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const nextStep = useMemo(() => {
+    if (!selectedConv) return null;
+    return analyzeNextStep(selectedConv, thread);
+  }, [selectedConv, thread]);
+
+  const handleGenerateLyricsForChat = () => {
+    if (!selectedConv || !nextStep) return;
+    const occ = nextStep.detectedOccasion || 'Anniversaire';
+    const name = nextStep.recipientName || (selectedConv.name.startsWith('+') ? 'Destinataire' : selectedConv.name);
+    const song = generateHouseStyleSong({
+      recipient: name,
+      occasion: occ,
+    });
+    const formatted = `*${song.title}*\n\n${song.lyrics}`;
+    setReplyText(formatted);
+    if (composerRef.current) {
+      composerRef.current.focus();
+    }
+    showFeedback({
+      success: true,
+      message: `Paroles complètes générées (${song.lineCount} vers Suno). Prêtes à être relues et envoyées !`,
+    });
+  };
+
+  const handleConfirmCashOrder = async (data: {
+    amount: number;
+    paymentMethod: string;
+    recipientName: string;
+    occasion: string;
+    sendConfirmWhatsApp: boolean;
+  }) => {
+    if (!selectedConv) return;
+    setIsCashing(true);
+    try {
+      const res = await recordDirectPayment({
+        clientName: selectedConv.name,
+        clientPhone: selectedConv.phone,
+        amount: data.amount,
+        paymentMethod: data.paymentMethod,
+        recipientName: data.recipientName,
+        occasion: data.occasion,
+        notes: `Encaissé via Cockpit Discussions (${data.paymentMethod})`,
+      });
+
+      if (res?.id) {
+        if (data.sendConfirmWhatsApp) {
+          await sendText(
+            `Paiement de ${data.amount.toLocaleString('fr-FR')} F CFA bien reçu par ${data.paymentMethod}, merci beaucoup ! Votre commande passe immédiatement en production studio. Livraison de vos versions audio master d'ici 18 minutes.`
+          );
+        }
+        showFeedback({
+          success: true,
+          message: `Vente de ${data.amount.toLocaleString('fr-FR')} F CFA enregistrée avec succès dans la caisse (${data.paymentMethod}).`,
+        });
+        setCashModalOpen(false);
+      } else {
+        showFeedback({
+          success: false,
+          message: "Impossible d'enregistrer le paiement en base. Veuillez réessayer.",
+        });
+      }
+    } catch (err: any) {
+      showFeedback({
+        success: false,
+        message: `Erreur d'encaissement : ${err.message || 'Erreur réseau'}`,
+      });
+    } finally {
+      setIsCashing(false);
+    }
   };
 
   const cleanPhone = selectedConv ? selectedConv.phone.replace(/[^0-9]/g, '') : '';
@@ -758,6 +1247,15 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                     {selectedConv.unread ? <MailOpen className="h-3 w-3" strokeWidth={1.5} /> : <Mail className="h-3 w-3" strokeWidth={1.5} />}
                     <span className="hidden md:inline">{selectedConv.unread ? 'Marquer lu' : 'Non lu'}</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setCashModalOpen(true)}
+                    title="Encaisser la commande (Caisse & Trésorerie)"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12.5px] font-semibold text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/40 transition-colors duration-200 cursor-pointer"
+                  >
+                    <Receipt className="h-3 w-3" strokeWidth={1.5} />
+                    <span>Encaisser</span>
+                  </button>
                   {onOpenOrderForStudio && (
                     <button
                       type="button"
@@ -883,6 +1381,103 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
               {/* Dock de réponses rapides + compositeur */}
               <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
+                {/* 🧭 Assistant Prochaine Étape (Cockpit Supervisé 1-Clic) */}
+                {nextStep && (
+                  <div className="rounded-2xl border border-white/[0.10] bg-[#0E1015]/90 backdrop-blur-md p-3 sm:p-3.5 space-y-2.5">
+                    {/* Bandeau d'étape */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-300">
+                          <Compass className="h-3 w-3" strokeWidth={2} />
+                          {nextStep.stageBadge}
+                        </span>
+                        <span className="text-[12px] text-neutral-400 hidden md:inline">
+                          {nextStep.detectedIntent}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCashModalOpen(true)}
+                        title="Encaisser la commande"
+                        className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-400/20 transition-colors cursor-pointer"
+                      >
+                        <Receipt className="h-3 w-3" />
+                        <span>Encaisser</span>
+                      </button>
+                    </div>
+
+                    {/* Boîte de réponse recommandée */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 rounded-xl border border-white/[0.08] bg-[#07080B] p-2.5 sm:p-3">
+                      <div className="text-[13px] text-neutral-200 leading-relaxed flex-1 select-text whitespace-pre-wrap font-sans">
+                        {nextStep.recommendedReply}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => sendText(nextStep.recommendedReply)}
+                          disabled={isSending}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" strokeWidth={2} />
+                          <span>Envoyer sur WhatsApp</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyText(nextStep.recommendedReply);
+                            if (composerRef.current) composerRef.current.focus();
+                          }}
+                          className="inline-flex items-center gap-1 rounded-xl border border-white/[0.12] bg-white/[0.03] px-3 py-2 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors cursor-pointer"
+                        >
+                          <span>Modifier</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Raccourcis d'actions logiques 1-clic */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => sendText(PROCEDURE_VOICE_TEXT)}
+                        disabled={isSending}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                      >
+                        <Mic className="h-3 w-3 text-neutral-400" />
+                        Vocal de procédure
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => sendText(SAMPLE_AUDIO_TEXT)}
+                        disabled={isSending}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                      >
+                        <Music className="h-3 w-3 text-neutral-400" />
+                        Extrait audio démo
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleGenerateLyricsForChat}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E5B54F]/40 bg-[#E5B54F]/10 px-2.5 py-1 text-[11.5px] font-medium text-[#F1DDB4] hover:bg-[#E5B54F]/20 transition-colors cursor-pointer"
+                      >
+                        <Sparkles className="h-3 w-3 text-[#E5B54F]" />
+                        Générer le texte (32-48 vers)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => sendText(PAYMENT_INFO_TEXT)}
+                        disabled={isSending}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                      >
+                        <DollarSign className="h-3 w-3 text-neutral-400" />
+                        Coordonnées Wave & OM
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                   {SNIPPETS.map((snip, i) => {
                     const Icon = snip.icon;
@@ -965,6 +1560,18 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
           )}
         </div>
       </div>
+
+      {/* Modal d'Encaissement Direct (Caisse & Trésorerie) */}
+      <CashOrderModal
+        isOpen={cashModalOpen}
+        onClose={() => setCashModalOpen(false)}
+        clientName={selectedConv?.name || 'Client WhatsApp'}
+        clientPhone={selectedConv?.phone || ''}
+        defaultOccasion={nextStep?.detectedOccasion || 'Anniversaire'}
+        defaultRecipient={nextStep?.recipientName || selectedConv?.name || ''}
+        onConfirm={handleConfirmCashOrder}
+        isSubmitting={isCashing}
+      />
     </div>
   );
 };
