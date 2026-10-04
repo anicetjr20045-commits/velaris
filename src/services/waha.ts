@@ -388,6 +388,26 @@ export async function sendWahaVoiceMessage(
 }
 
 /**
+ * Envoie un fichier ou média hébergé (audio, vidéo, image, document) directement sur WhatsApp via WAHA
+ */
+export async function sendWahaFileMessage(
+  chatId: string,
+  url: string,
+  sessionName: string = WAHA_CONFIG.defaultSession,
+  options?: { caption?: string; mimetype?: string; filename?: string }
+): Promise<WahaSendTextResponse> {
+  const file: Record<string, unknown> = { url };
+  if (options?.mimetype) file.mimetype = options.mimetype;
+  if (options?.filename) file.filename = options.filename;
+  return postSend('/api/sendFile', {
+    session: sessionName,
+    chatId: toChatId(chatId),
+    file,
+    caption: options?.caption,
+  });
+}
+
+/**
  * Marque la discussion comme lue côté WhatsApp (coches bleues chez le client)
  */
 export async function markWahaChatSeen(chatId: string, sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {

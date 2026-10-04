@@ -8,18 +8,19 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (22:18 UTC)
-- **Statut Opérationnel** : **Jalon 61 100% Validé & Déployé** (Suppression de l'agent auto-répondeur et des devinettes, mise en place de la barre de raccourcis WhatsApp directs 1-clic et du bouton Générateur de texte).
+- **Dernière mise à jour** : 4 Octobre 2026 (22:42 UTC)
+- **Statut Opérationnel** : **Jalon 62 100% Validé & Déployé** (Segmentation intelligente des commandes anciens clients, intégration des souvenirs réels dans les 32-48 vers poétiques, raccourcis compacts avec Vocal procédure & Vidéo démo hébergés).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Zéro Agent Autonome** : L'IA ne répond plus automatiquement sur WhatsApp. Le studio garde le contrôle total et exclusif des envois.
-  - **Zéro Suggestion Devinette Encombrante** : La micro-barre qui tentait de deviner l'étape est retirée au profit de raccourcis fixes, clairs et immédiats.
-  - **Barre de Raccourcis WhatsApp Directs 1-Clic** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
-    - 5 raccourcis essentiels prêts à partir en 1 clic : `Brief`, `Tarifs (3 000 F)`, `Extrait démo`, `Mix en cours`, `Livraison`.
-    - Clic = envoi immédiat sur WhatsApp. Maj+Clic = insertion dans le champ pour personnalisation.
-  - **Générateur de Paroles 1-Clic (`Générer le texte`)** :
-    - Déclenchement instantané à l'étape du brief : génère les 32-48 vers Suno complets adaptés à l'occasion et au destinataire, les place directement dans la boîte de saisie pour relecture et envoi direct.
-    - Bouton `Encaisser` intégré à côté pour les encaissements directs caisse.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (Build propre en 5.31s).
+  - **Segmentation Automatique des Anciens Clients (`extractActiveOrderScope`)** :
+    - Détection automatique de la fin des commandes précédentes (messages de livraison passés ou gap > 48h).
+    - Lors du clic sur `Générer le texte`, l'IA n'analyse que la nouvelle commande en cours (prénom, occasion, souvenirs) sans jamais mélanger avec les commandes passées.
+  - **Intelligence Poétique et Transmission des Idées Client** :
+    - Génération de 32 à 48 vers Suno conformes au standard studio avec tissage des souvenirs et anecdotes authentiques du client dans le Couplet 2 et le Pont.
+  - **Barre de Raccourcis Compacte Ultra-Épurée** :
+    - 5 boutons principaux visibles directs : `Vocal procédure` (audio hébergé Supabase), `Exemple vidéo` (MP4 hébergé Supabase), `Brief`, `Tarifs (1200 / 3000)`, `Paiement Wave/OM`.
+    - Menu déroulant discret `Autres ▾` (10 messages types récurrents : Wave CI, Style doux/dansant, Validation texte, Délai 20 min, Message particulier, Règle 2 versions, Mix studio, Livraison, Avis client, Bonjour).
+    - Clic = Envoi direct sur WhatsApp (support média natif via WAHA `sendWahaFileMessage` avec repli texte sécurisé). Maj+Clic = insertion dans le champ pour personnalisation.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` en 4.93s sans avertissement ni erreur).
 - **Prochaine tâche exacte** :
   1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
   2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
@@ -39,6 +40,24 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 62. Segmentation Automatique Anciens Clients, Intelligence Poétique & Raccourcis Compacts (Vocal & Vidéo) (4 Octobre 2026)
+- **Segmentation Déterministe des Commandes Récidivistes (`extractActiveOrderScope`)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - Détection automatique de la fin du cycle précédent via les messages de livraison du studio ou une pause temporelle supérieure à 48h.
+  - Isolement strict des messages de la commande courante : exclusion de l'ancien destinataire et de l'ancienne occasion.
+  - Feedback clair lors de la génération : notification précisant que la nouvelle commande a été isolée avec succès.
+- **Qualité Poétique & Incorporation des Anecdotes Réelles** :
+  - Respect de la structure standard Suno (32 à 48 vers complets) avec `[Intro]`, `[Couplet 1]`, `[Pré-Refrain]`, `[Refrain]`, `[Couplet 2]`, `[Pont]`, `[Refrain Final]`, `[Outro]`.
+  - Tissage automatique des vrais souvenirs et détails fournis par le client dans le Couplet 2 et le Pont.
+- **Barre de Raccourcis Compacte Ultra-Ergonomique** :
+  - Intégration des 2 médias clés récupérés sur le stockage public Supabase :
+    - *Vocal procédure* : `procedure-vocal.mp3`
+    - *Exemple vidéo* : `video-demo.mp4`
+  - 5 boutons visibles compacts + menu déroulant `Autres ▾` rassemblant les 11 formulations habituelles simplifiées (Paiement Wave/OM, Wave CI, Tarifs 1200/3000, Style doux/dansant, Validation texte, Délai 20 min, Règle 2 versions, Mixage, Livraison, Avis client, Accueil).
+  - Envoi natif média via `sendWahaFileMessage` avec repli automatique sur le lien textuel en cas de besoin.
+- **Validation Globale** :
+  - Build Vite & TypeScript : Build propre en 4.93s (`tsc -b && vite build` avec 0 erreur).
+
 
 ### 61. Raccourcis WhatsApp Directs 1-Clic & Générateur de Paroles Simplifié (4 Octobre 2026)
 - **Éradication de l'Agent Auto et des Devinettes Artificielles** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :

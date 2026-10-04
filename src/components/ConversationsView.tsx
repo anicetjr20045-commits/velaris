@@ -8,23 +8,23 @@ import {
   Check,
   CheckCheck,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Download,
   ExternalLink,
   FileText,
-  Headphones,
   Loader2,
   Mail,
   MailOpen,
   MessageCircle,
   Mic,
-  PlayCircle,
   Receipt,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
   Tag,
+  Video,
   WandSparkles,
   X,
   type LucideIcon
@@ -41,6 +41,7 @@ import {
   setWahaChatArchived,
   sendWahaTextMessage,
   sendWahaVoiceMessage,
+  sendWahaFileMessage,
   wahaSessionNameFor,
   type WahaAck,
   type WahaLinkState
@@ -165,42 +166,259 @@ interface OutgoingMessage extends ThreadMessage {
 interface QuickShortcut {
   id: string;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  category?: string;
   text: string;
+  mediaUrl?: string;
+  mediaType?: 'audio' | 'video';
+  mediaFilename?: string;
 }
 
-const QUICK_SHORTCUTS: QuickShortcut[] = [
+const PRIMARY_SHORTCUTS: QuickShortcut[] = [
+  {
+    id: 'procedure_voice',
+    label: 'Vocal procédure',
+    icon: Mic,
+    text: "Voici notre note vocale explicative (30s) pour votre commande : https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3",
+    mediaUrl: 'https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3',
+    mediaType: 'audio',
+    mediaFilename: 'procedure-vocal.mp3',
+  },
+  {
+    id: 'video_demo',
+    label: 'Exemple vidéo',
+    icon: Video,
+    text: "Voici un exemple de nos modèles vidéo avec photos : https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4",
+    mediaUrl: 'https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4',
+    mediaType: 'video',
+    mediaFilename: 'video-demo.mp4',
+  },
   {
     id: 'brief',
     label: 'Brief',
     icon: FileText,
-    text: "Pour composer votre chanson sur-mesure : quel est le prénom de la personne, l'occasion (anniversaire, mariage, amour...) et 2 ou 3 petits souvenirs ou anecdotes complices ?",
+    text: "Pour composer votre chanson sur-mesure : quel est le prénom du destinataire, l'occasion (anniversaire, mariage, amour...) et 2 ou 3 souvenirs marquants ?",
   },
   {
-    id: 'tarif',
-    label: 'Tarifs (3 000 F)',
+    id: 'tarifs',
+    label: 'Tarifs (1200 / 3000)',
     icon: Tag,
-    text: "La formule complète est à 3 000 F CFA (paroles complètes sur-mesure + 2 versions audio HD livrées en 18 min chrono). Paiement disponible par Wave, Orange Money ou Moov au +226 05 77 73 08. Dès que vous avez la capture, envoyez-la ici !",
+    text: "Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous !",
   },
   {
-    id: 'extrait',
-    label: 'Extrait démo',
-    icon: PlayCircle,
-    text: "Voici un extrait pour vous donner une idée de la qualité studio : https://waha.velarisagent.life/demo/sample-afro.mp3\nNous adaptons le style selon vos souhaits !",
+    id: 'paiement_om',
+    label: 'Paiement Wave/OM',
+    icon: Receipt,
+    text: "Vous pouvez donc passer au paiement +226 05 77 73 08 Wendyam Anicet junior Sekongo svp une capture pour vérifier le paiement !",
+  },
+];
+
+const MORE_SHORTCUTS: QuickShortcut[] = [
+  {
+    id: 'paiement_wave',
+    label: 'Paiement Wave direct',
+    category: 'Paiement',
+    text: "Vous pouvez donc passer au paiement Wave +226 05 77 73 08 svp une capture pour vérifier le paiement !",
   },
   {
-    id: 'mix',
-    label: 'Mix en cours',
-    icon: Headphones,
+    id: 'wave_ci',
+    label: 'Paiement Wave Côte d\'Ivoire',
+    category: 'Paiement',
+    text: "Nos clients issus de la Côte d'Ivoire nous payent par Wave au +226 05 77 73 08 sans problème !",
+  },
+  {
+    id: 'style_choix',
+    label: 'Style doux ou dansant ?',
+    category: 'Brief & Style',
+    text: "Voulez-vous un style doux ou dansant ?",
+  },
+  {
+    id: 'anecdote_demande',
+    label: 'Message particulier ?',
+    category: 'Brief & Style',
+    text: "Y a-t-il un message particulier que vous aimeriez transmettre à travers la chanson ?",
+  },
+  {
+    id: 'validation_texte',
+    label: 'Avis & Validation définitive texte',
+    category: 'Validation',
+    text: "Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée !",
+  },
+  {
+    id: 'delai_20m',
+    label: 'Délai maximum 20 min',
+    category: 'Délais',
+    text: "Vous serez livré dans maximum 20 minutes !",
+  },
+  {
+    id: 'deux_versions',
+    label: 'Règle des 2 versions',
+    category: 'Studio',
+    text: "Malheureusement, nous envoyons deux versions que du même style. Vous devez cependant faire un choix.",
+  },
+  {
+    id: 'mix_en_cours',
+    label: 'Mixage studio en cours',
+    category: 'Studio',
     text: "Votre chanson est actuellement en plein mixage et mastering au studio ! Ça sort d'ici quelques minutes.",
   },
   {
-    id: 'livraison',
-    label: 'Livraison',
-    icon: CheckCircle2,
+    id: 'livraison_prete',
+    label: 'Livraison chanson prête',
+    category: 'Livraison',
     text: "Votre chanson personnalisée est prête ! Écoutez-la et dites-moi ce que vous en pensez. Merci pour votre confiance !",
   },
+  {
+    id: 'avis_temoignage',
+    label: 'Demande d\'avis client',
+    category: 'Confiance',
+    text: "N'hésitez pas à nous laisser un commentaire pour rassurer ceux qui souvent doutent !",
+  },
+  {
+    id: 'accueil_bonjour',
+    label: 'Bonjour / Nouvelle demande',
+    category: 'Accueil',
+    text: "Bonjour, voulez-vous une chanson personnalisée ?",
+  },
 ];
+
+export interface ActiveOrderScope {
+  activeMessages: ThreadMessage[];
+  allInboundText: string;
+  detectedOccasion: string;
+  recipientName: string;
+  memories: string[];
+  isRepeatCustomer: boolean;
+}
+
+export function extractActiveOrderScope(thread: ThreadMessage[], clientName: string): ActiveOrderScope {
+  if (!thread || thread.length === 0) {
+    return {
+      activeMessages: [],
+      allInboundText: '',
+      detectedOccasion: 'Anniversaire',
+      recipientName: '',
+      memories: [],
+      isRepeatCustomer: false,
+    };
+  }
+
+  // Détection du point de coupure de l'ancienne commande (si ancien client récurrent)
+  let boundaryIdx = 0;
+  let hasPastDelivery = false;
+
+  for (let i = thread.length - 1; i >= 0; i--) {
+    const m = thread[i];
+    const prev = thread[i - 1];
+
+    // Clôture d'une ancienne commande par le studio
+    const isDeliveryMsg = !m.inbound && /\b(votre chanson est prête|chanson est prête|voici votre chanson|chanson personnalisée est prête|merci pour votre confiance|livraison de vos versions|voici le lien de téléchargement)\b/i.test(m.body || '');
+    if (isDeliveryMsg && i < thread.length - 1) {
+      boundaryIdx = i + 1;
+      hasPastDelivery = true;
+      break;
+    }
+
+    // Écart temporel important (> 48 heures) entre deux messages
+    if (prev && m.createdAt && prev.createdAt) {
+      const diffMs = Math.abs(new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime());
+      if (diffMs > 48 * 3600 * 1000 && i < thread.length - 1) {
+        boundaryIdx = i;
+        hasPastDelivery = true;
+        break;
+      }
+    }
+  }
+
+  // Messages appartenant STRICTEMENT à la commande active
+  const activeMessages = thread.slice(boundaryIdx);
+  const activeInbounds = activeMessages.filter((m) => m.inbound);
+
+  const allInboundText = activeInbounds
+    .map((m) => (m.body || '').replace(/[’‘`]/g, "'"))
+    .join(' ')
+    .toLowerCase();
+
+  // Détection d'occasion sur la commande active
+  let detectedOccasion = 'Anniversaire';
+  if (/\b(mariages?|marier|fianc\w*|dots?|époux|epoux|épouse?s?|epouses?|mariés?|maries?)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Mariage';
+  } else if (/\b(hommages?|deuils?|décès|deces|rip|mémoires?|memoires?|funérailles|funerailles|enterrements?|défunts?|defunts?)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Hommage';
+  } else if (/\b(amours?|amoureux|amoureuse|chéris?|cheris?|chérie?s?|cherie?s?|cœurs?|coeurs?|bébés?|bebes?|couples?|saint-valentin|st valentin)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Amour';
+  } else if (/\b(naissances?|baptêmes?|baptemes?|nouveau-nés?|nouveau nes?|accouchements?)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Naissance & Baptême';
+  } else if (/\b(mères?|meres?|mamans?|fête des mères|fete des meres)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Fête des mères';
+  } else if (/\b(pères?|peres?|papas?|fête des pères|fete des peres)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Fête des pères';
+  } else if (/\b(entreprises?|sociétés?|societes?|boutiques?|magasins?|commerces?|publicités?|publicites?|pubs?)\b/i.test(allInboundText)) {
+    detectedOccasion = 'Entreprise & Publicité';
+  }
+
+  // Détection du prénom sur la commande active
+  let recipientName = '';
+  const pourMatch = allInboundText.match(/\bpour\s+(?:un|une|mon|ma|mes|son|sa)?\s*([a-zà-ÿ-]{2,18})/i);
+  const nomMatch = allInboundText.match(/\b(noms?|prénoms?|prenoms?)\s*(?:sont|c'est|est|:)?\s*([a-zà-ÿ-]{2,18})/i);
+  const appelleMatch = allInboundText.match(/\bs'appelle\s+([a-zà-ÿ-]{2,18})/i);
+  const cestMatch = allInboundText.match(/\bc'est\s+([a-zà-ÿ-]{2,18})/i);
+  const destinataireMatch = allInboundText.match(/\bdestinataire\s*[:=]?\s*([a-zà-ÿ-]{2,18})/i);
+
+  const stopWords = [
+    'pour', 'une', 'un', 'des', 'du', 'de', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'lui', 'elle', 'moi', 'nous', 'vous', 'eux',
+    'ce', 'cet', 'cette', 'faire', 'avoir', 'le', 'la', 'les', 'qui', 'quoi', 'comment', 'bien', 'bon', 'super', 'vrai', 'vraiment',
+    'trop', 'parti', 'feter', 'fêter', 'celebrer', 'célébrer', 'notre', 'votre', 'leur', 'aussi', 'dot', 'mariage', 'rendre', 'hommage',
+    'anniversaire', 'danniversaire', 'chanson', 'musique', 'titre', 'texte', 'projet', 'surprise', 'cadeau', 'ami', 'amie', 'amis',
+    'amies', 'pote', 'potes', 'copain', 'copine', 'frere', 'frère', 'soeur', 'sœur', 'pere', 'père', 'mere', 'mère', 'papa', 'maman',
+    'collègue', 'collegue', 'patron', 'mari', 'femme', 'epoux', 'époux', 'epouse', 'épouse', 'personne', 'quelqu'
+  ];
+
+  const testNameCandidate = (candidate?: string) => {
+    if (!candidate) return '';
+    const clean = candidate.trim().toLowerCase();
+    if (stopWords.includes(clean)) return '';
+    return candidate.trim().charAt(0).toUpperCase() + candidate.trim().slice(1);
+  };
+
+  if (appelleMatch && testNameCandidate(appelleMatch[1])) {
+    recipientName = testNameCandidate(appelleMatch[1]);
+  } else if (destinataireMatch && testNameCandidate(destinataireMatch[1])) {
+    recipientName = testNameCandidate(destinataireMatch[1]);
+  } else if (nomMatch && testNameCandidate(nomMatch[2] || nomMatch[3])) {
+    recipientName = testNameCandidate(nomMatch[2] || nomMatch[3]);
+  } else if (pourMatch && testNameCandidate(pourMatch[1])) {
+    recipientName = testNameCandidate(pourMatch[1]);
+  } else if (cestMatch && testNameCandidate(cestMatch[1])) {
+    recipientName = testNameCandidate(cestMatch[1]);
+  }
+
+  const isForSelf = /\b(pour moi|mon propre|c'est moi|pour mon anniversaire)\b/i.test(allInboundText);
+  if (!recipientName && isForSelf && clientName && !clientName.startsWith('+') && !clientName.toLowerCase().includes('client')) {
+    recipientName = clientName.split(' ')[0];
+  }
+
+  // Extraction des souvenirs & anecdotes réelles du client
+  const memories: string[] = [];
+  for (const m of activeInbounds) {
+    const raw = (m.body || '').trim();
+    if (raw.length > 15 && !raw.startsWith('/') && !/^(bonjour|salut|merci|ok|d'accord|bonsoir)/i.test(raw)) {
+      const cleaned = raw.replace(/\b(je veux|j'aimerais|on veut|faites|merci)\b/gi, '').trim();
+      if (cleaned.length > 12) {
+        memories.push(cleaned.slice(0, 100));
+      }
+    }
+  }
+
+  return {
+    activeMessages,
+    allInboundText,
+    detectedOccasion,
+    recipientName: recipientName || (clientName.startsWith('+') ? 'Destinataire' : clientName.split(' ')[0]),
+    memories: memories.slice(0, 3),
+    isRepeatCustomer: hasPastDelivery,
+  };
+}
 
 interface NextStepData {
   stageKey:
@@ -254,67 +472,12 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     return null;
   }
 
-  const allInboundText = inbounds.map((m) => (m.body || '').replace(/[’‘`]/g, "'")).join(' ').toLowerCase();
+  // Extraction du périmètre de la commande active (isole les anciennes commandes pour les clients réguliers)
+  const orderScope = extractActiveOrderScope(messages, conv.name);
+  const detectedOccasion = orderScope.detectedOccasion;
+  const recipientName = orderScope.recipientName;
+  const allInboundText = orderScope.allInboundText;
 
-  // Détection d'occasion avec support singulier & pluriel
-  let detectedOccasion = 'Anniversaire';
-  if (/\b(mariages?|marier|fianc\w*|dots?|époux|epoux|épouse?s?|epouses?|mariés?|maries?)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Mariage';
-  } else if (/\b(hommages?|deuils?|décès|deces|rip|mémoires?|memoires?|funérailles|funerailles|enterrements?|défunts?|defunts?|grand-mère|grand-pere|grand mère|grand pere)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Hommage';
-  } else if (/\b(amours?|amoureux|amoureuse|chéris?|cheris?|chérie?s?|cherie?s?|cœurs?|coeurs?|bébés?|bebes?|couples?|saint-valentin|st valentin)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Amour';
-  } else if (/\b(naissances?|baptêmes?|baptemes?|nouveau-nés?|nouveau nes?|accouchements?)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Naissance & Baptême';
-  } else if (/\b(mères?|meres?|mamans?|fête des mères|fete des meres)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Fête des mères';
-  } else if (/\b(pères?|peres?|papas?|fête des pères|fete des peres)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Fête des pères';
-  } else if (/\b(entreprises?|sociétés?|societes?|boutiques?|magasins?|commerces?|publicités?|publicites?|pubs?|solaires?|ventes?)\b/i.test(allInboundText)) {
-    detectedOccasion = 'Entreprise & Publicité';
-  }
-
-  // Détection du prénom avec filtrage des mots d'arrêt et relations
-  let recipientName = '';
-  const pourMatch = allInboundText.match(/\bpour\s+(?:un|une|mon|ma|mes|son|sa)?\s*([a-zà-ÿ-]{2,18})/i);
-  const nomMatch = allInboundText.match(/\b(noms?|prénoms?|prenoms?)\s*(?:sont|c'est|est|:)?\s*([a-zà-ÿ-]{2,18})/i);
-  const appelleMatch = allInboundText.match(/\bs'appelle\s+([a-zà-ÿ-]{2,18})/i);
-  const cestMatch = allInboundText.match(/\bc'est\s+([a-zà-ÿ-]{2,18})/i);
-  const destinataireMatch = allInboundText.match(/\bdestinataire\s*[:=]?\s*([a-zà-ÿ-]{2,18})/i);
-
-  const stopWords = [
-    'pour', 'une', 'un', 'des', 'du', 'de', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'lui', 'elle', 'moi', 'nous', 'vous', 'eux',
-    'ce', 'cet', 'cette', 'faire', 'avoir', 'le', 'la', 'les', 'qui', 'quoi', 'comment', 'bien', 'bon', 'super', 'vrai', 'vraiment',
-    'trop', 'parti', 'feter', 'fêter', 'celebrer', 'célébrer', 'notre', 'votre', 'leur', 'aussi', 'dot', 'mariage', 'rendre', 'hommage',
-    'anniversaire', 'danniversaire', 'chanson', 'musique', 'titre', 'texte', 'projet', 'surprise', 'cadeau', 'ami', 'amie', 'amis',
-    'amies', 'pote', 'potes', 'copain', 'copine', 'frere', 'frère', 'soeur', 'sœur', 'pere', 'père', 'mere', 'mère', 'papa', 'maman',
-    'collègue', 'collegue', 'patron', 'mari', 'femme', 'epoux', 'époux', 'epouse', 'épouse', 'personne', 'quelqu'
-  ];
-
-  const testNameCandidate = (candidate?: string) => {
-    if (!candidate) return '';
-    const clean = candidate.toLowerCase().trim();
-    if (stopWords.includes(clean)) return '';
-    return clean.charAt(0).toUpperCase() + clean.slice(1);
-  };
-
-  if (appelleMatch && testNameCandidate(appelleMatch[1])) {
-    recipientName = testNameCandidate(appelleMatch[1]);
-  } else if (destinataireMatch && testNameCandidate(destinataireMatch[1])) {
-    recipientName = testNameCandidate(destinataireMatch[1]);
-  } else if (nomMatch && testNameCandidate(nomMatch[2] || nomMatch[3])) {
-    recipientName = testNameCandidate(nomMatch[2] || nomMatch[3]);
-  } else if (pourMatch && testNameCandidate(pourMatch[1])) {
-    recipientName = testNameCandidate(pourMatch[1]);
-  } else if (cestMatch && testNameCandidate(cestMatch[1])) {
-    recipientName = testNameCandidate(cestMatch[1]);
-  }
-
-  // Ne jamais attribuer conv.name comme destinataire par défaut, sauf si le client commande explicitement pour lui-même
-  const isForSelf = /\b(pour moi|mon propre|c'est moi|pour mon anniversaire)\b/i.test(allInboundText);
-  if (!recipientName && isForSelf && conv.name && !conv.name.startsWith('+') && !conv.name.toLowerCase().includes('client')) {
-    recipientName = conv.name.split(' ')[0];
-  }
 
   // 1. Paiement signalé / Justificatif reçu (Cash is King !)
   const isPendingCoords = /\b(envoyez|donnez|partagez|sur quel|quel|ou payer|où payer)\s*(le|votre|un)?\s*(numéro|numero|compte)?\b/i.test(lastText) ||
@@ -849,12 +1012,28 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [outgoing, setOutgoing] = useState<Record<string, OutgoingMessage[]>>({});
   const [cashModalOpen, setCashModalOpen] = useState(false);
   const [isCashing, setIsCashing] = useState(false);
+  const [moreShortcutsOpen, setMoreShortcutsOpen] = useState(false);
 
   const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
 
   const threadRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const moreShortcutsRef = useRef<HTMLDivElement>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | globalThis.MouseEvent) => {
+      if (moreShortcutsRef.current && !moreShortcutsRef.current.contains(e.target as Node)) {
+        setMoreShortcutsOpen(false);
+      }
+    };
+    if (moreShortcutsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [moreShortcutsOpen]);
 
   const term = searchTerm.toLowerCase();
   const searched = conversations.filter(c =>
@@ -1075,6 +1254,68 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     );
   };
 
+  const sendFileMedia = async (url: string, caption?: string, mimetype?: string, filename?: string) => {
+    if (!selectedConv || isSending) return;
+    const conv = selectedConv;
+    const localId = `media-${Date.now()}`;
+    const displayLabel = filename?.includes('video') ? 'Exemple vidéo' : filename?.includes('vocal') ? 'Vocal procédure' : 'Fichier';
+    pushOutgoing(conv.id, {
+      id: localId,
+      inbound: false,
+      body: caption ? `${caption}\n${url}` : displayLabel,
+      createdAt: stampOf(new Date()),
+      receipt: 'pending',
+      sentAt: Date.now(),
+    });
+    setIsSending(true);
+    setSendFeedback(null);
+
+    if (!user) {
+      setTimeout(() => patchOutgoing(conv.id, localId, { receipt: 'delivered', sentAt: Date.now() }), 700);
+      setIsSending(false);
+      showFeedback({ success: true, message: `[Mode Démo] ${displayLabel} simulé pour ${conv.phone}.` });
+      return;
+    }
+
+    try {
+      const res = await sendWahaFileMessage(conv.phone, url, sessionName, { caption, mimetype, filename });
+      patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
+      if (res.success) {
+        recordOutboundMessage(conv.id, caption || url);
+        showFeedback({ success: true, message: `${displayLabel} envoyé à ${conv.phone}.` });
+      } else {
+        const textFallback = caption ? `${caption}\n${url}` : url;
+        const textRes = await sendWahaTextMessage(conv.phone, textFallback, sessionName);
+        patchOutgoing(conv.id, localId, { receipt: textRes.success ? 'sent' : 'failed', waId: textRes.messageId, sentAt: Date.now() });
+        showFeedback({
+          success: textRes.success,
+          message: textRes.success ? `Lien ${displayLabel} envoyé à ${conv.phone}.` : "Erreur d'envoi du média.",
+        });
+      }
+    } catch {
+      showFeedback({ success: false, message: `Erreur d'envoi du média vers WhatsApp.` });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleShortcutClick = (shortcut: QuickShortcut, isShift: boolean) => {
+    if (isShift) {
+      insertSnippet(shortcut.text);
+      return;
+    }
+    if (shortcut.mediaUrl) {
+      sendFileMedia(
+        shortcut.mediaUrl,
+        shortcut.id === 'video_demo' ? "Voici un exemple de notre modèle vidéo avec photos !" : undefined,
+        shortcut.mediaType === 'audio' ? 'audio/mpeg' : 'video/mp4',
+        shortcut.mediaFilename
+      );
+      return;
+    }
+    sendText(shortcut.text);
+  };
+
   /* Insère le snippet au curseur ; Maj+clic l'envoie directement */
   const insertSnippet = (text: string, sendNow = false) => {
     if (sendNow) return sendText(text);
@@ -1096,16 +1337,16 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     });
   };
 
-  /* Alt+1…6 : snippets depuis n'importe où dans la vue */
+  /* Alt+1…5 : raccourcis primaires depuis n'importe où dans la vue */
   const insertRef = useRef(insertSnippet);
   insertRef.current = insertSnippet;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.metaKey || e.ctrlKey) return;
       const idx = Number(e.code.replace('Digit', '')) - 1;
-      if (Number.isInteger(idx) && idx >= 0 && idx < QUICK_SHORTCUTS.length) {
+      if (Number.isInteger(idx) && idx >= 0 && idx < PRIMARY_SHORTCUTS.length) {
         e.preventDefault();
-        insertRef.current(QUICK_SHORTCUTS[idx].text);
+        insertRef.current(PRIMARY_SHORTCUTS[idx].text);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1137,12 +1378,14 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   const handleGenerateLyricsForChat = () => {
     if (!selectedConv) return;
-    const occ = nextStep?.detectedOccasion || 'Anniversaire';
-    const rawName = nextStep?.recipientName || (selectedConv.name.startsWith('+') ? 'Destinataire' : selectedConv.name.split(' ')[0]);
+    const orderScope = extractActiveOrderScope(thread, selectedConv.name);
+    const occ = orderScope.detectedOccasion || nextStep?.detectedOccasion || 'Anniversaire';
+    const rawName = orderScope.recipientName || nextStep?.recipientName || (selectedConv.name.startsWith('+') ? 'Destinataire' : selectedConv.name.split(' ')[0]);
     const name = rawName || 'Destinataire';
     const song = generateHouseStyleSong({
       recipient: name,
       occasion: occ,
+      memories: orderScope.memories,
     });
     const formatted = `*${song.title}*\n\n${song.lyrics}`;
     setReplyText(formatted);
@@ -1151,7 +1394,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     }
     showFeedback({
       success: true,
-      message: `Texte généré pour ${name} (${occ}) ! Vous avez juste à relire et cliquer sur Envoyer.`,
+      message: `Texte généré pour ${name} (${occ}${orderScope.isRepeatCustomer ? ' - Nouvelle commande isolée' : ''}) ! Vous avez juste à relire et cliquer sur Envoyer.`,
     });
   };
 
@@ -1620,28 +1863,69 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 {/* ⚡ Raccourcis WhatsApp & Actions Clés */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                    {QUICK_SHORTCUTS.map((snip, i) => {
+                    {PRIMARY_SHORTCUTS.map((snip, i) => {
                       const Icon = snip.icon;
                       return (
                         <button
                           key={snip.id}
                           type="button"
-                          onClick={(e) => {
-                            if (e.shiftKey) {
-                              insertSnippet(snip.text);
-                            } else {
-                              sendText(snip.text);
-                            }
-                          }}
+                          onClick={(e) => handleShortcutClick(snip, e.shiftKey)}
                           title={`${snip.text}\n\n• Clic : Envoyer directement sur WhatsApp\n• Maj+Clic (ou Alt+${i + 1}) : Insérer dans le champ pour modifier`}
                           className="group/snip inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] font-medium text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/[0.07] active:scale-95 transition-all cursor-pointer"
                         >
-                          <Icon className="h-3.5 w-3.5 text-neutral-400 group-hover/snip:text-white" strokeWidth={1.5} />
+                          {Icon && <Icon className="h-3.5 w-3.5 text-neutral-400 group-hover/snip:text-white" strokeWidth={1.5} />}
                           <span>{snip.label}</span>
                           <span className="hidden xl:inline font-mono text-[10px] text-neutral-600 group-hover/snip:text-neutral-400">{i + 1}</span>
                         </button>
                       );
                     })}
+
+                    {/* Menu déroulant compact "Autres ▾" */}
+                    <div className="relative" ref={moreShortcutsRef}>
+                      <button
+                        type="button"
+                        onClick={() => setMoreShortcutsOpen(!moreShortcutsOpen)}
+                        title="Autres réponses fréquentes & messages types"
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-all cursor-pointer ${
+                          moreShortcutsOpen
+                            ? 'border-white/30 bg-white/10 text-white'
+                            : 'border-white/[0.08] bg-white/[0.03] text-neutral-400 hover:text-neutral-200 hover:border-white/20 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <span>Autres</span>
+                        <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${moreShortcutsOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {moreShortcutsOpen && (
+                        <div className="absolute bottom-full left-0 mb-2 w-72 sm:w-80 rounded-xl border border-white/[0.12] bg-[#0E1015] p-1.5 shadow-2xl z-50 vx-fade-in space-y-0.5 max-h-72 overflow-y-auto no-scrollbar">
+                          <div className="px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-neutral-500 border-b border-white/[0.06] mb-1">
+                            Raccourcis Fréquents (Clic = Envoi direct)
+                          </div>
+                          {MORE_SHORTCUTS.map((snip) => (
+                            <button
+                              key={snip.id}
+                              type="button"
+                              onClick={(e) => {
+                                handleShortcutClick(snip, e.shiftKey);
+                                setMoreShortcutsOpen(false);
+                              }}
+                              title={`${snip.text}\n\n• Clic : Envoyer\n• Maj+Clic : Insérer dans le champ`}
+                              className="w-full text-left flex items-start justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[12px] text-neutral-300 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer group"
+                            >
+                              <div className="flex-1 truncate">
+                                <span className="font-medium text-neutral-200 group-hover:text-white">{snip.label}</span>
+                                <p className="text-[11px] text-neutral-500 truncate group-hover:text-neutral-400">{snip.text}</p>
+                              </div>
+                              {snip.category && (
+                                <span className="text-[9.5px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-neutral-500 shrink-0">
+                                  {snip.category}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 ml-auto">
