@@ -5,10 +5,11 @@ import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLea
 const LIST_LIMIT = 300;
 const ORDER_LIMIT = 500;
 
+const metaEnv = (import.meta as any)?.env || {};
 export const SUPABASE_CONFIG = {
-  projectId: import.meta.env.VITE_SUPABASE_PROJECT_ID || 'dnwlqgsftauqsyjwhoza',
-  url: import.meta.env.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co',
-  publishableKey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_38Tf-R7h1t-aFeNmOv6vMg_-VgH3DDI',
+  projectId: metaEnv.VITE_SUPABASE_PROJECT_ID || 'dnwlqgsftauqsyjwhoza',
+  url: metaEnv.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co',
+  publishableKey: metaEnv.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_38Tf-R7h1t-aFeNmOv6vMg_-VgH3DDI',
 };
 
 // Instance du client Supabase
@@ -690,4 +691,50 @@ export async function updateConversationReadStatus(conversationId: string, unrea
   }
 }
 
+/**
+ * Enregistre ou met à jour une commande de chanson pour un contact / conversation
+ */
+export async function createOrUpdateLiveOrder(params: {
+  contactId?: string;
+  conversationId?: string;
+  amountCents: number;
+  paymentMethod?: string;
+  status?: 'pending' | 'validated' | 'delivered';
+  notes?: string;
+}): Promise<{ success: boolean; orderId?: string; error?: string }> {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .insert({
+        contact_id: params.contactId || null,
+        conversation_id: params.conversationId || null,
+        amount_cents: params.amountCents,
+        currency: 'XOF',
+        status: params.status || 'pending',
+        payment_method: params.paymentMethod || 'Wave',
+        notes: params.notes || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
 
+    if (error) {
+      console.error('Erreur insertion commande live:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Mettre à jour l'étape du funnel de la conversation si présente
+    if (params.conversationId) {
+      const nextStage = params.status === 'delivered' ? 'livre' : params.status === 'validated' ? 'paid' : 'devis';
+      await supabase
+        .from('conversations')
+        .update({ funnel_stage: nextStage, updated_at: new Date().toISOString() })
+        .eq('id', params.conversationId);
+    }
+
+    return { success: true, orderId: data?.id };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erreur inattendue' };
+  }
+}

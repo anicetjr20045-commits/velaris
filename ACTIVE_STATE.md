@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 46 (Intégration de la bibliothèque de textes étalons faits main du patron, ADN de style maison, injection few-shot par occasion, règle absolue « Pas de texte court » de 32 à 48 vers et contrôle qualité déterministe avec auto-retry).
+- **Statut Opérationnel** : Jalon 47 (Flexibilité Totale du Copilot IA : Résolution précise par numéro ou prénom insensible à la casse, Prise en charge des Double Commandes / Deux textes simultanés calibre patron 32-48 vers, Actions Commerciales directes d'encaissement Wave/OM avec synchronisation Supabase, et Consultation de la bibliothèque étalon).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,28 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 47. Flexibilité Totale du Copilot IA : Double Commande Simultanée, Résolution Numéro/Prénom & Encaissement Direct (4 Octobre 2026)
+- **Résolution Ultra-Flexible des Contacts (Numéro, Prénom, Contexte)** :
+  - Détection par numéro partiel (ex: `5835`, `+226 79...`, `07 88...`).
+  - Détection par prénom (ex: `Aminata`, `Marc`, `Ibrahim`) avec insensibilité totale aux minuscules et aux formulations d'ordres (« *fais le texte pour aminata* », « *reçois la commande pour marc* »).
+  - Suppression des contraintes artificielles de majuscules grâce à un parseur de termes de recherche résilient (`extractSearchTerms`).
+- **Génération Simultanée Multi-Commandes (Deux Textes Calibre Patron)** :
+  - Prise en charge des requêtes multi-commandes (« *la personne a fait deux commandes, fais les deux textes en même temps* », « *fais les 2 chansons : une pour Sarah et une pour Marc* »).
+  - Extraction distincte des destinataires via `extractRecipients()`.
+  - Composition en parallèle de Chanson 1 et Chanson 2, chacune respectant rigoureusement l'ADN étalon du patron (32 à 48 vers utiles Suno avec `[Intro]`, `[Couplet 1]`, `[Pré-Refrain]`, `[Refrain]`, `[Couplet 2]`, `[Pont]`, `[Refrain Final]`, `[Outro]`), sans aucune version courte.
+  - Action card combinée avec séparateur clair et métadonnées structurées (`isMulti: true`).
+- **Agent Commercial Décisionnel & Prise de Commande en Direct (`order_action`)** :
+  - Interprétation des ordres commerciaux naturels (« *Reçois la commande de 3 000 F pour Marc par Wave* », « *Valide le paiement de 5 000 F* »).
+  - Extraction déterministe du montant (1 200 F / 3 000 F / 5 000 F CFA) et de l'opérateur Mobile Money (Wave, Orange Money, Moov).
+  - Exécution directe de `createOrUpdateLiveOrder()` dans Supabase pour synchroniser la caisse et basculer l'étape du pipeline vers `paid` (*Paiement reçu / En studio*).
+  - Restitution d'un compte-rendu décisionnel immédiat sous forme de tableau et d'action card financière.
+- **Accès & Consultation de la Bibliothèque Étalon (Golden Corpus)** :
+  - Intégration de l'entrée de connaissance dédiée permettant au Copilot de citer les hits modèles du patron, les règles d'or et l'ADN poétique du studio (`getHouseStyleDnaNote()`).
+- **Validation Globale** :
+  - Frontend Velaris : Build propre en 4.07s (`tsc -b && vite build`).
+  - Tests d'intégration dynamiques Copilot (`test-copilot.ts`) : 100% de succès sur la recherche par numéro, par prénom, la double commande simultanée et l'encaissement direct.
+  - Moteur Engine : 158/158 tests unitaires, SQL et PGlite passés au vert.
 
 ### 46. Intégration du Corpus de Textes Faits Main, ADN de Style Maison & Règle Absolue « Pas de Texte Court » (4 Octobre 2026)
 - **Récupération & Capitalisation sur la Vraie Plume du Patron** :

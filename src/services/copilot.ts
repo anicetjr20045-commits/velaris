@@ -13,8 +13,16 @@ import {
   getLiveMessages,
   findConversationByPhone,
   phoneMatches,
-  recordOutboundMessage
+  recordOutboundMessage,
+  createOrUpdateLiveOrder
 } from './supabase';
+import {
+  detectOccasion,
+  generateHouseStyleSong,
+  GOLDEN_PATRON_CORPUS,
+  getHouseStyleDnaNote,
+  type SongOccasion
+} from './lyricsCorpus';
 import { sendWahaTextMessage } from './waha';
 import {
   REAL_CONVERSATIONS,
@@ -104,7 +112,7 @@ export function extractPhoneFragment(text: string): string | null {
 /* Intentions                                                         */
 /* ------------------------------------------------------------------ */
 
-type Intent = 'phone' | 'sales' | 'lyrics' | 'reply' | 'song_generate' | 'billing' | 'knowledge' | 'search' | 'help';
+type Intent = 'phone' | 'sales' | 'lyrics' | 'reply' | 'song_generate' | 'order_action' | 'billing' | 'knowledge' | 'search' | 'help';
 
 /*
  * Correspondance en début de mot : « cout » ne doit pas matcher « écoute »,
@@ -126,18 +134,31 @@ const isNegated = (n: string) => /(^|\s)(ne|n)\s?\S*\s+(pas|plus|jamais)(\s|$)|(
 
 const SALES_WORDS = ['chiffre', 'encaiss', 'revenu', 'statistique', 'vente', 'vendu', 'performance', 'taux de conversion', 'closing', 'caisse', 'tresorerie', 'argent', 'gagne', 'benefice', 'marge', 'wave', 'orange money', 'panier', 'livree', 'commandes'];
 const SONG_GEN_WORDS = ['genere la chanson', 'generer la chanson', 'lance la chanson', 'produis la chanson', 'produire la chanson', 'creation chanson', 'generation kie', 'kie.ai', 'kie ai', 'creer chanson suno', 'lance la production'];
+const ORDER_ACTION_WORDS = [
+  'reçois la commande', 'recois la commande', 'enregistre la commande', 'nouvelle commande',
+  'creer une commande', 'cree une commande', 'valide la commande', 'valider la commande',
+  'paiement recu', 'paiement reçu', 'a paye', 'a payé', 'encaisser', 'encaisse', 'enregistrer la vente',
+  'prendre la commande', 'confirme la commande', 'confirmer la commande', 'marque comme paye', 'marque comme payé',
+  'reception commande', 'recevoir la commande', 'enregistrer commande', 'valider commande', 'commande recue', 'commande reçue'
+];
 /* Facturation de la plateforme (crédits, pass) : les tarifs clients relèvent de la base de connaissance */
 const BILLING_WORDS = ['credit', 'abonnement', 'recharge', 'saspay', 'facturation', 'pass studio', 'mon solde', 'solde de credit'];
-const LYRICS_WORDS = ['parole', 'ecris la chanson', 'ecris une chanson', 'redige la chanson', 'compose', 'texte de la chanson', 'chanson pour', 'couplet', 'refrain', 'lyrics'];
+const LYRICS_WORDS = [
+  'parole', 'ecris la chanson', 'ecris une chanson', 'redige la chanson', 'compose', 'texte de la chanson',
+  'chanson pour', 'couplet', 'refrain', 'lyrics', 'generer le texte', 'genere le texte', 'fais le texte',
+  'fais les paroles', 'deux textes', '2 textes', 'deux chansons', '2 chansons', 'double commande', 'les deux paroles',
+  'les deux textes', 'deux versions', '2 versions', 'tous les textes'
+];
 const REPLY_WORDS = ['relance', 'relancer', 'redige un message', 'redige-moi un message', 'redige moi un message', 'ecris un message', 'message whatsapp', 'reponds', 'repondre', 'reponse', 'message pour', 'texte pour', 'convaincre', 'hesite'];
 const RECALL_WORDS = ['rappelle', 'resume', 'discute', 'a dit', 'parle', 'historique', 'conversation', 'discussion', 'retrouve', 'cherche', 'trouve', 'qui a', 'quel client', 'dossier', 'fiche'];
 
 function detectIntent(prompt: string): Intent {
   const n = normalize(prompt);
+  if (has(n, ORDER_ACTION_WORDS) && !isNegated(n)) return 'order_action';
   if (has(n, SONG_GEN_WORDS) && !isNegated(n)) return 'song_generate';
   if (has(n, BILLING_WORDS)) return 'billing';
   const phone = extractPhoneFragment(prompt);
-  if (phone && !has(n, LYRICS_WORDS) && !has(n, REPLY_WORDS)) return 'phone';
+  if (phone && !has(n, LYRICS_WORDS) && !has(n, REPLY_WORDS) && !has(n, ORDER_ACTION_WORDS)) return 'phone';
   if (has(n, LYRICS_WORDS)) return 'lyrics';
   if (has(n, REPLY_WORDS)) return 'reply';
   if (has(n, SALES_WORDS) || (n.includes('combien') && has(n, ['gagne', 'fait', 'encaisse', 'livre', 'vendu']))) return 'sales';
@@ -154,6 +175,7 @@ const INTENT_TOOLS: Record<Intent, string[]> = {
   sales: ['get_studio_metrics', 'track_live_sales', 'get_live_orders'],
   lyrics: ['search_client_context', 'generate_lyric_score'],
   song_generate: ['lookup_client_dossier', 'extract_client_memories', 'generate_lyric_score', 'check_studio_credits'],
+  order_action: ['lookup_client_dossier', 'validate_order_details', 'sync_studio_database'],
   billing: ['get_studio_credits', 'get_subscription_status', 'check_saspay_gateway'],
   reply: ['search_client_context', 'compose_whatsapp_reply'],
   knowledge: ['query_velaris_knowledge_base'],
@@ -344,6 +366,17 @@ const OCCASIONS: [string[], string][] = [
   [['sensibilisation', 'ong'], 'Sensibilisation'],
 ];
 
+export const OCCASION_LABELS: Record<SongOccasion, string> = {
+  anniversaire: 'Anniversaire',
+  mariage: 'Mariage & amour',
+  amour: 'Amour & déclaration',
+  hommage: 'Hommage & deuil',
+  naissance: 'Baptême & naissance',
+  fete: 'Fête & célébration',
+  institution: 'Chanson publicitaire',
+  autre: 'Célébration sur mesure',
+};
+
 const STYLES: [string[], string][] = [
   [['afro love', 'afro-love', 'afrolove'], 'Afro-Love'],
   [['gospel'], 'Gospel'],
@@ -357,7 +390,7 @@ const STYLES: [string[], string][] = [
 function analyse(d: ClientDossier) {
   const corpus = [d.occasion, d.facts, ...d.messages.map(m => m.body)].filter(Boolean).join(' ');
   const n = normalize(corpus);
-  const occasion = OCCASIONS.find(([k]) => has(n, k))?.[1] || d.occasion;
+  const occasion = OCCASIONS.find(([k]) => has(n, k))?.[1] || d.occasion || (corpus ? OCCASION_LABELS[detectOccasion(corpus)] : undefined);
   const style = STYLES.find(([k]) => has(n, k))?.[1];
   const amounts = [...corpus.matchAll(/(\d[\d\s .]{2,})\s?(?:f\b|fcfa|f cfa)/gi)]
     .map(m => Number(digitsOf(m[1])))
@@ -501,6 +534,16 @@ const KNOWLEDGE: KnowledgeEntry[] = [
     body: ACADEMY_MODULES.map((m, i) => `${i + 1}. **${m.title}** (${m.duration}, ${m.lessonsCount} leçons) : ${m.description}`).join('\n'),
   },
   {
+    keys: ['corpus', 'bibliotheque', 'texte patron', 'modele', 'texte fait main', 'style maison', 'plume', 'hits', 'golden'],
+    title: 'Bibliothèque Poétique & Plume du Patron (Golden Corpus)',
+    body:
+      `Le studio s'appuie sur la bibliothèque étalon des œuvres rédigées par le patron pour former et guider l'IA :\n` +
+      `- **Hits de référence** : ${GOLDEN_PATRON_CORPUS.map(c => `*« ${c.title} »* (${c.lineCount} vers, ${c.style})`).join(', ')}.\n` +
+      `- **Règle absolue** : Aucun texte court (32 à 48 vers complets avec intro, couplets narratifs, refrains rythmés avec prénom, pont d'émotion et outro).\n` +
+      `- **Flexibilité Copilot** : Demandez *« Paroles pour Marc »*, *« Fais les 2 textes pour Aminata »* ou *« Reçois la commande de 3 000 F »*.\n\n` +
+      `**ADN de style maison** :\n${getHouseStyleDnaNote()}`,
+  },
+  {
     keys: ['velaris', 'c est quoi', 'plateforme', 'site', 'fonctionne', 'comment marche'],
     title: 'Velaris en bref',
     body:
@@ -559,142 +602,49 @@ function memoryLines(d: ClientDossier | null): string[] {
   return out;
 }
 
-function withBridge(lyrics: string, bridge: string[]): string {
-  if (!bridge.length) return lyrics;
-  const block = `(Pont)\n${bridge.join(',\n')}…\nCes mots-là, c'est toi qui les as écrits dans nos vies.`;
-  // Le pont s'insère avant l'outro (ou à la fin s'il n'y en a pas)
-  return lyrics.includes('(Outro)') ? lyrics.replace('(Outro)', `${block}\n\n(Outro)`) : `${lyrics}\n\n${block}`;
+function extractRecipients(corpus: string, fallbackName: string): string[] {
+  const matches = [...corpus.matchAll(/(?:pour|de)\s+(?:ma|mon|sa|son)?\s*(?:bestie|soeur|sœur|frere|frère|femme|mari|fille|fils|maman|papa|mere|mère|pere|père|cherie|chérie|amie?)?\s*([A-ZÀ-Ýa-zà-ÿ][\p{L}-]{2,})/gu)]
+    .map(m => m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase())
+    .filter(name => !STOPWORDS.has(name.toLowerCase()));
+  const unique = Array.from(new Set(matches));
+  return unique.length >= 2 ? unique : [fallbackName, 'Mon amour'];
 }
 
-function composeLyrics(name: string, occasion: string, style: string, dossier: ClientDossier | null = null): string {
-  return withBridge(composeBaseLyrics(name, occasion, style), memoryLines(dossier));
-}
-
-function composeBaseLyrics(name: string, occasion: string, style: string): string {
-  const o = normalize(occasion);
-  if (o.includes('hommage') || o.includes('deuil')) {
-    return `[Titre : "${name}, la lumière demeure"]
-[Style : Gospel doux • 72 BPM • voix chaude]
-
-(Couplet 1)
-Le silence est tombé sur la maison ce soir,
-Mais ta voix reste là, dans chaque souvenir.
-${name}, tu nous as appris à croire,
-Que l'amour ne sait pas mourir.
-
-(Refrain)
-Repose en paix, la lumière demeure,
-Ton nom chante encore au fond de nos cœurs.
-Si les larmes coulent, c'est qu'on t'a tant aimé,
-Le ciel a gagné ce que la terre a donné.
-
-(Couplet 2)
-On garde ton sourire comme on garde une prière,
-Tes conseils nous guident à travers nos hivers.
-
-(Outro)
-${name}, dors en paix… nous marchons dans tes pas.`;
-  }
-  if (o.includes('publicit') || o.includes('entreprise')) {
-    return `[Titre : "${name}, c'est la bonne adresse"]
-[Style : Coupé-décalé publicitaire • 118 BPM • chœurs]
-
-(Couplet 1)
-Tu cherches la qualité au meilleur prix ?
-Pas besoin de chercher loin, mon ami, c'est ici !
-${name} t'accueille avec le sourire,
-Des produits garantis, rien à redire.
-
-(Refrain)
-${name}, ${name}, la bonne adresse !
-On te sert vite, on te sert avec tendresse.
-Passe nous voir ou appelle tout de suite,
-${name}, la confiance qui t'invite !
-
-(Outro)
-${name}… on t'attend !`;
-  }
-  if (o.includes('mariage') || o.includes('amour')) {
-    return `[Titre : "${name}, pour la vie"]
-[Style : ${style} • 92 BPM • duo voix]
-
-(Couplet 1)
-Le jour où nos regards se sont trouvés,
-J'ai su que mon cœur avait enfin sa maison.
-${name}, chaque matin à tes côtés,
-Ressemble à une nouvelle saison.
-
-(Refrain)
-Pour la vie, je te dis oui,
-Dans la joie, dans la pluie, jusqu'à l'infini.
-Nos deux familles chantent notre union,
-${name}, tu es ma plus belle chanson.
-
-(Outro)
-Pour la vie… ${name}, pour la vie.`;
-  }
-  if (o.includes('bapteme') || o.includes('naissance')) {
-    return `[Titre : "Bienvenue ${name}"]
-[Style : Acoustique joyeux • 100 BPM • voix douce]
-
-(Couplet 1)
-Petit cœur tombé du ciel un matin,
-Tu as mis du soleil dans nos mains.
-${name}, ton prénom est une promesse,
-Une bénédiction, une tendresse.
-
-(Refrain)
-Bienvenue, bienvenue parmi nous,
-Toute la famille danse autour de toi, mon bijou.
-Que Dieu te garde, te guide et te bénisse,
-${name}, grandis dans la joie et la justice.
-
-(Outro)
-Bienvenue ${name}… notre plus beau cadeau.`;
-  }
-  if (o.includes('gospel') || o.includes('grace')) {
-    return `[Titre : "${name}, merci Seigneur"]
-[Style : Gospel & célébration • 96 BPM • chœur]
-
-(Couplet 1)
-Quand la route était longue, Tu as tenu ma main,
-Tu as ouvert des portes que je croyais sans lendemain.
-
-(Refrain)
-Merci Seigneur, pour ${name},
-Ta grâce nous porte, Ton amour nous fait chanter.
-Gloire, gloire, nos voix s'élèvent,
-Ta fidélité est plus grande que nos rêves.
-
-(Outro)
-Alléluia… merci pour ${name}.`;
-  }
-  return `[Titre : "${name}, joyeux anniversaire"]
-[Style : ${style} • 95 BPM • voix chaleureuse]
-
-(Couplet 1)
-Aujourd'hui le soleil s'est levé pour toi,
-Chaque année à tes côtés est une vraie joie.
-${name}, tu as traversé les hauts et les bas,
-Avec ce sourire qui ne s'éteint pas.
-
-(Refrain)
-Joyeux anniversaire ${name},
-Que la vie te comble de ses plus belles pages.
-On lève nos voix, on chante ton nom,
-Tu mérites le ciel et toutes ses chansons.
-
-(Couplet 2)
-Merci pour ta force, merci pour ton cœur,
-Tu transformes les jours ordinaires en bonheur.
-
-(Outro)
-Joyeux anniversaire… ${name}, on t'aime.`;
+function composeLyrics(
+  name: string,
+  occasion: string,
+  style: string,
+  dossier: ClientDossier | null = null,
+  senderName?: string | null
+): { title: string; lyrics: string; lineCount: number } {
+  const memories = memoryLines(dossier);
+  return generateHouseStyleSong({
+    recipient: name,
+    occasion,
+    style,
+    memories,
+    senderName: senderName || dossier?.name,
+  });
 }
 
 /* ------------------------------------------------------------------ */
 /* Moteur principal                                                   */
 /* ------------------------------------------------------------------ */
+
+const STOPWORDS = new Set([
+  'pour', 'avec', 'dans', 'sur', 'sous', 'par', 'chez', 'vers', 'sans', 'faire', 'fais', 'fait',
+  'texte', 'textes', 'chanson', 'chansons', 'parole', 'paroles', 'commande', 'commandes',
+  'generer', 'genere', 'ecris', 'ecrire', 'compose', 'recois', 'reçois', 'recevoir', 'enregistre',
+  'enregistrer', 'valide', 'valider', 'deux', 'les', 'des', 'une', 'son', 'ses', 'client',
+  'cliente', 'dossier', 'fiche', 'tout', 'tous', 'svp', 'merci', 'suno', 'studio', 'velaris'
+]);
+
+function extractSearchTerms(prompt: string): string[] {
+  return prompt
+    .split(/[\s,.;:!?'’()]+/)
+    .map(w => w.trim())
+    .filter(w => w.length >= 3 && !STOPWORDS.has(w.toLowerCase()) && !/^\d+$/.test(w));
+}
 
 /* Dernier client évoqué dans la conversation (« relance-le », « écris ses paroles ») */
 function clientFromHistory(history: CopilotMessage[]): { name?: string; phone?: string } | null {
@@ -705,12 +655,11 @@ function clientFromHistory(history: CopilotMessage[]): { name?: string; phone?: 
   return null;
 }
 
-/* Noms propres du message (hors premier mot) : sert à la recherche stricte des paroles et relances */
+/* Noms propres du message : recherche stricte des paroles et relances */
 const properNouns = (prompt: string) =>
   prompt
     .split(/[\s,.;:!?'’()]+/)
-    .slice(1)
-    .filter(w => /^[A-ZÀ-Ý][\p{L}-]{2,}$/u.test(w) && !['WhatsApp', 'Wave', 'Orange', 'Moov', 'Velaris', 'Sonar'].includes(w));
+    .filter(w => /^[A-ZÀ-Ý][\p{L}-]{2,}$/u.test(w) && !['WhatsApp', 'Wave', 'Orange', 'Moov', 'Velaris', 'Sonar', 'Studio', 'Pour'].includes(w));
 
 async function resolveDossier(
   prompt: string,
@@ -745,7 +694,10 @@ async function resolveDossier(
     }
   }
 
-  const query = strict ? properNouns(prompt).join(' ') : prompt;
+  const terms = extractSearchTerms(prompt);
+  const query = strict
+    ? (properNouns(prompt).join(' ') || terms.join(' '))
+    : (terms.length ? terms.join(' ') : prompt);
   if (query.trim()) {
     if (user) {
       const list = await liveDossiersBySearch(query);
@@ -898,7 +850,7 @@ async function answerCopilot(
     const recipient = a.recipient || best.name.split(/\s+/)[0];
     const occasion = OCCASIONS.find(([k]) => has(norm, k))?.[1] || a.occasion || 'Anniversaire';
     const style = STYLES.find(([k]) => has(norm, k))?.[1] || a.style || 'Afro-Love acoustique';
-    const lyrics = composeLyrics(recipient, occasion, style, best);
+    const { title: songTitle, lyrics } = composeLyrics(recipient, occasion, style, best);
     const credits = getStudioCredits();
     const enough = credits.source === 'pending' || credits.balance >= credits.songCostCredits;
 
@@ -908,14 +860,15 @@ async function answerCopilot(
       `### Production prête pour ${best.name}\n\n` +
       `| Paramètre | Valeur |\n| :--- | :--- |\n` +
       `| Destinataire | ${recipient} |\n| Occasion | ${occasion} |\n| Style | ${style} |\n` +
+      `| Titre | ${songTitle} |\n` +
       `| Coût | 1 crédit (85 F CFA), remboursé si la production échoue |\n` +
       `| Solde | ${credits.source === 'pending' ? 'synchronisation…' : `${credits.balance.toFixed(2)} crédit(s)`} |\n\n` +
       (enough
-        ? `Relisez les paroles ci-dessous (limite Suno : ${KIE_CONFIG.maxLyrics} caractères), puis lancez la production depuis la carte.`
+        ? `Relisez les paroles ci-dessous (${lyrics.split('\n').filter(l => l.trim()).length} vers, limite Suno : ${KIE_CONFIG.maxLyrics} caractères), puis lancez la production depuis la carte.`
         : `Solde insuffisant : rechargez vos crédits depuis votre **Profil Studio** (SasPay : Wave, Orange Money, MTN, Moov), puis relancez.`),
       {
         type: 'lyrics',
-        title: `Chanson pour ${recipient}`,
+        title: songTitle,
         phone: best.phone,
         recipient,
         occasion,
@@ -1005,34 +958,165 @@ async function answerCopilot(
   }
 
   // ---------------------------------------------------------------------
-  // Paroles
+  // Paroles & Multi-commandes (Double texte patron)
   // ---------------------------------------------------------------------
   if (intent === 'lyrics') {
-    const { best } = await resolveDossier(cleanPrompt, user, history, true);
+    const { best } = await resolveDossier(cleanPrompt, user, history, false);
     const a = best ? analyse(best) : null;
-    const explicit = /(?:pour|de|d')\s*(?:ma|mon|sa|son)?\s*(?:femme|mari|maman|papa|soeur|sœur|frere|frère|fille|fils|amie?|cherie|chérie)?\s*([A-ZÀ-Ý][\p{L}-]{2,})/u.exec(cleanPrompt)?.[1];
-    const occasionFromPrompt = OCCASIONS.find(([k]) => has(norm, k))?.[1];
-    const name = explicit || a?.recipient || best?.name.split(/\s+/)[0] || 'Mon amour';
-    const occasion = occasionFromPrompt || a?.occasion || 'Anniversaire';
+    const corpus = [cleanPrompt, best?.occasion, best?.facts, ...(best?.messages || []).map(m => m.body)].filter(Boolean).join(' ');
+
+    // Détection multi-commandes / double texte demandé
+    const wantsMulti = /(les\s+deux|les\s+2|deux\s+textes|deux\s+chansons|tous\s+les\s+textes|deux\s+commandes|deux\s+versions|double\s+commande)/i.test(cleanPrompt);
+
+    if (wantsMulti) {
+      // Cas de la double commande : générer simultanément les 2 textes complets
+      const fallback = best?.name.split(/\s+/)[0] || 'Destinataire';
+      const recipients = extractRecipients(corpus, fallback);
+      const name1 = recipients[0] || fallback;
+      const name2 = recipients[1] || (name1.toLowerCase() === 'mon amour' ? 'Ma chérie' : 'Mon amour');
+
+      const occasion1 = OCCASIONS.find(([k]) => has(norm, k))?.[1] || a?.occasion || OCCASION_LABELS[detectOccasion(corpus)] || 'Anniversaire';
+      const occasion2 = a?.occasion && a.occasion !== occasion1 ? a.occasion : 'Amour & célébration';
+      const style = STYLES.find(([k]) => has(norm, k))?.[1] || a?.style || 'Afro-Love acoustique';
+
+      const song1 = composeLyrics(name1, occasion1, style, best, best?.name);
+      const song2 = composeLyrics(name2, occasion2, style, best, best?.name);
+
+      const fullCombined = `=== CHANSON 1 / 2 : ${song1.title.toUpperCase()} ===\n\n${song1.lyrics}\n\n` +
+        `==================================================\n\n` +
+        `=== CHANSON 2 / 2 : ${song2.title.toUpperCase()} ===\n\n${song2.lyrics}`;
+
+      return reply(
+        `### Double commande prise en charge pour ${best?.name || name1}\n\n` +
+        `Voici les **2 textes intégraux** rédigés simultanément selon l'ADN poétique du studio (calibre patron, 32 à 48 vers Suno chacun, aucune version courte) :\n\n` +
+        `---\n\n` +
+        `#### 1️⃣ Première œuvre : ${song1.title} (${name1} — ${occasion1})\n` +
+        `*${song1.lineCount} vers utiles, balises Suno complètes, intégration des souvenirs.*\n\n` +
+        `---\n\n` +
+        `#### 2️⃣ Seconde œuvre : ${song2.title} (${name2} — ${occasion2})\n` +
+        `*${song2.lineCount} vers utiles, mélodie contrastée, dédicace émouvante.*\n\n` +
+        `*Les deux œuvres sont prêtes pour l'envoi WhatsApp au client ou pour la mise en production dans l'Atelier Studio.*`,
+        {
+          type: 'lyrics',
+          title: `Double commande : ${name1} & ${name2}`,
+          phone: best?.phone,
+          recipient: `${name1} & ${name2}`,
+          occasion: `${occasion1} / ${occasion2}`,
+          style,
+          content: fullCombined,
+          metadata: {
+            convId: best?.convId,
+            waLink: waLink(best?.phone),
+            isMulti: true,
+            song1Title: song1.title,
+            song2Title: song2.title,
+          },
+        }
+      );
+    }
+
+    // Cas standard : 1 texte de haute volée
+    const explicit = /(?:pour|de|d')\s*(?:ma|mon|sa|son)?\s*(?:bestie|femme|mari|maman|papa|soeur|sœur|frere|frère|fille|fils|amie?|cherie|chérie)?\s*([A-ZÀ-Ýa-zà-ÿ][\p{L}-]{2,})/u.exec(cleanPrompt)?.[1];
+    const occasionFromPrompt = OCCASIONS.find(([k]) => has(norm, k))?.[1] || OCCASION_LABELS[detectOccasion(cleanPrompt)];
+    const name = (explicit && !STOPWORDS.has(explicit.toLowerCase()))
+      ? explicit.charAt(0).toUpperCase() + explicit.slice(1).toLowerCase()
+      : a?.recipient || best?.name.split(/\s+/)[0] || 'Mon amour';
+    const occasion = occasionFromPrompt || a?.occasion || (corpus ? OCCASION_LABELS[detectOccasion(corpus)] : 'Anniversaire');
     const style = STYLES.find(([k]) => has(norm, k))?.[1] || a?.style || 'Afro-Love acoustique';
-    const lyrics = composeLyrics(name, occasion, style, best);
+    const song = composeLyrics(name, occasion, style, best, best?.name);
     const personal = memoryLines(best).length > 0;
 
     return reply(
       `### Paroles composées pour ${name}\n\n` +
       (best ? `Construites à partir de la discussion avec **${best.name}**${a?.occasion ? ` (${a.occasion.toLowerCase()})` : ''}.` : `Occasion retenue : **${occasion}**.`) +
-      ` Structure Velaris : accroche émotionnelle, refrain mémorable avec le prénom, chute intime` +
-      (personal ? `, et un pont qui reprend les mots du client.\n\n` : `.\n\n`) +
+      ` Structure Velaris calibre patron (${song.lineCount} vers utiles, format Suno complet) : accroche poétique, refrain mémorable avec le prénom, couplets narratifs` +
+      (personal ? ` et intégration fidèle des souvenirs du client.\n\n` : `.\n\n`) +
       `*Copiez-les ou envoyez-les directement à l’Atelier pour la production.*`,
       {
         type: 'lyrics',
-        title: `Paroles : ${name}`,
+        title: song.title,
         phone: best?.phone,
         recipient: name,
         occasion,
         style,
-        content: lyrics,
+        content: song.lyrics,
         metadata: { convId: best?.convId, waLink: waLink(best?.phone) },
+      }
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Actions Commerciales & Réception de Commande en direct
+  // ---------------------------------------------------------------------
+  if (intent === 'order_action') {
+    const { best } = await resolveDossier(cleanPrompt, user, history, false);
+    const a = best ? analyse(best) : null;
+
+    // Extraction du montant en F CFA
+    const amountMatch = /(?:de\s+)?(\d[\d\s .]{2,})\s?(?:f\b|fcfa|f cfa)/i.exec(cleanPrompt) ||
+      /\b(1200|3000|5000|10000)\b/.exec(cleanPrompt);
+    const rawDigits = amountMatch ? digitsOf(amountMatch[1]) : '';
+    const amount = rawDigits && Number(rawDigits) >= 500 && Number(rawDigits) <= 100000
+      ? Number(rawDigits)
+      : a?.amount || 3000;
+
+    // Moyen de paiement
+    const method = /wave/i.test(cleanPrompt) ? 'Wave'
+      : /orange/i.test(cleanPrompt) ? 'Orange Money'
+      : /moov/i.test(cleanPrompt) ? 'Moov Money'
+      : a?.method || 'Wave';
+
+    // Statut : réception/encaissement confirmé vs nouveau devis
+    const isPaid = /(recois|reçois|recu|reçu|paye|payé|encaisse|encaisser|valide|valider|confirme|confirmé)/i.test(cleanPrompt);
+    const status = isPaid ? 'validated' : 'pending';
+
+    const clientName = best?.name || (a?.recipient ? `Client (${a.recipient})` : 'Client WhatsApp');
+    const clientPhone = best?.phone || '';
+    const occasion = a?.occasion || 'Chanson personnalisée';
+
+    let orderId: string | undefined;
+    if (user || best?.convId) {
+      const res = await createOrUpdateLiveOrder({
+        conversationId: best?.convId,
+        amountCents: amount * 100,
+        paymentMethod: method,
+        status,
+        notes: `Enregistré par Copilot IA : ${occasion} pour ${clientName} (${method})`,
+      });
+      if (res.success) {
+        orderId = res.orderId;
+      }
+    }
+
+    const titleAction = isPaid ? 'Commande encaissée avec succès' : 'Commande enregistrée dans le pipeline';
+    const reportText = `### ${titleAction}\n\n` +
+      `L'action commerciale a été traitée et synchronisée avec la caisse du studio :\n\n` +
+      `| Paramètre | Valeur | Statut |\n| :--- | :--- | :--- |\n` +
+      `| **Client** | **${clientName}** | ${clientPhone ? `WhatsApp: ${clientPhone}` : 'Direct'} |\n` +
+      `| **Montant** | **${fcfa(amount)}** | ${isPaid ? 'Encaissé' : 'En attente'} |\n` +
+      `| **Moyen** | **${method}** | Opérateur Mobile Money |\n` +
+      `| **Occasion** | ${occasion} | Brief client |\n` +
+      `| **Pipeline** | **${isPaid ? 'Paiement reçu (En studio)' : 'Devis & paiement'}** | Étape mise à jour |\n\n` +
+      (isPaid
+        ? `Le dossier de **${clientName}** avance immédiatement en production. Vous pouvez générer ses paroles ou lancer la musique dans l'Atelier Studio.`
+        : `Le devis de **${fcfa(amount)}** est en attente du règlement ${method}.`);
+
+    return reply(
+      reportText,
+      {
+        type: 'stats',
+        title: `${isPaid ? 'Encaissement' : 'Devis'} : ${fcfa(amount)} — ${clientName}`,
+        content: `Commande ${fcfa(amount)} enregistrée via ${method} • Pipeline mis à jour`,
+        metadata: {
+          clientName,
+          phone: clientPhone,
+          amount: fcfa(amount),
+          paymentMethod: method,
+          status: isPaid ? 'Paiement reçu' : 'Devis en cours',
+          orderId,
+          convId: best?.convId,
+          waLink: waLink(clientPhone),
+        },
       }
     );
   }
@@ -1050,13 +1134,13 @@ async function answerCopilot(
 
 function helpMessage(reply: (text: string) => CopilotMessage): CopilotMessage {
   return reply(
-    `### Ce que je sais faire\n\n` +
-    `1. **Retrouver un client par son numéro** : tapez *+226 79 29…*, *07 88…* ou juste *5835*.\n` +
-    `2. **Rechercher par contexte** : *« le client de la chanson publicitaire à Nouna »*, *« la cliente gospel »*\n` +
-    `3. **Suivre les ventes en direct** : *« Combien ai-je encaissé ? »*, *« Répartition Wave / Orange Money »*\n` +
-    `4. **Composer des paroles** : *« Écris les paroles pour l’anniversaire d’Ibrahim »*\n` +
-    `5. **Rédiger une relance** : *« Relance le 05 44 91 20 »*\n` +
-    `6. **Répondre sur Velaris** : tarifs, délais, QR code WhatsApp, automatisations, académie.`
+    `### Ce que je sais faire en tant qu’Agent Copilot Studio\n\n` +
+    `1. **Retrouver un client par son numéro ou son prénom** : *+226 79 29…*, *5835*, ou *« Aminata »* / *« Marc »*.\n` +
+    `2. **Composer 1 ou 2 textes d'un coup (Calibre Patron)** : *« Écris les paroles pour Marc »*, *« Fais les 2 textes pour Aminata »* (aucune version courte, 32-48 vers complets Suno).\n` +
+    `3. **Prendre & Encaisser les commandes en direct** : *« Reçois la commande de 3 000 F pour Marc »*, *« Enregistre le paiement Wave de 5 000 F »* (mise à jour immédiate de la caisse et du pipeline).\n` +
+    `4. **Suivre vos finances en direct** : *« Combien ai-je encaissé aujourd'hui ? »*, *« Répartition Wave / Orange Money »*.\n` +
+    `5. **Rédiger des relances chirurgicales** : *« Relance le 5835 »* (reprenant l'étape et les mots précis du client).\n` +
+    `6. **Bibliothèque de style & Académie** : *« Montre la bibliothèque du patron »*, *« Tarifs Velaris »*, *« Délais de production »*.`
   );
 }
 

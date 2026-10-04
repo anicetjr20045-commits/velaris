@@ -11,7 +11,7 @@
 
 import { supabase, SUPABASE_CONFIG } from './supabase';
 
-const env = import.meta.env;
+const env = (import.meta as any)?.env || {};
 const directKey: string = env.VITE_WAHA_API_KEY || '';
 
 export const WAHA_CONFIG = {
