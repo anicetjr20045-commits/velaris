@@ -150,7 +150,7 @@ export class WahaClient {
             webhooks: [
               {
                 url: 'http://waha-bridge:3001/webhook',
-                events: ['message', 'message.any', 'session.status', 'message.reaction', 'message.ack'],
+                events: ['message', 'message.any', 'session.status', 'message.reaction', 'message.ack', 'chat.archive'],
                 hmac: { key: 'f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066' },
               },
             ],
@@ -180,6 +180,24 @@ export class WahaClient {
       const contentType = res.headers.get('content-type') || 'image/png';
       const arrayBuf = await res.arrayBuffer();
       return { ok: true, buffer: Buffer.from(arrayBuf), contentType };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async archiveChat(session: string, chatId: string, archived: boolean): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const action = archived ? 'archive' : 'unarchive';
+      const normChat = chatId.includes('@') ? chatId : `${chatId.replace(/\D/g, '')}@c.us`;
+      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/${encodeURIComponent(session)}/chats/${encodeURIComponent(normChat)}/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!res.ok) {
+        return { ok: false, error: `http_${res.status}` };
+      }
+      return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

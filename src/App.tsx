@@ -15,7 +15,8 @@ import { useAuth } from './hooks/useAuth';
 import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 import { ProtectedStreamView, type ProtectedShareData } from './components/ProtectedStreamView';
-import { getSavedProtectedShares } from './components/ProtectedAudioShareModal';
+import { getSharedTrackById } from './services/shared-tracks';
+import { ShieldCheck } from 'lucide-react';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
@@ -128,29 +129,57 @@ export function App() {
   const [studioSubTab, setStudioSubTab] = useState<StudioTab>(initialRoute.studioSubTab);
 
   // Détection du mode d'écoute publique sécurisé (?listen=...)
-  const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(() => {
-    if (typeof window === 'undefined') return null;
+  const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(null);
+  const [isLoadingListen, setIsLoadingListen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
     const urlParams = new URLSearchParams(window.location.search);
-    const listenId = urlParams.get('listen');
-    if (listenId) {
-      const saved = getSavedProtectedShares();
-      return saved.find((s) => s.id === listenId) || null;
-    }
-    return null;
+    return Boolean(urlParams.get('listen'));
   });
 
   useEffect(() => {
-    const handleCheckListen = () => {
+    let isMounted = true;
+    const checkAndLoadListen = async () => {
+      if (typeof window === 'undefined') return;
       const urlParams = new URLSearchParams(window.location.search);
       const listenId = urlParams.get('listen');
-      if (listenId) {
-        const saved = getSavedProtectedShares();
-        const found = saved.find((s) => s.id === listenId);
-        if (found) setListenShareData(found);
+      if (!listenId) {
+        if (isMounted) {
+          setListenShareData(null);
+          setIsLoadingListen(false);
+        }
+        return;
       }
+
+      if (isMounted) setIsLoadingListen(true);
+      const record = await getSharedTrackById(listenId);
+      if (!isMounted) return;
+
+      if (record) {
+        setListenShareData({
+          id: record.id,
+          recipient: record.recipient,
+          occasion: record.occasion,
+          studioName: record.studio_name,
+          creatorPhone: record.creator_phone,
+          track1Title: record.track1_title,
+          track1Url: record.track1_url,
+          track2Title: record.track2_title,
+          track2Url: record.track2_url,
+          allowDownload: record.allow_download,
+          createdAt: record.created_at || new Date().toISOString(),
+        });
+      } else {
+        setListenShareData(null);
+      }
+      setIsLoadingListen(false);
     };
-    window.addEventListener('popstate', handleCheckListen);
-    return () => window.removeEventListener('popstate', handleCheckListen);
+
+    void checkAndLoadListen();
+    window.addEventListener('popstate', checkAndLoadListen);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('popstate', checkAndLoadListen);
+    };
   }, []);
 
   // Mémorise si l'utilisateur connecté a délibérément cliqué sur "Retour à la vitrine"
@@ -353,6 +382,17 @@ export function App() {
     }
   };
 
+  if (isLoadingListen) {
+    return (
+      <div className="min-h-screen bg-[#050608] text-white flex flex-col items-center justify-center space-y-4 font-sans select-none">
+        <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-[#E5B54F] animate-spin" />
+        <p className="font-mono text-xs uppercase tracking-widest text-neutral-400">
+          Studio Velaris · Connexion à la session d'écoute privée…
+        </p>
+      </div>
+    );
+  }
+
   if (listenShareData) {
     return (
       <ProtectedStreamView
@@ -363,6 +403,32 @@ export function App() {
           window.history.replaceState({}, '', cleanUrl);
         }}
       />
+    );
+  }
+
+  const hasListenParam = typeof window !== 'undefined' && Boolean(new URLSearchParams(window.location.search).get('listen'));
+  if (hasListenParam && !listenShareData) {
+    return (
+      <div className="min-h-screen bg-[#050608] text-white flex flex-col items-center justify-center px-6 text-center space-y-4 font-sans select-none">
+        <div className="h-14 w-14 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center text-neutral-400">
+          <ShieldCheck className="h-6 w-6 text-[#E5B54F]" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Lien d'écoute introuvable ou expiré</h2>
+        <p className="text-sm text-neutral-400 max-w-md">
+          Ce lien de streaming privé n'est plus accessible ou a été supprimé par le studio.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+            window.location.href = cleanUrl;
+          }}
+          className="rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-black hover:bg-neutral-200 transition-colors cursor-pointer"
+        >
+          Retour au studio
+        </button>
+      </div>
     );
   }
 

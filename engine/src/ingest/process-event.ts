@@ -74,5 +74,17 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
     case 'ack':
       // Accusés de lecture : enregistrés dans inbound_events ; exploités par l'interface plus tard.
       return { outcome: 'ack_recorded' };
+    case 'chat_archive': {
+      const cleanPhone = ev.chatId.replace(/\D/g, '');
+      try {
+        await deps.db.rpc('agent_set_chat_archived', {
+          p_phone: cleanPhone,
+          p_archived: ev.archived,
+        });
+        return { outcome: ev.archived ? 'chat_archived' : 'chat_unarchived' };
+      } catch (err: any) {
+        return { outcome: `archive_error:${err.message}` };
+      }
+    }
   }
 }

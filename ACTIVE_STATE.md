@@ -8,17 +8,25 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (19:30 UTC)
-- **Statut Opérationnel** : **Jalon 53 100% Validé & Déployé** (Atelier Créateur Épuré, Nouveaux Outils de Production Studio : Lecteur Protégé Anti-Téléchargement, Découpeur Audio Express Web, et Réponses Factuelles Directes du Copilot avec Redirection WhatsApp 1-Clic).
+- **Dernière mise à jour** : 4 Octobre 2026 (20:00 UTC)
+- **Statut Opérationnel** : **Jalon 54 100% Validé & Déployé** (Archivage Synchronisé Bidirectionnel WhatsApp-Site, Lecteur Audio Protégé Cloud avec Option Téléchargement Activable, et Découpeur Audio avec Curseur Live à 60 FPS).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Copilot Cadré & Factualité Stricte** : Fin des templates et messages de réponse non sollicités. Le Copilot répond désormais avec une précision chirurgicale sur les faits demandés, avec boutons et liens directs `wa.me/<phone>` pour ouvrir instantanément la discussion WhatsApp.
-  - **Migration Compte Actif Définitive** : Les 637 contacts, 633 conversations, 652 commandes et 40 340 messages sont unifiés et rattachés au compte connecté `anicetjr20045@gmail.com` (`149fb40a-3500-4c3c-b935-194ead0b2e46`).
-  - **Atelier Studio Épuré (Inbox Zero)** : Vue focalisée sur les textes à rédiger en temps réel, résumé clair du brief client, bouton d'envoi WhatsApp direct et bouton *« Confirmer comme fait (Retirer de la file) »*.
-  - **Outil 1 : Lecteur Audio Protégé Public (`ProtectedAudioShareModal` & `ProtectedStreamView`)** : Permet au créateur d'uploader 1 ou 2 versions et de générer un lien streaming luxueux anti-téléchargement (`?listen=...`) pour que le client écoute sans pouvoir voler le fichier MP3 avant paiement.
-  - **Outil 2 : Découpeur Audio Express Web (`AudioTrimmerTool`)** : Trimmer instantané dans le navigateur (Web Audio API) pour visualiser la forme d'onde, isoler un teaser de 30s ou couper l'intro et exporter en WAV HD.
+  - **Archivage WhatsApp Bidirectionnel Instantané** :
+    - Sens Site -> WhatsApp : appel direct sécurisé `/api/chat-archive` déployé sur le moteur VPS (`velaris-engine` + Caddy), archivant le chat sur le smartphone via WAHA et persistant le statut dans `conversations.ack_log` via la fonction RPC `agent_set_chat_archived`.
+    - Sens WhatsApp -> Site : écoute de l'événement webhook `chat.archive` et normalisation instantanée mettant à jour `conversations.ack_log`. Supabase Realtime répercute l'archivage ou le désarchivage en temps réel sur le site sans rafraîchir la page.
+  - **Lecteur Audio Protégé Cloud (`ProtectedAudioShareModal` & `ProtectedStreamView`)** :
+    - Remplacement complet de l'ancien `localStorage` par Supabase Storage (bucket public `shared-audio`) et la table Supabase `shared_tracks`.
+    - Les fichiers MP3/WAV sont hébergés sur le cloud et accessibles instantanément depuis n'importe quel smartphone ou ordinateur avec le lien `?listen=<shareId>`.
+    - Option activable par le créateur : *« Autoriser le téléchargement du fichier MP3 »* (désactivée par défaut pour protéger les droits, activable pour livrer le master).
+    - Design somptueux sombre graphite/or luxueux, disque vinyle haute définition animé, zéro émoji UI.
+  - **Découpeur Audio Express avec Curseur Live (`AudioTrimmerTool.tsx`)** :
+    - Tête de lecture dynamique (needle / playhead) blanche et dorée qui défile en temps réel sur la forme d'onde à 60 FPS via `requestAnimationFrame` synchronisé avec `AudioContext`.
+    - Clic n'importe où sur la forme d'onde pour déplacer le curseur et démarrer l'écoute instantanément à cet endroit.
+    - Marqueurs rapides en 1 clic : *« Poser Début ici »* et *« Poser Fin ici »* au niveau du curseur.
+    - Double mode d'écoute : *« Écouter l'extrait [Début -> Fin] »* et *« Écouter depuis le curseur ▶ »*. Export WAV stéréo HD immédiat en mémoire locale.
 - **Prochaine tâche exacte** :
-  1. Vérifier la session WhatsApp WAHA de test (`Test`, `+22656240533`) et s'assurer qu'elle est en ligne (`WORKING` via `/qr/` si besoin de scanner).
-  2. Lancer un test live end-to-end complet avec un numéro existant ou nouveau.
+  1. Si besoin de tester la session WAHA de test (`Test`, `+22656240533`), scanner le QR sur `https://waha.velarisagent.life/qr/` si elle requiert un ré-appairage.
+  2. Valider l'archivage/désarchivage en direct depuis un smartphone WhatsApp et constater la réactivité instantanée sur l'écran du Cockpit.
 
 ---
 
@@ -36,7 +44,21 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
-### 53. Atelier Créateur Épuré, Nouveaux Outils (Lecteur Protégé & Découpeur) et Factualité Copilot (4 Octobre 2026)
+### 54. Archivage Bidirectionnel WhatsApp, Lecteur Audio Cloud Protégé & Curseur Live Découpeur (4 Octobre 2026)
+- **Archivage WhatsApp Bidirectionnel Instantané** :
+  - Création de la fonction PostgreSQL RPC `agent_set_chat_archived(p_phone, p_archived)` pour synchroniser atomiquement `conversations.ack_log`.
+  - Déploiement de l'endpoint haute disponibilité `POST /api/chat-archive` sur le moteur VPS (`velaris-engine:3001`) avec proxy Caddy dédié.
+  - Normalisation de l'événement webhook WAHA `chat.archive` (`engine/src/ingest/normalize.ts` et `process-event.ts`) : désarchivage ou archivage sur WhatsApp automatiquement synchronisé en base et propagé via Supabase Realtime à l'écran du gérant.
+- **Lecteur Audio Protégé Cloud avec Téléchargement Optionnel** :
+  - Création du bucket Supabase Storage `shared-audio` et de la table `shared_tracks`.
+  - Service `src/services/shared-tracks.ts` gérant le téléversement direct des MP3 et l'enregistrement cloud des partages.
+  - Formulaire de partage avec téléversement en arrière-plan et case à cocher : *« Autoriser le téléchargement du fichier MP3 par le client »*.
+  - Vue publique `ProtectedStreamView` accessible sur mobile et desktop (`?listen=<id>`), interface dark graphite luxueuse, vinyle tournant, zéro émoji, avec bouton de téléchargement si activé ou verrouillage anti-téléchargement strict (`controlsList="nodownload"`).
+- **Découpeur Audio Express avec Curseur Dynamique 60 FPS** :
+  - Waveform canvas interactive avec tête de lecture animée en continu par `requestAnimationFrame` et synchronisée avec `audioContext.currentTime`.
+  - Déplacement du curseur au clic direct sur l'onde.
+  - Boutons d'assignation instantanée de marqueurs Début / Fin à la position du curseur.
+  - Double mode de lecture (Extrait sélectionné ou depuis la position du curseur) et export WAV haute fidélité.
 - **Cadrage Strict du Copilot IA (Zéro Template Non Sollicité)** :
   - Mise à jour des règles du prompt système DeepSeek-V3 : interdiction formelle de générer des modèles de messages clients lors de questions d'analyse ou de recherche factuelle.
   - Ajout des liens directs cliquables [Ouvrir la discussion WhatsApp](https://wa.me/...) et du bouton d'action direct dans l'interface `StudioCopilotView`.

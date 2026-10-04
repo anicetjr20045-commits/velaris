@@ -8,7 +8,9 @@ import {
   ExternalLink,
   Volume2,
   VolumeX,
-  ArrowLeft
+  ArrowLeft,
+  Download,
+  Lock
 } from 'lucide-react';
 
 export interface ProtectedShareData {
@@ -21,6 +23,7 @@ export interface ProtectedShareData {
   track1Url: string;
   track2Title?: string;
   track2Url?: string;
+  allowDownload?: boolean;
   createdAt: string;
 }
 
@@ -36,6 +39,7 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -53,6 +57,7 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
     setIsPlaying(false);
     setProgress(0);
     setCurrentTime(0);
+    setIsLoadingAudio(true);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.load();
@@ -94,19 +99,25 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
     if (!data.creatorPhone) return;
     const cleanPhone = data.creatorPhone.replace(/\D/g, '');
     const verName = versionNum === 1 ? data.track1Title : (data.track2Title || 'Version 2');
-    const msg = `Bonjour ! J'ai écouté la chanson pour ${data.recipient} et je valide mon choix : je préfère la *${verName}* ! ✨`;
+    const msg = `Bonjour ! J'ai écouté la chanson pour ${data.recipient} et je valide mon choix : je préfère la *${verName}* !`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
   return (
     <div
-      onContextMenu={(e) => e.preventDefault()}
-      className="min-h-screen bg-[#050608] text-white flex flex-col justify-between select-none relative overflow-hidden"
+      onContextMenu={(e) => {
+        if (!data.allowDownload) e.preventDefault();
+      }}
+      className="min-h-screen bg-[#050608] text-white flex flex-col justify-between select-none relative overflow-hidden font-sans"
     >
-      {/* Halo de fond doré */}
+      {/* Halo architectural doré d'arrière-plan */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[500px] rounded-full bg-[#E5B54F]/[0.08] blur-[120px]"
+        className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[560px] w-[560px] rounded-full bg-[#E5B54F]/[0.07] blur-[140px]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-white/[0.02] blur-[100px]"
       />
 
       {/* Barre supérieure */}
@@ -115,7 +126,7 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1.5 rounded-full border border-white/10 hover:bg-white/10 transition-colors text-neutral-400 hover:text-white"
+              className="p-1.5 rounded-full border border-white/10 hover:bg-white/10 transition-colors text-neutral-400 hover:text-white cursor-pointer"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -123,31 +134,40 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="font-mono text-[12px] uppercase tracking-wider text-neutral-400">
-              {data.studioName || 'Studio Velaris'} · Écoute Privée Sécurisée
+              {data.studioName || 'Studio Velaris'} · Lecteur Privé Studio
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-300">
           <ShieldCheck className="h-3.5 w-3.5" />
-          <span>Diffusion Protégée</span>
+          <span>{data.allowDownload ? 'Téléchargement Actif' : 'Diffusion Sécurisée'}</span>
         </div>
       </header>
 
       {/* Contenu principal */}
       <main className="relative z-10 max-w-xl w-full mx-auto px-6 py-10 flex-1 flex flex-col justify-center">
-        {/* Disque Vinyle / Visuel */}
+        {/* Disque Vinyle / Visuel Studio */}
         <div className="text-center space-y-4">
           <div className="relative mx-auto h-48 w-48 sm:h-56 sm:w-56 flex items-center justify-center">
-            <div className={`h-full w-full rounded-full border border-white/15 bg-gradient-to-tr from-[#0E1015] to-[#1A1813] flex items-center justify-center shadow-[0_20px_60px_-15px_rgba(229,181,79,0.25)] ${isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''}`}>
-              <div className="h-20 w-20 rounded-full border border-white/20 bg-[#E5B54F]/20 flex items-center justify-center">
+            <div
+              className={`h-full w-full rounded-full border border-white/15 bg-gradient-to-tr from-[#0E1015] via-[#16181F] to-[#0A0B0E] flex items-center justify-center shadow-[0_24px_64px_-16px_rgba(229,181,79,0.22)] transition-transform duration-700 ${
+                isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''
+              }`}
+            >
+              {/* Rainures de vinyle circulaires */}
+              <div className="absolute inset-4 rounded-full border border-white/[0.04]" />
+              <div className="absolute inset-8 rounded-full border border-white/[0.06]" />
+              <div className="absolute inset-12 rounded-full border border-white/[0.04]" />
+              
+              <div className="h-20 w-20 rounded-full border border-white/20 bg-[#E5B54F]/20 backdrop-blur-sm flex items-center justify-center shadow-inner">
                 <Disc3 className="h-10 w-10 text-[#E5B54F]" />
               </div>
             </div>
           </div>
 
-          <div>
-            <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#E5B54F]">
+          <div className="pt-2">
+            <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#E5B54F] font-medium">
               {data.occasion}
             </span>
             <h1 className="font-serif italic text-2xl sm:text-3xl text-white mt-1">
@@ -190,7 +210,8 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
           <audio
             ref={audioRef}
             src={currentUrl}
-            controlsList="nodownload noplaybackrate"
+            controlsList={data.allowDownload ? undefined : 'nodownload noplaybackrate'}
+            onCanPlay={() => setIsLoadingAudio(false)}
             onTimeUpdate={handleTimeUpdate}
             onEnded={() => setIsPlaying(false)}
             className="hidden"
@@ -199,7 +220,7 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
           {/* Barre de timeline cliquable */}
           <div
             onClick={handleSeek}
-            className="group relative h-3 w-full rounded-full bg-white/10 cursor-pointer overflow-hidden"
+            className="group relative h-3.5 w-full rounded-full bg-white/10 cursor-pointer overflow-hidden transition-all hover:h-4"
           >
             <div
               className="absolute left-0 top-0 bottom-0 bg-[#E5B54F] transition-[width] duration-100 rounded-full"
@@ -217,7 +238,8 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
             <button
               type="button"
               onClick={togglePlay}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#E5B54F] text-[#050608] hover:bg-[#F3CA75] active:scale-95 transition-all shadow-[0_0_24px_rgba(229,181,79,0.35)] cursor-pointer"
+              disabled={isLoadingAudio && !duration}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#E5B54F] text-[#050608] hover:bg-[#F3CA75] active:scale-95 transition-all shadow-[0_0_24px_rgba(229,181,79,0.35)] cursor-pointer disabled:opacity-50"
             >
               {isPlaying ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current ml-0.5" />}
             </button>
@@ -237,7 +259,23 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
           </div>
         </div>
 
-        {/* Bouton de confirmation du choix vers le créateur */}
+        {/* Bouton Télécharger (si activé par le créateur) */}
+        {data.allowDownload && currentUrl && (
+          <div className="mt-6">
+            <a
+              href={currentUrl}
+              download={`${data.recipient}_${currentTitle.replace(/\s+/g, '_')}.mp3`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-white hover:bg-neutral-200 text-black font-semibold px-6 py-3.5 text-sm transition-all shadow-md active:scale-[0.98] cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              <span>Télécharger le Master MP3 ({currentTitle})</span>
+            </a>
+          </div>
+        )}
+
+        {/* Bouton de confirmation du choix vers le créateur sur WhatsApp */}
         {data.creatorPhone && (
           <div className="mt-8 space-y-3">
             <button
@@ -256,9 +294,14 @@ export const ProtectedStreamView: FC<ProtectedStreamViewProps> = ({ data, onClos
         )}
       </main>
 
-      {/* Footer de protection */}
-      <footer className="relative z-10 px-6 py-4 text-center border-t border-white/[0.08] bg-[#07080B]/60 text-[11.5px] text-neutral-500">
-        🔒 Diffusion sous licence privée exclusive · Téléchargement et extraction numérique désactivés
+      {/* Footer architectural de protection */}
+      <footer className="relative z-10 px-6 py-4 text-center border-t border-white/[0.08] bg-[#07080B]/60 text-[11.5px] text-neutral-500 flex items-center justify-center gap-2">
+        <Lock className="h-3 w-3 text-neutral-400" />
+        <span>
+          {data.allowDownload
+            ? 'Diffusion sous licence studio · Téléchargement autorisé par le créateur'
+            : 'Diffusion sous licence privée exclusive · Téléchargement et extraction numérique désactivés'}
+        </span>
       </footer>
     </div>
   );

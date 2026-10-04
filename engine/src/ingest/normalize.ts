@@ -54,7 +54,16 @@ export interface AckEvent {
   ack: number;
 }
 
-export type NormalizedEvent = MessageEvent | ReactionEvent | SessionStatusEvent | AckEvent;
+export interface ChatArchiveEvent {
+  kind: 'chat_archive';
+  session: string;
+  dedupKey: string;
+  chatId: string;
+  archived: boolean;
+  timestamp: string | null;
+}
+
+export type NormalizedEvent = MessageEvent | ReactionEvent | SessionStatusEvent | AckEvent | ChatArchiveEvent;
 export type NormalizeResult = { ok: true; event: NormalizedEvent } | { ok: false; reason: string };
 
 type Obj = Record<string, unknown>;
@@ -113,6 +122,24 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
     const ack = typeof payload.ack === 'number' ? payload.ack : null;
     if (!waKey || ack === null) return { ok: false, reason: 'invalid_ack' };
     return { ok: true, event: { kind: 'ack', session, dedupKey: `${waKey}|${ack}`, waKey, ack } };
+  }
+
+  if (event === 'chat.archive') {
+    const rawId = isObj(payload) ? (str(payload.id) ?? str(payload.chatId)) : null;
+    if (!rawId) return { ok: false, reason: 'missing_chat_id' };
+    const archived = Boolean(payload.archived);
+    const ts = typeof body.timestamp === 'number' ? body.timestamp : Date.now();
+    return {
+      ok: true,
+      event: {
+        kind: 'chat_archive',
+        session,
+        dedupKey: `${rawId}|${archived}|${ts}`,
+        chatId: rawId,
+        archived,
+        timestamp: epochToIso(ts),
+      },
+    };
   }
 
   if (event !== 'message' && event !== 'message.any') return { ok: false, reason: `ignored_event:${event}` };

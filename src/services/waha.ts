@@ -413,7 +413,24 @@ export async function setWahaChatArchived(
 ): Promise<boolean> {
   if (isProtectedSession(sessionName)) return false;
   try {
-    const chat = encodeURIComponent(toChatId(chatId));
+    const normChat = toChatId(chatId);
+    // 1. Appel du relais direct haute fiabilité sur le serveur Velaris Engine
+    const directRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/chat-archive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session: sessionName,
+        chatId: normChat,
+        archived,
+      }),
+    }).catch(() => null);
+
+    if (directRes && directRes.ok) {
+      return true;
+    }
+
+    // 2. Repli vers le proxy wahaFetch si besoin
+    const chat = encodeURIComponent(normChat);
     const action = archived ? 'archive' : 'unarchive';
     const res = await wahaFetch(`/api/${encodeURIComponent(sessionName)}/chats/${chat}/${action}`, {
       method: 'POST',

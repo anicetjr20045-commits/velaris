@@ -149,6 +149,46 @@ export function createIngestServer(deps: IngestServerDeps): Server {
         return;
       }
 
+      // Endpoint d'archivage / désarchivage synchronisé WhatsApp & Supabase
+      if (parsedUrl.pathname === '/api/chat-archive' && req.method === 'POST') {
+        let body: any;
+        try {
+          const raw = await readBody(req);
+          body = JSON.parse(raw.toString('utf8'));
+        } catch {
+          return json(res, 400, { ok: false, error: 'invalid_json_body' });
+        }
+
+        const session = String(body.session || 'Test');
+        const chatId = String(body.chatId || '');
+        const archived = Boolean(body.archived);
+
+        if (!chatId) {
+          return json(res, 400, { ok: false, error: 'missing_chat_id' });
+        }
+
+        // 1. Commande d'archivage vers WAHA
+        let wahaOk = false;
+        if (deps.waha) {
+          const wahaRes = await deps.waha.archiveChat(session, chatId, archived);
+          wahaOk = wahaRes.ok;
+          deps.log('waha archive executed', { session, chatId, archived, ok: wahaRes.ok, error: wahaRes.error });
+        }
+
+        // 2. Persistance dans Supabase (conversations.ack_log)
+        const cleanPhone = chatId.replace(/\D/g, '');
+        try {
+          await deps.db.rpc('agent_set_chat_archived', {
+            p_phone: cleanPhone,
+            p_archived: archived,
+          });
+        } catch (dbErr: any) {
+          deps.log('db update error on chat-archive', { error: dbErr.message });
+        }
+
+        return json(res, 200, { ok: true, session, chatId, archived, wahaSuccess: wahaOk });
+      }
+
       // Endpoint intelligent Copilot IA (DeepSeek V3)
       if (parsedUrl.pathname === '/api/copilot' && req.method === 'POST') {
         if (!deps.llmProvider) return json(res, 503, { ok: false, error: 'llm_not_configured' });
