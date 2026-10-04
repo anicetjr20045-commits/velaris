@@ -22,7 +22,6 @@ import {
   Wallet,
   Coins,
   Music2,
-  Sparkles,
   QrCode,
   type LucideIcon
 } from 'lucide-react';
@@ -581,9 +580,9 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
       {/* En-tête */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 mb-5 border-b border-white/[0.08]">
         <div>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Copilot & analyste</h1>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Analyste & Copilot IA</h1>
           <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed max-w-xl">
-            Sonar lit vos ventes, vos conversations WhatsApp et vos briefs, puis rédige à votre place.
+            Sonar analyse vos ventes, vos conversations WhatsApp et vos briefs en direct.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -591,12 +590,12 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
             <button
               type="button"
               onClick={onOpenQrModal}
-              className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] hover:border-[#E5B54F]/40 px-3.5 py-1.5 text-[12.5px] text-white transition-all cursor-pointer group"
+              className="flex items-center gap-2 rounded-full border border-white/[0.10] bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/20 px-3.5 py-1.5 text-[12.5px] text-neutral-300 hover:text-white transition-all cursor-pointer group"
               title="Lier la ligne WhatsApp Studio (Code QR)"
             >
               <QrCode className="h-3.5 w-3.5 text-[#E5B54F] group-hover:scale-110 transition-transform" strokeWidth={1.7} />
-              <span>Code QR WhatsApp</span>
-              <span className="font-mono text-xs text-neutral-400">({sessionName})</span>
+              <span>Ligne WhatsApp</span>
+              <span className="font-mono text-xs text-neutral-500">({sessionName})</span>
             </button>
           ) : (
             <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
@@ -619,17 +618,17 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-5 items-start">
         {/* Rail : mascotte + instruments */}
-        <aside className="space-y-4 lg:sticky lg:top-20">
-          <div className="vx-hairline relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-4 lg:p-6 flex lg:flex-col items-center gap-4 lg:gap-2">
+        <aside className="space-y-3.5 lg:sticky lg:top-20">
+          <div className="vx-hairline relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-4 flex lg:flex-col items-center gap-3 lg:gap-2">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(18rem_12rem_at_50%_0%,rgba(229,181,79,0.10),transparent_70%)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(18rem_12rem_at_50%_0%,rgba(229,181,79,0.08),transparent_70%)]"
             />
-            <SonarMascot state={sonarState} pulse={keyPulse} trackPointer size={168} className="relative hidden lg:block" />
-            <SonarMascot state={sonarState} pulse={keyPulse} size={76} className="relative lg:hidden shrink-0" />
+            <SonarMascot state={sonarState} pulse={keyPulse} trackPointer size={124} className="relative hidden lg:block" />
+            <SonarMascot state={sonarState} pulse={keyPulse} size={64} className="relative lg:hidden shrink-0" />
             <div className="relative lg:text-center min-w-0">
-              <div className="font-serif text-2xl text-white leading-none">Sonar</div>
-              <div className="mt-2 flex lg:justify-center items-center gap-2 text-[13px] text-neutral-200" aria-live="polite">
+              <div className="font-serif text-xl sm:text-2xl text-white leading-none">Sonar</div>
+              <div className="mt-1.5 flex lg:justify-center items-center gap-2 text-[12.5px] text-neutral-300" aria-live="polite">
                 <span
                   className={`h-1.5 w-1.5 rounded-full shrink-0 ${
                     sonarState === 'idle' ? 'bg-neutral-500' : sonarState === 'listening' ? 'bg-emerald-400' : 'bg-[#E5B54F] vx-breathe'
@@ -637,82 +636,79 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                 />
                 <span>{SONAR_STATE_LABEL[sonarState]}</span>
               </div>
-              <p className="mt-1.5 text-[12.5px] text-neutral-500 leading-relaxed lg:max-w-[200px] lg:mx-auto truncate lg:whitespace-normal">
+              <p className="mt-1 text-[11.5px] text-neutral-500 leading-snug lg:max-w-[190px] lg:mx-auto truncate lg:whitespace-normal">
                 {statusCaption[sonarState]}
               </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 text-sm font-semibold text-white">
-                <Radio className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.6} />
-                Ventes en direct
-              </span>
-              <span className="flex items-center gap-1.5 text-xs tabular-nums text-[#A3A3A3]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E] vx-breathe" />
-                {metricsSyncedAt ? metricsSyncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '…'}
-              </span>
-            </div>
-            <div>
-              <div className="text-xs text-[#A3A3A3]">Chiffre d'affaires cumulé</div>
-              <div className="mt-0.5 font-mono text-2xl font-bold tracking-tight text-[#F3CA75] whitespace-nowrap">
-                {Math.round(liveMetrics.totalRevenue || 0).toLocaleString('fr-FR')}
-                <span className="ml-1 text-sm font-medium text-[#A3A3A3]">F</span>
+          {/* Instruments Studio unifiés : Ventes réelles + Crédits */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-3.5 space-y-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-white">
+                  <Radio className="h-3.5 w-3.5 text-[#E5B54F]" strokeWidth={1.6} />
+                  Ventes en direct
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] font-mono tabular-nums text-neutral-500">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 vx-breathe" />
+                  {metricsSyncedAt ? metricsSyncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '…'}
+                </span>
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {[
-                { label: 'Livrées', value: liveMetrics.ordersDelivered },
-                { label: 'En cours', value: liveMetrics.ordersActive },
-                { label: 'Marge', value: '92,4 %' },
-              ].map(k => (
-                <div key={k.label} className="rounded-xl border border-white/[0.08] bg-[#08090C] px-2 py-2">
-                  <div className="font-mono text-base font-semibold text-white">{k.value}</div>
-                  <div className="text-[11.5px] text-[#A3A3A3]">{k.label}</div>
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="font-mono text-xl font-bold tracking-tight text-[#F3CA75]">
+                  {Math.round(liveMetrics.totalRevenue || 0).toLocaleString('fr-FR')}
+                  <span className="ml-1 text-xs font-normal text-neutral-400">F CFA</span>
                 </div>
-              ))}
-            </div>
-            {waveTotal + omTotal > 0 && (
-              <div className="space-y-1.5">
-                <div className="flex h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <span className="vx-fill block h-full bg-[#E5B54F]" style={{ width: `${wavePct}%` }} />
+                <span className="text-[11px] font-mono text-emerald-400 border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  92% marge
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-center pt-0.5">
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2 py-1.5">
+                  <div className="font-mono text-xs font-semibold text-white">{liveMetrics.ordersDelivered}</div>
+                  <div className="text-[10.5px] text-neutral-500">Livrées</div>
                 </div>
-                <div className="flex justify-between text-xs text-[#A3A3A3]">
-                  <span>Wave {wavePct} %</span>
-                  <span>Orange Money {100 - wavePct} %</span>
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2 py-1.5">
+                  <div className="font-mono text-xs font-semibold text-white">{liveMetrics.ordersActive}</div>
+                  <div className="text-[10.5px] text-neutral-500">En cours</div>
                 </div>
               </div>
-            )}
-          </div>
+              {waveTotal + omTotal > 0 && (
+                <div className="space-y-1 pt-0.5">
+                  <div className="flex h-1 overflow-hidden rounded-full bg-white/[0.06]">
+                    <span className="vx-fill block h-full bg-[#E5B54F]" style={{ width: `${wavePct}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[10.5px] font-mono text-neutral-500">
+                    <span>Wave {wavePct}%</span>
+                    <span>OM {100 - wavePct}%</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-          {/* Solde Crédits Studio & Moteur Kie.ai */}
-          <div className="rounded-2xl border border-[#E5B54F]/30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0E1015] to-[#08090C] p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 text-sm font-semibold text-white">
-                <Coins className="h-4 w-4 text-[#E5B54F]" strokeWidth={1.6} />
-                Crédits Studio
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                <Sparkles className="h-2.5 w-2.5" />
-                Permanent
-              </span>
-            </div>
-            <div>
-              <div className="text-xs text-[#A3A3A3]">Générateur Kie.ai (Suno)</div>
-              <div className="mt-0.5 font-mono text-2xl font-bold tracking-tight text-[#F3CA75] whitespace-nowrap">
-                {credits.balance.toFixed(2)}
-                <span className="ml-1 text-xs font-medium text-[#A3A3A3]">crédits</span>
+            <div className="h-px bg-white/[0.06]" />
+
+            {/* Solde Crédits Studio */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-white">
+                  <Coins className="h-3.5 w-3.5 text-[#E5B54F]" strokeWidth={1.6} />
+                  Crédits Kie.ai
+                </span>
+                <span className="font-mono text-[13px] font-bold text-[#F3CA75]">
+                  {credits.balance.toFixed(1)} <span className="text-[10.5px] font-normal text-neutral-400">crédits</span>
+                </span>
               </div>
-            </div>
-            <div className="flex items-center justify-between text-xs text-[#A3A3A3] pt-2 border-t border-white/[0.08]">
-              <span>1 chanson = 1 crédit (85 F)</span>
-              <span className="font-mono text-neutral-300">Sans expiration</span>
+              <div className="flex items-center justify-between text-[11px] text-neutral-500">
+                <span>1 production = 1 crédit</span>
+                <span className="text-neutral-400">Permanent</span>
+              </div>
             </div>
           </div>
 
-          <div className="hidden lg:block rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-2">
-            <div className="px-2.5 pt-2 pb-2.5 text-[12.5px] text-neutral-500">Sources de données</div>
+          <div className="hidden lg:block rounded-2xl border border-white/[0.08] bg-[#0B0C10] p-2 space-y-0.5">
+            <div className="px-2.5 pt-1.5 pb-2 text-[11px] font-mono uppercase tracking-wider text-neutral-500">Sources connectées</div>
             {SOURCES.map((s) => {
               const Icon = s.icon;
               const live = activeTool?.source === s.id;
@@ -720,23 +716,22 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
               return (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 border transition-colors duration-300 ${
+                  className={`flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 border transition-colors duration-200 ${
                     live ? 'border-[#E5B54F]/30 bg-[#E5B54F]/[0.06]' : 'border-transparent'
                   }`}
                 >
                   <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-300 ${
-                      live ? 'border-[#E5B54F]/40 text-[#F3CA75]' : 'border-white/[0.08] text-[#A3A3A3]'
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
+                      live ? 'border-[#E5B54F]/40 text-[#F3CA75]' : 'border-white/[0.08] text-neutral-400'
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    <Icon className="h-3 w-3" strokeWidth={1.5} />
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[13px] text-neutral-200 truncate">{s.label}</span>
-                    <span className="block text-[12.5px] text-neutral-500 truncate">{s.detail}</span>
+                    <span className="block text-[12px] text-neutral-300 truncate">{s.label}</span>
                   </span>
                   {live ? (
-                    <span className="vx-wave-live flex items-center gap-[2px] h-4" aria-label="Lecture en cours">
+                    <span className="vx-wave-live flex items-center gap-[2px] h-3" aria-label="Lecture en cours">
                       {[0, 1, 2, 3].map(i => (
                         <span
                           key={i}
@@ -746,7 +741,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                       ))}
                     </span>
                   ) : touched ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-400" strokeWidth={2} aria-label="Consultée" />
+                    <Check className="h-3 w-3 text-emerald-400" strokeWidth={2} aria-label="Consultée" />
                   ) : (
                     <span className="h-1 w-1 rounded-full bg-neutral-700" aria-hidden="true" />
                   )}
@@ -767,10 +762,10 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
               if (isUser) {
                 return (
                   <div key={m.id} className="flex flex-col items-end gap-1.5 vx-fade-in">
-                    <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-br-md bg-[#E5B54F] px-4 py-3 text-[15px] leading-relaxed text-[#050608] font-medium shadow-[0_8px_30px_-8px_rgba(229,181,79,0.35)]">
+                    <div className="max-w-[85%] sm:max-w-[70%] rounded-2xl rounded-br-md border border-white/[0.12] bg-[#161820] px-4 py-3 text-[14.5px] leading-relaxed text-neutral-100 font-normal shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6)]">
                       {m.text}
                     </div>
-                    <span className="font-mono text-[11.5px] text-neutral-600 px-1">{m.timestamp}</span>
+                    <span className="font-mono text-[11px] text-neutral-500 px-1">{m.timestamp}</span>
                   </div>
                 );
               }
@@ -917,7 +912,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                           <button
                             type="button"
                             onClick={() => handleCopyText(m.id, m.actionCard!.content)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-neutral-200 hover:bg-white/[0.07] hover:border-white/30 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-3.5 py-1.5 text-[12.5px] font-medium text-neutral-300 hover:text-white hover:bg-white/[0.06] hover:border-white/25 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
                           >
                             {copiedId === m.id ? (
                               <>
@@ -926,7 +921,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               </>
                             ) : (
                               <>
-                                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                                <Copy className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.5} />
                                 <span>Copier</span>
                               </>
                             )}
@@ -937,7 +932,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               type="button"
                               disabled={sendingMessageMap[m.id]}
                               onClick={() => handleDeliverSongToWhatsApp(m.id, m.actionCard)}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-[#22C55E] px-4 py-2 text-sm font-semibold text-black hover:bg-[#16A34A] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_0_24px_-6px_rgba(34,197,94,0.5)]"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-40 shadow-[0_4px_16px_rgba(255,255,255,0.12)]"
                             >
                               {sendingMessageMap[m.id] ? (
                                 <>
@@ -946,7 +941,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                                 </>
                               ) : songDeliveredMap[m.id] ? (
                                 <>
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-black" />
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                                   <span>Livrée sur WhatsApp</span>
                                 </>
                               ) : (
@@ -963,7 +958,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               type="button"
                               disabled={generatingSongMap[m.id]}
                               onClick={() => handleGenerateSongFromCard(m.id, m.actionCard)}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-[#E5B54F] px-4 py-1.5 text-[13px] font-semibold text-black hover:bg-[#F0C068] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer shadow-[0_0_20px_-5px_rgba(229,181,79,0.4)]"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer shadow-[0_4px_16px_rgba(255,255,255,0.12)]"
                             >
                               {generatingSongMap[m.id] ? (
                                 <>
@@ -986,7 +981,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               onClick={() =>
                                 handleDirectWhatsAppSend(m.id, m.actionCard?.phone, m.actionCard?.content, m.actionCard?.metadata?.convId)
                               }
-                              className="inline-flex items-center gap-1.5 rounded-full bg-[#E5B54F] px-4 py-2 text-sm font-semibold text-[#050608] hover:bg-[#F0C068] active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-50 shadow-[0_0_24px_-6px_rgba(229,181,79,0.5)]"
+                              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer disabled:opacity-40 shadow-[0_4px_16px_rgba(255,255,255,0.12)]"
                             >
                               {sendingMessageMap[m.id] ? (
                                 <>
@@ -1012,9 +1007,9 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                               href={m.actionCard.metadata.waLink}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-full border border-[#22C55E]/40 bg-[#22C55E]/[0.08] px-4 py-2 text-sm font-semibold text-[#4ADE80] hover:bg-[#22C55E]/[0.14] active:scale-[0.97] transition-all duration-150 ease-press"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-3.5 py-1.5 text-[12.5px] font-medium text-neutral-300 hover:text-white hover:bg-white/[0.06] hover:border-white/25 active:scale-[0.97] transition-all duration-150 ease-press"
                             >
-                              <MessagesSquare className="h-3.5 w-3.5" strokeWidth={1.8} />
+                              <MessagesSquare className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.7} />
                               <span>Ouvrir WhatsApp</span>
                             </a>
                           )}
@@ -1023,10 +1018,10 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                             <button
                               type="button"
                               onClick={onNavigateToStudio}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-4 py-1.5 text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.03] px-3.5 py-1.5 text-[12.5px] font-medium text-neutral-300 hover:text-white hover:bg-white/[0.06] hover:border-white/25 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
                             >
                               <span>Envoyer à l'Atelier</span>
-                              <ArrowUpRight className="h-3.5 w-3.5" />
+                              <ArrowUpRight className="h-3.5 w-3.5 text-neutral-400" />
                             </button>
                           )}
                         </div>
