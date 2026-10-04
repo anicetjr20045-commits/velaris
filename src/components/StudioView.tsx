@@ -113,7 +113,7 @@ export const StudioView: FC<StudioViewProps> = ({
       onUpdateOrder({
         ...currentOrder,
         lyrics: generated,
-        status: 'paroles_pretes',
+        status: currentOrder.status,
       });
       setEditTitle(generated.title);
       setEditVerse1(generated.verse1);
@@ -137,7 +137,7 @@ export const StudioView: FC<StudioViewProps> = ({
         verse2: editVerse2,
         outro: editOutro,
       },
-      status: 'paroles_pretes',
+      status: currentOrder.status,
     });
     setIsEditingLyrics(false);
   };
@@ -153,7 +153,7 @@ export const StudioView: FC<StudioViewProps> = ({
   const handleSendWhatsApp = () => {
     if (!currentOrder?.lyrics) return;
     const cleanPhone = currentOrder.clientPhone.replace(/[^0-9]/g, '');
-    const message = `Bonjour ${currentOrder.clientName.split(' ')[0]} ! Voici les paroles personnalisées créées pour ${currentOrder.recipient} :\n\n*${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\nValidons-nous ce texte pour lancer l'enregistrement en studio ? ✨`;
+    const message = `Bonjour ${currentOrder.clientName.split(' ')[0]} ! Voici les paroles personnalisées créées pour ${currentOrder.recipient} :\n\n*${currentOrder.lyrics.title}*\n\n[Couplet 1]\n${currentOrder.lyrics.verse1}\n\n[Refrain]\n${currentOrder.lyrics.chorus}\n\n[Couplet 2]\n${currentOrder.lyrics.verse2}\n\n[Outro]\n${currentOrder.lyrics.outro}\n\nValidons-nous ce texte pour lancer l'enregistrement en studio ?`;
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -163,8 +163,17 @@ export const StudioView: FC<StudioViewProps> = ({
     if (!currentOrder) return;
     setConfirmedDoneSuccess(true);
 
+    const finalLyrics = currentOrder.lyrics || {
+      title: editTitle || `Chanson pour ${currentOrder.recipient}`,
+      verse1: editVerse1,
+      chorus: editChorus,
+      verse2: editVerse2,
+      outro: editOutro,
+    };
+
     onUpdateOrder({
       ...currentOrder,
+      lyrics: finalLyrics,
       status: 'paroles_pretes',
     });
 
@@ -320,7 +329,7 @@ export const StudioView: FC<StudioViewProps> = ({
           {!currentOrder ? (
             <div className="rounded-2xl border border-dashed border-white/12 bg-[#0B0C10] p-12 text-center space-y-3">
               <CheckCheck className="h-10 w-10 text-emerald-400 mx-auto" />
-              <h3 className="text-lg font-bold text-white">Tous les textes sont à jour ! ✨</h3>
+              <h3 className="text-lg font-bold text-white">Tous les textes sont à jour !</h3>
               <p className="text-sm text-neutral-400 max-w-md mx-auto">
                 Aucune commande n'attend de rédaction de paroles actuellement. Dès qu'un client termine son brief vocal sur WhatsApp, il apparaîtra ici en temps réel.
               </p>
@@ -395,7 +404,7 @@ export const StudioView: FC<StudioViewProps> = ({
                   {confirmedDoneSuccess ? (
                     <>
                       <Check className="h-4 w-4 text-emerald-400" />
-                      <span>Validé ! Retiré de la file des textes à faire ✨</span>
+                      <span>Validé ! Retiré de la file des textes à faire</span>
                     </>
                   ) : (
                     <>

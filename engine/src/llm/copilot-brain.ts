@@ -90,8 +90,10 @@ export async function runCopilotBrain(
   let matchedContact: any = null;
   let matchedConv: any = null;
   let matchedMessages: any[] = [];
+  let matchedOrders: any[] = [];
 
   try {
+    // 2.1. Recherche directe dans le message (numéro explicite)
     const phoneMatch = cleanPrompt.match(/\+?\d[\d\s.\-]{3,}\d/);
     const potentialDigits = phoneMatch ? digitsOf(phoneMatch[0]) : null;
 
@@ -103,9 +105,9 @@ export async function runCopilotBrain(
       }
     }
 
-    const isThematicSearch = /plainte|plaint|mécontent|mecontent|colère|colere|déçu|decu|rembours|retard|tromp|insatisfait|problème|probleme|réclamation|reclamation|rectifi|erreur|mauvais|pas content|cherche|trouve|retrouve|histoire/i.test(cleanPrompt);
+    const isExplicitComplaintSearch = /\b(plainte|plaint|mécontent|mecontent|colère|colere|déçu|decu|rembours|litige)\b/i.test(cleanPrompt);
 
-    if (!matchedContact && !isThematicSearch) {
+    if (!matchedContact && !isExplicitComplaintSearch) {
       const STOPWORDS = new Set([
         'pour', 'avec', 'dans', 'sur', 'fait', 'faire', 'texte', 'chanson', 'paroles',
         'commande', 'reçois', 'recois', 'valide', 'combien', 'client', 'cliente', 'studio',
@@ -113,7 +115,8 @@ export async function runCopilotBrain(
         'une', 'des', 'les', 'est', 'sont', 'ont', 'elle', 'lui', 'nous', 'vous', 'ils', 'elles',
         'mon', 'ton', 'son', 'mes', 'tes', 'ses', 'notre', 'votre', 'leur', 'leurs', 'tout', 'tous',
         'toute', 'toutes', 'cette', 'cet', 'ces', 'mais', 'donc', 'aussi', 'bien', 'très', 'tres',
-        'avoir', 'être', 'etre', 'sait', 'plainte', 'plaintes', 'mécontent', 'mecontent', 'erreur'
+        'avoir', 'être', 'etre', 'sait', 'plainte', 'plaintes', 'mécontent', 'mecontent', 'erreur',
+        'ancienne', 'nouvelle', 'nouveau', 'ancien', 'régulière', 'reguliere', 'régulier', 'regulier'
       ]);
 
       // Recherche par prénom (mots de 4 lettres minimum sans stopwords)
@@ -133,8 +136,59 @@ export async function runCopilotBrain(
       }
     }
 
+    // 2.2. Continuité conversationnelle & anaphores : si aucun contact dans le prompt, chercher dans req.history
+    if (!matchedContact && Array.isArray(req.history) && req.history.length > 0) {
+      const recentHistory = [...req.history].slice(-4).reverse();
+      for (const h of recentHistory) {
+        const text = h.text || '';
+        // Lien WhatsApp wa.me/(\d+)
+        const waMatch = text.match(/wa\.me\/(\d{8,15})/);
+        if (waMatch && waMatch[1]) {
+          const digits = waMatch[1];
+          const contacts = await deps.db.queryTable<any[]>('contacts', `phone=ilike.*${digits.slice(-8)}*&limit=1`);
+          if (Array.isArray(contacts) && contacts[0]) {
+            matchedContact = contacts[0];
+            toolsExecuted.push('resolve_contact_from_history');
+            break;
+          }
+        }
+        // Numéro de téléphone dans le texte historique
+        const hPhoneMatch = text.match(/\+?\d[\d\s.\-]{5,}\d/);
+        if (hPhoneMatch) {
+          const digits = digitsOf(hPhoneMatch[0]);
+          if (digits.length >= 6) {
+            const contacts = await deps.db.queryTable<any[]>('contacts', `phone=ilike.*${digits.slice(-8)}*&limit=1`);
+            if (Array.isArray(contacts) && contacts[0]) {
+              matchedContact = contacts[0];
+              toolsExecuted.push('resolve_contact_from_history');
+              break;
+            }
+          }
+        }
+        // Nom de client (ex: ### Nanan Achy ou Nanan Achy)
+        const nameHeaderMatch = text.match(/###\s+([A-ZÀ-Ý][\p{L}'-]+(?:\s+[A-ZÀ-Ý][\p{L}'-]+){1,3})/u);
+        if (nameHeaderMatch && nameHeaderMatch[1]) {
+          const candName = nameHeaderMatch[1].trim();
+          const first = candName.split(' ')[0];
+          if (first && first.length >= 3) {
+            const contacts = await deps.db.queryTable<any[]>('contacts', `name=ilike.*${encodeURIComponent(first)}*&limit=1`);
+            if (Array.isArray(contacts) && contacts[0]) {
+              matchedContact = contacts[0];
+              toolsExecuted.push('resolve_contact_from_history');
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // 2.3. Si contact résolu, charger conversation, messages récents ET TOUTES ses commandes passées
     if (matchedContact) {
-      const convs = await deps.db.queryTable<any[]>('conversations', `contact_id=eq.${matchedContact.id}&limit=1`);
+      const [convs, ords] = await Promise.all([
+        deps.db.queryTable<any[]>('conversations', `contact_id=eq.${matchedContact.id}&limit=1`),
+        deps.db.queryTable<any[]>('orders', `contact_id=eq.${matchedContact.id}&order=created_at.asc&limit=50`),
+      ]);
+      matchedOrders = Array.isArray(ords) ? ords : [];
       if (Array.isArray(convs) && convs[0]) {
         matchedConv = convs[0];
         const msgs = await deps.db.queryTable<any[]>('messages', `conversation_id=eq.${matchedConv.id}&order=created_at.desc&limit=8`);
@@ -143,32 +197,28 @@ export async function runCopilotBrain(
           toolsExecuted.push('get_whatsapp_transcripts');
         }
       }
+      toolsExecuted.push('get_client_orders_history');
     }
   } catch (err: any) {
     deps.log('copilot-brain: failed to search contacts', { error: err.message });
   }
 
-  // 2.5. Recherche sémantique / thématique dans les 40 340 messages et synthèses (Plaintes, retouches, questions)
+  // 2.5. Recherche sémantique / thématique UNIQUEMENT si requête explicite de recherche large sans contact actif
   let searchResults: any[] = [];
-  const isThematicSearch = /plainte|plaint|mécontent|mecontent|colère|colere|déçu|decu|rembours|retard|tromp|insatisfait|problème|probleme|réclamation|reclamation|rectifi|erreur|mauvais|pas content|cherche|trouve|retrouve|histoire/i.test(cleanPrompt);
+  const isExplicitBroadSearch = !matchedContact && /\b(cherche|trouve|retrouve|recherche|y a-t-il|liste)\b/i.test(cleanPrompt) &&
+    /\b(plainte|plaint|mécontent|mecontent|colère|colere|déçu|decu|rembours|retard|erreur|problème|probleme|réclamation|reclamation|litige)\b/i.test(cleanPrompt);
 
-  if (deps.db.rpc && (isThematicSearch || !matchedContact)) {
+  if (deps.db.rpc && isExplicitBroadSearch) {
     try {
       const ownerUserId = req.user?.id || '043a33b4-429c-4056-b333-ee61d4c0a515';
       const rpcRes = await deps.db.rpc<any[]>('copilot_search', {
         p_user_id: ownerUserId,
         p_query: cleanPrompt,
-        p_mode: isThematicSearch ? 'complaints' : 'auto',
+        p_mode: 'complaints',
       });
       if (Array.isArray(rpcRes) && rpcRes.length > 0) {
         searchResults = rpcRes;
         toolsExecuted.push('copilot_search_messages_and_convs');
-        if (isThematicSearch) {
-          // Pour une recherche de plainte/thématique, on ne focalise pas sur un faux contact parasite
-          matchedContact = null;
-          matchedConv = null;
-          matchedMessages = [];
-        }
       }
     } catch (err: any) {
       deps.log('copilot-brain: failed copilot_search RPC', { error: err.message });
@@ -196,6 +246,23 @@ export async function runCopilotBrain(
       phone: matchedContact.phone,
       stage: matchedConv?.funnel_stage || 'en_discussion',
       summary: matchedConv?.summary || matchedContact.notes || '',
+      orderCount: matchedOrders.length,
+      isRegularClient: matchedOrders.length >= 2,
+      clientFidelityStatus: matchedOrders.length >= 2
+        ? `Cliente régulière (${matchedOrders.length} commandes au studio)`
+        : matchedOrders.length === 1
+        ? `Cliente avec 1 seule commande au studio`
+        : `Nouveau prospect (0 commande payée)`,
+      totalSpentCents: matchedOrders.reduce((sum, o) => sum + Number(o.amount_cents || 0), 0),
+      firstOrderDate: matchedOrders[0]?.created_at ? new Date(matchedOrders[0].created_at).toLocaleDateString('fr-FR') : null,
+      lastOrderDate: matchedOrders[matchedOrders.length - 1]?.created_at ? new Date(matchedOrders[matchedOrders.length - 1].created_at).toLocaleDateString('fr-FR') : null,
+      ordersHistory: matchedOrders.map(o => ({
+        id: o.id,
+        amount: `${(Number(o.amount_cents || 0) / 100).toLocaleString('fr-FR')} F CFA`,
+        status: o.status,
+        occasion: o.notes || o.occasion || 'Non spécifiée',
+        date: o.created_at ? new Date(o.created_at).toLocaleDateString('fr-FR') : '',
+      })),
       recentMessages: matchedMessages.map(m => `[${m.direction === 'inbound' ? 'CLIENT' : 'STUDIO'}] ${m.body}`),
     } : null,
     thematicSearchResults: searchResults.length > 0 ? searchResults.map(r => ({
@@ -269,6 +336,11 @@ INSTRUCTIONS DE RÉPONSE STRICTES :
 }
 
 RÈGLES MÉTIER INFRANGIBLES :
+- CONTINUITÉ CONVERSATIONNELLE & ANALYSE DE FIDÉLITÉ CLIENT (RÈGLE ESSENTIELLE) : Lorsque le gérant te pose une question de suivi sur un client dont vous venez de parler (ex: 'est-ce que cette cliente-là est une ancienne cliente régulière ou bien c'est une nouvelle ?', 'combien a-t-elle commandé ?', 'quand a-t-elle payé ?', 'qu'est-ce qu'elle voulait ?') :
+  1. Base-toi DIRECTEMENT et STRICTEMENT sur les données certifiées fournies dans 'matchedClient' (notamment 'orderCount', 'isRegularClient', 'clientFidelityStatus', 'ordersHistory', 'firstOrderDate', 'lastOrderDate', 'totalSpentCents').
+  2. Réponds DIRECTEMENT avec les faits réels : confirme clairement si c'est une cliente régulière (au moins 2 commandes) ou une nouvelle cliente (1 seule commande ou 0 commande), cite le nombre exact de commandes, le montant total dépensé en F CFA, et les dates de ses commandes.
+  3. Ne pars JAMAIS chercher d'autres sujets, ne lance aucune recherche aléatoire, et ne divague JAMAIS sur une autre personne.
+  4. RAPPEL STRICT : ZÉRO template ou modèle de message client non sollicité. Réponds uniquement à la question factuelle posée par le gérant.
 - RÉPONSES DIRECTES SANS TEMPLATES NON SOLLICITÉS (RÈGLE ESSENTIELLE) : Lorsque le gérant te pose une question directe sur un fait, un chiffre, un client, un problème ou une recherche (ex: 'recherche une cliente qui s'est plainte', 'qui est en retard ?', 'quel est le montant Wave ?'), réponds STRICTEMENT et DIRECTEMENT sur la chose demandée. NE RÉDIGE PAS de message tout fait, de modèle ou de template de réponse à envoyer au client SAUF si le gérant te demande explicitement 'rédige-lui un message', 'prépare une réponse', 'écris-lui' ou 'propose un message'.
 - BOUTON & LIEN WHATSAPP DIRECT (RÈGLE OBLIGATOIRE) : Pour TOUT client ou contact mentionné, inclus TOUJOURS un lien Markdown direct cliquable vers sa discussion WhatsApp : [Ouvrir la discussion WhatsApp](https://wa.me/<chiffres_du_telephone>) et renseigne systématiquement 'actionCard' avec son numéro de téléphone nettoyé (chiffres uniquement) et type 'reply' ou 'order_action' pour déclencher le bouton cliquable 'Ouvrir sur WhatsApp' dans l'interface.
 - PAROLES DE CHANSON : Si l'utilisateur demande des paroles ou une chanson (ex: pour Aminata, Marc, etc.), tu DOIS composer le texte intégral de 32 à 48 vers complets avec les balises [Style], [Intro], [Couplet 1], [Pré-Refrain], [Refrain], [Couplet 2], [Pont], [Refrain Final], [Outro]. RÈGLE ABSOLUE : INTERDICTION FORMELLE DE FAIRE UN TEXTE COURT (pas de résumé de 10-15 vers).

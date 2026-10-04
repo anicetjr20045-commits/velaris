@@ -31,8 +31,10 @@ const emit = () => {
   listeners.forEach(l => l());
 };
 
-export function setConversationUnread(conv: Pick<ConversationItem, 'id' | 'lastExchange'>, unread: boolean) {
-  readOverrides = { ...readOverrides, [conv.id]: { unread, at: conv.lastExchange } };
+export function setConversationUnread(convOrId: string | Pick<ConversationItem, 'id' | 'lastExchange'>, unread: boolean) {
+  const id = typeof convOrId === 'string' ? convOrId : convOrId.id;
+  const at = typeof convOrId === 'string' ? '' : convOrId.lastExchange;
+  readOverrides = { ...readOverrides, [id]: { unread, at } };
   try {
     localStorage.setItem(KEY_READ, JSON.stringify(readOverrides));
   } catch {
@@ -41,8 +43,10 @@ export function setConversationUnread(conv: Pick<ConversationItem, 'id' | 'lastE
   emit();
 }
 
-export function setConversationArchived(conv: Pick<ConversationItem, 'id' | 'lastExchange'>, isArchived: boolean) {
-  archiveOverrides = { ...archiveOverrides, [conv.id]: { isArchived, at: conv.lastExchange } };
+export function setConversationArchived(convOrId: string | Pick<ConversationItem, 'id' | 'lastExchange'>, isArchived: boolean) {
+  const id = typeof convOrId === 'string' ? convOrId : convOrId.id;
+  const at = typeof convOrId === 'string' ? '' : convOrId.lastExchange;
+  archiveOverrides = { ...archiveOverrides, [id]: { isArchived, at } };
   try {
     localStorage.setItem(KEY_ARCHIVE, JSON.stringify(archiveOverrides));
   } catch {
@@ -61,7 +65,7 @@ export function applyReadState<T extends ConversationItem>(
     let isArchived = c.isArchived;
 
     const ro = readState[c.id];
-    if (ro && ro.at === c.lastExchange) {
+    if (ro) {
       unread = ro.unread;
     }
 

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLead, StudioMetrics } from '../types';
+import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLead, StudioMetrics, Order } from '../types';
 
 /* Bornes des listes chargées par le Studio (protège les quotas gratuits Supabase) */
 const LIST_LIMIT = 300;
@@ -344,29 +344,133 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
 /**
  * Récupère les commandes du studio de l'utilisateur connecté
  */
-export async function getLiveOrders(): Promise<any[]> {
+export async function getLiveOrders(): Promise<Order[]> {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('id, amount_cents, currency, status, payment_method, notes, created_at, contacts(name, phone, occasion)')
+      .select('id, amount_cents, currency, status, payment_method, notes, created_at, stage, lyrics, recipient_name, occasion, style, voice, memories, contacts(name, phone, occasion)')
       .order('created_at', { ascending: false })
       .limit(ORDER_LIMIT);
 
     if (error || !data) return [];
-    return data.map((o: any) => ({
-      id: o.id,
-      clientName: o.contacts?.name || 'Client WhatsApp',
-      clientPhone: o.contacts?.phone || '',
-      occasion: o.contacts?.occasion || 'Commande personnalisée',
-      recipient: o.contacts?.name || '',
-      style: 'afro_love',
-      status: o.status === 'delivered' ? 'livre' : o.status === 'validated' ? 'paiement_valide' : 'brief_recu',
-      amount: Number(o.amount_cents || 120000) / 100,
-      paymentMethod: o.payment_method || 'Wave',
-      createdAt: new Date(o.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-    }));
+    return data.map((o: any) => {
+      let parsedLyrics: Order['lyrics'] | undefined = undefined;
+      if (o.lyrics) {
+        if (typeof o.lyrics === 'object' && o.lyrics.title && o.lyrics.verse1) {
+          parsedLyrics = o.lyrics;
+        } else if (typeof o.lyrics === 'string') {
+          try {
+            const json = JSON.parse(o.lyrics);
+            if (json && json.title && json.verse1) {
+              parsedLyrics = json;
+            }
+          } catch {
+            const titleMatch = o.lyrics.match(/^\*([^\*\n]+)\*/m);
+            const title = titleMatch ? titleMatch[1].trim() : `Chanson pour ${o.recipient_name || o.contacts?.name || 'Destinataire'}`;
+            const v1Match = o.lyrics.match(/\[Couplet 1[^\n]*\]([\s\S]*?)(?=\n\[|$)/i);
+            const chMatch = o.lyrics.match(/\[Refrain[^\n]*\]([\s\S]*?)(?=\n\[|$)/i);
+            const v2Match = o.lyrics.match(/\[Couplet 2[^\n]*\]([\s\S]*?)(?=\n\[|$)/i);
+            const outMatch = o.lyrics.match(/\[Outro[^\n]*\]([\s\S]*?)(?=\n\[|$)/i);
+            parsedLyrics = {
+              title,
+              verse1: v1Match ? v1Match[1].trim() : '',
+              chorus: chMatch ? chMatch[1].trim() : '',
+              verse2: v2Match ? v2Match[1].trim() : '',
+              outro: outMatch ? outMatch[1].trim() : '',
+            };
+          }
+        }
+      }
+
+      let orderStatus: Order['status'] = 'brief_recu';
+      if (o.status === 'delivered') {
+        orderStatus = 'livre';
+      } else if (o.status === 'validated' || o.status === 'paid' || o.stage === 'in_production') {
+        orderStatus = 'paiement_valide';
+      } else if (o.status === 'paroles_pretes' || o.stage === 'lyrics_validated' || o.stage === 'lyrics_sent' || (parsedLyrics && parsedLyrics.verse1.length > 20)) {
+        orderStatus = 'paroles_pretes';
+      }
+
+      let transcription = '';
+      if (Array.isArray(o.memories) && o.memories.length > 0) {
+        transcription = o.memories.join(' • ');
+      } else if (typeof o.memories === 'string') {
+        transcription = o.memories;
+      } else if (o.notes) {
+        transcription = o.notes;
+      }
+
+      return {
+        id: o.id,
+        clientName: o.contacts?.name || 'Client WhatsApp',
+        clientPhone: o.contacts?.phone || '',
+        occasion: o.occasion || o.contacts?.occasion || 'Commande personnalisée',
+        recipient: o.recipient_name || o.contacts?.name || 'Destinataire',
+        style: o.style || 'afro_love',
+        voiceGender: o.voice === 'female' ? 'femme' : o.voice === 'duo' ? 'duo' : 'homme',
+        status: orderStatus,
+        amount: Number(o.amount_cents || 120000) / 100,
+        paymentMethod: o.payment_method || 'Wave',
+        createdAt: new Date(o.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+        transcription,
+        lyrics: parsedLyrics,
+      };
+    });
   } catch {
     return [];
+  }
+}
+
+/**
+ * Met à jour une commande de façon persistante dans Supabase (paroles, statut, étape)
+ */
+export async function updateLiveOrder(
+  orderId: string,
+  patch: {
+    status?: Order['status'];
+    stage?: string;
+    lyrics?: Order['lyrics'] | string;
+    notes?: string;
+  }
+): Promise<boolean> {
+  try {
+    const updateData: any = { updated_at: new Date().toISOString() };
+    if (patch.status) {
+      if (patch.status === 'livre') {
+        updateData.status = 'delivered';
+      } else if (patch.status === 'paroles_pretes') {
+        updateData.status = 'validated';
+        updateData.stage = patch.stage || 'lyrics_validated';
+      } else if (patch.status === 'paiement_valide') {
+        updateData.status = 'validated';
+      } else {
+        updateData.status = 'pending';
+      }
+    }
+    if (patch.stage) {
+      updateData.stage = patch.stage;
+    }
+    if (patch.lyrics) {
+      if (typeof patch.lyrics === 'string') {
+        updateData.lyrics = patch.lyrics;
+      } else {
+        const fullLyrics = `*${patch.lyrics.title}*\n\n[Couplet 1]\n${patch.lyrics.verse1}\n\n[Refrain]\n${patch.lyrics.chorus}\n\n[Couplet 2]\n${patch.lyrics.verse2}\n\n[Outro]\n${patch.lyrics.outro}`;
+        updateData.lyrics = fullLyrics;
+      }
+    }
+    if (patch.notes) {
+      updateData.notes = patch.notes;
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId);
+
+    return !error;
+  } catch (err) {
+    console.error('Error in updateLiveOrder:', err);
+    return false;
   }
 }
 

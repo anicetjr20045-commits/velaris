@@ -26,7 +26,21 @@ export function parseStrictJsonObject(content: string | null | undefined): Guard
   if (/<\/?think>/i.test(text)) throw new LlmError('invalid_output', 'balise <think> non fermée', true);
 
   const fenced = FENCE.exec(text);
-  if (fenced) text = fenced[1]!.trim();
+  if (fenced && fenced[1]) {
+    text = fenced[1].trim();
+  } else {
+    const jsonFenceMatch = text.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/i);
+    if (jsonFenceMatch && jsonFenceMatch[1]) {
+      text = jsonFenceMatch[1].trim();
+    } else {
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        text = text.slice(firstBrace, lastBrace + 1).trim();
+      }
+    }
+  }
+
   if (!text) throw new LlmError('invalid_output', 'contenu vide', true);
   if (!text.startsWith('{') || !text.endsWith('}')) {
     throw new LlmError('invalid_output', 'la sortie n\'est pas un objet JSON seul', true);

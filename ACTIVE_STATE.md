@@ -8,25 +8,29 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (20:00 UTC)
-- **Statut Opérationnel** : **Jalon 54 100% Validé & Déployé** (Archivage Synchronisé Bidirectionnel WhatsApp-Site, Lecteur Audio Protégé Cloud avec Option Téléchargement Activable, et Découpeur Audio avec Curseur Live à 60 FPS).
+- **Dernière mise à jour** : 4 Octobre 2026 (20:45 UTC)
+- **Statut Opérationnel** : **Jalon 55 100% Validé & Déployé** (Refonte Inbox WhatsApp Web 2 Sections avec Badge Vert « 1 », Suppression Section Devis, Mémoire Conversationnelle & Analyse Fidélité Copilot DeepSeek-V3, et Synchronisation Realtime Atelier Studio 1-Clic).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Archivage WhatsApp Bidirectionnel Instantané** :
-    - Sens Site -> WhatsApp : appel direct sécurisé `/api/chat-archive` déployé sur le moteur VPS (`velaris-engine` + Caddy), archivant le chat sur le smartphone via WAHA et persistant le statut dans `conversations.ack_log` via la fonction RPC `agent_set_chat_archived`.
-    - Sens WhatsApp -> Site : écoute de l'événement webhook `chat.archive` et normalisation instantanée mettant à jour `conversations.ack_log`. Supabase Realtime répercute l'archivage ou le désarchivage en temps réel sur le site sans rafraîchir la page.
-  - **Lecteur Audio Protégé Cloud (`ProtectedAudioShareModal` & `ProtectedStreamView`)** :
-    - Remplacement complet de l'ancien `localStorage` par Supabase Storage (bucket public `shared-audio`) et la table Supabase `shared_tracks`.
-    - Les fichiers MP3/WAV sont hébergés sur le cloud et accessibles instantanément depuis n'importe quel smartphone ou ordinateur avec le lien `?listen=<shareId>`.
-    - Option activable par le créateur : *« Autoriser le téléchargement du fichier MP3 »* (désactivée par défaut pour protéger les droits, activable pour livrer le master).
-    - Design somptueux sombre graphite/or luxueux, disque vinyle haute définition animé, zéro émoji UI.
-  - **Découpeur Audio Express avec Curseur Live (`AudioTrimmerTool.tsx`)** :
-    - Tête de lecture dynamique (needle / playhead) blanche et dorée qui défile en temps réel sur la forme d'onde à 60 FPS via `requestAnimationFrame` synchronisé avec `AudioContext`.
-    - Clic n'importe où sur la forme d'onde pour déplacer le curseur et démarrer l'écoute instantanément à cet endroit.
-    - Marqueurs rapides en 1 clic : *« Poser Début ici »* et *« Poser Fin ici »* au niveau du curseur.
-    - Double mode d'écoute : *« Écouter l'extrait [Début -> Fin] »* et *« Écouter depuis le curseur ▶ »*. Export WAV stéréo HD immédiat en mémoire locale.
+  - **Inbox Discussions Style WhatsApp Web** :
+    - Exactement 2 sections épurées : `Discussions` (tous les chats actifs) et `Archivées`.
+    - Bouton toggle filtre rapide pour isoler les `Non lus` en 1 clic avec compteur temps réel.
+    - Pastille verte ronde WhatsApp avec le chiffre `1` (`bg-emerald-500 font-bold text-black`) sur chaque discussion non lue sous l'heure.
+    - Clic sur la discussion = disparition instantanée (0 ms) de la pastille `1`, synchronisation en base Supabase (`conversations.ack_log`) et WAHA sans rechargement.
+    - Éradication totale de l'onglet et des mentions `Devis`.
+  - **Mémoire & Continuité Copilot DeepSeek-V3** :
+    - Résolution automatique du contact dans `req.history` (nom, lien wa.me, numéro).
+    - Extraction certifiée de l'historique complet des commandes Supabase (`orders`) : calcul de `orderCount`, `isRegularClient` (≥ 2 commandes), montant total dépensé, date 1ère et dernière commande.
+    - Réponses directes, factuelles et sans template de message non sollicité.
+    - Bouton d'action et lien Markdown [Ouvrir la discussion WhatsApp](https://wa.me/...) systématique.
+    - Parseur JSON résilient éliminant toute erreur 500 sur le VPS.
+  - **Textes & Atelier Studio (Temps Réel & Retrait de File)** :
+    - Abonnement Supabase Realtime actif sur `orders` et `contacts` pour une mise à jour instantanée des briefs prêts pour le texte.
+    - Génération automatique 1-clic de textes complets (Golden Corpus Velaris 32 à 48 vers).
+    - Bouton *« Confirmer comme fait (Retirer de la file) »* qui met à jour la commande dans Supabase (`paroles_pretes` / `lyrics_validated`) et la retire immédiatement de la file active.
+    - Bouton direct d'envoi WhatsApp avec message pré-formaté sans aucun émoji parasite.
 - **Prochaine tâche exacte** :
-  1. Si besoin de tester la session WAHA de test (`Test`, `+22656240533`), scanner le QR sur `https://waha.velarisagent.life/qr/` si elle requiert un ré-appairage.
-  2. Valider l'archivage/désarchivage en direct depuis un smartphone WhatsApp et constater la réactivité instantanée sur l'écran du Cockpit.
+  1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
+  2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
 
 ---
 
@@ -43,6 +47,31 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 55. Refonte Inbox WhatsApp Web, Mémoire Copilot Fidélité & Atelier Studio Realtime (4 Octobre 2026)
+- **Refonte Inbox Discussion WhatsApp Web** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - Exactement 2 sections : `Discussions` et `Archivées`.
+  - Bouton toggle rapide `Non lus` avec compteur dynamique.
+  - Pastille ronde vert WhatsApp avec le chiffre `1` (`bg-emerald-500 font-bold text-black text-[11px]`) sous l'heure.
+  - Clic sur conversation : disparition immédiate (0 ms) du badge `1` via `setConversationUnread` et mise à jour atomique dans Supabase `ack_log`.
+  - Éradication définitive de toute trace de la notion `Devis`.
+- **Mémoire Conversationnelle & Analyse Fidélité Copilot DeepSeek-V3** ([`copilot-brain.ts`](file:///root/projets/velaris/engine/src/llm/copilot-brain.ts)) :
+  - Résolution du contact dans l'historique conversationnel (`req.history`).
+  - Chargement de toutes les commandes du contact depuis Supabase (`orders`) avec calcul dynamique : `orderCount`, `isRegularClient` (seuil ≥ 2), `totalSpentCents`, dates 1ère et dernière commande.
+  - Verrouillage anti-divagation : désactivation de `copilot_search` lorsqu'un contact est identifié.
+  - Interdiction stricte des modèles de messages non sollicités lors des questions d'analyse factuelle.
+  - Parseur JSON tolérant aux sorties DeepSeek (`json-guard.ts`) déployé sur le VPS `162.35.113.220` (service `velaris-engine`).
+- **Atelier Studio Temps Réel & Retrait Automatique de File** ([`StudioView.tsx`](file:///root/projets/velaris/src/components/StudioView.tsx), [`App.tsx`](file:///root/projets/velaris/src/App.tsx), [`supabase.ts`](file:///root/projets/velaris/src/services/supabase.ts)) :
+  - Synchronisation WebSocket Supabase Realtime sur les tables `orders` et `contacts`.
+  - Affichage direct des briefs complets prêts pour le texte.
+  - Rédaction et modification du texte directement dans l'interface de l'Atelier.
+  - Bouton de génération automatique 1-clic branché sur le Golden Corpus Velaris (32-48 vers complets Suno).
+  - Bouton d'envoi WhatsApp en direct sans émoji.
+  - Bouton *« Confirmer comme fait (Retirer de la file) »* persistant le statut `paroles_pretes` dans Supabase via `updateLiveOrder`, retirant instantanément la commande de la file en cours.
+- **Validation Globale** :
+  - Frontend Vite : Build propre en 6.03s (`tsc -b && vite build`).
+  - Moteur Engine : Typecheck TypeScript 0 erreur, build propre, conteneur Docker redémarré sur VPS (`162.35.113.220`).
+  - Tests en direct : Recherche de plaintes, suivi de conversation multitour et calcul de fidélité client certifiés à 100%.
 
 ### 54. Archivage Bidirectionnel WhatsApp, Lecteur Audio Cloud Protégé & Curseur Live Découpeur (4 Octobre 2026)
 - **Archivage WhatsApp Bidirectionnel Instantané** :

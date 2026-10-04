@@ -12,7 +12,7 @@ import { CosmicBackground } from './components/CosmicBackground';
 import { INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
 import { useWahaSession } from './hooks/useWaha';
 import { useAuth } from './hooks/useAuth';
-import { getLiveOrders, createLiveOrder } from './services/supabase';
+import { getLiveOrders, createLiveOrder, updateLiveOrder, subscribeStudioRealtime } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 import { ProtectedStreamView, type ProtectedShareData } from './components/ProtectedStreamView';
 import { getSharedTrackById } from './services/shared-tracks';
@@ -315,21 +315,38 @@ export function App() {
     }
   }, [orders, storageKey]);
 
-  // Fetch strictly isolated orders from Supabase when logged in
+  // Realtime synchronization of live orders from Supabase
   useEffect(() => {
-    if (user) {
-      getLiveOrders().then((live) => {
-        setOrders(live || []);
-        if (live && live.length > 0) {
-          setSelectedOrderId(live[0].id);
-        } else {
-          setSelectedOrderId('');
-        }
-      });
-    } else if (isDemoMode) {
-      setOrders(INITIAL_ORDERS);
-      setSelectedOrderId(INITIAL_ORDERS[0]?.id || '');
+    if (!user) {
+      if (isDemoMode) {
+        setOrders(INITIAL_ORDERS);
+        setSelectedOrderId(INITIAL_ORDERS[0]?.id || '');
+      }
+      return;
     }
+
+    let isMounted = true;
+    const loadOrders = async () => {
+      const live = await getLiveOrders();
+      if (!isMounted) return;
+      setOrders(live || []);
+      setSelectedOrderId(prev => {
+        if (prev && live.some(o => o.id === prev)) return prev;
+        return live[0]?.id || '';
+      });
+    };
+
+    loadOrders();
+
+    // Abonnement Supabase Realtime aux modifications des commandes et contacts
+    const unsubscribe = subscribeStudioRealtime(['orders', 'contacts'], () => {
+      loadOrders();
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [user, isDemoMode]);
 
   // Dynamic metrics: computed from user's live studio orders (starts strictly at zero for new users)
@@ -355,11 +372,17 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Update order in state
+  // Update order in state and persist to Supabase
   const handleUpdateOrder = (updated: Order) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === updated.id ? updated : o))
     );
+    if (user && updated.id) {
+      updateLiveOrder(updated.id, {
+        status: updated.status,
+        lyrics: updated.lyrics,
+      }).catch(console.error);
+    }
   };
 
   // Add new order from modal

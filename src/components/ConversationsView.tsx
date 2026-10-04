@@ -61,14 +61,8 @@ interface ConversationsViewProps {
   onOpenOrderForStudio?: (name: string) => void;
 }
 
-type InboxFilter = 'all' | 'unread' | 'archived' | ConversationItem['status'];
+type InboxSection = 'discussions' | 'archived';
 
-const STATUS_META: Record<ConversationItem['status'], { label: string; dot: string }> = {
-  nouveau: { label: 'Nouveau', dot: 'bg-sky-400' },
-  en_discussion: { label: 'En discussion', dot: 'bg-white' },
-  devis: { label: 'Devis', dot: 'bg-[#E5B54F]' },
-  livre: { label: 'Livré', dot: 'bg-emerald-400' },
-};
 
 /* Les notes vocales arrivent préfixées d'un micro dans les données WAHA */
 const VOICE_PREFIX = /^\s*\u{1F399}\u{FE0F}?\s*/u;
@@ -194,7 +188,8 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   const [selectedId, setSelectedId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<InboxFilter>('all');
+  const [section, setSection] = useState<InboxSection>('discussions');
+  const [onlyUnread, setOnlyUnread] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendFeedback, setSendFeedback] = useState<{ success: boolean; message: string } | null>(null);
@@ -214,14 +209,17 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   );
   const activeConversations = searched.filter(c => !c.isArchived);
   const archivedConversations = searched.filter(c => !!c.isArchived);
+  const unreadTotal = activeConversations.filter(c => c.unread).length;
 
-  const filteredConversations = searched.filter(c => {
-    if (filter === 'archived') return !!c.isArchived;
-    if (c.isArchived) return false;
-    if (filter === 'all') return true;
-    if (filter === 'unread') return c.unread;
-    return c.status === filter;
-  });
+  const filteredConversations = useMemo(() => {
+    if (section === 'archived') {
+      return archivedConversations;
+    }
+    if (onlyUnread) {
+      return activeConversations.filter(c => c.unread);
+    }
+    return activeConversations;
+  }, [section, onlyUnread, activeConversations, archivedConversations]);
 
   const selectedConv = (selectedId ? conversations.find(c => c.id === selectedId) : null) || filteredConversations[0] || conversations[0] || null;
   const activeId = selectedConv?.id ?? '';
@@ -234,14 +232,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     [activeId],
     { enabled: !!user && !!activeId, pollMs: 15000 }
   );
-
-  const filters: { id: InboxFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'Tous', count: activeConversations.length },
-    { id: 'unread', label: 'Non lus', count: activeConversations.filter(c => c.unread).length },
-    { id: 'nouveau', label: 'Nouveaux', count: activeConversations.filter(c => c.status === 'nouveau').length },
-    { id: 'devis', label: 'Devis', count: activeConversations.filter(c => c.status === 'devis').length },
-    { id: 'archived', label: 'Archivés', count: archivedConversations.length },
-  ];
 
   const history: ThreadMessage[] = useMemo(() => {
     if (!selectedConv) return [];
@@ -489,7 +479,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   const cleanPhone = selectedConv ? selectedConv.phone.replace(/[^0-9]/g, '') : '';
   const whatsappDirectUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(replyText || '')}` : '#';
-  const unreadTotal = conversations.filter(c => !c.isArchived && c.unread).length;
   const linkMeta = LINK_META[link.state];
   const secure = WAHA_CONFIG.baseUrl.startsWith('https://');
   const beatTitle = [
@@ -549,43 +538,96 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
       <div className="vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:h-[calc(100dvh-13rem)] lg:min-h-[620px]">
         {/* Liste */}
         <div className={`flex-col min-h-0 border-r border-white/[0.08] ${mobileThreadOpen ? 'hidden lg:flex' : 'flex'}`}>
-          <div className="p-3 space-y-2.5 border-b border-white/[0.08]">
-            <div className="relative">
+          {/* Les 2 sections maîtresses : Discussions & Archivées */}
+          <div className="flex border-b border-white/[0.08] p-1.5 gap-1 bg-[#07080B]">
+            <button
+              type="button"
+              onClick={() => setSection('discussions')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                section === 'discussions'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>Discussions</span>
+              {unreadTotal > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-black">
+                  {unreadTotal}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSection('archived')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                section === 'archived'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              <span>Archivées</span>
+              {archivedConversations.length > 0 && (
+                <span className="font-mono text-[11px] text-neutral-400">
+                  ({archivedConversations.length})
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Recherche & Filtre rapide "Non lus" style WhatsApp */}
+          <div className="p-3 border-b border-white/[0.08] flex items-center gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500" />
               <input
                 type="text"
-                placeholder="Nom, numéro, message"
+                placeholder={section === 'archived' ? "Chercher dans les archives..." : "Nom, numéro, message..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] pl-9 pr-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
               />
             </div>
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-              {filters.map(f => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFilter(f.id)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] transition-colors duration-200 cursor-pointer ${
-                    filter === f.id ? 'bg-white text-black font-medium' : 'text-[#A3A3A3] hover:text-white hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {f.label}
-                  <span className="font-mono text-[11.5px] text-neutral-600">{f.count}</span>
-                </button>
-              ))}
-            </div>
+            {section === 'discussions' && (
+              <button
+                type="button"
+                onClick={() => setOnlyUnread(!onlyUnread)}
+                title={onlyUnread ? "Afficher toutes les discussions" : "Filtrer uniquement les messages non lus"}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                  onlyUnread
+                    ? 'bg-emerald-500 text-black border-emerald-400 font-bold'
+                    : 'border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:text-white hover:border-white/20'
+                }`}
+              >
+                <span>Non lus</span>
+                {unreadTotal > 0 && (
+                  <span className={`h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                    onlyUnread ? 'bg-black text-emerald-400' : 'bg-emerald-500 text-black'
+                  }`}>
+                    {unreadTotal}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto max-h-[60vh] lg:max-h-none">
             {filteredConversations.length === 0 ? (
               <div className="p-10 text-center space-y-2">
-                {filter === 'archived' ? (
+                {section === 'archived' ? (
                   <>
                     <Archive className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
                     <p className="text-[13px] font-medium text-neutral-300">Aucune discussion archivée</p>
                     <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
                       Les discussions que vous archivez apparaîtront ici sans encombrer votre boîte principale.
+                    </p>
+                  </>
+                ) : onlyUnread ? (
+                  <>
+                    <CheckCheck className="h-6 w-6 text-emerald-400 mx-auto" strokeWidth={1.5} />
+                    <p className="text-[13px] font-medium text-neutral-300">Tous les messages sont lus</p>
+                    <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
+                      Aucun message non lu en attente.
                     </p>
                   </>
                 ) : (
@@ -602,7 +644,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               filteredConversations.map((conv, i) => {
                 const isSelected = conv.id === selectedConv?.id;
                 const voice = isVoice(conv.fullMessage);
-                const status = STATUS_META[conv.status] ?? STATUS_META.en_discussion;
                 return (
                   <div
                     key={conv.id}
@@ -623,16 +664,19 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                           <span className={`truncate text-sm ${conv.unread ? 'font-semibold text-white' : 'font-medium text-neutral-200'}`}>
                             {conv.name}
                           </span>
-                          <span className={`font-mono text-[11.5px] shrink-0 ${conv.unread ? 'text-emerald-400' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
+                          <span className={`font-mono text-[11.5px] shrink-0 ${conv.unread ? 'text-emerald-400 font-semibold' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
                         </span>
-                        <span className="mt-1 flex items-center gap-1.5 text-[13px] text-[#A3A3A3]">
-                          {voice && <Mic className="h-3 w-3 shrink-0 text-[#E5B54F]" strokeWidth={1.75} />}
-                          <span className={`truncate ${conv.unread ? 'text-neutral-200' : ''}`}>{voice ? 'Note vocale' : conv.preview}</span>
-                        </span>
-                        <span className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-neutral-500">
-                          <span className={`h-1 w-1 rounded-full ${status.dot}`} />
-                          {status.label}
-                        </span>
+                        <div className="mt-1 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-[13px] text-[#A3A3A3] truncate min-w-0">
+                            {voice && <Mic className="h-3 w-3 shrink-0 text-[#E5B54F]" strokeWidth={1.75} />}
+                            <span className={`truncate ${conv.unread ? 'text-neutral-100 font-medium' : ''}`}>{voice ? 'Note vocale' : conv.preview}</span>
+                          </span>
+                          {conv.unread && (
+                            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-black shadow-sm shrink-0">
+                              1
+                            </span>
+                          )}
+                        </div>
                       </span>
                     </button>
                     <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
