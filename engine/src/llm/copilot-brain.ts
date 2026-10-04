@@ -42,6 +42,7 @@ export interface CopilotBrainDeps {
     queryTable: <T = any>(table: string, queryParams?: string) => Promise<T>;
     insertRow: <T = any>(table: string, row: Record<string, unknown>) => Promise<T>;
     updateRows: <T = any>(table: string, matchQuery: string, data: Record<string, unknown>) => Promise<T>;
+    rpc?: <T = any>(fn: string, args: Record<string, unknown>) => Promise<T>;
   };
   llm: DeepSeekProvider;
   waha?: WahaClient | undefined;
@@ -102,12 +103,25 @@ export async function runCopilotBrain(
       }
     }
 
-    if (!matchedContact) {
-      // Recherche par prénom (mots de 3 lettres minimum sans stopwords)
+    const isThematicSearch = /plainte|plaint|mécontent|mecontent|colère|colere|déçu|decu|rembours|retard|tromp|insatisfait|problème|probleme|réclamation|reclamation|rectifi|erreur|mauvais|pas content|cherche|trouve|retrouve|histoire/i.test(cleanPrompt);
+
+    if (!matchedContact && !isThematicSearch) {
+      const STOPWORDS = new Set([
+        'pour', 'avec', 'dans', 'sur', 'fait', 'faire', 'texte', 'chanson', 'paroles',
+        'commande', 'reçois', 'recois', 'valide', 'combien', 'client', 'cliente', 'studio',
+        'bonjour', 'salut', 'recherche', 'cherche', 'trouve', 'retrouve', 'histoire', 'qui',
+        'une', 'des', 'les', 'est', 'sont', 'ont', 'elle', 'lui', 'nous', 'vous', 'ils', 'elles',
+        'mon', 'ton', 'son', 'mes', 'tes', 'ses', 'notre', 'votre', 'leur', 'leurs', 'tout', 'tous',
+        'toute', 'toutes', 'cette', 'cet', 'ces', 'mais', 'donc', 'aussi', 'bien', 'très', 'tres',
+        'avoir', 'être', 'etre', 'sait', 'plainte', 'plaintes', 'mécontent', 'mecontent', 'erreur'
+      ]);
+
+      // Recherche par prénom (mots de 4 lettres minimum sans stopwords)
       const words = cleanPrompt
         .replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, ' ')
         .split(/\s+/)
-        .filter(w => w.length >= 3 && !/^(pour|avec|dans|sur|fait|faire|texte|chanson|paroles|commande|reçois|recois|valide|combien|client|studio|bonjour|salut)/i.test(w));
+        .map(w => w.trim())
+        .filter(w => w.length >= 4 && !STOPWORDS.has(w.toLowerCase()));
 
       for (const word of words.slice(0, 3)) {
         const contacts = await deps.db.queryTable<any[]>('contacts', `name=ilike.*${encodeURIComponent(word)}*&limit=1`);
@@ -134,6 +148,33 @@ export async function runCopilotBrain(
     deps.log('copilot-brain: failed to search contacts', { error: err.message });
   }
 
+  // 2.5. Recherche sémantique / thématique dans les 40 340 messages et synthèses (Plaintes, retouches, questions)
+  let searchResults: any[] = [];
+  const isThematicSearch = /plainte|plaint|mécontent|mecontent|colère|colere|déçu|decu|rembours|retard|tromp|insatisfait|problème|probleme|réclamation|reclamation|rectifi|erreur|mauvais|pas content|cherche|trouve|retrouve|histoire/i.test(cleanPrompt);
+
+  if (deps.db.rpc && (isThematicSearch || !matchedContact)) {
+    try {
+      const ownerUserId = req.user?.id || '043a33b4-429c-4056-b333-ee61d4c0a515';
+      const rpcRes = await deps.db.rpc<any[]>('copilot_search', {
+        p_user_id: ownerUserId,
+        p_query: cleanPrompt,
+        p_mode: isThematicSearch ? 'complaints' : 'auto',
+      });
+      if (Array.isArray(rpcRes) && rpcRes.length > 0) {
+        searchResults = rpcRes;
+        toolsExecuted.push('copilot_search_messages_and_convs');
+        if (isThematicSearch) {
+          // Pour une recherche de plainte/thématique, on ne focalise pas sur un faux contact parasite
+          matchedContact = null;
+          matchedConv = null;
+          matchedMessages = [];
+        }
+      }
+    } catch (err: any) {
+      deps.log('copilot-brain: failed copilot_search RPC', { error: err.message });
+    }
+  }
+
   // 3. Construction du prompt système avec tout l'ADN du studio Velaris
   const houseDna = getHouseStyleDnaNote();
   const occasionDetected: SongOccasion = detectOccasion(cleanPrompt);
@@ -145,7 +186,10 @@ export async function runCopilotBrain(
       validatedOrdersCount,
       waveTotal,
       omTotal,
-      activeConversationsEstimate: 163,
+      activeConversationsEstimate: 633,
+      totalContactsCount: 637,
+      totalOrdersCount: 623,
+      totalMessagesHistoryCount: 40340,
     },
     matchedClient: matchedContact ? {
       name: matchedContact.name,
@@ -154,6 +198,15 @@ export async function runCopilotBrain(
       summary: matchedConv?.summary || matchedContact.notes || '',
       recentMessages: matchedMessages.map(m => `[${m.direction === 'inbound' ? 'CLIENT' : 'STUDIO'}] ${m.body}`),
     } : null,
+    thematicSearchResults: searchResults.length > 0 ? searchResults.map(r => ({
+      clientName: r.contact_name,
+      phone: r.contact_phone,
+      funnelStage: r.funnel_stage,
+      summary: r.conversation_summary,
+      matchedExcerpt: r.matched_message,
+      matchType: r.match_type,
+      date: r.message_at ? new Date(r.message_at).toLocaleDateString('fr-FR') : undefined,
+    })) : null,
     commercialRules: {
       tarifs: {
         texte: '1 200 F CFA',
@@ -219,6 +272,12 @@ RÈGLES MÉTIER INFRANGIBLES :
 - PAROLES DE CHANSON : Si l'utilisateur demande des paroles ou une chanson (ex: pour Aminata, Marc, etc.), tu DOIS composer le texte intégral de 32 à 48 vers complets avec les balises [Style], [Intro], [Couplet 1], [Pré-Refrain], [Refrain], [Couplet 2], [Pont], [Refrain Final], [Outro]. RÈGLE ABSOLUE : INTERDICTION FORMELLE DE FAIRE UN TEXTE COURT (pas de résumé de 10-15 vers).
 - FORMATAGE EN BALISE COPIABLE (RÈGLE OBLIGATOIRE 1-CLIC) : Tout texte poétique, parole de chanson, ou message commercial prêt à l'emploi doit TOUJOURS être enfermé dans un bloc de code Markdown \`\`\`suno (pour les chansons) ou \`\`\`texte (pour un message client), dans ton champ 'reply'. Cela déclenche automatiquement l'affichage du module luxueux avec le bouton 'Copier en 1 clic' dans l'interface du studio.
 - COMMANDE DOUBLE : Si l'utilisateur demande 2 chansons ou évoque deux commandes, rédige les DEUX textes complets en parallèle ou dans une carte dédiée avec 32-48 vers chacun.
+- RECHERCHE DANS LES 40 340 MESSAGES & CAS DE PLAINTES/RETOUCHES : Tu as un accès direct au moteur de recherche plein-texte du studio via 'thematicSearchResults'. Lorsque le gérant te demande de retrouver une cliente qui s'est plainte, un problème, un retard ou une réclamation, analyse scrupuleusement les dossiers réels fournis dans 'thematicSearchResults' :
+  1. Présente clairement la cliente (Nom, Téléphone WhatsApp, Date).
+  2. Cite fidèlement ce qu'elle a dit (le verbatim exact du message ou de la note vocale).
+  3. Rappelle le contexte de la commande (destinataire, occasion, montant, statut).
+  4. Propose la solution ou le message de rattrapage parfait prêt à l'emploi (enfermé dans un bloc de code \`\`\`texte pour activer le bouton 'Copier en 1 clic') en respectant les règles Velaris (délai de retouche de 5 minutes, excuses élégantes et bienveillantes).
+  Ne prétends JAMAIS que tu n'as pas accès à la base de données quand 'thematicSearchResults' contient des cas réels.
 - ENCAISSEMENT / RÉCEPTION : Si l'utilisateur demande d'encaisser, de recevoir une commande ou de valider un paiement, renseigne 'orderMutation' pour que la base Supabase soit mise à jour instantanément, et fournis une actionCard de type 'order_action'.`;
 
   const messagesPayload = [

@@ -8,12 +8,12 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (18:14 UTC)
-- **Statut Opérationnel** : **Jalon 51 100% Validé & Opérationnel** (Mémoire Historique Réelle Ingestion Complète : 637 contacts CRM, 633 conversations, 623 commandes, 40 340 messages ingérés avec cloisonnement strict et exclusif pour l'agent d'Anicet).
+- **Dernière mise à jour** : 4 Octobre 2026 (18:29 UTC)
+- **Statut Opérationnel** : **Jalon 52 100% Validé & Déployé sur VPS** (Moteur de Recherche Thématique Copilot sur les 40 340 Messages Historiques : fonction PostgreSQL `copilot_search` connectée au Copilot DeepSeek-V3, recherche des plaintes, retouches, litiges et demandes spécifiques opérationnelle et vérifiée en direct).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Isolation Stricte Validée** : 100% des données importées sont rattachées au `user_id = '043a33b4-429c-4056-b333-ee61d4c0a515'` d'Anicet (ligne session `Test`, `+22656240533`). Zéro fuite vers les autres comptes utilisateurs ou studios tiers.
-  - **Reconnaissance Anciens Clients Active** : Fonction PostgreSQL `agent_contact_facts` opérationnelle pour l'ensemble des 637 clients (ex: Judith SANOU, Safiatou TRAORE, SERE ET FILS, etc. reconnus immédiatement avec `welcome_returning` et 0 vocal de procédure superflu).
-  - **Atelier & Copilot Studio Connectés** : Recherche en direct multi-tables instantanée sur les 40 340 messages et synthèses de commandes.
+  - **Recherche Plein-Texte Historique Opérationnelle** : Le Copilot ne répond plus « je n'ai pas de moteur de recherche plein-texte ». Il interroge en direct la fonction PostgreSQL `copilot_search` sur les 40 340 messages d'Anicet et extrait instantanément les verbatim, dates, statuts et solutions de rattrapage en 1 clic.
+  - **Cas Réels Testés et Validés en Direct sur le VPS** : Plaintes identifiées pour Nanan Achy (+225 45 88 75 75), kisophie223 (+226 70 86 73 09), Toure Latifa Larissa (+225 08 90 68 36), barryclarisse14 (+226 71 22 38 77), +226 05 77 73 08 avec messages de réconciliation prêts à l'emploi.
+  - **Filtrage Stopwords Renforcé** : Élimination des faux positifs de recherche de contact sur les mots courts (« une », « qui », « est ») qui redirigeaient par erreur vers Prunelle.
 - **Prochaine tâche exacte** :
   1. Vérifier la session WhatsApp WAHA de test (`Test`, `+22656240533`) et s'assurer qu'elle est en ligne (`WORKING` via `/qr/` si besoin de scanner).
   2. Lancer un test live end-to-end complet avec un numéro existant ou nouveau.
@@ -33,6 +33,16 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 52. Activation de la Recherche Thématique Plein-Texte Copilot sur les 40 340 Messages Historiques (4 Octobre 2026)
+- **Fonction PostgreSQL RPC `copilot_search` (Supabase)** :
+  - Création de la fonction SQL `copilot_search(p_user_id uuid, p_query text, p_mode text)` avec indexation et filtrage strict par `p_user_id`.
+  - Mode spécialisé `complaints` pour extraire automatiquement les réclamations, erreurs de brief, retards et litiges à partir des messages clients réels (`m.direction = 'inbound'`).
+- **Câblage Cerveau Copilot & Déploiement VPS** ([`copilot-brain.ts`](file:///root/projets/velaris/engine/src/llm/copilot-brain.ts)) :
+  - Détection automatique des intentions de recherche thématique (`isThematicSearch`).
+  - Élimination des faux positifs de contacts provoqués par les mots courts français (« une », « qui », « est »).
+  - Injection des résultats réels dans `thematicSearchResults` pour DeepSeek-V3.
+  - Déploiement vérifié sur le VPS `162.35.113.220` (service `velaris-engine`) : tests réels en situation validés avec succès sur 5 cas concrets (Nanan Achy, kisophie223, Toure Latifa Larissa, barryclarisse14, +22605777308) avec verbatim et messages de rattrapage en 1 clic.
 
 ### 51. Ingestion Intégrale de la Mémoire Historique Réelle (637 Contacts, 40 340 Messages) & Cloisonnement Strict Anicet (4 Octobre 2026)
 - **Ingestion & Restauration de la Base de Production Réelle (`import-historical-data.mjs`)** :
