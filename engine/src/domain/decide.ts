@@ -986,6 +986,7 @@ function lyricsSentTurn(input: DecisionInput, b: DecisionBuilder, o: OrderSnapsh
   const ref = refOf(o);
   const pq = input.conversation.pendingQuestion;
   const askedValidation = pq?.key === 'validate_lyrics' && (pq.orderId === o.id || pq.orderId === null);
+  const askedChangeRecap = pq?.key === 'confirm_change_recap' && (pq.orderId === o.id || pq.orderId === null);
   const follow = input.studio.caps.lyricsFollowup;
 
   const validates =
@@ -995,6 +996,42 @@ function lyricsSentTurn(input: DecisionInput, b: DecisionBuilder, o: OrderSnapsh
       (u.primaryIntent === 'positive_feedback' && u.confidence >= VALIDATION_CONFIDENCE));
   const weakPositive = u.primaryIntent === 'positive_feedback' && u.confidence < VALIDATION_CONFIDENCE;
   const wantsChange = u.primaryIntent === 'request_lyrics_change' || (u.primaryIntent === 'confirm_no' && askedValidation);
+
+  // Tour 2 des retouches : confirmation du récapitulatif par le client
+  if (
+    askedChangeRecap &&
+    (u.primaryIntent === 'confirm_yes' ||
+      u.primaryIntent === 'confirm_no' ||
+      u.primaryIntent === 'acknowledgement' ||
+      u.primaryIntent === 'patient_wait' ||
+      u.primaryIntent === 'positive_feedback')
+  ) {
+    b.act({ type: 'transition', order: ref, track: 'creative', event: 'change_requested' });
+    b.act({ type: 'revise_lyrics', order: ref });
+    if (o.revisionCount >= 1) {
+      b.act({ type: 'alert_owner', kind: 'change_request', order: ref });
+    }
+    b.ask(null);
+    if (!follow) return b.note('change recap confirmed (recorded, level < 2 → silence)').build();
+    b.say('lyrics_feedback', 'ack_change_request', ref, [...orderFacts(o, input), ...etaFact(input, o.id, 'lyrics')]);
+    return b.note('change recap confirmed → revision in progress (5 min)').build();
+  }
+
+  // Ajout de détails supplémentaires pendant le récapitulatif
+  if (
+    askedChangeRecap &&
+    (u.primaryIntent === 'give_brief_info' || u.primaryIntent === 'shares_story' || u.primaryIntent === 'request_lyrics_change')
+  ) {
+    if (u.fields.changeRequest) {
+      b.act({ type: 'register_change_request', order: ref, text: u.fields.changeRequest.value });
+    }
+    if (o.revisionCount >= 1) {
+      b.act({ type: 'alert_owner', kind: 'change_request', order: ref });
+    }
+    b.say('lyrics_feedback', 'recap_change_request', ref, orderFacts(o, input), { asks: 'confirm' });
+    b.ask({ key: 'confirm_change_recap', orderId: o.id, asker: 'agent' });
+    return b.note('additional change during recap → update recap & ask again').build();
+  }
 
   if (validates) {
     b.act({ type: 'transition', order: ref, track: 'creative', event: 'lyrics_validated' });
@@ -1025,15 +1062,17 @@ function lyricsSentTurn(input: DecisionInput, b: DecisionBuilder, o: OrderSnapsh
     return b.note('validated → thanks, merchant handles payment').build();
   }
 
+  // Tour 1 des retouches : capture, alerte douce si >= 1 retouche, récapitulatif & question de verrouillage
   if (wantsChange) {
     if (o.revisionCount >= input.studio.maxFreeRevisions) return handoff(b, 'revision_limit', true, 'revision limit');
-    b.act({ type: 'transition', order: ref, track: 'creative', event: 'change_requested' });
     b.act({ type: 'register_change_request', order: ref, text: u.fields.changeRequest?.value ?? '' });
-    b.act({ type: 'alert_owner', kind: 'change_request', order: ref });
-    b.ask(null);
+    if (o.revisionCount >= 1) {
+      b.act({ type: 'alert_owner', kind: 'change_request', order: ref });
+    }
     if (!follow) return b.note('change requested (recorded, level < 2 → silence)').build();
-    b.say('lyrics_feedback', 'ack_change_request', ref, [...orderFacts(o, input), ...etaFact(input, o.id, 'lyrics')]);
-    return b.note('change requested → single ack').build();
+    b.say('lyrics_feedback', 'recap_change_request', ref, orderFacts(o, input), { asks: 'confirm' });
+    b.ask({ key: 'confirm_change_recap', orderId: o.id, asker: 'agent' });
+    return b.note('change requested → recap & ask if all').build();
   }
 
   if (weakPositive && follow) {

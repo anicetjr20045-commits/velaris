@@ -1477,6 +1477,7 @@ BEGIN
         'payment_policy', o.payment_policy, 'occasion', o.occasion, 'recipient_name', o.recipient_name,
         'recipient_name_confirmed', o.recipient_name_confirmed, 'recipient_relation', o.recipient_relation,
         'sender_name', o.sender_name, 'style', o.style, 'voice', o.voice, 'language', o.language,
+        'memories', o.memories, 'lyrics', o.lyrics,
         'memories_count', jsonb_array_length(o.memories), 'revision_count', o.revision_count,
         'payment_instructions_count', o.payment_instructions_count,
         'has_payment_deferral', o.payment_deferral IS NOT NULL,

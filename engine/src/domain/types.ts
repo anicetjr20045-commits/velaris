@@ -110,6 +110,8 @@ export interface OrderSnapshot {
   voice: Voice | null;
   language: string | null;
   memoriesCount: number;
+  memories?: readonly string[];
+  lyrics?: string | null;
   photosCount: number;
   revisionCount: number;
   paymentInstructionsCount: number;
@@ -230,6 +232,7 @@ export type PendingQuestionKey =
   | 'validate_lyrics'
   | 'confirm_cancel'
   | 'disambiguate_order'
+  | 'confirm_change_recap'
   | 'merchant_question';
 
 export interface PendingQuestion {
@@ -383,7 +386,10 @@ export const REPLY_GOALS = [
   'brief_received',
   'lyrics_eta',
   'ack_new_detail',
+  'recap_change_request',
   'ack_change_request',
+  'deliver_lyrics',
+  'deliver_revised_lyrics',
   'thank_validation',
   'confirm_keep_lyrics',
   'production_eta',
@@ -481,6 +487,7 @@ export type Action =
   | { type: 'transition'; order: OrderRef; track: 'payment'; event: PaymentEvent }
   | { type: 'send_procedure_voice'; order: OrderRef }
   | { type: 'request_lyrics'; order: OrderRef }
+  | { type: 'revise_lyrics'; order: OrderRef; changeRequest?: string }
   | { type: 'register_change_request'; order: OrderRef; text: string }
   | { type: 'store_own_lyrics'; order: OrderRef; text: string }
   | { type: 'register_payment_claim'; orders: readonly OrderRef[]; withImage: boolean }

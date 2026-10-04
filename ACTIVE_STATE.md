@@ -8,13 +8,13 @@
 ## 🎯 Statut Actuel
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 3 Octobre 2026
+- **Dernière mise à jour** : 4 Octobre 2026
 - **Branche Git** : `main` & `gh-pages`
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 38 (Calibration de la cadence humaine à 20s [14s de lecture + 6s de frappe WhatsApp], 136/136 tests validés, déployé et actif sur le VPS de production).
-- **Prochaine tâche immédiate** : Vérification live du flux de réponse de l'agent WhatsApp sur un compte fraîchement créé et appairage QR.
+- **Statut Opérationnel** : Jalon 39 (Éradication des promesses fantômes de paroles, service parolier Suno, protocole chirurgical des retouches en 2 temps validé, 140/140 tests au vert).
+- **Prochaine tâche immédiate** : Synchronisation sur VPS de production et test en conditions réelles sur la ligne WhatsApp.
 
 ---
 
@@ -31,6 +31,26 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 39. Éradication des Promesses Fantômes de Paroles & Protocole Chirurgical des Retouches en 2 Temps (Option B) (4 Octobre 2026)
+- **Directives Fondatrices d'Anicet Appliquées à la Lettre (Zéro Amateurisme)** :
+  1. *Commande par Commande* : Verrouillage strict de l'ordre actif dans la machine à états FSM. Zéro risque de mélanger prénoms, occasions ou proches.
+  2. *Éradication Totale des Promesses Fantômes* : L'agent ne prétend jamais qu'un texte est envoyé sans que les paroles complètes ne soient écrites et stockées en base dans `orders.lyrics`.
+  3. *Protocole des Retouches en 2 Temps (Option B)* :
+     - **Tour 1** : Demande de modification capturée (`register_change_request`). L'agent récapitule les ajustements avec bienveillance (`recap_change_request`) et verrouille le périmètre avec la question `confirm_change_recap` (*« Est-ce bien tout, ou vous souhaitez modifier un autre détail avant la correction ? »*).
+     - **Ajout de détails en cours de récapitulatif** : Si le client ajoute d'autres détails, ils sont cumulés et le récapitulatif est mis à jour.
+     - **Tour 2** : Dès confirmation par le client (*« Oui c'est tout »*, *« C'est bon »*, *« Non rien d'autre »*), le moteur transitionne vers `change_requested`, exécute `revise_lyrics` et accuse réception (`ack_change_request`).
+     - **Contrôle Qualité Humain** : Dès la 2ᵉ retouche (ou demande complexe), le gérant est automatiquement alerté (`alert_owner: change_request`) pour garder la haute main.
+- **Service Parolier & Retouche Suno (`engine/src/llm/lyrics-composer.ts`)** :
+  - `composeLyrics` : Structure Suno complète ([Couplet 1], [Refrain], [Couplet 2], [Pont], [Outro]), intégration des souvenirs réels, rimes et métrique soignée d'Afrique de l'Ouest, 1 200 à 2 400 caractères.
+  - `reviseLyrics` : Retouche chirurgicale conservant 85 % à 90 % du texte existant en ne modifiant que les vers ciblés par la demande du client.
+- **Câblage Moteur & Base de Données (`run-turn.ts`, `decide.ts`, `render.ts`, SQL)** :
+  - Transmission de `lyrics` et `memories` depuis PostgreSQL dans `agent_turn_context` (`20261006_agent_turn.sql` & `20261006_master_agent_production.sql`).
+  - Actions `request_lyrics` et `revise_lyrics` exécutées avec mise à jour atomique de `orders.lyrics` et transition `lyrics_sent`.
+  - Gabarits de livraison `deliver_lyrics` et `deliver_revised_lyrics` avec variable `{lyrics}`.
+- **Validation Globale** :
+  - TypeScript : 0 erreur (`tsc -p tsconfig.json`).
+  - Tests unitaires et d'intégration PGlite : **140/140 tests passés au vert (24 suites, 0 échec)**.
 
 ### 38. Calibration Cadence Humaine 20s & Déploiement Production VPS (3 Octobre 2026)
 - **Directive du Fondateur** : Application d'un délai total de 20 secondes avant réponse pour rendre le dialogue 100% indiscutable humainement.

@@ -95,6 +95,7 @@ export function buildTemplateVars(
     recipient: targetOrder?.recipientName ?? 'votre proche',
     for_recipient_sp: targetOrder?.recipientName ? ` pour ${targetOrder.recipientName}` : '',
     occasion: targetOrder?.occasion ?? 'votre événement',
+    lyrics: targetOrder?.lyrics ?? '',
     offer_label: '',
     price: '',
     total: '',

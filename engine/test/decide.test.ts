@@ -445,6 +445,69 @@ describe('Paroles : validation, retouches, paiement', () => {
     assert.deepEqual(steps(d), ['handoff_ack']);
   });
 
+  test('Tour 1 : demande de retouche → récapitulatif + question confirm_change_recap', () => {
+    const o = standardOrder({ stage: 'lyrics_sent', revisionCount: 0, recipientNameConfirmed: true });
+    const d = run(input({
+      orders: [o],
+      understanding: understanding({
+        primaryIntent: 'request_lyrics_change',
+        fields: { changeRequest: { value: 'changer le surnom', quote: 'changer le surnom' } },
+      }),
+    }));
+    assert.deepEqual(goals(d), ['recap_change_request']);
+    assert.equal(typeof d.pendingQuestion === 'object' ? d.pendingQuestion?.key : null, 'confirm_change_recap');
+    assert.ok(d.actions.some((a) => a.type === 'register_change_request' && (a as any).text === 'changer le surnom'));
+  });
+
+  test('Ajout de précisions pendant le récapitulatif → récapitulatif mis à jour', () => {
+    const o = standardOrder({ stage: 'lyrics_sent', revisionCount: 0, recipientNameConfirmed: true });
+    const d = run(input({
+      orders: [o],
+      conversation: {
+        ...input().conversation,
+        pendingQuestion: { key: 'confirm_change_recap', orderId: o.id, asker: 'agent' },
+      },
+      understanding: understanding({
+        primaryIntent: 'give_brief_info',
+        fields: { changeRequest: { value: 'ajouter qu elle aime chanter', quote: 'ajouter qu elle aime chanter' } },
+      }),
+    }));
+    assert.deepEqual(goals(d), ['recap_change_request']);
+    assert.equal(typeof d.pendingQuestion === 'object' ? d.pendingQuestion?.key : null, 'confirm_change_recap');
+  });
+
+  test('Tour 2 : confirmation récapitulatif (« Oui ») → transition change_requested + revise_lyrics', () => {
+    const o = standardOrder({ stage: 'lyrics_sent', revisionCount: 1, recipientNameConfirmed: true });
+    const d = run(input({
+      orders: [o],
+      conversation: {
+        ...input().conversation,
+        pendingQuestion: { key: 'confirm_change_recap', orderId: o.id, asker: 'agent' },
+      },
+      understanding: understanding({ primaryIntent: 'confirm_yes' }),
+    }));
+    assert.ok(hasTransition(d, 'change_requested'));
+    assert.ok(d.actions.some((a) => a.type === 'revise_lyrics'));
+    assert.ok(d.actions.some((a) => a.type === 'alert_owner' && a.kind === 'change_request'));
+    assert.deepEqual(goals(d), ['ack_change_request']);
+    assert.equal(d.pendingQuestion, null);
+  });
+
+  test('Tour 2 : confirmation par négation (« Non rien d\'autre ») → transition change_requested', () => {
+    const o = standardOrder({ stage: 'lyrics_sent', revisionCount: 0, recipientNameConfirmed: true });
+    const d = run(input({
+      orders: [o],
+      conversation: {
+        ...input().conversation,
+        pendingQuestion: { key: 'confirm_change_recap', orderId: o.id, asker: 'agent' },
+      },
+      understanding: understanding({ primaryIntent: 'confirm_no' }),
+    }));
+    assert.ok(hasTransition(d, 'change_requested'));
+    assert.ok(d.actions.some((a) => a.type === 'revise_lyrics'));
+    assert.deepEqual(goals(d), ['ack_change_request']);
+  });
+
   test('niveau Réception (pas de suivi des paroles) : validation enregistrée, aucun message', () => {
     const o = standardOrder({ stage: 'lyrics_sent', recipientNameConfirmed: true });
     const d = run(input({

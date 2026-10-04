@@ -88,6 +88,8 @@ export function order(over: Partial<OrderSnapshot> = {}): OrderSnapshot {
     voice: null,
     language: null,
     memoriesCount: 0,
+    memories: [],
+    lyrics: null,
     photosCount: 0,
     revisionCount: 0,
     paymentInstructionsCount: 0,

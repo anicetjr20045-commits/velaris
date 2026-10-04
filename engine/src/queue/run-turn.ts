@@ -27,6 +27,7 @@ import type {
 import { bodyHash } from '../ingest/wa-ids.js';
 import type { LlmProvider } from '../llm/provider.js';
 import { understand, type UnderstandInput } from '../llm/understand.js';
+import { composeLyrics, reviseLyrics } from '../llm/lyrics-composer.js';
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
 export interface TurnRef {
@@ -105,6 +106,8 @@ interface RawTurnContext {
     style: string | null;
     voice: string | null;
     language: string | null;
+    memories?: string[];
+    lyrics?: string | null;
     memories_count: number;
     revision_count: number;
     payment_instructions_count: number;
@@ -295,6 +298,8 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     voice: (o.voice as any) ?? null,
     language: o.language,
     memoriesCount: o.memories_count,
+    memories: Array.isArray(o.memories) ? o.memories : [],
+    lyrics: o.lyrics ?? null,
     photosCount: o.photos_count,
     revisionCount: o.revision_count,
     paymentInstructionsCount: o.payment_instructions_count,
@@ -446,6 +451,10 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         createdOrderId = id;
         orderVersionMap.set(id, 0);
       },
+      llmProvider: deps.llmProvider,
+      persona,
+      orders,
+      rawOrders: raw.orders,
     });
   }
 
@@ -593,6 +602,10 @@ interface ActionContext {
   orderVersionMap: Map<string, number>;
   getCreatedOrderId: () => string | null;
   setCreatedOrderId: (id: string) => void;
+  llmProvider: LlmProvider;
+  persona: any;
+  orders: OrderSnapshot[];
+  rawOrders: any[];
 }
 
 function resolveOrderForAction(ref: OrderRef, ctx: ActionContext): { id: string | null; version: number } {
@@ -645,6 +658,95 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
           p_turn: ctx.turnId,
         });
         ctx.orderVersionMap.set(id, version + 1);
+      }
+      break;
+    }
+    case 'request_lyrics': {
+      if (ctx.persona.cap_lyrics_draft || ctx.persona.lyrics_author === 'ai_draft_approved') {
+        const { id, version } = resolveOrderForAction(action.order, ctx);
+        const targetOrder = ctx.orders.find((o) => o.id === id);
+        if (id && targetOrder && targetOrder.recipientName && targetOrder.occasion) {
+          try {
+            const composed = await composeLyrics(ctx.llmProvider, {
+              recipientName: targetOrder.recipientName,
+              occasion: targetOrder.occasion,
+              recipientRelation: targetOrder.recipientRelation,
+              senderName: targetOrder.senderName,
+              style: targetOrder.style,
+              language: targetOrder.language,
+              memories: targetOrder.memories ?? [],
+              studioName: ctx.persona.studio_name,
+            });
+            await ctx.db.rpc('agent_order_effect', {
+              p_order: id,
+              p_expected_version: version,
+              p_kind: 'lyrics',
+              p_data: { text: composed.lyrics, title: composed.title, source: 'ai_draft_approved' },
+            });
+            ctx.orderVersionMap.set(id, version + 1);
+            await ctx.db.rpc('agent_transition_order', {
+              p_order: id,
+              p_expected_version: version + 1,
+              p_track: 'creative',
+              p_event: 'lyrics_sent',
+              p_actor: 'agent',
+              p_turn: ctx.turnId,
+            });
+            ctx.orderVersionMap.set(id, version + 2);
+            targetOrder.lyrics = composed.lyrics;
+            targetOrder.stage = 'lyrics_sent';
+          } catch (err) {
+            await ctx.db.rpc('agent_order_effect', {
+              p_order: id,
+              p_expected_version: version,
+              p_kind: 'change_request',
+              p_data: { note: `Échec composition paroles: ${(err as Error).message}` },
+            });
+          }
+        }
+      }
+      break;
+    }
+    case 'revise_lyrics': {
+      if (ctx.persona.cap_lyrics_draft || ctx.persona.lyrics_author === 'ai_draft_approved' || ctx.persona.cap_lyrics_followup) {
+        const { id, version } = resolveOrderForAction(action.order, ctx);
+        const targetOrder = ctx.orders.find((o) => o.id === id);
+        const existingLyrics = targetOrder?.lyrics;
+        if (id && targetOrder && existingLyrics && targetOrder.recipientName && targetOrder.occasion) {
+          try {
+            const rawOrder = ctx.rawOrders.find((o) => o.id === id);
+            const changeReqs = rawOrder?.change_requests;
+            const lastChange = Array.isArray(changeReqs) && changeReqs.length > 0 ? changeReqs[changeReqs.length - 1]?.text : '';
+            const changeReqText = action.changeRequest || lastChange || 'Ajustements demandés par le client';
+            const revised = await reviseLyrics(ctx.llmProvider, {
+              existingLyrics,
+              changeRequest: changeReqText,
+              recipientName: targetOrder.recipientName,
+              occasion: targetOrder.occasion,
+              studioName: ctx.persona.studio_name,
+            });
+            await ctx.db.rpc('agent_order_effect', {
+              p_order: id,
+              p_expected_version: version,
+              p_kind: 'lyrics',
+              p_data: { text: revised.lyrics, title: revised.title, source: 'ai_draft_approved' },
+            });
+            ctx.orderVersionMap.set(id, version + 1);
+            await ctx.db.rpc('agent_transition_order', {
+              p_order: id,
+              p_expected_version: version + 1,
+              p_track: 'creative',
+              p_event: 'lyrics_sent',
+              p_actor: 'agent',
+              p_turn: ctx.turnId,
+            });
+            ctx.orderVersionMap.set(id, version + 2);
+            targetOrder.lyrics = revised.lyrics;
+            targetOrder.stage = 'lyrics_sent';
+          } catch (err) {
+            console.error('Erreur révision paroles:', err);
+          }
+        }
       }
       break;
     }
