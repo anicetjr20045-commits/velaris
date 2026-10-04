@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 49 (Balises de Textes Structurés avec Copie en 1 Clic Intégrée, Directives DeepSeek-V3 en production VPS, et Arbitrage Stratégique Définitif : Modèle Hybride Réceptionniste + Cockpit Supérieur à l'Automatisation Totale).
+- **Statut Opérationnel** : Jalon 50 (Découplage Opérationnel Épuré : L'IA WhatsApp Prend les Commandes & Pose les Questions, le Site Centralise la File des Textes à Faire avec Génération Calibre Patron & Envoi Direct).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,22 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 50. Découplage Opérationnel Épuré : IA WhatsApp pour Prise de Commande, Atelier Studio pour Textes & Validation (4 Octobre 2026)
+- **Cadrage Strict de l'IA WhatsApp (Sarah)** :
+  - Mission unique et maîtrisée : accueil immédiat, identification client existant / nouveau, questions du brief (prénom, occasion, anecdotes, style) et promesse formelle des paroles personnalisées (*« Tout est bien noté ! Notre studio prépare vos paroles... »*).
+  - Dès la promesse effectuée, passage immédiat en pause silencieuse (`brief_completed`). Zéro risque de divagation poétique ou financière en direct.
+- **Section Dédiée « Textes & Atelier Studio » avec Notification en Temps Réel** :
+  - Renommage de l'onglet dans la navigation principale et sur mobile : **« Textes & Atelier Studio »** ([`StudioAppLayout.tsx`](file:///root/projets/velaris/src/components/StudioAppLayout.tsx)).
+  - Badge dynamique affichant le nombre exact de commandes en attente de texte (`status === 'brief_recu'`).
+- **File de Commandes & Filtres d'Atelier** ([`StudioView.tsx`](file:///root/projets/velaris/src/components/StudioView.tsx)) :
+  - Filtres rapides : *« Toutes »*, *« Textes à faire »* (avec badge doré pulsant), *« Paroles prêtes »*, *« En studio / Livré »*.
+  - Synthèse de chaque commande sous les yeux du gérant : destinataire, occasion, extrait note vocale/transcription, style, coordonnées client.
+- **Génération Connectée au Golden Corpus & Double Canal d'Expédition** :
+  - Bouton de génération instantanée alimenté par `generateHouseStyleSong` (32 à 48 vers complets Suno).
+  - Bouton interactif **`Copier en 1 clic`** pour coller manuellement dans WhatsApp.
+  - Bouton direct **`Envoyer sur WhatsApp`** ouvrant la discussion avec le message pré-rempli et poli.
+  - Déclenchement de la musique Suno préservé : réaction emoji `🎵` sur WhatsApp ou clic dans le studio.
 
 ### 49. Balises Copiables en 1 Clic & Arbitrage Stratégique Définitif (4 Octobre 2026)
 - **Composant `CopyableBlock` et Rendu Markdown Enrichi** :

@@ -71,7 +71,7 @@ interface StudioAppLayoutProps {
 const BOTTOM_TABS: { id: StudioTab; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'revenus', label: 'Cockpit', icon: LayoutGrid },
   { id: 'conversations', label: 'Discussions', icon: MessagesSquare },
-  { id: 'studio_ai', label: 'Atelier IA', icon: Music2 },
+  { id: 'studio_ai', label: 'Textes & Studio', icon: Music2 },
   { id: 'analyste', label: 'Copilot', icon: Sparkles }
 ];
 
@@ -119,6 +119,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
     [rawConversations, readState]
   );
   const unreadCount = liveConversations.filter((c) => !c.isArchived && c.unread).length;
+  const pendingLyricsCount = orders.filter((o) => o.status === 'brief_recu').length;
 
   const navGroups: {
     title: string;
@@ -136,7 +137,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
     {
       title: 'Création & Formation',
       items: [
-        { id: 'studio_ai' as StudioTab, label: 'Atelier Studio IA', icon: Music2 },
+        { id: 'studio_ai' as StudioTab, label: 'Textes & Atelier Studio', icon: Music2, count: pendingLyricsCount },
         { id: 'academy' as StudioTab, label: 'Académie Studio', icon: GraduationCap },
       ]
     },

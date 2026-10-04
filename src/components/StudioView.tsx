@@ -14,9 +14,18 @@ import {
   ExternalLink,
   Sliders,
   Disc3,
-  FileText
+  FileText,
+  Sparkles,
+  Send
 } from 'lucide-react';
 import type { Order } from '../types';
+import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
+
+function extractSection(lyrics: string, sectionName: string): string {
+  const regex = new RegExp(`\\[${sectionName}[^\\]]*\\]([\\s\\S]*?)(?=\\n\\[|$)`, 'i');
+  const match = lyrics.match(regex);
+  return match ? match[1].trim() : '';
+}
 
 interface StudioViewProps {
   orders: Order[];
@@ -160,18 +169,26 @@ export const StudioView: FC<StudioViewProps> = ({
     { label: 'Livraison', detail: `Expédition sur ${currentOrder.clientPhone}` },
   ];
 
-  // 1-Click AI Lyrics Generation
+  // 1-Click AI Lyrics Generation (Calibre Patron & Corpus d'Or)
   const handleGenerateLyrics = (directive?: string) => {
     setIsGeneratingLyrics(true);
     timers.current.push(window.setTimeout(() => {
+      const occasion = detectOccasion(`${currentOrder.occasion} ${currentOrder.transcription || ''}`);
+      const rawPrompt = `${currentOrder.transcription || ''} ${directive || ''}`.trim();
+      const house = generateHouseStyleSong({
+        recipient: currentOrder.recipient,
+        occasion: occasion,
+        style: activeStyle?.label || currentOrder.style,
+        memories: rawPrompt ? [rawPrompt] : [],
+        senderName: currentOrder.clientName.split(' ')[0],
+      });
+
       const generated = {
-        title: `${currentOrder.recipient}, Notre Chanson Sacrée`,
-        verse1: directive
-          ? `Sous le ciel étoilé de notre rencontre,\nChaque seconde avec toi arrête la montre.\n(${directive})\nTon rire est un remède qui guérit ma douleur.`
-          : `Sous le ciel étoilé de notre rencontre,\nChaque seconde avec toi arrête la montre.\nTu as séché mes peines, ranimé la lueur,\nTon rire est un remède qui guérit ma douleur.`,
-        chorus: `${currentOrder.recipient}, mon amour précieux et béni,\nÀ tes côtés je veux passer ma vie.\nQue la mélodie chante ce qu’on a traversé,\nNotre amour est gravé pour l’éternité.`,
-        verse2: `À travers chaque épreuve, tu es restée fidèle,\nPlus le temps avance, et plus tu es belle.\nReçois ce doux refrain comme un baiser d’amour,\nJe te promets mon cœur pour toujours et toujours.`,
-        outro: `Pour toujours avec toi, ${currentOrder.recipient}…`,
+        title: house.title,
+        verse1: extractSection(house.lyrics, 'Couplet 1') || `Depuis tant d'années que tu éclaires notre chemin…\nChaque instant à tes côtés est une bénédiction entre nos mains…\n${currentOrder.recipient}, ton rire efface nos peines et chasse nos doutes…\nUne force tranquille qui nous guide sur la route…`,
+        chorus: extractSection(house.lyrics, 'Refrain') || `Joyeux anniversaire ${currentOrder.recipient}, reine de nos cœurs…\nQue le Tout-Puissant inonde ta vie de bonheur…\nSanté, longue vie, élévation et prospérité…\n${currentOrder.recipient}, nous chantons ta grandeur et ta générosité…`,
+        verse2: extractSection(house.lyrics, 'Couplet 2') || extractSection(house.lyrics, 'Pont') || `Rappelle-toi les épreuves que tu as su surmonter…\nToujours digne et fière, tu ne t'es jamais résignée…\nPour ta famille et pour ceux qui t'aiment, tu es un trésor précieux…`,
+        outro: extractSection(house.lyrics, 'Outro') || `Danse et réjouis-toi, ce jour est le tien…\nPour toujours avec toi, ${currentOrder.recipient}…`,
       };
 
       onUpdateOrder({
@@ -240,7 +257,16 @@ export const StudioView: FC<StudioViewProps> = ({
     timers.current.push(window.setTimeout(() => setLyricsSentToWhatsApp(false), 3000));
   };
 
-  // Livret : sections + numérotation continue des vers
+  const [filter, setFilter] = useState<'all' | 'brief_recu' | 'paroles_pretes' | 'studio'>('all');
+  const pendingCount = orders.filter((o) => o.status === 'brief_recu').length;
+  const readyCount = orders.filter((o) => o.status === 'paroles_pretes').length;
+  const filteredOrders = orders.filter((o) => {
+    if (filter === 'brief_recu') return o.status === 'brief_recu';
+    if (filter === 'paroles_pretes') return o.status === 'paroles_pretes';
+    if (filter === 'studio') return o.status === 'production_suno' || o.status === 'livre';
+    return true;
+  });
+
   const lyricSections = currentOrder.lyrics
     ? [
         { name: 'Couplet I', text: currentOrder.lyrics.verse1, kind: 'verse' as const },
@@ -265,32 +291,84 @@ export const StudioView: FC<StudioViewProps> = ({
           <div className="flex items-center gap-2 text-[13px] text-[#A3A3A3]">
             <span className="font-mono text-neutral-500">{currentOrder.id}</span>
             <span className="text-neutral-700">·</span>
-            <span>Pipeline audio 18 min</span>
+            <span>{currentOrder.recipient} ({currentOrder.occasion})</span>
+            <span className="text-neutral-700">·</span>
+            <span className="text-[#E5B54F]">
+              {currentOrder.status === 'brief_recu'
+                ? 'Brief reçu · Texte à rédiger'
+                : currentOrder.status === 'paroles_pretes'
+                  ? 'Paroles prêtes'
+                  : 'En studio'}
+            </span>
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-[1.08] mt-2">
-            Atelier
+            Textes & Atelier Studio
           </h1>
+          <p className="text-[13px] text-neutral-400 mt-1">
+            File des commandes WhatsApp · Rédaction sur mesure, copie 1-clic & production musicale
+          </p>
         </div>
 
-        {/* Sélecteur de commande */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5 max-w-full">
-          {orders.map((o) => {
-            const active = o.id === currentOrder.id;
-            return (
-              <button
-                key={o.id}
-                onClick={() => onSelectOrder(o.id)}
-                className={`shrink-0 flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors duration-150 ease-press cursor-pointer ${
-                  active ? 'bg-white text-black font-semibold' : 'text-[#A3A3A3] hover:text-white'
-                }`}
-              >
-                <span>{o.clientName.split(' ')[0]}</span>
-                <span className={`font-mono text-[11.5px] ${active ? 'text-black/50' : 'text-neutral-600'}`}>
-                  {o.amount.toLocaleString('fr-FR')} F
-                </span>
-              </button>
-            );
-          })}
+        {/* Filtres & Sélecteur de commande */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 flex-wrap justify-start lg:justify-end">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                filter === 'all' ? 'bg-white text-black font-semibold' : 'text-neutral-400 hover:text-white bg-white/[0.03]'
+              }`}
+            >
+              Toutes ({orders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('brief_recu')}
+              className={`rounded-full px-3 py-1 text-[12px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                filter === 'brief_recu' ? 'bg-[#E5B54F] text-[#050608] font-bold shadow-[0_0_12px_rgba(229,181,79,0.4)]' : 'text-[#E5B54F] bg-[#E5B54F]/[0.08] hover:bg-[#E5B54F]/15'
+              }`}
+            >
+              <Sparkles className="h-3 w-3" />
+              <span>Textes à faire ({pendingCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('paroles_pretes')}
+              className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors cursor-pointer ${
+                filter === 'paroles_pretes' ? 'bg-white/20 text-white font-semibold' : 'text-neutral-400 hover:text-white bg-white/[0.03]'
+              }`}
+            >
+              Paroles prêtes ({readyCount})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-full border border-white/[0.08] bg-white/[0.02] p-0.5 max-w-full">
+            {filteredOrders.length === 0 ? (
+              <span className="px-3.5 py-1 text-[12px] text-neutral-500">Aucune commande dans ce filtre</span>
+            ) : (
+              filteredOrders.map((o) => {
+                const active = o.id === currentOrder.id;
+                const isPending = o.status === 'brief_recu';
+                return (
+                  <button
+                    key={o.id}
+                    onClick={() => onSelectOrder(o.id)}
+                    className={`shrink-0 flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] whitespace-nowrap transition-colors duration-150 ease-press cursor-pointer ${
+                      active ? 'bg-white text-black font-semibold' : 'text-[#A3A3A3] hover:text-white'
+                    }`}
+                  >
+                    {isPending && (
+                      <span className="h-2 w-2 rounded-full bg-[#E5B54F] animate-pulse" title="Texte à faire" />
+                    )}
+                    <span>{o.clientName.split(' ')[0]}</span>
+                    <span className={`font-mono text-[11.5px] ${active ? 'text-black/50' : 'text-neutral-600'}`}>
+                      {o.amount.toLocaleString('fr-FR')} F
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -481,12 +559,42 @@ export const StudioView: FC<StudioViewProps> = ({
                   {isGeneratingLyrics ? 'Écriture…' : 'Régénérer'}
                 </button>
                 <button
+                  type="button"
                   onClick={copyLyrics}
                   disabled={!currentOrder.lyrics}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/[0.18] transition-colors duration-150 disabled:opacity-40 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-neutral-200 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.22] transition-colors duration-150 disabled:opacity-40 cursor-pointer"
+                  title="Copier les paroles au format complet"
                 >
-                  {lyricsCopied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" strokeWidth={1.5} />}
-                  {lyricsCopied ? 'Copié' : 'Copier'}
+                  {lyricsCopied ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-300 font-semibold">Copié en 1 clic !</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" strokeWidth={1.5} />
+                      <span>Copier en 1 clic</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={openWhatsAppChat}
+                  disabled={!currentOrder.lyrics}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3.5 py-1.5 text-[13px] font-medium text-emerald-300 hover:text-white hover:bg-emerald-500/25 transition-colors duration-150 disabled:opacity-40 cursor-pointer"
+                  title="Envoyer les paroles directement sur WhatsApp"
+                >
+                  {lyricsSentToWhatsApp ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-300" />
+                      <span>WhatsApp ouvert !</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3 w-3" strokeWidth={1.5} />
+                      <span>Envoyer sur WhatsApp</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
