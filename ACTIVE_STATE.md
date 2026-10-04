@@ -5,16 +5,29 @@
 
 ---
 
-## 🎯 Statut Actuel
+## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026
-- **Branche Git** : `main` & `gh-pages`
-- **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
-- **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
-- **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 50 (Découplage Opérationnel Épuré : L'IA WhatsApp Prend les Commandes & Pose les Questions, le Site Centralise la File des Textes à Faire avec Génération Calibre Patron & Envoi Direct).
-- **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
+- **Dernière mise à jour** : 4 Octobre 2026 (15:06 UTC)
+- **Branche Git & Commits Déployés** :
+  - `main` : commit [`31213e6`](https://github.com/anicetjr20045-commits/velaris/commit/31213e6) (*feat(studio): Jalon 50 - file Textes & Atelier Studio, filtres textes a faire et envoi WhatsApp 1-clic*)
+  - `gh-pages` : commit [`787d4d1`](https://github.com/anicetjr20045-commits/velaris/commit/787d4d1) (*deploy: update live site with milestone 50 texts studio atelier*)
+- **Liens Live Déployés** :
+  - Vercel : https://velaris-dun.vercel.app/
+  - GitHub Pages : https://anicetjr20045-commits.github.io/velaris/
+- **Statut Opérationnel** : **Jalon 50 100% Validé & Déployé** (Découplage Opérationnel Épuré : L'IA WhatsApp Prend les Commandes & Pose les Questions, le Site Centralise la File des Textes à Faire avec Génération Calibre Patron & Envoi Direct).
+- **Consigne d'Arrêt & Point de Reprise pour ce Soir** :
+  - Tout le code du Jalon 50 est compilé, testé (0 erreur) et poussé sur GitHub (main + gh-pages).
+  - La session a été suspendue à la demande expresse d'Anicet pour reprendre ce soir.
+- **Prochaine tâche exacte à la reprise ce soir** :
+  1. Vérifier la session WhatsApp WAHA de test (`Test`, `+22656240533`) et s'assurer qu'elle est en ligne (`WORKING` via `/qr/` si besoin de scanner).
+  2. Lancer un test live end-to-end complet :
+     - Simuler un message client entrant sur WhatsApp.
+     - Constater que Sarah recueille le brief (prénom, occasion, souvenirs) et promet le texte, puis se tait en silence absolu.
+     - Constater l'arrivée immédiate de la commande dans l'onglet **« Textes & Atelier Studio »** avec le badge **« Textes à faire »**.
+     - Générer les paroles calibre patron (32 à 48 vers) en 1 clic.
+     - Tester **« Copier en 1 clic »** et **« Envoyer sur WhatsApp »**.
+     - Valider le déclenchement de la musique Suno avec la réaction emoji `🎵`.
 
 ---
 
