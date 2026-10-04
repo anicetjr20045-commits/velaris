@@ -8,25 +8,19 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (21:15 UTC)
-- **Statut Opérationnel** : **Jalon 56 100% Validé & Déployé** (Cockpit Supervisé 1-Clic dans les Discussions WhatsApp, Détection Dynamique de la Prochaine Étape, et Encaissement Direct Caisse & Trésorerie).
+- **Dernière mise à jour** : 4 Octobre 2026 (21:30 UTC)
+- **Statut Opérationnel** : **Jalon 57 100% Validé & Déployé** (Silence Intelligent du Copilot, Allègement Visuel Radical en Micro-Barre 1-Clic, Encaissement Direct & Zéro Spam).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Cockpit Supervisé 1-Clic dans les Discussions** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
-    - L'IA n'intervient jamais de manière autonome : elle est votre copilote d'atelier assis à côté de vous dans le site.
-    - Détection automatique et temps réel de la situation du client :
-      - *Accueil / Nouveau contact* : message d'accueil + proposition du vocal de procédure.
-      - *Brief partiel* : détection de l'occasion (anniversaire, mariage, hommage, amour) et demande ciblée des éléments manquants (prénom, date, souvenirs).
-      - *Demande d'extrait* : réponse bienveillante + envoi de l'extrait audio modèle en 1 clic.
-      - *Brief complet* : proposition des paroles complètes + bouton 1-clic *« Générer le texte (32-48 vers Suno) »*.
-      - *Demande de tarif* : formule 3 000 F CFA + coordonnées Wave et Orange Money.
-      - *Paiement signalé / Justificatif* : message d'accusé de réception 18 min + bouton prioritaire *« Encaisser la commande »*.
-      - *Retouches* : récapitulatif bienveillant des modifications.
-    - Boîte de réponse prête à l'envoi avec 2 options : **`[Envoyer sur WhatsApp]`** (0 ms) ou **`[Modifier]`** (charge dans le champ pour ajuster).
-    - Raccourcis d'actions 1-clic : *Vocal de procédure*, *Extrait audio démo*, *Générer le texte*, *Coordonnées Wave & OM*, *Encaisser*.
+  - **Silence Intelligent & Discernement Strict** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+    - Règle 1 : Aucun message suggéré quand le studio a déjà envoyé le dernier message (`!lastMessage.inbound`). On attend le client en silence.
+    - Règle 2 : Silence complet sur les formules de politesse / accusé de réception client (*« merci »*, *« ok »*, *« d'accord »*, *« bien reçu »*).
+    - Détection contextuelle précise (accueil, brief partiel, brief complet, échantillon démo, retouches, coordonnées, dépôt reçu).
+  - **Micro-Barre Horizontale 1-Clic Ultra-Épurée (~34px)** :
+    - Éradication totale des gros conteneurs et docks à étages qui encombraient la zone de saisie.
+    - Micro-barre discrète style Linear/Apple : micro-badge d'intention, texte tronqué en 1 ligne (clic pour remplir le compositeur), boutons contextuels (*« Encaisser »*, *« Paroles »*), bouton *« Insérer »*, bouton blanc compact *« Envoyer »* (suppression du libellé verbeux *« sur WhatsApp »*), et croix `(X)` pour masquer instantanément la suggestion.
   - **Module d'Encaissement Direct (Caisse & Trésorerie)** :
-    - Bouton **`Encaisser`** présent en permanence dans l'en-tête de chaque discussion et dans le dock assistant.
-    - Modal d'encaissement luxueuse (`CashOrderModal`) : sélection en 1 clic du montant (1 200 F / 3 000 F / 5 000 F ou montant libre), du moyen (Wave / Orange Money / Moov / Espèces), du destinataire et de l'occasion.
-    - Inscription atomique dans la table Supabase `orders` (`recordDirectPayment`), mise à jour du funnel en `paid`, et envoi automatique de la confirmation WhatsApp au client.
+    - Bouton **`Encaisser`** dans l'en-tête de conversation et dans la micro-barre lors des dépôts signalés.
+    - Modal d'encaissement luxueuse (`CashOrderModal`) : forfait 1 200 F / 3 000 F / 5 000 F ou montant libre, opérateur Wave / OM / Moov / Espèces, écriture dans `orders` (`recordDirectPayment`) et funnel `paid`.
 - **Prochaine tâche exacte** :
   1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
   2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
@@ -46,6 +40,19 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 57. Silence Intelligent du Copilot & Micro-Barre 1-Clic Haute Précision (4 Octobre 2026)
+- **Silence Intelligent & Discernement Anti-Spam** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - L'assistant ne propose plus rien quand le studio est le dernier émetteur : l'écran reste 100% net pendant les temps d'attente client.
+  - Formules de courtoisie filtrées (*« merci »*, *« ok »*, *« d'accord »*, *« super »*) évitant toute relance robotique inopportune.
+  - Détection contextuelle précise avec actions dédiées : `cash` pour les dépôts signalés, `lyrics` pour les briefs complets, `reply` pour les guidages d'étape.
+- **Micro-Barre Horizontale Haute Facture (~34px)** :
+  - Remplacement du dock encombrant à 3 étages par une ligne unique ultra-sobre et fluide.
+  - Micro-badge d'intention, aperçu 1 ligne avec tooltip et clic d'insertion, bouton compact blanc *« Envoyer »* (éradication de la mention verbeuse *« sur WhatsApp »*), bouton *« Insérer »*, boutons contextuels 1-clic (*« Encaisser »*, *« Paroles »*) et bouton de fermeture `(X)`.
+  - Mémorisation de l'état masqué (`dismissedSuggestions`) par message.
+- **Validation Globale** :
+  - Frontend Vite : Build propre en 4.32s (`tsc -b && vite build` avec 0 erreur).
+  - Conformité stricte à la Règle 4 (zéro émoji UI, typographie soignée, univers graphite sombre luxueux).
 
 ### 56. Cockpit Supervisé 1-Clic dans les Discussions WhatsApp & Encaissement Direct Caisse (4 Octobre 2026)
 - **Assistant Prochaine Étape Contextuel 1-Clic** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :

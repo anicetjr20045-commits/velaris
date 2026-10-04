@@ -9,8 +9,6 @@ import {
   CheckCheck,
   CheckCircle2,
   Clock3,
-  Compass,
-  DollarSign,
   Download,
   ExternalLink,
   FileText,
@@ -20,7 +18,6 @@ import {
   MailOpen,
   MessageCircle,
   Mic,
-  Music,
   Receipt,
   RefreshCw,
   Search,
@@ -174,12 +171,6 @@ const SNIPPETS: { label: string; icon: LucideIcon; text: string }[] = [
   { label: 'Livraison', icon: Truck, text: 'Votre chanson est prête. Écoutez-la et dites-nous ce que vous en pensez. Merci pour votre confiance.' },
 ];
 
-const PROCEDURE_VOICE_TEXT = `Voici comment se déroule la création de votre chanson au Studio Velaris :\n1. Vous nous confiez le prénom, l'occasion et 2 ou 3 souvenirs marquants.\n2. Notre studio rédige vos paroles complètes sur-mesure et vous les envoie pour validation.\n3. Dès confirmation, nous produisons 2 versions audio master haute définition en 18 minutes.`;
-
-const SAMPLE_AUDIO_TEXT = `Avec grand plaisir ! Voici un extrait d'une de nos compositions studio récentes (style acoustique afro-love) : https://waha.velarisagent.life/demo/sample-afro.mp3\n\nNous adaptons le style musical (afro-love, rumba, acoustique, gospel) selon vos souhaits. Dites-moi ce que vous en pensez !`;
-
-const PAYMENT_INFO_TEXT = `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes + 2 versions audio HD + livraison en 18 minutes).\n\nVous pouvez régler par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n\nDès votre dépôt effectué, envoyez simplement la capture ici et nous lançons la production aussitôt !`;
-
 interface NextStepData {
   stageKey: 'accueil' | 'brief_incomplet' | 'brief_complet' | 'extrait' | 'paiement_demande' | 'paiement_recu' | 'retouches';
   stageBadge: string;
@@ -187,12 +178,33 @@ interface NextStepData {
   detectedOccasion: string;
   recipientName: string;
   recommendedReply: string;
+  actionKind?: 'cash' | 'lyrics' | 'reply';
 }
 
-function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): NextStepData {
+function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): NextStepData | null {
+  if (!messages || messages.length === 0) return null;
+
+  const lastMsg = messages[messages.length - 1];
+
+  // 1. RÈGLE MAÎTRESSE : Si le dernier message vient du studio, IL N'Y A RIEN À DIRE
+  // Le studio a déjà répondu. On attend le client en silence. Zéro spam robotique.
+  if (lastMsg && !lastMsg.inbound) {
+    return null;
+  }
+
   const inbounds = messages.filter((m) => m.inbound);
   const lastInbound = inbounds[inbounds.length - 1];
-  const lastText = (lastInbound?.body || conv.fullMessage || conv.preview || '').toLowerCase();
+  if (!lastInbound || !lastInbound.body) return null;
+
+  const lastText = lastInbound.body.trim().toLowerCase();
+
+  // 2. RÈGLE DE CLÔTURE POLIE : Si le client dit simplement merci, ok, d'accord
+  // Silence d'or, pas de message superflu.
+  const isPoliteClosing = /^(merci|merci bcp|merci beaucoup|d'accord|daccord|dac|ok|okay|super|parfait|c'est noté|c est note|bien reçu|bien recu|bonne nuit|bonne journée|bonsoir|bonjour|amen|merci bien)[\s.!🙏✨]*$/i.test(lastText);
+  if (isPoliteClosing && inbounds.length > 1) {
+    return null;
+  }
+
   const allInboundText = inbounds.map((m) => m.body).join(' ').toLowerCase();
 
   // Détection d'occasion
@@ -222,7 +234,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     recipientName = nomMatch[3].charAt(0).toUpperCase() + nomMatch[3].slice(1).toLowerCase();
   } else if (pourMatch && pourMatch[1]) {
     const raw = pourMatch[1].toLowerCase();
-    if (!['une', 'un', 'mon', 'ma', 'mes', 'son', 'sa', 'lui', 'elle', 'moi'].includes(raw)) {
+    if (!['une', 'un', 'mon', 'ma', 'mes', 'son', 'sa', 'lui', 'elle', 'moi', 'ce', 'cet'].includes(raw)) {
       recipientName = raw.charAt(0).toUpperCase() + raw.slice(1);
     }
   }
@@ -231,17 +243,18 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   }
 
   // 1. Paiement signalé / Justificatif reçu
-  const isPaymentClaim = /\b(payé|paye|dépot|depot|versement|transfert|capture|envoyé|envoye|recu|reçu|transaction|quittance|orange money|wave)\b/i.test(lastText) &&
+  const isPaymentClaim = /\b(payé|paye|dépot|depot|versement|transfert|capture|envoyé|envoye|recu|reçu|transaction|quittance)\b/i.test(lastText) &&
     !/\b(comment|combien|ou payer|sur quel|quel numero|quel numéro|le prix)\b/i.test(lastText);
 
   if (isPaymentClaim) {
     return {
       stageKey: 'paiement_recu',
-      stageBadge: 'Justificatif reçu · À encaisser',
-      detectedIntent: 'Le client signale avoir effectué le dépôt',
+      stageBadge: 'Dépôt signalé',
+      detectedIntent: 'Paiement effectué',
       detectedOccasion,
       recipientName,
       recommendedReply: `Paiement bien reçu, merci beaucoup ! Votre commande passe immédiatement en production studio. Livraison de vos versions audio master d'ici 18 minutes.`,
+      actionKind: 'cash',
     };
   }
 
@@ -250,24 +263,26 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   if (isPriceInquiry) {
     return {
       stageKey: 'paiement_demande',
-      stageBadge: 'Demande de tarif & paiement',
-      detectedIntent: 'Le client souhaite connaître les tarifs et les numéros de dépôt',
+      stageBadge: 'Tarifs & Dépôt',
+      detectedIntent: 'Demande de tarif ou de coordonnées',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes + 2 versions audio HD + livraison en 18 minutes).\n\nVous pouvez régler par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n\nDès votre dépôt effectué, envoyez la capture ici et nous lançons la production !`,
+      recommendedReply: `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes + 2 versions audio HD + livraison en 18 min).\n\nRèglement possible par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n\nDès le dépôt fait, envoyez simplement la capture ici !`,
+      actionKind: 'reply',
     };
   }
 
   // 3. Demande d'extrait / exemple
-  const isSampleRequest = /\b(extrait|extraits|exemple|exemples|echantillon|échantillon|écouter|ecouter|demo|démo|comment ça sonne|voir un modèle)\b/i.test(lastText);
+  const isSampleRequest = /\b(extrait|extraits|exemple|exemples|echantillon|échantillon|écouter|ecouter|demo|démo|comment ça sonne|voir un modèle|comment ca se passe)\b/i.test(lastText);
   if (isSampleRequest) {
     return {
       stageKey: 'extrait',
-      stageBadge: 'Demande d\'extrait démo',
-      detectedIntent: 'Le client demande à entendre un échantillon musical',
+      stageBadge: 'Échantillon',
+      detectedIntent: 'Demande d\'écoute ou d\'exemple',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Avec grand plaisir ! Voici un aperçu de nos productions récentes en studio (style acoustique afro-love). Nous adaptons le style selon vos souhaits. Dites-moi ce que vous en pensez !`,
+      recommendedReply: `Voici un extrait représentatif de nos productions en studio (style acoustique afro-love) : https://waha.velarisagent.life/demo/sample-afro.mp3\n\nNous adaptons le style selon vos souhaits. Qu'en pensez-vous ?`,
+      actionKind: 'reply',
     };
   }
 
@@ -276,58 +291,66 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   if (isRevisionRequest) {
     return {
       stageKey: 'retouches',
-      stageBadge: 'Demande de retouches',
-      detectedIntent: 'Le client souhaite modifier ou ajuster un détail',
+      stageBadge: 'Retouches',
+      detectedIntent: 'Demande d\'ajustement du texte',
       detectedOccasion,
       recipientName,
-      recommendedReply: `C'est bien noté pour ces ajustements. Je note tout de suite les corrections à apporter. Y a-t-il un autre détail à modifier avant que nous actualisions le texte ?`,
+      recommendedReply: `C'est bien noté pour ces ajustements. Je note tout de suite les corrections à apporter. Y a-t-il un autre détail à modifier avant la finalisation ?`,
+      actionKind: 'reply',
     };
   }
 
-  // 5. Brief complet (prénom + occasion ou détails fournis)
-  const isBriefComplete = !!recipientName && (allInboundText.length > 30 || inbounds.length >= 2);
+  // 5. Brief complet (prénom + occasion identifiés)
+  const isBriefComplete = !!recipientName && (allInboundText.length > 25 || inbounds.length >= 2);
   if (isBriefComplete) {
     return {
       stageKey: 'brief_complet',
-      stageBadge: `Brief complet · Prêt pour ${recipientName || 'le texte'}`,
-      detectedIntent: 'Les éléments clés sont réunis pour composer les paroles',
+      stageBadge: 'Brief prêt',
+      detectedIntent: `Prêt pour l'écriture pour ${recipientName}`,
       detectedOccasion,
       recipientName,
-      recommendedReply: `Tout est bien noté pour ${recipientName || 'votre chanson'} ! Notre studio prépare vos paroles complètes sur-mesure dès maintenant. Je vous envoie le texte d'ici quelques instants pour validation.`,
+      recommendedReply: `Tout est bien noté pour ${recipientName} ! Notre studio lance la rédaction de vos paroles complètes sur-mesure. Je vous transmets le texte d'ici quelques instants.`,
+      actionKind: 'lyrics',
     };
   }
 
   // 6. Brief partiel (occasion détectée mais prénom manquant)
   const hasOccasionSignal = /\b(anniversaire|mariage|hommage|amour|naissance|fête|fete)\b/i.test(allInboundText);
   if (hasOccasionSignal) {
-    let questionText = `C'est bien noté pour l'anniversaire ! Quel est le prénom de la personne à célébrer, quelle est sa date d'anniversaire, et quels sont 2 ou 3 souvenirs marquants à glisser dans la chanson ?`;
+    let questionText = `C'est bien noté pour l'anniversaire ! Quel est le prénom de la personne à célébrer, sa date d'anniversaire, et 2 ou 3 souvenirs marquants ?`;
     if (detectedOccasion === 'Mariage') {
-      questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des deux mariés, la date de la célébration et un souvenir marquant de leur rencontre ?`;
+      questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des mariés, la date et un souvenir marquant ?`;
     } else if (detectedOccasion === 'Hommage') {
-      questionText = `Toutes nos pensées vous accompagnent. Quel est le nom de la personne à honorer et les valeurs ou souvenirs que vous souhaitez immortaliser dans la chanson ?`;
+      questionText = `Toutes nos pensées vous accompagnent. Quel est le nom de la personne à honorer et les souvenirs que vous souhaitez immortaliser ?`;
     } else if (detectedOccasion === 'Amour') {
-      questionText = `Magnifique démarche ! Quel est le prénom de votre bien-aimé(e) et les anecdotes ou qualités qui rendent votre histoire unique ?`;
+      questionText = `Superbe projet ! Quel est le prénom de votre bien-aimé(e) et les petites attentions qui rendent votre histoire unique ?`;
     }
 
     return {
       stageKey: 'brief_incomplet',
-      stageBadge: `Brief partiel · Prénom & Date requis`,
-      detectedIntent: `Occasion identifiée (${detectedOccasion}), informations complémentaires nécessaires`,
+      stageBadge: 'Prénom & Date',
+      detectedIntent: 'Précisions nécessaires pour le brief',
       detectedOccasion,
       recipientName,
       recommendedReply: questionText,
+      actionKind: 'reply',
     };
   }
 
-  // 7. Accueil (Nouveau contact)
-  return {
-    stageKey: 'accueil',
-    stageBadge: 'Accueil & Découverte',
-    detectedIntent: 'Nouveau contact ou salutations',
-    detectedOccasion,
-    recipientName,
-    recommendedReply: `Bonjour et bienvenue au Studio Velaris. Nous composons des chansons personnalisées uniques pour vos moments précieux. Pour qui aimeriez-vous créer cette chanson, et pour quelle occasion ?`,
-  };
+  // 7. Accueil (Uniquement si premier message)
+  if (inbounds.length <= 1) {
+    return {
+      stageKey: 'accueil',
+      stageBadge: 'Accueil',
+      detectedIntent: 'Nouveau contact',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Bonjour et bienvenue au Studio Velaris. Pour qui aimeriez-vous créer cette chanson, et pour quelle occasion ?`,
+      actionKind: 'reply',
+    };
+  }
+
+  return null;
 }
 
 interface CashOrderModalProps {
@@ -614,6 +637,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [outgoing, setOutgoing] = useState<Record<string, OutgoingMessage[]>>({});
   const [cashModalOpen, setCashModalOpen] = useState(false);
   const [isCashing, setIsCashing] = useState(false);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => new Set());
 
   const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
 
@@ -899,6 +923,9 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     if (!selectedConv) return null;
     return analyzeNextStep(selectedConv, thread);
   }, [selectedConv, thread]);
+
+  const suggestionKey = selectedConv && nextStep ? `${selectedConv.id}-${thread[thread.length - 1]?.id || thread.length}-${nextStep.stageKey}` : '';
+  const activeNextStep = suggestionKey && dismissedSuggestions.has(suggestionKey) ? null : nextStep;
 
   const handleGenerateLyricsForChat = () => {
     if (!selectedConv || !nextStep) return;
@@ -1381,98 +1408,82 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
               {/* Dock de réponses rapides + compositeur */}
               <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
-                {/* 🧭 Assistant Prochaine Étape (Cockpit Supervisé 1-Clic) */}
-                {nextStep && (
-                  <div className="rounded-2xl border border-white/[0.10] bg-[#0E1015]/90 backdrop-blur-md p-3 sm:p-3.5 space-y-2.5">
-                    {/* Bandeau d'étape */}
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-300">
-                          <Compass className="h-3 w-3" strokeWidth={2} />
-                          {nextStep.stageBadge}
-                        </span>
-                        <span className="text-[12px] text-neutral-400 hidden md:inline">
-                          {nextStep.detectedIntent}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setCashModalOpen(true)}
-                        title="Encaisser la commande"
-                        className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-400/20 transition-colors cursor-pointer"
+                {/* 🧭 Assistant Prochaine Étape (Micro-barre discrète 1-clic) */}
+                {activeNextStep && (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-white/[0.08] bg-[#0E1015]/95 px-3 py-1.5 backdrop-blur-sm transition-all">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="shrink-0 rounded-md border border-white/[0.12] bg-white/[0.05] px-2 py-0.5 font-mono text-[10.5px] font-medium text-neutral-300">
+                        {activeNextStep.stageBadge}
+                      </span>
+                      <p
+                        className="truncate text-xs text-neutral-300 font-sans cursor-pointer hover:text-white transition-colors"
+                        title={`${activeNextStep.recommendedReply}\n\n(Cliquer pour insérer dans le compositeur)`}
+                        onClick={() => {
+                          setReplyText(activeNextStep.recommendedReply);
+                          composerRef.current?.focus();
+                        }}
                       >
-                        <Receipt className="h-3 w-3" />
-                        <span>Encaisser</span>
-                      </button>
+                        {activeNextStep.recommendedReply.replace(/\n+/g, ' ')}
+                      </p>
                     </div>
 
-                    {/* Boîte de réponse recommandée */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 rounded-xl border border-white/[0.08] bg-[#07080B] p-2.5 sm:p-3">
-                      <div className="text-[13px] text-neutral-200 leading-relaxed flex-1 select-text whitespace-pre-wrap font-sans">
-                        {nextStep.recommendedReply}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {activeNextStep.actionKind === 'cash' && (
                         <button
                           type="button"
-                          onClick={() => sendText(nextStep.recommendedReply)}
-                          disabled={isSending}
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-40"
+                          onClick={() => setCashModalOpen(true)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11.5px] font-medium text-emerald-300 hover:bg-emerald-400/20 transition-colors cursor-pointer"
                         >
-                          <ArrowUp className="h-3.5 w-3.5" strokeWidth={2} />
-                          <span>Envoyer sur WhatsApp</span>
+                          <Receipt className="h-3 w-3" />
+                          <span>Encaisser</span>
                         </button>
+                      )}
+
+                      {activeNextStep.actionKind === 'lyrics' && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setReplyText(nextStep.recommendedReply);
-                            if (composerRef.current) composerRef.current.focus();
-                          }}
-                          className="inline-flex items-center gap-1 rounded-xl border border-white/[0.12] bg-white/[0.03] px-3 py-2 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors cursor-pointer"
+                          onClick={handleGenerateLyricsForChat}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#E5B54F]/30 bg-[#E5B54F]/10 px-2.5 py-1 text-[11.5px] font-medium text-[#F1DDB4] hover:bg-[#E5B54F]/20 transition-colors cursor-pointer"
                         >
-                          <span>Modifier</span>
+                          <Sparkles className="h-3 w-3 text-[#E5B54F]" />
+                          <span>Paroles</span>
                         </button>
-                      </div>
-                    </div>
+                      )}
 
-                    {/* Raccourcis d'actions logiques 1-clic */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
                       <button
                         type="button"
-                        onClick={() => sendText(PROCEDURE_VOICE_TEXT)}
-                        disabled={isSending}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setReplyText(activeNextStep.recommendedReply);
+                          composerRef.current?.focus();
+                        }}
+                        title="Insérer dans le champ pour modifier"
+                        className="px-2.5 py-1 text-[11.5px] text-neutral-400 hover:text-white rounded-lg border border-white/[0.08] hover:border-white/20 transition-colors cursor-pointer"
                       >
-                        <Mic className="h-3 w-3 text-neutral-400" />
-                        Vocal de procédure
+                        Insérer
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => sendText(SAMPLE_AUDIO_TEXT)}
+                        onClick={() => sendText(activeNextStep.recommendedReply)}
                         disabled={isSending}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-[11.5px] font-semibold text-black hover:bg-neutral-200 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
                       >
-                        <Music className="h-3 w-3 text-neutral-400" />
-                        Extrait audio démo
+                        <ArrowUp className="h-3 w-3 stroke-[2.5]" />
+                        <span>Envoyer</span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={handleGenerateLyricsForChat}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#E5B54F]/40 bg-[#E5B54F]/10 px-2.5 py-1 text-[11.5px] font-medium text-[#F1DDB4] hover:bg-[#E5B54F]/20 transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (suggestionKey) {
+                            setDismissedSuggestions((prev) => new Set(prev).add(suggestionKey));
+                          }
+                        }}
+                        title="Masquer la suggestion"
+                        aria-label="Masquer la suggestion"
+                        className="p-1 rounded text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.05] transition-colors cursor-pointer"
                       >
-                        <Sparkles className="h-3 w-3 text-[#E5B54F]" />
-                        Générer le texte (32-48 vers)
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => sendText(PAYMENT_INFO_TEXT)}
-                        disabled={isSending}
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors cursor-pointer"
-                      >
-                        <DollarSign className="h-3 w-3 text-neutral-400" />
-                        Coordonnées Wave & OM
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1523,7 +1534,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                           sendText(replyText);
                         }
                       }}
-                      aria-label="Réponse WhatsApp"
+                      aria-label="Rédiger une réponse"
                       className="flex-1 resize-none bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none max-h-28"
                     />
                     {replyText.trim() ? (
@@ -1531,7 +1542,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         type="button"
                         onClick={() => sendText(replyText)}
                         disabled={isSending}
-                        aria-label="Envoyer sur WhatsApp"
+                        aria-label="Envoyer le message"
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" strokeWidth={2} />}
