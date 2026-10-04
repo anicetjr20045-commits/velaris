@@ -14,6 +14,8 @@ import { useWahaSession } from './hooks/useWaha';
 import { useAuth } from './hooks/useAuth';
 import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
+import { ProtectedStreamView, type ProtectedShareData } from './components/ProtectedStreamView';
+import { getSavedProtectedShares } from './components/ProtectedAudioShareModal';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
@@ -124,6 +126,32 @@ export function App() {
   const initialRoute = useMemo(() => parseInitialRoute(), []);
   const [activeTab, setActiveTab] = useState<MainTab>(initialRoute.activeTab);
   const [studioSubTab, setStudioSubTab] = useState<StudioTab>(initialRoute.studioSubTab);
+
+  // Détection du mode d'écoute publique sécurisé (?listen=...)
+  const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const listenId = urlParams.get('listen');
+    if (listenId) {
+      const saved = getSavedProtectedShares();
+      return saved.find((s) => s.id === listenId) || null;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const handleCheckListen = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const listenId = urlParams.get('listen');
+      if (listenId) {
+        const saved = getSavedProtectedShares();
+        const found = saved.find((s) => s.id === listenId);
+        if (found) setListenShareData(found);
+      }
+    };
+    window.addEventListener('popstate', handleCheckListen);
+    return () => window.removeEventListener('popstate', handleCheckListen);
+  }, []);
 
   // Mémorise si l'utilisateur connecté a délibérément cliqué sur "Retour à la vitrine"
   const userExplicitlyNavigatedToHomeRef = useRef<boolean>(
@@ -324,6 +352,19 @@ export function App() {
       }).catch(console.error);
     }
   };
+
+  if (listenShareData) {
+    return (
+      <ProtectedStreamView
+        data={listenShareData}
+        onClose={() => {
+          setListenShareData(null);
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#07080a] text-[#e8eaed] font-sans selection:bg-white/20 selection:text-white relative">

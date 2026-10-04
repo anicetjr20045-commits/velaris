@@ -109,12 +109,32 @@ const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: r
 /* ------------------------------------------------------------------ */
 
 const renderInline = (text: string): ReactNode[] =>
-  text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*)/g).map((part, i) => {
+  text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|\[[^\]]+\]\([^)]+\))/g).map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
       return <em key={i} className="font-serif italic text-[1.08em] text-[#E9D5AE]">{part.slice(1, -1)}</em>;
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      const isWhatsApp = linkMatch[2].includes('wa.me');
+      return (
+        <a
+          key={i}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noreferrer"
+          className={`inline-flex items-center gap-1 font-medium underline underline-offset-2 transition-colors ${
+            isWhatsApp
+              ? 'text-emerald-400 hover:text-emerald-300'
+              : 'text-[#E5B54F] hover:text-[#F3CA75]'
+          }`}
+        >
+          {linkMatch[1]}
+          <ArrowUpRight className="inline h-3 w-3 opacity-70" />
+        </a>
+      );
     }
     return <Fragment key={i}>{part}</Fragment>;
   });
@@ -1100,7 +1120,21 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                             </button>
                           )}
 
-                          {m.actionCard.metadata?.waLink && (
+                          {m.actionCard.phone && (
+                            <a
+                              href={`https://wa.me/${m.actionCard.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-[12.5px] font-medium text-emerald-300 hover:text-white hover:bg-emerald-500/20 hover:border-emerald-500/50 active:scale-[0.97] transition-all duration-150 ease-press"
+                              title="Ouvrir la discussion exacte sur WhatsApp"
+                            >
+                              <MessagesSquare className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.7} />
+                              <span>Ouvrir la discussion WhatsApp</span>
+                              <ArrowUpRight className="h-3 w-3 opacity-60" />
+                            </a>
+                          )}
+
+                          {m.actionCard.metadata?.waLink && !m.actionCard.phone && (
                             <a
                               href={m.actionCard.metadata.waLink}
                               target="_blank"

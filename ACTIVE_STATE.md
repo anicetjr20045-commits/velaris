@@ -8,12 +8,14 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (18:29 UTC)
-- **Statut Opérationnel** : **Jalon 52 100% Validé & Déployé sur VPS** (Moteur de Recherche Thématique Copilot sur les 40 340 Messages Historiques : fonction PostgreSQL `copilot_search` connectée au Copilot DeepSeek-V3, recherche des plaintes, retouches, litiges et demandes spécifiques opérationnelle et vérifiée en direct).
+- **Dernière mise à jour** : 4 Octobre 2026 (19:30 UTC)
+- **Statut Opérationnel** : **Jalon 53 100% Validé & Déployé** (Atelier Créateur Épuré, Nouveaux Outils de Production Studio : Lecteur Protégé Anti-Téléchargement, Découpeur Audio Express Web, et Réponses Factuelles Directes du Copilot avec Redirection WhatsApp 1-Clic).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Recherche Plein-Texte Historique Opérationnelle** : Le Copilot ne répond plus « je n'ai pas de moteur de recherche plein-texte ». Il interroge en direct la fonction PostgreSQL `copilot_search` sur les 40 340 messages d'Anicet et extrait instantanément les verbatim, dates, statuts et solutions de rattrapage en 1 clic.
-  - **Cas Réels Testés et Validés en Direct sur le VPS** : Plaintes identifiées pour Nanan Achy (+225 45 88 75 75), kisophie223 (+226 70 86 73 09), Toure Latifa Larissa (+225 08 90 68 36), barryclarisse14 (+226 71 22 38 77), +226 05 77 73 08 avec messages de réconciliation prêts à l'emploi.
-  - **Filtrage Stopwords Renforcé** : Élimination des faux positifs de recherche de contact sur les mots courts (« une », « qui », « est ») qui redirigeaient par erreur vers Prunelle.
+  - **Copilot Cadré & Factualité Stricte** : Fin des templates et messages de réponse non sollicités. Le Copilot répond désormais avec une précision chirurgicale sur les faits demandés, avec boutons et liens directs `wa.me/<phone>` pour ouvrir instantanément la discussion WhatsApp.
+  - **Migration Compte Actif Définitive** : Les 637 contacts, 633 conversations, 652 commandes et 40 340 messages sont unifiés et rattachés au compte connecté `anicetjr20045@gmail.com` (`149fb40a-3500-4c3c-b935-194ead0b2e46`).
+  - **Atelier Studio Épuré (Inbox Zero)** : Vue focalisée sur les textes à rédiger en temps réel, résumé clair du brief client, bouton d'envoi WhatsApp direct et bouton *« Confirmer comme fait (Retirer de la file) »*.
+  - **Outil 1 : Lecteur Audio Protégé Public (`ProtectedAudioShareModal` & `ProtectedStreamView`)** : Permet au créateur d'uploader 1 ou 2 versions et de générer un lien streaming luxueux anti-téléchargement (`?listen=...`) pour que le client écoute sans pouvoir voler le fichier MP3 avant paiement.
+  - **Outil 2 : Découpeur Audio Express Web (`AudioTrimmerTool`)** : Trimmer instantané dans le navigateur (Web Audio API) pour visualiser la forme d'onde, isoler un teaser de 30s ou couper l'intro et exporter en WAV HD.
 - **Prochaine tâche exacte** :
   1. Vérifier la session WhatsApp WAHA de test (`Test`, `+22656240533`) et s'assurer qu'elle est en ligne (`WORKING` via `/qr/` si besoin de scanner).
   2. Lancer un test live end-to-end complet avec un numéro existant ou nouveau.
@@ -33,6 +35,19 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 53. Atelier Créateur Épuré, Nouveaux Outils (Lecteur Protégé & Découpeur) et Factualité Copilot (4 Octobre 2026)
+- **Cadrage Strict du Copilot IA (Zéro Template Non Sollicité)** :
+  - Mise à jour des règles du prompt système DeepSeek-V3 : interdiction formelle de générer des modèles de messages clients lors de questions d'analyse ou de recherche factuelle.
+  - Ajout des liens directs cliquables [Ouvrir la discussion WhatsApp](https://wa.me/...) et du bouton d'action direct dans l'interface `StudioCopilotView`.
+- **Refonte de la Page « Textes & Atelier Studio » (`StudioView.tsx`)** :
+  - Suppression de la surcharge visuelle : focus sur les textes en cours (`status === 'brief_recu'`), résumé net du brief, bouton d'envoi WhatsApp en 1 clic et confirmation de fin de tâche qui retire la commande de la file.
+- **Nouveau Composant « Lecteur Protégé (Lien sans téléchargement) »** :
+  - Création de `ProtectedAudioShareModal` et de la vue cliente `ProtectedStreamView` (URL `?listen=<shareId>`).
+  - Permet d'uploader 1 ou 2 versions, lecteur streaming luxueux avec waveform animée, choix de version, `controlsList="nodownload"` et interdiction du clic droit pour empêcher tout vol avant paiement.
+- **Nouveau Composant « Découpeur Audio Express » (`AudioTrimmerTool.tsx`)** :
+  - Découpeur audio en temps réel dans le navigateur (Web Audio API `AudioContext` & `bufferToWave`).
+  - Forme d'onde interactive sur canvas, presets rapides (teaser 30s WhatsApp, extrait 15s), pré-écoute et export WAV instantané.
 
 ### 52. Activation de la Recherche Thématique Plein-Texte Copilot sur les 40 340 Messages Historiques (4 Octobre 2026)
 - **Fonction PostgreSQL RPC `copilot_search` (Supabase)** :
