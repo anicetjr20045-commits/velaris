@@ -573,8 +573,6 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
     writing: 'Je mets en forme la réponse.',
   };
 
-  const isFresh = messages.length === 1;
-
   return (
     <div className="max-w-6xl mx-auto vx-view-enter">
       {/* En-tête */}
@@ -1045,60 +1043,34 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
               </div>
             )}
 
-            {isFresh && !trace && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pl-0 sm:pl-[46px]">
-                {SUGGESTIONS.map((s, i) => {
-                  const Icon = s.icon;
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      onClick={() => handleSendMessage(s.query)}
-                      style={{ '--i': i + 2 } as CSSProperties}
-                      className="vx-stagger group flex items-start gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.015] p-3.5 text-left hover:border-white/[0.18] hover:bg-white/[0.035] active:scale-[0.99] transition-all duration-200 ease-luxury cursor-pointer"
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] text-[#A3A3A3] group-hover:text-[#F3CA75] group-hover:border-[#E5B54F]/30 transition-colors duration-200">
-                        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-neutral-100">{s.label}</span>
-                        <span className="block mt-0.5 text-[12.5px] text-neutral-500">{s.hint}</span>
-                      </span>
-                      <ArrowUpRight className="h-3.5 w-3.5 text-neutral-600 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-200" />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
           {/* Compositeur */}
           <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
-            {!isFresh && (
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                {SUGGESTIONS.map((s) => {
-                  const Icon = s.icon;
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      disabled={tracing}
-                      onClick={() => handleSendMessage(s.query)}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3] hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer disabled:opacity-40"
-                    >
-                      <Icon className="h-3 w-3" strokeWidth={1.5} />
-                      {s.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {/* Suggestions très compactes et discrètes juste en bas */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              {SUGGESTIONS.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <button
+                    key={s.label}
+                    type="button"
+                    disabled={tracing}
+                    onClick={() => handleSendMessage(s.query)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.025] px-2.5 py-1 text-[11px] text-neutral-400 hover:text-white hover:border-white/20 hover:bg-white/[0.05] transition-colors duration-150 cursor-pointer disabled:opacity-30"
+                  >
+                    <Icon className="h-2.5 w-2.5 text-neutral-400" strokeWidth={1.5} />
+                    <span>{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
             {detectedPhone && !tracing && (
-              <div className="vx-fade-in flex items-center gap-2 rounded-xl border border-[#E5B54F]/35 bg-[#E5B54F]/[0.07] px-3 py-2 text-sm text-[#F3CA75]">
-                <Phone className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+              <div className="vx-fade-in flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.04] px-3 py-1.5 text-xs text-neutral-200">
+                <Phone className="h-3.5 w-3.5 text-[#E5B54F] shrink-0" strokeWidth={1.8} />
                 <span className="truncate">
-                  Numéro détecté <span className="font-mono font-semibold">{detectedPhone}</span> : Entrée pour retrouver la discussion complète
+                  Numéro <span className="font-mono font-semibold text-white">{detectedPhone}</span> détecté : Entrée pour retrouver la discussion
                 </span>
               </div>
             )}
@@ -1108,8 +1080,10 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className={`flex items-end gap-2 rounded-2xl border bg-white/[0.025] p-1.5 pl-4 transition-colors duration-200 ${
-                inputFocused ? 'border-[#E5B54F]/45' : 'border-white/[0.08]'
+              className={`flex items-end gap-2 rounded-2xl border p-1.5 pl-4 transition-all duration-200 ${
+                inputFocused
+                  ? 'bg-[#181B26] border-white/35 shadow-[0_0_24px_-6px_rgba(255,255,255,0.08)]'
+                  : 'bg-[#13151D] border-white/[0.14] hover:border-white/[0.24]'
               }`}
             >
               <textarea
@@ -1128,18 +1102,18 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                     handleSendMessage();
                   }
                 }}
-                placeholder="Un numéro (+226…, 07…, 5835), un prénom, un chiffre, des paroles…"
+                placeholder="Écrivez votre message..."
                 disabled={tracing}
                 aria-label="Message pour Sonar"
-                className="flex-1 resize-none bg-transparent py-2.5 text-[15px] text-white placeholder:text-[#737373] outline-none max-h-32 disabled:opacity-50"
+                className="flex-1 resize-none bg-transparent py-2.5 text-[15px] text-white placeholder:text-neutral-500 outline-none max-h-32 disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={!inputPrompt.trim() || tracing}
                 aria-label="Envoyer"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5B54F] text-[#050608] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
               >
-                {tracing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" strokeWidth={2} />}
+                {tracing ? <Loader2 className="h-4 w-4 animate-spin text-black" /> : <ArrowUp className="h-4 w-4 text-black" strokeWidth={2} />}
               </button>
             </form>
             <div className="flex items-center justify-between px-1 text-[12.5px] text-neutral-600">
