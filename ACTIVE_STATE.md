@@ -13,8 +13,8 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 39 (Éradication des promesses fantômes de paroles, service parolier Suno, protocole chirurgical des retouches en 2 temps validé, 140/140 tests au vert).
-- **Prochaine tâche immédiate** : Synchronisation sur VPS de production et test en conditions réelles sur la ligne WhatsApp.
+- **Statut Opérationnel** : Jalon 40 (Bouclage intégral de la livraison des paroles WhatsApp : déclenchement post-vocal de procédure, livraison immédiate des paroles révisées au Tour 2, activation universelle des studios Supabase, conteneur VPS déployé, 143/143 tests au vert).
+- **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer la composition et la retouche en conditions réelles.
 
 ---
 
@@ -31,6 +31,19 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 40. Bouclage Intégral & Déploiement Production Paroles & Retouches Suno WhatsApp (4 Octobre 2026)
+- **Résolution des 3 Écarts Critiques du Cycle Paroles** :
+  1. *Livraison WhatsApp des Paroles Révisées au Tour 2* : Au Tour 2 des retouches (`confirm_change_recap` validé), l'agent génère les modifications chirurgicales, enregistre en base `orders.lyrics`, et envoie immédiatement `deliver_revised_lyrics` (*« Voici votre texte corrigé pour {recipient} :\n\n{lyrics}\n\nOn garde ce texte tel quel ? »*) en armant la question `validate_lyrics`. Zéro client laissé en attente d'un texte généré en coulisses.
+  2. *Déclenchement Automatique Post-Vocal de Procédure* : À la réception de la réponse du nouveau client après le vocal de procédure, le moteur transitionne `lyrics_work_started`, déclenche `request_lyrics` et délivre le texte composé via `deliver_lyrics` avec question `validate_lyrics`.
+  3. *Activation Universelle Studio Personas Supabase* : Mise à jour en base de production (`cap_lyrics_draft = true`, `lyrics_author = 'ai_draft_approved'`, `cap_lyrics_followup = true`) sur l'ensemble des studios enregistrés (dont le studio fondateur Velaris Studio `043a33b4`).
+- **Validation Complète du Moteur** :
+  - TypeScript : 0 erreur (`tsc -p tsconfig.json`).
+  - Suite de tests : **143/143 tests passés au vert (24 suites, 0 échec)**.
+- **Déploiement VPS Production (`162.35.113.220`)** :
+  - Synchronisation du bundle `dist/` et `package.json` sur le VPS.
+  - Reconstruction de l'image Docker `velaris-engine:latest`.
+  - Conteneur redémarré avec succès (`ingest listening` sur port 3001).
 
 ### 39. Éradication des Promesses Fantômes de Paroles & Protocole Chirurgical des Retouches en 2 Temps (Option B) (4 Octobre 2026)
 - **Directives Fondatrices d'Anicet Appliquées à la Lettre (Zéro Amateurisme)** :

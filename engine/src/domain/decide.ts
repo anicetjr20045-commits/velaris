@@ -823,6 +823,11 @@ function briefTurn(input: DecisionInput, b: DecisionBuilder, ref: OrderRef, snap
       b.say('payment', 'payment_instructions', ref, paymentFacts([after], input));
       return b.note('brief complete, before_lyrics → payment instructions').build();
     }
+    if (input.studio.caps.lyricsDraft) {
+      b.say('lyrics_delivery', 'deliver_lyrics', ref, orderFacts(after, input), { asks: 'validate' });
+      b.ask({ key: 'validate_lyrics', orderId: idOf(ref), asker: 'agent' });
+      return b.note('brief complete, voice already received → lyrics drafted & delivered').build();
+    }
     b.say('lyrics_wait', 'brief_received', ref, [...orderFacts(after, input), ...(ref.kind === 'existing' ? etaFact(input, ref.id, 'lyrics') : [])]);
     return b.note('brief complete, voice already received → lyrics in progress').build();
   }
@@ -953,11 +958,6 @@ function lyricsInProgressTurn(input: DecisionInput, b: DecisionBuilder, o: Order
     return b.note('lyrics in progress, before_lyrics unpaid → instructions').build();
   }
 
-  if (STATUS_INTENTS.includes(u.primaryIntent)) {
-    if (u.primaryIntent === 'thanks_closing') return b.note('thanks while lyrics in progress → silence').build();
-    return etaOnce(input, b, o, 'lyrics', LYRICS_ETA_REPEAT_MIN);
-  }
-
   if (u.primaryIntent === 'provides_own_lyrics' && u.fields.ownLyrics) {
     b.act({ type: 'store_own_lyrics', order: ref, text: u.fields.ownLyrics.value });
     b.act({ type: 'alert_owner', kind: 'own_lyrics', order: ref });
@@ -976,6 +976,34 @@ function lyricsInProgressTurn(input: DecisionInput, b: DecisionBuilder, o: Order
     b.act({ type: 'mark_ack', key });
     b.say('lyrics_wait', 'ack_new_detail', ref, orderFacts(o, input));
     return b.note('new detail during writing → recorded + single ack').build();
+  }
+
+  // Commande post-vocal de procédure (brief_complete) ou lyrics_in_progress sans paroles
+  if (o.stage === 'brief_complete' || (o.stage === 'lyrics_in_progress' && !o.lyrics)) {
+    if (o.stage === 'brief_complete') {
+      b.act({ type: 'transition', order: ref, track: 'creative', event: 'lyrics_work_started' });
+    }
+    if (input.studio.caps.lyricsDraft) {
+      b.act({ type: 'request_lyrics', order: ref });
+      if (o.paymentPolicy === 'before_lyrics' && input.studio.caps.payment && !isPaid(o) && isPriced(o)) {
+        b.act({ type: 'transition', order: ref, track: 'payment', event: 'instructions_sent' });
+        b.say('payment', 'payment_instructions', ref, paymentFacts([o], input));
+        return b.note('brief complete → lyrics drafted, before_lyrics payment instructions').build();
+      }
+      b.say('lyrics_delivery', 'deliver_lyrics', ref, orderFacts(o, input), { asks: 'validate' });
+      b.ask({ key: 'validate_lyrics', orderId: o.id, asker: 'agent' });
+      return b.note('post-procedure-voice reply → lyrics drafted & delivered').build();
+    }
+    if (STATUS_INTENTS.includes(u.primaryIntent)) {
+      if (u.primaryIntent === 'thanks_closing') return b.note('thanks while lyrics in progress → silence').build();
+      return etaOnce(input, b, o, 'lyrics', LYRICS_ETA_REPEAT_MIN);
+    }
+    return b.note('brief complete → lyrics in progress (human)').build();
+  }
+
+  if (STATUS_INTENTS.includes(u.primaryIntent)) {
+    if (u.primaryIntent === 'thanks_closing') return b.note('thanks while lyrics in progress → silence').build();
+    return etaOnce(input, b, o, 'lyrics', LYRICS_ETA_REPEAT_MIN);
   }
 
   return b.note('lyrics in progress → silence').build();
@@ -1011,8 +1039,16 @@ function lyricsSentTurn(input: DecisionInput, b: DecisionBuilder, o: OrderSnapsh
     if (o.revisionCount >= 1) {
       b.act({ type: 'alert_owner', kind: 'change_request', order: ref });
     }
+    if (!follow) {
+      b.ask(null);
+      return b.note('change recap confirmed (recorded, level < 2 → silence)').build();
+    }
+    if (input.studio.caps.lyricsDraft) {
+      b.say('lyrics_delivery', 'deliver_revised_lyrics', ref, orderFacts(o, input), { asks: 'validate' });
+      b.ask({ key: 'validate_lyrics', orderId: o.id, asker: 'agent' });
+      return b.note('change recap confirmed → revised lyrics delivered').build();
+    }
     b.ask(null);
-    if (!follow) return b.note('change recap confirmed (recorded, level < 2 → silence)').build();
     b.say('lyrics_feedback', 'ack_change_request', ref, [...orderFacts(o, input), ...etaFact(input, o.id, 'lyrics')]);
     return b.note('change recap confirmed → revision in progress (5 min)').build();
   }

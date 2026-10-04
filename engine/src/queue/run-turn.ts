@@ -745,6 +745,12 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
             targetOrder.stage = 'lyrics_sent';
           } catch (err) {
             console.error('Erreur révision paroles:', err);
+            await ctx.db.rpc('agent_order_effect', {
+              p_order: id,
+              p_expected_version: version,
+              p_kind: 'change_request',
+              p_data: { note: `Échec révision paroles: ${(err as Error).message}` },
+            });
           }
         }
       }

@@ -508,6 +508,68 @@ describe('Paroles : validation, retouches, paiement', () => {
     assert.deepEqual(goals(d), ['ack_change_request']);
   });
 
+  test('Tour 2 avec lyricsDraft : confirmation récapitulatif → livraison paroles révisées (deliver_revised_lyrics)', () => {
+    const o = standardOrder({ stage: 'lyrics_sent', revisionCount: 1, recipientNameConfirmed: true });
+    const d = run(input({
+      studio: studio({ caps: { ...studio().caps, lyricsDraft: true } }),
+      orders: [o],
+      conversation: {
+        ...input().conversation,
+        pendingQuestion: { key: 'confirm_change_recap', orderId: o.id, asker: 'agent' },
+      },
+      understanding: understanding({ primaryIntent: 'confirm_yes' }),
+    }));
+    assert.ok(hasTransition(d, 'change_requested'));
+    assert.ok(d.actions.some((a) => a.type === 'revise_lyrics'));
+    assert.ok(d.actions.some((a) => a.type === 'alert_owner' && a.kind === 'change_request'));
+    assert.deepEqual(goals(d), ['deliver_revised_lyrics']);
+    assert.deepEqual(steps(d), ['lyrics_delivery']);
+    assert.equal(typeof d.pendingQuestion === 'object' ? d.pendingQuestion?.key : null, 'validate_lyrics');
+  });
+
+  test('Post-vocal procédure avec lyricsDraft : client dit « D\'accord » → lyrics_work_started + deliver_lyrics', () => {
+    const o = standardOrder({ stage: 'brief_complete', recipientNameConfirmed: true, lyrics: null });
+    const d = run(input({
+      studio: studio({ caps: { ...studio().caps, lyricsDraft: true } }),
+      orders: [o],
+      understanding: understanding({ primaryIntent: 'acknowledgement' }),
+    }));
+    assert.ok(hasTransition(d, 'lyrics_work_started'));
+    assert.ok(d.actions.some((a) => a.type === 'request_lyrics'));
+    assert.deepEqual(goals(d), ['deliver_lyrics']);
+    assert.deepEqual(steps(d), ['lyrics_delivery']);
+    assert.equal(typeof d.pendingQuestion === 'object' ? d.pendingQuestion?.key : null, 'validate_lyrics');
+  });
+
+  test('Client ancien avec lyricsDraft : brief complet → deliver_lyrics direct', () => {
+    const o = standardOrder({
+      stage: 'collecting_brief',
+      recipientNameConfirmed: false,
+      catalogueCode: 'standard',
+      priceXof: 3000,
+      deliverable: 'audio',
+      paymentPolicy: 'after_lyrics_validation',
+      occasion: 'anniversaire',
+      recipientName: 'Fatou',
+    });
+    const d = run(input({
+      studio: studio({ caps: { ...studio().caps, lyricsDraft: true } }),
+      contact: { deliveredOrders: 1, procedureVoiceReceived: true },
+      orders: [o],
+      conversation: {
+        ...input().conversation,
+        pendingQuestion: { key: 'confirm_recipient_name', orderId: o.id, asker: 'agent' },
+      },
+      understanding: understanding({ primaryIntent: 'confirm_yes' }),
+    }));
+    assert.ok(hasTransition(d, 'brief_completed'));
+    assert.ok(hasTransition(d, 'lyrics_work_started'));
+    assert.ok(d.actions.some((a) => a.type === 'request_lyrics'));
+    assert.deepEqual(goals(d), ['deliver_lyrics']);
+    assert.deepEqual(steps(d), ['lyrics_delivery']);
+    assert.equal(typeof d.pendingQuestion === 'object' ? d.pendingQuestion?.key : null, 'validate_lyrics');
+  });
+
   test('niveau Réception (pas de suivi des paroles) : validation enregistrée, aucun message', () => {
     const o = standardOrder({ stage: 'lyrics_sent', recipientNameConfirmed: true });
     const d = run(input({
