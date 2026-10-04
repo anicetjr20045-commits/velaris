@@ -205,6 +205,43 @@ describe('20261006_agent_turn SQL functions', () => {
     assert.equal(o.rows[0].version, 2);
     assert.equal(o.rows[0].occasion, 'anniversaire');
     assert.equal(o.rows[0].payment_deferral.reason, 'kiosk_closed');
+
+    // Test effet conversation : schedule_followup
+    const fupRes = await adapter.rpc<string>('agent_conversation_effect', {
+      p_conversation: convId,
+      p_kind: 'schedule_followup',
+      p_data: { kind: 'payment_after_deferral', order_id: orderId, at: new Date(Date.now() + 3600000).toISOString() },
+    });
+    assert.equal(fupRes, 'ok');
+
+    const fupTurns = await db.query<any>(`SELECT * FROM conversation_turns WHERE conversation_id = '${convId}' AND trigger = 'followup'`);
+    assert.ok(fupTurns.rows.length >= 1);
+    assert.equal(fupTurns.rows[0].status, 'scheduled');
+
+    // Test outbox owner_alert
+    const alertId = await adapter.rpc<string>('agent_enqueue_outbox', {
+      p_user: USER,
+      p_conversation: convId,
+      p_order: orderId,
+      p_turn: turnId,
+      p_origin: 'system_alert',
+      p_kind: 'text',
+      p_purpose: 'owner_alert',
+      p_is_relay: false,
+      p_session: SESSION,
+      p_chat_id: '22656240533@c.us',
+      p_body: '[Velaris Studio] Paiement à vérifier pour Amadou',
+      p_media_path: null,
+      p_caption: null,
+      p_body_hash: bodyHash('[Velaris Studio] Paiement à vérifier pour Amadou'),
+      p_idempotency_key: `test_owner_alert_${turnId}`,
+      p_lock_token: lockToken,
+      p_status: 'pending',
+    });
+    assert.ok(alertId);
+    const alertMsg = await db.query<any>(`SELECT * FROM outbound_messages WHERE id = '${alertId}'`);
+    assert.equal(alertMsg.rows[0].purpose, 'owner_alert');
+    assert.equal(alertMsg.rows[0].origin, 'system_alert');
   });
 
   test('clôture et journalisation atomique', async () => {

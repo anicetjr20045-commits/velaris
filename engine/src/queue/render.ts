@@ -413,7 +413,14 @@ export async function renderOutputItem(
   // 5. Template (default & fallback)
   const templateStr = selectTemplate(utterance.goal, utterance.step, resolved.templateKey, ctx.templates, ctx.managerAvailable);
   const vars = buildTemplateVars(utterance, ctx, targetOrder);
-  const filled = fillTemplate(templateStr, vars);
+  let filled = fillTemplate(templateStr, vars);
+
+  // Sécurisation critique paroles : si l'étape délivre des paroles mais que le champ est vide
+  if (utterance.step === 'lyrics_delivery' && (!targetOrder?.lyrics || targetOrder.lyrics.trim().length === 0)) {
+    const forName = targetOrder?.recipientName ? ` pour ${targetOrder.recipientName}` : '';
+    filled = `Votre texte${forName} est en cours de finalisation au studio. Vous le recevrez dans un instant !`;
+    notes.push('lyrics empty -> fallback safe text');
+  }
 
   return {
     messages: [

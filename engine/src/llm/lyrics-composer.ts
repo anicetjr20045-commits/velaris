@@ -133,9 +133,11 @@ Applique les modifications chirurgicales et renvoie l'objet JSON avec les parole
   const title = typeof res.data.title === 'string' && res.data.title.trim()
     ? res.data.title.trim()
     : `Chanson pour ${input.recipientName}`;
-  const lyrics = typeof res.data.lyrics === 'string' && res.data.lyrics.trim()
-    ? res.data.lyrics.trim()
-    : input.existingLyrics;
+  const lyrics = typeof res.data.lyrics === 'string' ? res.data.lyrics.trim() : '';
+
+  if (!lyrics || lyrics.length < 200) {
+    throw new Error('Paroles révisées générées invalides ou trop courtes');
+  }
 
   return { title, lyrics };
 }

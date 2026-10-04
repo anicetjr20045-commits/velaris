@@ -13,8 +13,8 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 40 (Bouclage intégral de la livraison des paroles WhatsApp : déclenchement post-vocal de procédure, livraison immédiate des paroles révisées au Tour 2, activation universelle des studios Supabase, conteneur VPS déployé, 143/143 tests au vert).
-- **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer la composition et la retouche en conditions réelles.
+- **Statut Opérationnel** : Jalon 41 (Câblage intégral du système d'alertes WhatsApp gérant `owner_alert` et `handoff`, implémentation de `launch_production` et `schedule_followup`, durcissement médico-légal anti-régression des paroles, 143/143 tests au vert).
+- **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
 
@@ -31,6 +31,34 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 41. Câblage Intégral Alertes WhatsApp Gérant & Durcissement Médical Paroles/FSM (4 Octobre 2026)
+- **Câblage du Canal d'Alerte Gérant (`owner_alert` & `handoff`)** :
+  - Implémentation de `queueOwnerAlert` dans `run-turn.ts` : génère des messages WhatsApp prioritaires (`origin: 'system_alert'`, `purpose: 'owner_alert'`) transmis au gérant sur son `alert_phone` via WAHA.
+  - Couverture exhaustive des motifs d'alerte :
+    - `payment_to_verify` : Justificatif ou réclamation de paiement reçu.
+    - `unexpected_payment_claim` : Réclamation de paiement inattendue.
+    - `new_detail` : Nouveau souvenir/détail ajouté par le client.
+    - `own_lyrics` : Paroles fournies directement par le client.
+    - `change_request` : Demande de retouches.
+    - `lyrics_validated` : Paroles validées par le client.
+    - `production_ready` : Commande validée et payée, prête pour production.
+    - `unclassified_image` : Image transmise nécessitant vérification.
+    - `missing_price` : Commande sans prix défini.
+    - `handoff` : Prise en main humaine demandée ou requise (avec raison exacte).
+    - `compose_failed` / `revise_failed` : Alerte immédiate au gérant si un appel LLM de paroles échoue.
+- **Actions Métier FSM Complétées** :
+  - `launch_production` : Déclenche `agent_transition_order` (`production_started`), passe l'ordre en `in_production`, incrémente la version.
+  - `schedule_followup` : Programme un tour de relance automatique dans `conversation_turns` via `agent_conversation_effect` (`p_kind: 'schedule_followup'`) selon `persona.followup_delay_hours`.
+  - Prise en charge propre de `send_procedure_voice` et `store_images`.
+- **Durcissement Anti-Régression Paroles** :
+  - `reviseLyrics` : Lève désormais une erreur explicite si les paroles retournées sont invalides ou vides au lieu de renvoyer silencieusement les anciennes paroles.
+  - `renderOutputItem` : Garde-fou strict empêchant la livraison d'un message vide si `lyrics` est vide (message d'attente sécurisé).
+  - `runTurn` : Fallbacks automatiques pour `recipientName` et `occasion` garantissant que la composition et la révision ne sont jamais court-circuitées par une clé indéfinie.
+- **Validation Globale** :
+  - TypeScript : 0 erreur (`tsc -p tsconfig.json`).
+  - Suite de tests : **143/143 tests passés au vert (24 suites, 0 échec)**.
+  - Frontend Vite : Build propre en 2.92s, conformité totale à la Règle 4 (zéro emoji UI, style graphique sombre Linear/Apple).
 
 ### 40. Bouclage Intégral & Déploiement Production Paroles & Retouches Suno WhatsApp (4 Octobre 2026)
 - **Résolution des 3 Écarts Critiques du Cycle Paroles** :

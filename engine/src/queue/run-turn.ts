@@ -455,6 +455,10 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       persona,
       orders,
       rawOrders: raw.orders,
+      userId: raw.conversation.user_id,
+      sessionName: conversation.session_name,
+      clientName: contact.name,
+      lockToken: turnRef.lockToken,
     });
   }
 
@@ -606,6 +610,41 @@ interface ActionContext {
   persona: any;
   orders: OrderSnapshot[];
   rawOrders: any[];
+  userId: string;
+  sessionName: string;
+  clientName: string | null;
+  lockToken: number;
+}
+
+async function queueOwnerAlert(
+  ctx: ActionContext,
+  orderId: string | null,
+  body: string,
+  keySuffix: string,
+): Promise<void> {
+  const alertPhone = ctx.persona?.alert_phone;
+  if (!alertPhone || !ctx.sessionName) return;
+  const alertChatId = alertPhone.includes('@') ? alertPhone : `${alertPhone.replace(/\+/g, '')}@c.us`;
+  const idemKey = `alert_${ctx.turnId}_${keySuffix}`;
+  await ctx.db.rpc('agent_enqueue_outbox', {
+    p_user: ctx.userId,
+    p_conversation: ctx.conversationId,
+    p_order: orderId,
+    p_turn: ctx.turnId,
+    p_origin: 'system_alert',
+    p_kind: 'text',
+    p_purpose: 'owner_alert',
+    p_is_relay: false,
+    p_session: ctx.sessionName,
+    p_chat_id: alertChatId,
+    p_body: body,
+    p_media_path: null,
+    p_caption: null,
+    p_body_hash: bodyHash(body),
+    p_idempotency_key: idemKey,
+    p_lock_token: ctx.lockToken,
+    p_status: ctx.persona?.delivery_mode === 'shadow' ? 'proposed' : 'pending',
+  });
 }
 
 function resolveOrderForAction(ref: OrderRef, ctx: ActionContext): { id: string | null; version: number } {
@@ -665,16 +704,19 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
       if (ctx.persona.cap_lyrics_draft || ctx.persona.lyrics_author === 'ai_draft_approved') {
         const { id, version } = resolveOrderForAction(action.order, ctx);
         const targetOrder = ctx.orders.find((o) => o.id === id);
-        if (id && targetOrder && targetOrder.recipientName && targetOrder.occasion) {
+        const rawOrder = ctx.rawOrders.find((o) => o.id === id);
+        const recipientName = targetOrder?.recipientName || rawOrder?.recipient_name;
+        const occasion = targetOrder?.occasion || rawOrder?.occasion;
+        if (id && targetOrder && recipientName && occasion) {
           try {
             const composed = await composeLyrics(ctx.llmProvider, {
-              recipientName: targetOrder.recipientName,
-              occasion: targetOrder.occasion,
-              recipientRelation: targetOrder.recipientRelation,
-              senderName: targetOrder.senderName,
-              style: targetOrder.style,
-              language: targetOrder.language,
-              memories: targetOrder.memories ?? [],
+              recipientName,
+              occasion,
+              recipientRelation: targetOrder.recipientRelation || rawOrder?.recipient_relation,
+              senderName: targetOrder.senderName || rawOrder?.sender_name,
+              style: targetOrder.style || rawOrder?.style,
+              language: targetOrder.language || rawOrder?.language,
+              memories: targetOrder.memories ?? rawOrder?.memories ?? [],
               studioName: ctx.persona.studio_name,
             });
             await ctx.db.rpc('agent_order_effect', {
@@ -696,12 +738,19 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
             targetOrder.lyrics = composed.lyrics;
             targetOrder.stage = 'lyrics_sent';
           } catch (err) {
+            console.error('Erreur composition paroles:', err);
             await ctx.db.rpc('agent_order_effect', {
               p_order: id,
               p_expected_version: version,
               p_kind: 'change_request',
               p_data: { note: `Échec composition paroles: ${(err as Error).message}` },
             });
+            await queueOwnerAlert(
+              ctx,
+              id,
+              `[Velaris Studio] Échec composition paroles IA pour ${ctx.clientName || 'client'} (${recipientName}). Intervention manuelle requise.`,
+              'compose_failed',
+            );
           }
         }
       }
@@ -711,18 +760,20 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
       if (ctx.persona.cap_lyrics_draft || ctx.persona.lyrics_author === 'ai_draft_approved' || ctx.persona.cap_lyrics_followup) {
         const { id, version } = resolveOrderForAction(action.order, ctx);
         const targetOrder = ctx.orders.find((o) => o.id === id);
-        const existingLyrics = targetOrder?.lyrics;
-        if (id && targetOrder && existingLyrics && targetOrder.recipientName && targetOrder.occasion) {
+        const rawOrder = ctx.rawOrders.find((o) => o.id === id);
+        const existingLyrics = targetOrder?.lyrics || rawOrder?.lyrics;
+        const recipientName = targetOrder?.recipientName || rawOrder?.recipient_name || 'votre proche';
+        const occasion = targetOrder?.occasion || rawOrder?.occasion || 'votre événement';
+        if (id && targetOrder && existingLyrics) {
           try {
-            const rawOrder = ctx.rawOrders.find((o) => o.id === id);
             const changeReqs = rawOrder?.change_requests;
             const lastChange = Array.isArray(changeReqs) && changeReqs.length > 0 ? changeReqs[changeReqs.length - 1]?.text : '';
             const changeReqText = action.changeRequest || lastChange || 'Ajustements demandés par le client';
             const revised = await reviseLyrics(ctx.llmProvider, {
               existingLyrics,
               changeRequest: changeReqText,
-              recipientName: targetOrder.recipientName,
-              occasion: targetOrder.occasion,
+              recipientName,
+              occasion,
               studioName: ctx.persona.studio_name,
             });
             await ctx.db.rpc('agent_order_effect', {
@@ -751,6 +802,12 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
               p_kind: 'change_request',
               p_data: { note: `Échec révision paroles: ${(err as Error).message}` },
             });
+            await queueOwnerAlert(
+              ctx,
+              id,
+              `[Velaris Studio] Échec retouches paroles IA pour ${ctx.clientName || 'client'} (${recipientName}). Intervention requise.`,
+              'revise_failed',
+            );
           }
         }
       }
@@ -816,6 +873,86 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
         p_kind: 'handoff',
         p_data: { reason: action.reason, ack: action.ack },
       });
+      const client = ctx.clientName || 'Un client';
+      const msg = `[Velaris Studio] Prise en main requise pour la conversation avec ${client} (Raison : ${action.reason}).`;
+      await queueOwnerAlert(ctx, null, msg, `handoff_${action.reason}`);
+      break;
+    }
+    case 'alert_owner': {
+      const { id } = action.order ? resolveOrderForAction(action.order, ctx) : { id: null };
+      const order = id ? ctx.orders.find((o) => o.id === id) : null;
+      const recipient = order?.recipientName ? ` pour ${order.recipientName}` : '';
+      const client = ctx.clientName || 'Un client';
+
+      let msg = '';
+      switch (action.kind) {
+        case 'payment_to_verify':
+          msg = `[Velaris Studio] Paiement à vérifier pour ${client}${recipient}. Justificatif ou réclamation reçu.`;
+          break;
+        case 'unexpected_payment_claim':
+          msg = `[Velaris Studio] Réclamation de paiement inattendue de ${client}${recipient}.`;
+          break;
+        case 'new_detail':
+          msg = `[Velaris Studio] Nouveau détail ajouté par ${client}${recipient}.`;
+          break;
+        case 'own_lyrics':
+          msg = `[Velaris Studio] ${client} a fourni ses propres paroles${recipient}.`;
+          break;
+        case 'change_request':
+          msg = `[Velaris Studio] Demande de retouches reçue de ${client}${recipient}.`;
+          break;
+        case 'lyrics_validated':
+          msg = `[Velaris Studio] Paroles validées par ${client}${recipient}.`;
+          break;
+        case 'production_ready':
+          msg = `[Velaris Studio] Commande prête pour production : ${client}${recipient} (Paiement et paroles validés).`;
+          break;
+        case 'unclassified_image':
+          msg = `[Velaris Studio] Image reçue de ${client}${recipient} (à vérifier).`;
+          break;
+        case 'missing_price':
+          msg = `[Velaris Studio] Commande sans prix défini pour ${client}${recipient}.`;
+          break;
+        default:
+          msg = `[Velaris Studio] Notification studio : ${action.kind} pour ${client}${recipient}.`;
+          break;
+      }
+
+      await queueOwnerAlert(ctx, id, msg, `${action.kind}_${id ?? 'none'}`);
+      break;
+    }
+    case 'launch_production': {
+      const { id, version } = resolveOrderForAction(action.order, ctx);
+      if (id) {
+        await ctx.db.rpc('agent_transition_order', {
+          p_order: id,
+          p_expected_version: version,
+          p_track: 'creative',
+          p_event: 'production_started',
+          p_actor: 'agent',
+          p_turn: ctx.turnId,
+        });
+        ctx.orderVersionMap.set(id, version + 1);
+        const targetOrder = ctx.orders.find((o) => o.id === id);
+        if (targetOrder) targetOrder.stage = 'in_production';
+      }
+      break;
+    }
+    case 'schedule_followup': {
+      const { id } = resolveOrderForAction(action.order, ctx);
+      const delayHours = ctx.persona?.followup_delay_hours ?? 24;
+      const readyAt = new Date(Date.now() + delayHours * 3600 * 1000).toISOString();
+      await ctx.db.rpc('agent_conversation_effect', {
+        p_conversation: ctx.conversationId,
+        p_kind: 'schedule_followup',
+        p_data: { kind: action.kind, order_id: id ?? null, at: readyAt },
+      });
+      break;
+    }
+    case 'send_procedure_voice': {
+      break;
+    }
+    case 'store_images': {
       break;
     }
     case 'close_conversation': {
