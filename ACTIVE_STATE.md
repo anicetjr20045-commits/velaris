@@ -8,15 +8,15 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (21:50 UTC)
-- **Statut Opérationnel** : **Jalon 59 100% Validé & Déployé** (Reconnaissance fine des commandes pour un tiers / ami, filtrage strict de l'identité expéditeur et questions chaleureuses contextuelles).
+- **Dernière mise à jour** : 4 Octobre 2026 (22:04 UTC)
+- **Statut Opérationnel** : **Jalon 60 100% Validé & Déployé** (Humanisation intégrale du ton WhatsApp, éradication des formulations robotiques, langage naturel direct et fluide).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Prise en charge du scénario tiers (« pour un ami », « pour ma soeur », etc.)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
-    - L'assistant ne confond plus jamais le nom de l'expéditeur WhatsApp (`conv.name`) avec le destinataire de la chanson lorsque la commande concerne un tiers.
-    - Reconnaissance immédiate de l'occasion Anniversaire même avec des fautes d'inattention de frappe mobile (*« danniversaire »*).
-    - Déclenchement du statut `brief_incomplet` avec le badge `Prénom & Détails`.
-    - Suggestion sur-mesure ultra-chaleureuse : *« C'est une superbe attention pour votre ami(e) ! Quel est son prénom, sa date d'anniversaire, et 2 ou 3 anecdotes complices ou souvenirs à glisser dans la chanson ? »*.
-  - **Résultat de la Suite de Tests Automatisée** : 9/9 cas cibles + 25/25 cas réels validés avec 100% de succès.
+  - **Humanisation Totale des Réponses Suggérées (14 Situations)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+    - *Accueil ("Bonjour")* : Remplacement du questionnaire solennel de 3 lignes par un accueil humain simple : *« Bonjour ! Comment allez-vous ? Comment pouvons-nous vous aider aujourd'hui ? »*.
+    - *Brief partiel ("chanson d'anniversaire pour un ami")* : Éradication du questionnaire d'enquête lourd -> question directe : *« Super idée pour votre ami ! Il s'appelle comment et c'est prévu pour quel jour ? »*.
+    - *Tarifs* : Annonce claire et directe : *« La formule complète est à 3 000 F (chanson sur-mesure + 2 versions audio en 18 min)... »*.
+    - *Paiement reçu, Délais, Échantillons, Retouches* : Tous reformulés en style parlé WhatsApp spontané, chaleureux et professionnel.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (Build propre en 5.37s).
 - **Prochaine tâche exacte** :
   1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
   2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
@@ -36,6 +36,14 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 60. Humanisation Intégrale du Ton WhatsApp & Langage Naturel (4 Octobre 2026)
+- **Éradication des Textes Robotiques** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - Fin des pavés de questionnaire administratif ("pour quelle occasion précieuse (anniversaire, mariage, hommage, amour)...").
+  - Réponses courtes, spontanées, directes, identiques à celles d'un vrai conseiller studio humain au Burkina / Côte d'Ivoire.
+  - Gestion fine jour/soirée ("Bonjour" / "Bonsoir") sur le premier contact.
+- **Validation Globale** :
+  - Build Vite & TypeScript : Build propre en 5.37s (`tsc -b && vite build` avec 0 erreur).
 
 ### 59. Reconnaissance Fine des Demandes pour un Tiers (Ami, Famille) & Filtrage Prénom (4 Octobre 2026)
 - **Résolution du Cas Réel « Chanson danniversaire pour un ami »** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :

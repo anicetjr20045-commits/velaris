@@ -301,7 +301,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Paiement effectué',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Paiement bien reçu, merci beaucoup ! Votre commande passe immédiatement en production studio. Livraison de vos versions audio master d'ici 18 minutes.`,
+      recommendedReply: `Paiement bien reçu, merci ! Le studio démarre immédiatement la composition, c'est prêt dans 18 minutes chrono.`,
       actionKind: 'cash',
     };
   }
@@ -315,7 +315,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande de statut de commande',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Votre commande est actuellement en cours de finalisation au studio ! Le mixage et le mastering sont presque terminés. Vous recevrez vos fichiers audio d'ici quelques minutes.`,
+      recommendedReply: `C'est en plein mixage au studio, ça sort d'ici quelques minutes !`,
       actionKind: 'reply',
     };
   }
@@ -329,7 +329,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Validation du texte par le client',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Parfait, paroles validées avec succès ! Pour lancer la composition musicale et le mastering en studio, vous pouvez effectuer le règlement de 3 000 F CFA par Wave, Orange Money ou Moov (+226 05 77 73 08). Vos 2 versions audio HD vous seront livrées en 18 minutes chrono !`,
+      recommendedReply: `Super, texte validé ! Vous pouvez faire le dépôt de 3 000 F sur Wave ou Orange Money (+226 05 77 73 08) et on vous livre les 2 versions audio en 18 min.`,
       actionKind: 'cash',
     };
   }
@@ -343,7 +343,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande d\'ajustement du texte',
       detectedOccasion,
       recipientName,
-      recommendedReply: `C'est bien noté pour ces ajustements. Je note tout de suite les corrections à apporter. Y a-t-il un autre détail à modifier avant la finalisation ?`,
+      recommendedReply: `C'est noté, je modifie ça tout de suite ! Dites-moi s'il y a d'autres petits détails à ajuster.`,
       actionKind: 'reply',
     };
   }
@@ -357,7 +357,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande de délai de livraison ou urgence',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Nos chansons personnalisées sont créées et masterisées en 18 minutes chrono après validation des paroles et du dépôt ! Vous recevez 2 versions audio haute définition prêtes à offrir.`,
+      recommendedReply: `C'est prêt en 18 minutes chrono dès validation du texte et du dépôt. C'est pour quelle date de votre côté ?`,
       actionKind: 'reply',
     };
   }
@@ -369,13 +369,13 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     const asksWave = /\bwave\b/i.test(lastText);
     const asksOM = /\b(orange|om)\b/i.test(lastText);
 
-    let paymentDetails = `Règlement direct par :\n• Wave : +226 05 77 73 08 (Wendyam Anicet junior)\n• Orange Money : +226 05 77 73 08\n• Moov Money : +226 05 77 73 08`;
+    let paymentDetails = `Wave / Orange Money / Moov : +226 05 77 73 08`;
     if (asksMoov) {
-      paymentDetails = `Règlement Moov Money au : +226 05 77 73 08 (Wendyam Anicet junior).\n(Également disponible sur Wave et Orange Money au même numéro).`;
+      paymentDetails = `Moov Money : +226 05 77 73 08 (Wendyam Anicet junior)`;
     } else if (asksWave) {
-      paymentDetails = `Règlement Wave au : +226 05 77 73 08 (Wendyam Anicet junior).\n(Également disponible sur Orange Money et Moov au même numéro).`;
+      paymentDetails = `Wave : +226 05 77 73 08 (Wendyam Anicet junior)`;
     } else if (asksOM) {
-      paymentDetails = `Règlement Orange Money au : +226 05 77 73 08 (Wendyam Anicet junior).\n(Également disponible sur Wave et Moov au même numéro).`;
+      paymentDetails = `Orange Money : +226 05 77 73 08 (Wendyam Anicet junior)`;
     }
 
     return {
@@ -384,7 +384,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande de tarif ou de coordonnées',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Notre formule la plus choisie est à 3 000 F CFA (paroles complètes sur-mesure + 2 versions audio HD + livraison en 18 min).\n\n${paymentDetails}\n\nDès le dépôt fait, envoyez simplement la capture ici !`,
+      recommendedReply: `La formule complète est à 3 000 F (chanson sur-mesure + 2 versions audio en 18 min).\nVous pouvez faire le dépôt sur ${paymentDetails}. Dès que vous avez la capture, envoyez-la ici !`,
       actionKind: 'reply',
     };
   }
@@ -398,7 +398,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande d\'écoute ou de démonstration',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Voici un extrait représentatif de nos productions en studio (style acoustique afro-love) : https://waha.velarisagent.life/demo/sample-afro.mp3\n\nNous adaptons le style selon vos souhaits (afro-love, rumba, gospel, acoustique). Dites-moi ce que vous en pensez !`,
+      recommendedReply: `Voici un extrait pour vous donner une idée : https://waha.velarisagent.life/demo/sample-afro.mp3\nDites-moi ce que vous en pensez !`,
       actionKind: 'reply',
     };
   }
@@ -412,7 +412,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Question sur les photos ou le montage vidéo',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Oui, nous pouvons intégrer vos plus belles photos dans une vidéo diaporama HD synchronisée sur la musique de votre chanson ! Vous pouvez nous envoyer 3 à 5 photos directement ici sur WhatsApp.`,
+      recommendedReply: `Oui tout à fait ! Vous pouvez m'envoyer 3 à 5 photos directement ici pour le montage vidéo.`,
       actionKind: 'reply',
     };
   }
@@ -426,7 +426,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Question sur les genres musicaux et voix',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Nous composons dans tous les styles : Afro-love, Rumba, Acoustique guitare/piano, Gospel, Zouglou ou Reggae, avec voix masculine ou féminine selon votre choix. Quel style préférez-vous ?`,
+      recommendedReply: `On compose dans tous les styles (Afro-love, Rumba, Gospel, Acoustique guitare/piano...) avec voix homme ou femme. Quel genre vous ferait plaisir ?`,
       actionKind: 'reply',
     };
   }
@@ -440,7 +440,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Note vocale reçue',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Note vocale bien reçue ! Je l'écoute avec attention pour relever tous les détails de votre chanson personnalisée.`,
+      recommendedReply: `Bien reçu, j'écoute votre vocal tout de suite !`,
       actionKind: 'reply',
     };
   }
@@ -454,7 +454,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: `Faisabilité pour ${detectedOccasion}`,
       detectedOccasion,
       recipientName,
-      recommendedReply: `Absolument ! Nous composons régulièrement pour les célébrations de ${detectedOccasion.toLowerCase()}. Quel est le prénom de la personne à honorer et la date prévue ?`,
+      recommendedReply: `Oui tout à fait, on en fait très souvent ! C'est pour qui et pour quelle date ?`,
       actionKind: 'reply',
     };
   }
@@ -468,7 +468,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: `Prêt pour l'écriture pour ${recipientName} (${detectedOccasion})`,
       detectedOccasion,
       recipientName,
-      recommendedReply: `Tout est bien noté pour ${recipientName} (${detectedOccasion}) ! Notre studio lance la rédaction de vos paroles complètes sur-mesure. Je vous transmets le texte d'ici quelques instants pour validation.`,
+      recommendedReply: `C'est parfait pour ${recipientName} ! J'ai toutes les infos, je vous prépare le texte tout de suite.`,
       actionKind: 'lyrics',
     };
   }
@@ -476,30 +476,30 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   // 13. Brief partiel (occasion détectée mais prénom ou détails requis)
   const hasOccasionSignal = /\b(anniversaire|danniversaire|mariage|hommage|amour|naissance|bapteme|baptême|fête|fete|mere|mère|pere|père|entreprise|societe)\b/i.test(allInboundText);
   if (hasOccasionSignal) {
-    let questionText = `C'est bien noté pour l'anniversaire ! Quel est le prénom de la personne à célébrer, sa date d'anniversaire, et 2 ou 3 souvenirs marquants ?`;
+    let questionText = `C'est noté pour l'anniversaire ! Comment s'appelle la personne et c'est pour quel jour ?`;
 
     if (detectedOccasion === 'Anniversaire') {
       if (/\b(ami|amie|pote|copain|copine)\b/i.test(allInboundText)) {
-        questionText = `C'est une superbe attention pour votre ami(e) ! Quel est son prénom, sa date d'anniversaire, et 2 ou 3 anecdotes complices ou souvenirs à glisser dans la chanson ?`;
+        questionText = `Super idée pour votre ami ! Il s'appelle comment et c'est prévu pour quel jour ?`;
       } else if (/\b(frère|frere|soeur|sœur)\b/i.test(allInboundText)) {
-        questionText = `C'est une magnifique surprise fraternelle ! Quel est le prénom de votre frère / sœur, sa date d'anniversaire, et 2 ou 3 souvenirs marquants ?`;
+        questionText = `Superbe attention ! Comment il/elle s'appelle et c'est pour quel jour ?`;
       } else if (/\b(maman|mère|mere|papa|père|pere)\b/i.test(allInboundText)) {
-        questionText = `Un merveilleux cadeau familial ! Quel est son prénom ou surnom, sa date d'anniversaire, et les qualités qui vous touchent le plus chez lui / elle ?`;
+        questionText = `Merveilleux cadeau ! Comment il/elle s'appelle et c'est pour quelle date ?`;
       }
     } else if (detectedOccasion === 'Mariage') {
-      questionText = `Félicitations pour ce mariage ! Quels sont les prénoms des mariés, la date de la célébration et un souvenir marquant ?`;
+      questionText = `Félicitations pour le mariage ! Comment s'appellent les mariés et c'est prévu pour quand ?`;
     } else if (detectedOccasion === 'Hommage') {
-      questionText = `Toutes nos pensées vous accompagnent. Quel est le nom de la personne à honorer et les souvenirs que vous souhaitez immortaliser ?`;
+      questionText = `Toutes nos pensées. Quel est le nom de la personne et les souvenirs à célébrer ?`;
     } else if (detectedOccasion === 'Amour') {
-      questionText = `Superbe projet ! Quel est le prénom de votre bien-aimé(e) et les petites attentions qui rendent votre histoire unique ?`;
+      questionText = `Super ! Quel est le prénom de votre chéri(e) et c'est pour quelle date ?`;
     } else if (detectedOccasion === 'Naissance & Baptême') {
-      questionText = `Félicitations ! Quel est le prénom du bébé / de l'enfant, la date de la célébration et un vœu chaleureux de la famille ?`;
+      questionText = `Félicitations ! Quel est le prénom de l'enfant et la date de la fête ?`;
     } else if (detectedOccasion === 'Fête des mères') {
-      questionText = `Un magnifique cadeau pour maman ! Quel est son prénom ou surnom, et 2 ou 3 qualités qui vous touchent chez elle ?`;
+      questionText = `Magnifique pour maman ! Quel est son prénom ou surnom ?`;
     } else if (detectedOccasion === 'Fête des pères') {
-      questionText = `Superbe hommage pour papa ! Quel est son prénom et les valeurs fortes qu'il vous a transmises ?`;
+      questionText = `Superbe pour papa ! Quel est son prénom ?`;
     } else if (detectedOccasion === 'Entreprise & Publicité') {
-      questionText = `Excellente initiative ! Quel est le nom de l'entreprise, votre activité, localisation et vos numéros de contact ?`;
+      questionText = `Excellente idée ! Quel est le nom de votre entreprise et votre activité ?`;
     }
 
     return {
@@ -515,13 +515,18 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
 
   // 14. Accueil (Uniquement si premier message)
   if (inbounds.length <= 1) {
+    const isEvening = /bonsoir/i.test(lastText);
+    const greetingText = isEvening
+      ? `Bonsoir ! Comment allez-vous ? Comment pouvons-nous vous aider aujourd'hui ?`
+      : `Bonjour ! Comment allez-vous ? Comment pouvons-nous vous aider aujourd'hui ?`;
+
     return {
       stageKey: 'accueil',
       stageBadge: 'Accueil',
       detectedIntent: 'Nouveau contact',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Bonjour et bienvenue au Studio Velaris. Pour qui aimeriez-vous créer cette chanson, et pour quelle occasion précieuse (anniversaire, mariage, hommage, amour) ?`,
+      recommendedReply: greetingText,
       actionKind: 'reply',
     };
   }
