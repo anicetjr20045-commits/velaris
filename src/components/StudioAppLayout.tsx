@@ -56,6 +56,7 @@ export type StudioTab =
 
 interface StudioAppLayoutProps {
   initialTab?: StudioTab;
+  onTabChange?: (tab: StudioTab) => void;
   orders: Order[];
   metrics?: StudioMetrics;
   onReturnToHome: () => void;
@@ -76,6 +77,7 @@ const BOTTOM_TABS: { id: StudioTab; label: string; icon: typeof LayoutGrid }[] =
 
 export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   initialTab = 'revenus',
+  onTabChange,
   orders,
   metrics,
   onReturnToHome,
@@ -157,6 +159,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   const handleTabClick = (tab: StudioTab) => {
     setCurrentTab(tab);
     setIsMobileDrawerOpen(false);
+    onTabChange?.(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -514,7 +517,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             )}
 
             {currentTab === 'profile' && (
-              <StudioProfileView onOpenWhatsApp={() => handleTabClick('whatsapp')} />
+              <StudioProfileView onOpenWhatsApp={() => handleTabClick('whatsapp')} onSignedOut={onReturnToHome} />
             )}
 
             {currentTab === 'admin' && (

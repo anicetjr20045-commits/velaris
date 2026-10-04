@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 41 (Câblage intégral du système d'alertes WhatsApp gérant `owner_alert` et `handoff`, implémentation de `launch_production` et `schedule_followup`, durcissement médico-légal anti-régression des paroles, 143/143 tests au vert).
+- **Statut Opérationnel** : Jalon 42 (Redirection automatique vers l'Atelier pour les utilisateurs déjà connectés, persistance intégrale de l'onglet actif et des sous-vues Studio lors des rafraîchissements F5 / reloads, synchronisation bidirectionnelle hash URL & localStorage, 0 erreur de build).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,22 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 42. Redirection Automatique Atelier Utilisateurs Connectés & Persistance F5 / Refresh (4 Octobre 2026)
+- **Résolution des 2 Exigences Critiques de Navigation** :
+  1. *Redirection Automatique des Utilisateurs Connectés vers l'Atelier* :
+     - Détection synchrone dès le premier cycle de rendu (`checkHasSavedAuthSession` sur token Supabase) pour éliminer tout flash ou passage par la landing page publique.
+     - Redirection automatique réactive dès la confirmation de la session Supabase (`useEffect` sur `user`) pour tout utilisateur arrivant sur la racine ou se connectant via la modal d'authentification.
+     - Préservation du libre arbitre utilisateur : si un utilisateur connecté clique délibérément sur « Retour à la vitrine », il peut librement consulter la vitrine publique sans être renvoyé de force vers l'Atelier.
+  2. *Persistance Absolue lors de l'Actualisation (F5 / Refresh)* :
+     - Synchronisation bidirectionnelle continue entre l'état React (`activeTab` et `studioSubTab`), le fragment d'URL (`window.location.hash` : `#studio`, `#cockpit`, `#conversations`, `#academy`, `#copilot`, etc.) et le stockage local (`velaris_active_tab`, `velaris_studio_subtab`).
+     - Lors d'une actualisation de page dans l'Atelier (`#studio`), dans les discussions WhatsApp (`#conversations`), dans le Cockpit (`#cockpit`) ou l'Académie (`#academy`), l'utilisateur reste strictement et instantanément sur sa vue de travail sans jamais être renvoyé à l'accueil.
+     - Prise en charge des boutons Précédent / Suivant du navigateur via écouteur d'événement `hashchange`.
+- **Validation Globale** :
+  - Tests unitaires de routage et de persistance exécutés au vert (7/7 assertions validées).
+  - TypeScript : 0 erreur (`tsc -b`).
+  - Linter : 0 erreur (`oxlint`).
+  - Bundle Vite : Build propre en 2.72s. Conformité stricte à la Règle 4 (zéro emoji UI, design sombre Linear/Apple).
 
 ### 41. Câblage Intégral Alertes WhatsApp Gérant & Durcissement Médical Paroles/FSM (4 Octobre 2026)
 - **Câblage du Canal d'Alerte Gérant (`owner_alert` & `handoff`)** :

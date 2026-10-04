@@ -146,6 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+    try {
+      localStorage.removeItem('velaris_active_tab');
+      localStorage.removeItem('velaris_studio_subtab');
+    } catch {
+      // ignore
+    }
     setUser(null);
     setSession(null);
   };

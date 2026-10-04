@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { StudioView } from './components/StudioView';
 import { AcademyView } from './components/AcademyView';
 import { DecouvrirView } from './components/DecouvrirView';
-import { StudioAppLayout } from './components/StudioAppLayout';
+import { StudioAppLayout, type StudioTab } from './components/StudioAppLayout';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
 import { AuthModal } from './components/AuthModal';
@@ -15,23 +15,216 @@ import { useAuth } from './hooks/useAuth';
 import { getLiveOrders, createLiveOrder } from './services/supabase';
 import type { Order, StudioMetrics } from './types';
 
+export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
+
+/**
+ * Détecte si une session d'authentification Supabase est persistée en local.
+ * Permet d'éviter le flash de la page d'accueil dès le premier rendu synchrone.
+ */
+function checkHasSavedAuthSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && ((key.startsWith('sb-') && key.endsWith('-auth-token')) || key === 'supabase.auth.token')) {
+        const item = localStorage.getItem(key);
+        if (item && item.includes('access_token')) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+/**
+ * Détermine l'onglet principal et le sous-onglet du Studio à partir du hash URL,
+ * du stockage local et du statut d'authentification.
+ */
+function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
+  if (typeof window === 'undefined') {
+    return { activeTab: 'home', studioSubTab: 'studio_ai' };
+  }
+
+  const rawHash = window.location.hash.toLowerCase().replace('#', '').trim();
+  const pathname = window.location.pathname;
+
+  // 1. Navigation explicite par hash dans l'URL
+  if (rawHash === 'decouvrir' || pathname === '/decouvrir') {
+    return { activeTab: 'decouvrir', studioSubTab: 'studio_ai' };
+  }
+  if (rawHash === 'cockpit' || rawHash === 'revenus') {
+    return { activeTab: 'cockpit', studioSubTab: 'revenus' };
+  }
+  if (rawHash === 'ventes' || rawHash === 'caisse') {
+    return { activeTab: 'cockpit', studioSubTab: 'ventes' };
+  }
+  if (rawHash === 'copilot' || rawHash === 'analyste') {
+    return { activeTab: 'copilot', studioSubTab: 'analyste' };
+  }
+  if (rawHash === 'academy' || rawHash === 'formation') {
+    return { activeTab: 'academy', studioSubTab: 'academy' };
+  }
+  if (rawHash === 'studio' || rawHash === 'atelier' || rawHash === 'studio_ai') {
+    return { activeTab: 'studio', studioSubTab: 'studio_ai' };
+  }
+  if (rawHash === 'conversations' || rawHash === 'discussions' || rawHash === 'messages') {
+    return { activeTab: 'studio', studioSubTab: 'conversations' };
+  }
+  if (rawHash === 'pipeline') {
+    return { activeTab: 'studio', studioSubTab: 'pipeline' };
+  }
+  if (rawHash === 'whatsapp') {
+    return { activeTab: 'studio', studioSubTab: 'whatsapp' };
+  }
+  if (rawHash === 'automations') {
+    return { activeTab: 'studio', studioSubTab: 'automations' };
+  }
+  if (rawHash === 'profile') {
+    return { activeTab: 'studio', studioSubTab: 'profile' };
+  }
+  if (rawHash === 'admin') {
+    return { activeTab: 'studio', studioSubTab: 'admin' };
+  }
+  if (rawHash === 'home' || rawHash === 'accueil') {
+    return { activeTab: 'home', studioSubTab: 'studio_ai' };
+  }
+
+  // 2. Restauration depuis localStorage si l'utilisateur était déjà dans une vue de travail
+  try {
+    const savedActive = localStorage.getItem('velaris_active_tab') as MainTab | null;
+    const savedSubTab = localStorage.getItem('velaris_studio_subtab') as StudioTab | null;
+
+    if (savedActive && ['studio', 'cockpit', 'academy', 'copilot', 'decouvrir'].includes(savedActive)) {
+      return {
+        activeTab: savedActive,
+        studioSubTab: savedSubTab || (savedActive === 'cockpit' ? 'revenus' : savedActive === 'copilot' ? 'analyste' : savedActive === 'academy' ? 'academy' : 'studio_ai'),
+      };
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. Utilisateur déjà connecté arrivant sur la racine -> redirection automatique vers l'Atelier
+  if (checkHasSavedAuthSession()) {
+    return { activeTab: 'studio', studioSubTab: 'studio_ai' };
+  }
+
+  return { activeTab: 'home', studioSubTab: 'studio_ai' };
+}
+
 export function App() {
   const { user, isDemoMode } = useAuth();
   const sessionName = user ? (`studio_${user.id.slice(0, 8)}`) : 'Test';
   // Visiteurs non connectés : aucune sonde WAHA (le site public ne doit pas solliciter la passerelle)
   const waha = useWahaSession(sessionName, { enabled: !!user, syncToStudio: true });
 
-  // Support #copilot, #analyste, #studio, #cockpit, #decouvrir or default to home
-  const [activeTab, setActiveTab] = useState<'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot'>(() => {
-    if (typeof window !== 'undefined') {
-      const h = window.location.hash;
-      if (h === '#copilot' || h === '#analyste') return 'copilot';
-      if (h === '#studio') return 'studio';
-      if (h === '#cockpit') return 'cockpit';
-      if (h === '#decouvrir' || window.location.pathname === '/decouvrir') return 'decouvrir';
+  const initialRoute = useMemo(() => parseInitialRoute(), []);
+  const [activeTab, setActiveTab] = useState<MainTab>(initialRoute.activeTab);
+  const [studioSubTab, setStudioSubTab] = useState<StudioTab>(initialRoute.studioSubTab);
+
+  // Mémorise si l'utilisateur connecté a délibérément cliqué sur "Retour à la vitrine"
+  const userExplicitlyNavigatedToHomeRef = useRef<boolean>(
+    typeof window !== 'undefined' && (window.location.hash === '#home' || window.location.hash === '#accueil')
+  );
+
+  // Synchronisation unifiée de la navigation (State, Hash URL, LocalStorage)
+  const changeTab = useCallback((tab: MainTab, subTab?: StudioTab) => {
+    setActiveTab(tab);
+
+    const resolvedSubTab: StudioTab = subTab || (
+      tab === 'cockpit' ? 'revenus' :
+      tab === 'copilot' ? 'analyste' :
+      tab === 'academy' ? 'academy' :
+      tab === 'studio' ? (studioSubTab || 'studio_ai') :
+      'studio_ai'
+    );
+    setStudioSubTab(resolvedSubTab);
+
+    if (tab !== 'home') {
+      userExplicitlyNavigatedToHomeRef.current = false;
     }
-    return 'home';
-  });
+
+    try {
+      localStorage.setItem('velaris_active_tab', tab);
+      if (tab !== 'home') {
+        localStorage.setItem('velaris_studio_subtab', resolvedSubTab);
+      }
+    } catch {
+      // ignore
+    }
+
+    // Détermination et application du hash URL
+    if (typeof window !== 'undefined') {
+      let targetHash = '';
+      if (tab === 'studio') {
+        targetHash = resolvedSubTab === 'studio_ai' ? 'studio' : resolvedSubTab;
+      } else if (tab === 'cockpit') {
+        targetHash = resolvedSubTab === 'ventes' ? 'ventes' : 'cockpit';
+      } else if (tab === 'academy') {
+        targetHash = 'academy';
+      } else if (tab === 'copilot') {
+        targetHash = 'copilot';
+      } else if (tab === 'decouvrir') {
+        targetHash = 'decouvrir';
+      } else if (tab === 'home') {
+        targetHash = userExplicitlyNavigatedToHomeRef.current ? 'home' : '';
+      }
+
+      if (targetHash) {
+        if (window.location.hash !== `#${targetHash}`) {
+          window.location.hash = targetHash;
+        }
+      } else {
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    }
+  }, [studioSubTab]);
+
+  // Initialisation du hash URL au montage si absent mais résolu sur studio/cockpit
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (!window.location.hash || window.location.hash === '#')) {
+      if (activeTab === 'studio') {
+        window.location.hash = studioSubTab === 'studio_ai' ? 'studio' : studioSubTab;
+      } else if (activeTab === 'cockpit') {
+        window.location.hash = studioSubTab === 'ventes' ? 'ventes' : 'cockpit';
+      } else if (activeTab === 'copilot') {
+        window.location.hash = 'copilot';
+      } else if (activeTab === 'academy') {
+        window.location.hash = 'academy';
+      }
+    }
+  }, []);
+
+  // Redirection automatique des utilisateurs connectés vers l'Atelier dès confirmation de la session
+  useEffect(() => {
+    if (user && activeTab === 'home' && !userExplicitlyNavigatedToHomeRef.current) {
+      changeTab('studio', 'studio_ai');
+    }
+  }, [user, activeTab, changeTab]);
+
+  // Écoute des bascules Back / Forward du navigateur
+  useEffect(() => {
+    const handleHashChange = () => {
+      const route = parseInitialRoute();
+      setActiveTab(route.activeTab);
+      setStudioSubTab(route.studioSubTab);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Action explicite de retour à la vitrine
+  const handleReturnToHome = useCallback(() => {
+    userExplicitlyNavigatedToHomeRef.current = true;
+    changeTab('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [changeTab]);
   
   const storageKey = user ? `velaris_studio_orders_${user.id}` : 'velaris_studio_orders_demo';
 
@@ -101,7 +294,7 @@ export function App() {
   // Switch to studio with a specific order
   const handleSelectOrderForStudio = (orderId: string) => {
     setSelectedOrderId(orderId);
-    setActiveTab('studio');
+    changeTab('studio', 'studio_ai');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -116,7 +309,7 @@ export function App() {
   const handleAddNewOrder = (newOrder: Order) => {
     setOrders((prev) => [newOrder, ...prev]);
     setSelectedOrderId(newOrder.id);
-    setActiveTab('studio');
+    changeTab('studio', 'studio_ai');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     // Asynchronously persist to Supabase under the authenticated studio
@@ -144,7 +337,7 @@ export function App() {
               if (tab === 'qr') {
                 setIsQrModalOpen(true);
               } else {
-                setActiveTab(tab);
+                changeTab(tab);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }
             }}
@@ -159,19 +352,19 @@ export function App() {
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
             <LandingPage
               onOpenStudio={() => {
-                setActiveTab('studio');
+                changeTab('studio', 'studio_ai');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onOpenCockpit={() => {
-                setActiveTab('cockpit');
+                changeTab('cockpit', 'revenus');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onOpenAcademy={() => {
-                setActiveTab('academy');
+                changeTab('academy', 'academy');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onOpenCopilot={() => {
-                setActiveTab('copilot');
+                changeTab('copilot', 'analyste');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             />
@@ -188,13 +381,21 @@ export function App() {
         {(activeTab === 'cockpit' || activeTab === 'studio' || activeTab === 'academy' || activeTab === 'copilot') && (
           <div className="w-full flex-1">
             <StudioAppLayout
-              initialTab={activeTab === 'copilot' ? 'analyste' : activeTab === 'cockpit' ? 'revenus' : activeTab === 'studio' ? 'studio_ai' : 'academy'}
+              initialTab={studioSubTab}
+              onTabChange={(tab) => {
+                if (tab === 'revenus' || tab === 'ventes') {
+                  changeTab('cockpit', tab);
+                } else if (tab === 'analyste') {
+                  changeTab('copilot', tab);
+                } else if (tab === 'academy') {
+                  changeTab('academy', tab);
+                } else {
+                  changeTab('studio', tab);
+                }
+              }}
               orders={orders}
               metrics={currentMetrics}
-              onReturnToHome={() => {
-                setActiveTab('home');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
+              onReturnToHome={handleReturnToHome}
               onSelectOrderForStudio={handleSelectOrderForStudio}
               onOpenQrModal={() => setIsQrModalOpen(true)}
               onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
