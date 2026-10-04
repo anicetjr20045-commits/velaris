@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsc -p tsconfig.json && node --test dist/test/parity.test.js dist/test/decide.test.js dist/test/step-policy.test.js dist/test/migration.test.js dist/test/ingest.test.js dist/test/llm.test.js dist/test/outbox.test.js dist/test/ingest-sql.test.js dist/test/turn-sql.test.js",
+    "test": "tsc -p tsconfig.json && node --test dist/test/parity.test.js dist/test/decide.test.js dist/test/step-policy.test.js dist/test/migration.test.js dist/test/ingest.test.js dist/test/llm.test.js dist/test/lyrics-composer.test.js dist/test/outbox.test.js dist/test/ingest-sql.test.js dist/test/turn-sql.test.js",
     "start": "node dist/src/main.js"
   },
   "devDependencies": {

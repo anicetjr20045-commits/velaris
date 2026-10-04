@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 45 (Éradication des gros blocs de suggestions dans le chat Copilot, intégration de micro-chips en bas, champ de saisie plus lumineux `#14161F`/`#181B26` avec placeholder épuré sans exemple, 0 erreur de build).
+- **Statut Opérationnel** : Jalon 46 (Intégration de la bibliothèque de textes étalons faits main du patron, ADN de style maison, injection few-shot par occasion, règle absolue « Pas de texte court » de 32 à 48 vers et contrôle qualité déterministe avec auto-retry).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,24 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 46. Intégration du Corpus de Textes Faits Main, ADN de Style Maison & Règle Absolue « Pas de Texte Court » (4 Octobre 2026)
+- **Récupération & Capitalisation sur la Vraie Plume du Patron** :
+  - Restauration de l'architecture historique de la bibliothèque de paroles (`song-corpus.server.ts` et `lyrics-writer.ts`).
+  - Création du module dédié [`engine/src/llm/lyrics-corpus.ts`](file:///root/projets/velaris/engine/src/llm/lyrics-corpus.ts) hébergeant les **Hits Étalons d'Or (Golden Patron Corpus)** pour chaque occasion majeure (*Anniversaire*, *Mariage*, *Amour*, *Hommage/Deuil*, *Naissance*, *Fête des mères/pères*).
+- **Consigne Inflexible « Pas de Texte Court » (Calibre Patron)** :
+  - Éradication des brouillons superficiels de 10 à 15 lignes : le studio impose une structure complète de **32 à 48 vers utiles** (1 800 à 3 200 caractères).
+  - Structure Suno canonique obligatoire : `[Style: ...]`, `[Intro]` (avec « … »), `[Couplet 1]` (6-8 vers avec prénom), `[Pré-Refrain]`, `[Refrain]`, `[Couplet 2]` (anecdotes/souvenirs), `[Refrain]`, `[Pont]` (4-6 vers d'émotion pure/prière), `[Refrain Final]`, `[Outro]`.
+- **Injection Dynamique Few-Shot & Détection d'Occasion Robuste** :
+  - `detectOccasion()` : détection insensible aux accents avec priorité stricte du mariage sur l'anniversaire (*« anniversaire de mariage »* => mariage).
+  - Injection contextuelle des 2 meilleurs exemples complets de la plume maison dans le prompt de DeepSeek avant chaque rédaction.
+- **Contrôle Qualité Déterministe (`checkLyricsQuality`) & Auto-Retry Correctif** :
+  - Vérification automatique du nombre de vers (≥ 26 vers utiles), du nombre de mots (≥ 200 mots), de la présence répétée du prénom (≥ 2 fois), de la formule *« Joyeux anniversaire »* pour les anniversaires, et rejet des clichés commerciaux plats (*« rayon de soleil »*, *« mon amour éternel »*).
+  - En cas de premier jet trop court ou défaillant, le compositeur déclenche automatiquement une **relance corrective ciblée** (`buildLyricsRetryFeedback`), garantissant qu'aucun texte court ne soit jamais retourné au client.
+- **Validation Globale** :
+  - Moteur Engine : 15/15 tests unitaires & d'intégration passés au vert (`dist/test/lyrics-composer.test.js`).
+  - TypeScript : 0 erreur (`npm run typecheck`).
+  - Frontend Velaris : Build propre en 4.02s (`npm run build`).
 
 ### 45. Allègement des Suggestions Copilot & Nouveau Champ de Saisie Lumineux (4 Octobre 2026)
 - **Éradication des Grosses Cartes de Suggestions dans le Fil** :
