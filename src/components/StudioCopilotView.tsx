@@ -119,6 +119,58 @@ const renderInline = (text: string): ReactNode[] =>
     return <Fragment key={i}>{part}</Fragment>;
   });
 
+const CopyableBlock: FC<{ content: string; label?: string }> = ({ content, label }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  };
+
+  const isSong = content.includes('[Verse') || content.includes('[Couplet') || content.includes('[Intro]') || content.includes('[Refrain]');
+
+  return (
+    <div className="relative my-3.5 rounded-xl border border-white/[0.12] bg-[#07080B] overflow-hidden shadow-[0_12px_32px_-12px_rgba(0,0,0,0.7)] group">
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-white/[0.08] bg-white/[0.03]">
+        <div className="flex items-center gap-2">
+          {isSong ? (
+            <Music className="h-3.5 w-3.5 text-[#E5B54F]" strokeWidth={1.6} />
+          ) : (
+            <FileText className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.6} />
+          )}
+          <span className="font-mono text-[11px] uppercase tracking-wider font-medium text-[#E5B54F]">
+            {label || (isSong ? 'Paroles prêtes à copier' : 'Texte structuré')}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-medium border border-white/[0.10] bg-white/[0.05] hover:bg-white/[0.10] hover:text-white text-neutral-300 transition-all cursor-pointer active:scale-95"
+          title="Copier le texte en 1 clic"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-emerald-400" strokeWidth={2} />
+              <span className="text-emerald-300 font-semibold">Copié en 1 clic !</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3 text-neutral-400" strokeWidth={1.6} />
+              <span>Copier en 1 clic</span>
+            </>
+          )}
+        </button>
+      </div>
+      <div className={`p-4 leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto select-all ${
+        isSong ? 'font-serif text-[15.5px] text-[#F3E8D3] leading-[1.6]' : 'font-mono text-[13px] text-neutral-200'
+      }`}>
+        {content}
+      </div>
+    </div>
+  );
+};
+
 const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
   const blocks: ReactNode[] = [];
   let list: { ordered: boolean; items: { marker: string; body: string }[] } | null = null;
@@ -179,14 +231,51 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
     table = null;
   };
 
-  text.split('\n').forEach((raw, idx) => {
+  let inCode = false;
+  let codeBuffer: string[] = [];
+  let codeLang = '';
+
+  const lines = text.split('\n');
+  for (let idx = 0; idx < lines.length; idx++) {
+    const raw = lines[idx];
     const line = raw.trimEnd();
+
+    // Gestion des blocs de code ``` ... ```
+    if (line.startsWith('```')) {
+      if (inCode) {
+        flushList();
+        flushTable();
+        const content = codeBuffer.join('\n');
+        blocks.push(
+          <CopyableBlock
+            key={`code_${idx}`}
+            content={content}
+            label={codeLang ? `${codeLang.toUpperCase()} · Prêt à copier` : undefined}
+          />
+        );
+        inCode = false;
+        codeBuffer = [];
+        codeLang = '';
+      } else {
+        flushList();
+        flushTable();
+        inCode = true;
+        codeLang = line.slice(3).trim();
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeBuffer.push(raw);
+      continue;
+    }
+
     if (/^\s*\|.*\|\s*$/.test(line)) {
       flushList();
       const cells = line.trim().slice(1, -1).split('|').map(c => c.trim());
-      if (cells.every(c => /^:?-{2,}:?$/.test(c))) return;
+      if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue;
       (table ??= []).push(cells);
-      return;
+      continue;
     }
     flushTable();
     const bullet = line.match(/^\s*[-*]\s+(.*)$/);
@@ -199,11 +288,11 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
         list = { ordered: isOrdered, items: [] };
       }
       list.items.push(ordered ? { marker: ordered[1].padStart(2, '0'), body: ordered[2] } : { marker: '', body: bullet![1] });
-      return;
+      continue;
     }
 
     flushList();
-    if (!line.trim()) return;
+    if (!line.trim()) continue;
 
     const heading = line.match(/^#{1,4}\s+(.*)$/);
     if (heading) {
@@ -215,9 +304,20 @@ const RichText: FC<{ text: string; caret?: boolean }> = ({ text, caret }) => {
     } else {
       blocks.push(<p key={idx}>{renderInline(line)}</p>);
     }
-  });
+  }
+
   flushList();
   flushTable();
+
+  if (inCode && codeBuffer.length > 0) {
+    blocks.push(
+      <CopyableBlock
+        key={`code_end`}
+        content={codeBuffer.join('\n')}
+        label={codeLang ? `${codeLang.toUpperCase()} · Prêt à copier` : undefined}
+      />
+    );
+  }
 
   return (
     <div className="space-y-2.5 text-[15px] leading-relaxed text-[#D6D3D1]">
@@ -915,12 +1015,12 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
                             {copiedId === m.id ? (
                               <>
                                 <Check className="h-3.5 w-3.5 text-emerald-400" />
-                                <span className="text-emerald-300">Copié</span>
+                                <span className="text-emerald-300 font-semibold">Copié en 1 clic !</span>
                               </>
                             ) : (
                               <>
                                 <Copy className="h-3.5 w-3.5 text-neutral-400" strokeWidth={1.5} />
-                                <span>Copier</span>
+                                <span>Copier en 1 clic</span>
                               </>
                             )}
                           </button>

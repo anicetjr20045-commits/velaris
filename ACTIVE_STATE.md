@@ -13,7 +13,7 @@
 - **Dépôt GitHub** : https://github.com/anicetjr20045-commits/velaris
 - **Lien Live Permanent Vercel** : https://velaris-dun.vercel.app/
 - **Lien Live Permanent GitHub Pages** : https://anicetjr20045-commits.github.io/velaris/
-- **Statut Opérationnel** : Jalon 48 (Cerveau Copilot IA Élite DeepSeek-V3 Live, Tool Calling & Synchronisation Hybride Temps Réel : Endpoint live https://waha.velarisagent.life/api/copilot, intelligence conversationnelle d'élite sans menu rigide, accès données réelles Supabase, mutations de caisse, et repli déterministe automatique).
+- **Statut Opérationnel** : Jalon 49 (Balises de Textes Structurés avec Copie en 1 Clic Intégrée, Directives DeepSeek-V3 en production VPS, et Arbitrage Stratégique Définitif : Modèle Hybride Réceptionniste + Cockpit Supérieur à l'Automatisation Totale).
 - **Prochaine tâche immédiate** : Test live end-to-end sur la session WhatsApp de test (`+22656240533`) pour observer les flux complets en conditions réelles.
 
 ---
@@ -31,6 +31,18 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 49. Balises Copiables en 1 Clic & Arbitrage Stratégique Définitif (4 Octobre 2026)
+- **Composant `CopyableBlock` et Rendu Markdown Enrichi** :
+  - Tout texte ou parole généré par le Copilot dans une balise de code Markdown (\`\`\`suno ou \`\`\`texte) est automatiquement isolé dans un conteneur sombre luxueux (`#07080B`) avec bordure subtile et en-tête dédié.
+  - Bouton interactif « Copier en 1 clic » avec retour visuel immédiat (« Copié en 1 clic ! ») et typographie dorée/ivoire adaptée.
+  - Bouton également uniformisé sur les cartes d'actions (`actionCard`).
+- **Directive Infrangible Déployée sur le Cerveau VPS DeepSeek-V3** :
+  - Instruction stricte dans `copilot-brain.ts` obligeant l'IA à enfermer toutes les créations poétiques et messages prêts à l'envoi dans des blocs de code pour déclencher instantanément le bloc copiable.
+  - Image Docker recompilée et déployée à chaud sur le VPS (`162.35.113.220`).
+- **Arbitrage Stratégique Fondé sur les Données Terrain Réelles** :
+  - Rejet argumenté du mythe de l'automatisation à 100% (sources de pertes massives de leads sur les cas émotionnels et les ambiguïtés de paiement Mobile Money).
+  - Validation du Modèle Hybride Cockpit (Sarah Réceptionniste -> Pause brief -> Copilot Studio 1-Clic).
 
 ### 48. Cerveau Copilot IA Élite DeepSeek-V3 Live, Tool Calling & Synchronisation Hybride Temps Réel (4 Octobre 2026)
 - **Cerveau DeepSeek-V3 Déployé en Production (`/api/copilot`)** :
