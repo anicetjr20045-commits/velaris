@@ -425,6 +425,8 @@ interface NextStepData {
     | 'accueil'
     | 'brief_incomplet'
     | 'brief_complet'
+    | 'presentation_offres'
+    | 'choix_offre'
     | 'vocal_recu'
     | 'faisabilite'
     | 'styles'
@@ -463,21 +465,31 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   const rawLastText = (lastInbound.body || '').trim().toLowerCase();
   const lastText = rawLastText.replace(/[’‘`]/g, "'");
 
-  // 2. RÈGLE DE CLÔTURE POLIE : Silence d'or sur formules de politesse sans question ouverte
-  const isPoliteClosing = /^(merci|d'accord|daccord|dac|ok|okay|super|parfait|c'est noté|c est note|bien reçu|bien recu|bonne nuit|bonne journée|bonsoir|amen|que dieu|top\b)/i.test(lastText) &&
-    !/\b(mais|combien|prix|retouche|changer|retoucher|quand|delai|délai|numero|numéro|wave|orange|moov|envoyez|transfert|prêt|pret)\b/i.test(lastText) &&
-    lastText.length < 80;
-
-  if (isPoliteClosing && inbounds.length > 1) {
-    return null;
-  }
-
   // Extraction du périmètre de la commande active (isole les anciennes commandes pour les clients réguliers)
   const orderScope = extractActiveOrderScope(messages, conv.name);
   const detectedOccasion = orderScope.detectedOccasion;
   const recipientName = orderScope.recipientName;
   const allInboundText = orderScope.allInboundText;
 
+  // Analyse des jalons franchis dans la commande active
+  const activeMessages = orderScope.activeMessages;
+  const activeOutbounds = activeMessages.filter((m) => !m.inbound);
+  const procedureVoiceSent = activeOutbounds.some(
+    (m) => (m.body && (m.body.includes('procedure-vocal') || /procédure|procedure/i.test(m.body))) || !!m.voice
+  );
+  const offersPresented = activeOutbounds.some(
+    (m) => m.body && (m.body.includes('1 200 F') || m.body.includes('1200 f') || m.body.includes('modèle vidéo') || m.body.includes('autre modèle'))
+  );
+  const lyricsSent = activeOutbounds.some(
+    (m) =>
+      m.body &&
+      (m.body.includes('[Refrain]') ||
+        m.body.includes('[Couplet') ||
+        m.body.includes('avis sur le texte') ||
+        m.body.includes('Aucune modification ne pourra') ||
+        m.body.includes('Voici votre texte') ||
+        m.body.includes('Voici les paroles'))
+  );
 
   // 1. Paiement signalé / Justificatif reçu (Cash is King !)
   const isPendingCoords = /\b(envoyez|donnez|partagez|sur quel|quel|ou payer|où payer)\s*(le|votre|un)?\s*(numéro|numero|compte)?\b/i.test(lastText) ||
@@ -514,21 +526,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     };
   }
 
-  // 3. Validation des paroles / Choix de version
-  const isLyricsValidation = /\b(valide|validé|validee|valider|je prends le|je prends la|le premier|le 1er|la première|la 1ere|texte me va|paroles me va|c'est bon pour le texte|c'est bon pour les paroles|parfait pour le texte|on lance|lancez l'audio|lancer l'audio|lancez la musique|lancer la musique)\b/i.test(lastText);
-  if (isLyricsValidation) {
-    return {
-      stageKey: 'validation_texte',
-      stageBadge: 'Paroles validées',
-      detectedIntent: 'Validation du texte par le client',
-      detectedOccasion,
-      recipientName,
-      recommendedReply: `Super, texte validé ! Vous pouvez faire le dépôt de 3 000 F sur Wave ou Orange Money (+226 05 77 73 08) et on vous livre les 2 versions audio en 18 min.`,
-      actionKind: 'cash',
-    };
-  }
-
-  // 4. Demande de retouches
+  // 3. Demande de retouches (si texte déjà envoyé ou en cours)
   const isRevisionRequest = /\b(retouche|retouches|modifier|modification|changer|changement|corriger|correction|faute|erreur|trompé|trompe|rajouter|ajouter un prenom)\b/i.test(lastText);
   if (isRevisionRequest) {
     return {
@@ -542,48 +540,126 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
     };
   }
 
-  // 5. Demande de délai / Urgence
+  // 4. VALIDATION DU TEXTE PAR LE CLIENT (SEULEMENT ICI DÉCLENCHE LE PAIEMENT !)
+  const isTextValidationExplicit = /\b(valide|validé|validee|valider|texte me va|paroles me va|c'est bon pour le texte|c'est bon pour les paroles|parfait pour le texte|on lance l'audio|lancez l'audio|lancer l'audio|lancez la musique|lancer la musique|j'aime beaucoup le texte|le texte est bon)\b/i.test(lastText);
+  const isTextValidationImplicit = lyricsSent && /\b(c'est bon|c est bon|parfait|super|magnifique|j'adore|jadore|on garde ça|on garde ca|on valide|validé)\b/i.test(lastText);
+
+  if (isTextValidationExplicit || isTextValidationImplicit) {
+    return {
+      stageKey: 'validation_texte',
+      stageBadge: 'Texte validé',
+      detectedIntent: 'Validation du texte par le client',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Super, merci pour votre validation ! Vous pouvez donc passer au paiement +226 05 77 73 08 Wendyam Anicet junior Sekongo (Wave ou Orange Money) svp une capture pour vérifier le paiement 🙏`,
+      actionKind: 'cash',
+    };
+  }
+
+  // 5. CHOIX DE L'OFFRE / FORMULE (1200 F texte seul vs 3000 F vidéo)
+  // RÈGLE ABSOLUE : ZÉRO DEMANDE DE PAIEMENT ICI ! Le client ne passe au paiement qu'APRÈS validation du texte.
+  const isOfferSelection =
+    /\b(1\s*200|3\s*000|mille deux|trois mille|celle de 1200|celle de 3000|modèle vidéo|modele video|formule vidéo|formule video|texte seul|simple chanson|chanson seule|je prends le|je prends la|je choisis)\b/i.test(lastText) &&
+    !lyricsSent;
+  if (isOfferSelection) {
+    return {
+      stageKey: 'choix_offre',
+      stageBadge: 'Formule choisie',
+      detectedIntent: 'Choix de formule par le client',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis 🙏`,
+      actionKind: 'lyrics',
+    };
+  }
+
+  // 6. VALIDATION DU VOCAL DE PROCÉDURE PAR LE CLIENT
+  // Si le vocal a été envoyé et que le client accuse écoute ou valide la démarche
+  const isProcedureVoiceAck =
+    procedureVoiceSent &&
+    !offersPresented &&
+    !lyricsSent &&
+    /\b(d'accord|daccord|dac|ok|okay|j'ai écouté|jai ecoute|bien reçu|bien recu|compris|c'est compris|c est compris|super|très bien|tres bien|pas de souci|pas de soucis|on fait comment|ça marche|ca marche)\b/i.test(lastText);
+
+  if (isProcedureVoiceAck) {
+    return {
+      stageKey: 'presentation_offres',
+      stageBadge: 'Présentation offres',
+      detectedIntent: 'Procédure validée par le client',
+      detectedOccasion,
+      recipientName,
+      recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous 😊`,
+      actionKind: 'reply',
+    };
+  }
+
+  // 7. RÈGLE DE CLÔTURE POLIE (Silence si formule de politesse sans enjeu d'étape active)
+  const isPoliteClosing =
+    /^(merci|bonne nuit|bonne journée|bonsoir|amen|que dieu|top\b)/i.test(lastText) &&
+    !/\b(mais|combien|prix|retouche|changer|retoucher|quand|delai|délai|numero|numéro|wave|orange|moov|envoyez|transfert|prêt|pret)\b/i.test(lastText) &&
+    lastText.length < 80;
+
+  if (isPoliteClosing && inbounds.length > 1) {
+    return null;
+  }
+
+  // 8. Demande de délai / Urgence
   const isDelayInquiry = /\b(delai|délai|combien de temps|combien d'heure|combien de jour|combien de minute|livrer quand|livraison quand|temps de|urgent|urgence|aujourd'hui|ce soir|ce matin)\b/i.test(lastText);
   if (isDelayInquiry) {
     return {
       stageKey: 'delai',
-      stageBadge: 'Délai 18 min',
+      stageBadge: 'Délai 20 min',
       detectedIntent: 'Demande de délai de livraison ou urgence',
       detectedOccasion,
       recipientName,
-      recommendedReply: `C'est prêt en 18 minutes chrono dès validation du texte et du dépôt. C'est pour quelle date de votre côté ?`,
+      recommendedReply: `C'est prêt en 18 à 20 minutes chrono dès validation de votre texte. C'est pour quelle date de votre côté ?`,
       actionKind: 'reply',
     };
   }
 
-  // 6. Demande de tarif & coordonnées de dépôt (Moov, Wave, OM)
+  // 9. Demande de tarif & coordonnées de dépôt (Moov, Wave, OM)
+  // Gestion intelligente : prix en début de brief, coordonnées de paiement uniquement post-texte
   const isPriceInquiry = /\b(combien|prix|tarif|tarifs|cout|coût|payer|paiement|moyen|numero|numéro|compte|wave|orange money|moov|modalite|modalités)\b/i.test(lastText) || isPendingCoords;
   if (isPriceInquiry) {
-    const asksMoov = /\bmoov\b/i.test(lastText);
-    const asksWave = /\bwave\b/i.test(lastText);
-    const asksOM = /\b(orange|om)\b/i.test(lastText);
-
-    let paymentDetails = `Wave / Orange Money / Moov : +226 05 77 73 08`;
-    if (asksMoov) {
-      paymentDetails = `Moov Money : +226 05 77 73 08 (Wendyam Anicet junior)`;
-    } else if (asksWave) {
-      paymentDetails = `Wave : +226 05 77 73 08 (Wendyam Anicet junior)`;
-    } else if (asksOM) {
-      paymentDetails = `Orange Money : +226 05 77 73 08 (Wendyam Anicet junior)`;
+    // Si les paroles sont déjà validées ou envoyées, donner le paiement
+    if (lyricsSent) {
+      return {
+        stageKey: 'paiement_demande',
+        stageBadge: 'Paiement Wave/OM',
+        detectedIntent: 'Demande de coordonnées pour régler le texte',
+        detectedOccasion,
+        recipientName,
+        recommendedReply: `Vous pouvez passer au paiement Wave / Orange Money au +226 05 77 73 08 (Wendyam Anicet junior Sekongo). Dès que vous avez la capture, envoyez-la ici !`,
+        actionKind: 'cash',
+      };
     }
 
+    // Si on est en amont et que le client demande spécifiquement les coordonnées
+    if (isPendingCoords || /\b(sur quel|quel numéro|quel numero|ou payer|où payer)\b/i.test(lastText)) {
+      return {
+        stageKey: 'paiement_demande',
+        stageBadge: 'Paiement post-texte',
+        detectedIntent: 'Demande de moyen de paiement avant texte',
+        detectedOccasion,
+        recipientName,
+        recommendedReply: `Le paiement se fait par Wave ou Orange Money (+226 05 77 73 08), mais vous ne réglez qu'après avoir validé le texte de votre chanson 😊. Pour commencer, c'est pour quelle occasion ou pour qui ?`,
+        actionKind: 'reply',
+      };
+    }
+
+    // Demande de tarif classique au début ou en cours de brief
     return {
       stageKey: 'paiement_demande',
-      stageBadge: 'Tarifs & Dépôt',
-      detectedIntent: 'Demande de tarif ou de coordonnées',
+      stageBadge: 'Tarifs (1200 / 3000)',
+      detectedIntent: 'Demande de tarifs en début de prise de commande',
       detectedOccasion,
       recipientName,
-      recommendedReply: `La formule complète est à 3 000 F (chanson sur-mesure + 2 versions audio en 18 min).\nVous pouvez faire le dépôt sur ${paymentDetails}. Dès que vous avez la capture, envoyez-la ici !`,
+      recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F 😊. C'est pour quelle occasion ou pour qui ?`,
       actionKind: 'reply',
     };
   }
 
-  // 7. Demande d'extrait / exemple / comment ça se passe
+  // 10. Demande d'extrait / exemple / comment ça se passe
   const isSampleRequest = /\b(extrait|extraits|exemple|exemples|echantillon|échantillon|écouter|ecouter|demo|démo|comment ça sonne|voir un modèle|comment ca se passe|comment ça se passe|comment fonctionne)\b/i.test(lastText);
   if (isSampleRequest) {
     return {
@@ -592,7 +668,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande d\'écoute ou de démonstration',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Voici un extrait pour vous donner une idée : https://waha.velarisagent.life/demo/sample-afro.mp3\nDites-moi ce que vous en pensez !`,
+      recommendedReply: `Voici un extrait pour vous donner une idée : https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4\nDites-moi ce que vous en pensez !`,
       actionKind: 'reply',
     };
   }
@@ -656,13 +732,37 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
   // 12. Brief complet (prénom + occasion ou détails fournis)
   const isBriefComplete = !!recipientName && (allInboundText.length > 25 || inbounds.length >= 2);
   if (isBriefComplete) {
+    if (!procedureVoiceSent) {
+      return {
+        stageKey: 'brief_complet',
+        stageBadge: 'Vocal procédure',
+        detectedIntent: `Brief complété pour ${recipientName} (${detectedOccasion})`,
+        detectedOccasion,
+        recipientName,
+        recommendedReply: `C'est bien noté pour ${recipientName} ! Je vous envoie une note vocale d'une minute qui vous explique exactement notre démarche.`,
+        actionKind: 'reply',
+      };
+    }
+
+    if (!offersPresented) {
+      return {
+        stageKey: 'presentation_offres',
+        stageBadge: 'Présentation offres',
+        detectedIntent: 'Procédure validée - Présentation des offres',
+        detectedOccasion,
+        recipientName,
+        recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous 😊`,
+        actionKind: 'reply',
+      };
+    }
+
     return {
-      stageKey: 'brief_complet',
-      stageBadge: 'Brief prêt',
+      stageKey: 'choix_offre',
+      stageBadge: 'Prêt pour texte',
       detectedIntent: `Prêt pour l'écriture pour ${recipientName} (${detectedOccasion})`,
       detectedOccasion,
       recipientName,
-      recommendedReply: `C'est parfait pour ${recipientName} ! J'ai toutes les infos, je vous prépare le texte tout de suite.`,
+      recommendedReply: `Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis 🙏`,
       actionKind: 'lyrics',
     };
   }

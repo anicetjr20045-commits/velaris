@@ -8,22 +8,21 @@
 ## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (22:42 UTC)
-- **Statut Opérationnel** : **Jalon 62 100% Validé & Déployé** (Segmentation intelligente des commandes anciens clients, intégration des souvenirs réels dans les 32-48 vers poétiques, raccourcis compacts avec Vocal procédure & Vidéo démo hébergés).
+- **Dernière mise à jour** : 4 Octobre 2026 (23:30 UTC)
+- **Statut Opérationnel** : **Jalon 63 100% Validé & Déployé** (Verrouillage Métier du Tunnel de Prise de Commande : Règle Inviolable du Paiement Post-Texte, Enchaînement Vocal Procédure ➔ Présentation Offres ➔ Promesse du Texte sans paiement prématuré).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Segmentation Automatique des Anciens Clients (`extractActiveOrderScope`)** :
-    - Détection automatique de la fin des commandes précédentes (messages de livraison passés ou gap > 48h).
-    - Lors du clic sur `Générer le texte`, l'IA n'analyse que la nouvelle commande en cours (prénom, occasion, souvenirs) sans jamais mélanger avec les commandes passées.
-  - **Intelligence Poétique et Transmission des Idées Client** :
-    - Génération de 32 à 48 vers Suno conformes au standard studio avec tissage des souvenirs et anecdotes authentiques du client dans le Couplet 2 et le Pont.
-  - **Barre de Raccourcis Compacte Ultra-Épurée** :
-    - 5 boutons principaux visibles directs : `Vocal procédure` (audio hébergé Supabase), `Exemple vidéo` (MP4 hébergé Supabase), `Brief`, `Tarifs (1200 / 3000)`, `Paiement Wave/OM`.
-    - Menu déroulant discret `Autres ▾` (10 messages types récurrents : Wave CI, Style doux/dansant, Validation texte, Délai 20 min, Message particulier, Règle 2 versions, Mix studio, Livraison, Avis client, Bonjour).
-    - Clic = Envoi direct sur WhatsApp (support média natif via WAHA `sendWahaFileMessage` avec repli texte sécurisé). Maj+Clic = insertion dans le champ pour personnalisation.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` en 4.93s sans avertissement ni erreur).
+  - **Règle Inviolable du Paiement Post-Validation du Texte** :
+    - Le client ne passe **JAMAIS** au paiement avant d'avoir reçu et validé le texte poétique écrit pour lui.
+    - Lors de la sélection d'une formule (1 200 F / 3 000 F), le système promet immédiatement la rédaction du texte (*« Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis 🙏 »*) avec action `lyrics` sans aucune coordonnée de paiement.
+    - La demande de paiement Mobile Money (+226 05 77 73 08 Wendyam Anicet junior Sekongo) est réservée **strictement** au moment où le client valide le texte (*« Texte validé »*, *« C'est bon »*, *« J'aime beaucoup »*).
+  - **Séquençage Fluide & Non Robotique du Tunnel de Prise de Commande** :
+    - *Demande de tarif précoce* : Réponse transparente et directe sur les deux formules (1 200 F texte / 3 000 F vidéo) sans balancer de numéro de dépôt, ramenant naturellement vers la prise de brief (*« C'est pour quelle occasion ou pour qui ? »*).
+    - *Brief complété* : Envoi prioritaire du Vocal de procédure d'une minute.
+    - *Validation du vocal de procédure par le client* : Déclenchement automatique de la présentation des deux formules sans silence parasite.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` en 4.68s, 0 erreur).
 - **Prochaine tâche exacte** :
-  1. Suivi des nouveaux briefs entrants sur WhatsApp via la ligne active.
-  2. Poursuite des tests de production réels sur l'Atelier Studio et le Copilot.
+  1. Suivi des nouveaux contacts WhatsApp entrant dans le tunnel de prise de commande.
+  2. Observation en direct des discussions clients et validation des conversions.
 
 ---
 
@@ -40,6 +39,21 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 63. Verrouillage Métier du Tunnel de Prise de Commande & Règle Inviolable du Paiement Post-Texte (4 Octobre 2026)
+- **Application Stricte de la Règle Métier d'Anicet (`analyzeNextStep`)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
+  - **Éradication Totale du Paiement Prématuré** : Suppression du court-circuit qui réclamait le paiement au choix de formule ou à la première question de prix.
+  - **Séquençage Linéaire & Infaillible** :
+    1. *Demande de prix initiale* : Réponse polie et concise affichant les 1 200 F et 3 000 F sans coordonnées, orientant vers l'occasion et le destinataire.
+    2. *Questions de brief* : Une seule question ciblée (ami, frère, maman, amour, etc.) sans répétition des éléments déjà fournis.
+    3. *Brief complet* : Proposition / envoi du vocal de procédure.
+    4. *Accusé d'écoute du vocal (« D'accord », « J'ai écouté », « C'est bon »)* : Déclenchement de la présentation des offres (1 200 F / 3 000 F).
+    5. *Choix de l'offre par le client* : Promesse immédiate du texte (*« Parfait, notre studio prépare votre texte tout de suite ! »*) avec mise en avant du bouton *Générer le texte* (zéro demande financière).
+    6. *Envoi du texte* : Demande d'avis ferme et courtoise.
+    7. *Validation des paroles par le client* : Déclenchement unique des coordonnées Wave / Orange Money (+226 05 77 73 08 Wendyam Anicet junior Sekongo) et demande de capture.
+    8. *Justificatif reçu* : Confirmation et promesse de livraison sous 20 minutes chrono.
+- **Validation Globale** :
+  - Build Vite & TypeScript : Build propre en 4.68s (`tsc -b && vite build` avec 0 erreur).
 
 ### 62. Segmentation Automatique Anciens Clients, Intelligence Poétique & Raccourcis Compacts (Vocal & Vidéo) (4 Octobre 2026)
 - **Segmentation Déterministe des Commandes Récidivistes (`extractActiveOrderScope`)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
