@@ -9,7 +9,7 @@ import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
 import { AuthModal } from './components/AuthModal';
 import { CosmicBackground } from './components/CosmicBackground';
-import { INITIAL_ORDERS, ACADEMY_MODULES } from './data/mockData';
+import { ACADEMY_MODULES } from './data/mockData';
 import { useWahaSession } from './hooks/useWaha';
 import { useAuth } from './hooks/useAuth';
 import { getLiveOrders, createLiveOrder, updateLiveOrder, subscribeStudioRealtime } from './services/supabase';
@@ -285,14 +285,25 @@ export function App() {
   
   const storageKey = user ? `velaris_studio_orders_${user.id}` : 'velaris_studio_orders_demo';
 
-  // Initialize orders with user-scoped or demo persistence
+  // Nettoyage proactif de tout résidu de commandes démo pour garantir un site vierge
+  useEffect(() => {
+    try {
+      localStorage.removeItem('velaris_studio_orders_demo');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Initialize orders with user-scoped persistence (starts clean)
   const [orders, setOrders] = useState<Order[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
-      const saved = localStorage.getItem('velaris_studio_orders_demo');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (user) {
+        const saved = localStorage.getItem(`velaris_studio_orders_${user.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
       }
     } catch {
       // ignore
@@ -306,22 +317,21 @@ export function App() {
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
 
-  // Sync to user-specific or demo localStorage
+  // Sync to user-specific localStorage (only for authenticated studios)
   useEffect(() => {
+    if (!user) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(orders));
     } catch {
       // storage quota or private browsing
     }
-  }, [orders, storageKey]);
+  }, [orders, storageKey, user]);
 
   // Realtime synchronization of live orders from Supabase
   useEffect(() => {
     if (!user) {
-      if (isDemoMode) {
-        setOrders(INITIAL_ORDERS);
-        setSelectedOrderId(INITIAL_ORDERS[0]?.id || '');
-      }
+      setOrders([]);
+      setSelectedOrderId('');
       return;
     }
 

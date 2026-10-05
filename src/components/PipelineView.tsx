@@ -14,8 +14,9 @@ import {
   SquareKanban
 } from 'lucide-react';
 import type { Order, PipelineLead } from '../types';
-import { REAL_PIPELINE_LEADS } from '../data/realProductionData';
 import { useAuth } from '../hooks/useAuth';
+
+const EMPTY_LEADS: PipelineLead[] = [];
 import { useStudioLive } from '../hooks/useStudioLive';
 import { getLivePipelineLeads, updateLeadStage } from '../services/supabase';
 import { STAGE_ORDER, inferLeadStage, stageRank } from '../services/pipelineAutopilot';
@@ -106,7 +107,7 @@ export const PipelineView: FC<PipelineViewProps> = ({ onSelectLeadForStudio, ord
   const { user } = useAuth();
   const { data: leads, setData: setLeads, syncedAt } = useStudioLive<PipelineLead[]>(
     getLivePipelineLeads,
-    user ? [] : REAL_PIPELINE_LEADS,
+    EMPTY_LEADS,
     ['conversations', 'contacts'],
     [user?.id],
     { enabled: !!user }

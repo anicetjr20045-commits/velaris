@@ -24,14 +24,17 @@ import {
   type SongOccasion
 } from './lyricsCorpus';
 import { sendWahaTextMessage } from './waha';
-import {
-  REAL_CONVERSATIONS,
-  REAL_CONVERSATION_MESSAGES,
-  REAL_PIPELINE_LEADS,
-  REAL_STUDIO_METRICS
-} from '../data/realProductionData';
 import { ACADEMY_MODULES } from '../data/mockData';
 import type { Order, StudioMetrics } from '../types';
+
+const EMPTY_STUDIO_METRICS: StudioMetrics = {
+  totalRevenue: 0,
+  ordersDelivered: 0,
+  ordersActive: 0,
+  adLeadsCount: 0,
+  conversionRate: 0,
+  currency: 'FCFA',
+};
 import { debitAiPromptCredit, getStudioCredits } from './billing';
 import { KIE_CONFIG } from './kie';
 
@@ -223,44 +226,7 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 function demoDossiers(): ClientDossier[] {
-  const byPhone = new Map<string, ClientDossier>();
-  for (const c of REAL_CONVERSATIONS) {
-    const msgs = REAL_CONVERSATION_MESSAGES[c.id] || [];
-    byPhone.set(digitsOf(c.phone), {
-      name: c.name,
-      phone: c.phone,
-      stage: c.status,
-      lastExchange: c.lastExchange,
-      facts: c.facts,
-      messages: msgs.length
-        ? msgs.map(m => ({ inbound: m.direction === 'inbound', body: m.body, at: m.createdAt }))
-        : c.fullMessage
-          ? [{ inbound: true, body: c.fullMessage, at: c.lastExchange }]
-          : [],
-      orders: [],
-      convId: c.id,
-    });
-  }
-  for (const l of REAL_PIPELINE_LEADS) {
-    const key = digitsOf(l.phone);
-    const existing = byPhone.get(key);
-    if (existing) {
-      existing.occasion = existing.occasion || l.tag;
-      existing.facts = existing.facts || l.summary;
-    } else {
-      byPhone.set(key, {
-        name: l.name,
-        phone: l.phone,
-        stage: l.stage,
-        lastExchange: l.lastExchange,
-        occasion: l.tag,
-        facts: l.summary,
-        messages: [],
-        orders: [],
-      });
-    }
-  }
-  return [...byPhone.values()];
+  return [];
 }
 
 async function liveDossierByPhone(fragment: string): Promise<ClientDossier | null> {
@@ -919,7 +885,7 @@ async function answerCopilot(
   // Ventes & métriques
   // ---------------------------------------------------------------------
   if (intent === 'sales') {
-    const metrics = user ? await getLiveStudioMetrics() : context.metrics || REAL_STUDIO_METRICS;
+    const metrics = user ? await getLiveStudioMetrics() : context.metrics || EMPTY_STUDIO_METRICS;
     const liveOrders: Order[] = user ? await getLiveOrders() : [];
     const { text, card } = salesReport(context, metrics, liveOrders);
     return reply(text, card);
@@ -936,14 +902,20 @@ async function answerCopilot(
       if (phone) {
         return reply(
           `### Aucun contact pour « ${phone} »\n\n` +
-          `Je n’ai trouvé aucune discussion WhatsApp dont le numéro contient **${phone}** dans ${user ? 'votre studio' : 'les données de démonstration'}.\n\n` +
+          `Je n’ai trouvé aucune discussion WhatsApp dont le numéro contient **${phone}** dans votre studio.\n\n` +
           `- Vérifiez l’indicatif (+225, +226) ou tapez seulement les 4 à 8 derniers chiffres.\n- Si le client vient d’écrire, sa fiche apparaît dès que la passerelle WAHA a synchronisé le message.`
         );
       }
       if (intent === 'search' && !has(norm, RECALL_WORDS) && !norm.includes('client')) {
         return helpMessage(reply);
       }
-      const recent = user ? (await getLiveConversations()).slice(0, 5) : REAL_CONVERSATIONS.slice(0, 5);
+      const recent = user ? (await getLiveConversations()).slice(0, 5) : [];
+      if (recent.length === 0) {
+        return reply(
+          `### Aucune discussion client\n\n` +
+          `Votre studio ne contient aucune discussion enregistrée pour le moment. Dès qu’un client écrit sur votre WhatsApp Studio ou termine un brief vocal, son dossier apparaîtra ici automatiquement.`
+        );
+      }
       return reply(
         `### Aucun client ne correspond\n\nVoici les dernières discussions pour vous aider à retrouver le bon contact :\n\n` +
         recent.map((c, i) => `${i + 1}. **${c.name}** (${c.phone || 'numéro inconnu'}), ${c.lastExchange}`).join('\n') +

@@ -36,7 +36,15 @@ import {
 import { getLiveStudioMetrics } from '../services/supabase';
 import { useStudioLive } from '../hooks/useStudioLive';
 import type { Order, StudioMetrics } from '../types';
-import { REAL_STUDIO_METRICS } from '../data/realProductionData';
+
+const EMPTY_STUDIO_METRICS: StudioMetrics = {
+  totalRevenue: 0,
+  ordersDelivered: 0,
+  ordersActive: 0,
+  adLeadsCount: 0,
+  conversionRate: 0,
+  currency: 'FCFA',
+};
 import { SonarGlyph, SonarMascot } from './SonarMascot';
 import { SONAR_STATE_LABEL, type SonarState } from './sonarState';
 import { WaveformPlayer } from './WaveformPlayer';
@@ -553,7 +561,7 @@ export const StudioCopilotView: FC<StudioCopilotViewProps> = ({
   /* Ventes en direct : Realtime Supabase sur les commandes (studio connecté) */
   const { data: liveMetrics, syncedAt: metricsSyncedAt } = useStudioLive<StudioMetrics>(
     getLiveStudioMetrics,
-    metrics ?? REAL_STUDIO_METRICS,
+    metrics ?? EMPTY_STUDIO_METRICS,
     ['orders'],
     [user?.id],
     { enabled: !!user }

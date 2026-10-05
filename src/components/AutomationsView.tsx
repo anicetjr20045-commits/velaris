@@ -23,8 +23,10 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import type { AutomationLog, AutomationMediaKind, AutomationRule } from '../types';
-import { REAL_AUTOMATION_RULES, REAL_AUTOMATION_LOGS } from '../data/realProductionData';
 import { useAuth } from '../hooks/useAuth';
+
+const EMPTY_RULES: AutomationRule[] = [];
+const EMPTY_LOGS: AutomationLog[] = [];
 import { useStudioLive } from '../hooks/useStudioLive';
 import {
   AUTOMATION_MEDIA_MAX_BYTES,
@@ -218,12 +220,12 @@ export const AutomationsView: FC = () => {
   const { user } = useAuth();
   const { data: rules, setData: setRules, syncedAt } = useStudioLive<AutomationRule[]>(
     getLiveAutomationRules,
-    user ? [] : REAL_AUTOMATION_RULES,
+    EMPTY_RULES,
     ['automation_rules'],
     [user?.id],
     { enabled: !!user }
   );
-  const [logs, setLogs] = useState<AutomationLog[]>(user ? [] : REAL_AUTOMATION_LOGS);
+  const [logs, setLogs] = useState<AutomationLog[]>(EMPTY_LOGS);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

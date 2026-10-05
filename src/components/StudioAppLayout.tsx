@@ -25,7 +25,7 @@ import {
   Home
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import type { Order, StudioMetrics } from '../types';
+import type { Order, StudioMetrics, ConversationItem } from '../types';
 import { CockpitView } from './CockpitView';
 import { ConversationsView } from './ConversationsView';
 import { AutomationsView } from './AutomationsView';
@@ -36,10 +36,19 @@ import { VelarisMark } from './VelarisMark';
 import { AdminConsoleView } from './AdminConsoleView';
 import { StudioProfileView } from './StudioProfileView';
 import { CommandPalette, isMacPlatform, type PaletteCommand } from './CommandPalette';
-import { REAL_CONVERSATIONS, REAL_STUDIO_METRICS } from '../data/realProductionData';
 import { getLiveConversations } from '../services/supabase';
 import { useStudioLive } from '../hooks/useStudioLive';
 import { applyReadState, useReadState } from '../services/readState';
+
+const EMPTY_STUDIO_METRICS: StudioMetrics = {
+  totalRevenue: 0,
+  ordersDelivered: 0,
+  ordersActive: 0,
+  adLeadsCount: 0,
+  conversionRate: 0,
+  currency: 'FCFA',
+};
+const EMPTY_CONVERSATIONS: ConversationItem[] = [];
 
 export type StudioTab =
   | 'revenus'
@@ -108,7 +117,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
   // Non-lus WhatsApp : Realtime Supabase + polling de secours
   const { data: rawConversations } = useStudioLive(
     getLiveConversations,
-    user ? [] : REAL_CONVERSATIONS,
+    EMPTY_CONVERSATIONS,
     ['conversations', 'messages'],
     [user?.id]
   );
@@ -477,7 +486,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
           <div key={currentTab} className="vx-view-enter">
             {currentTab === 'revenus' && (
               <CockpitView
-                metrics={metrics ?? { ...REAL_STUDIO_METRICS, currency: 'FCFA' }}
+                metrics={metrics ?? EMPTY_STUDIO_METRICS}
                 orders={orders}
                 onSelectOrderForStudio={openOrderInStudio}
                 onOpenQrModal={onOpenQrModal ?? (() => handleTabClick('whatsapp'))}
@@ -514,7 +523,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             {currentTab === 'analyste' && (
               <StudioCopilotView
                 orders={orders}
-                metrics={metrics ?? { ...REAL_STUDIO_METRICS, currency: 'FCFA' }}
+                metrics={metrics ?? EMPTY_STUDIO_METRICS}
                 onNavigateToStudio={() => handleTabClick('studio_ai')}
                 onOpenQrModal={onOpenQrModal ?? (() => handleTabClick('whatsapp'))}
               />
@@ -527,7 +536,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
             {currentTab === 'admin' && (
               <AdminConsoleView
                 orders={orders}
-                metrics={metrics ?? { ...REAL_STUDIO_METRICS, currency: 'FCFA' }}
+                metrics={metrics ?? EMPTY_STUDIO_METRICS}
                 conversations={liveConversations}
               />
             )}

@@ -30,10 +30,9 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import type { ConversationItem } from '../types';
-import {
-  REAL_CONVERSATIONS,
-  REAL_CONVERSATION_MESSAGES
-} from '../data/realProductionData';
+import { REAL_CONVERSATION_MESSAGES } from '../data/realProductionData';
+
+const EMPTY_CONVERSATIONS: ConversationItem[] = [];
 import {
   WAHA_CONFIG,
   fetchWahaMessageAcks,
@@ -1090,7 +1089,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   const { data: rawConversations, syncedAt } = useStudioLive<ConversationItem[]>(
     getLiveConversations,
-    user ? [] : REAL_CONVERSATIONS,
+    EMPTY_CONVERSATIONS,
     ['conversations', 'messages'],
     [user?.id]
   );

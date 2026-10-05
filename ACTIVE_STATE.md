@@ -5,24 +5,20 @@
 
 ---
 
-## 🎯 Statut Actuel & Point de Reprise (Session du Soir)
+## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 4 Octobre 2026 (23:30 UTC)
-- **Statut Opérationnel** : **Jalon 63 100% Validé & Déployé** (Verrouillage Métier du Tunnel de Prise de Commande : Règle Inviolable du Paiement Post-Texte, Enchaînement Vocal Procédure ➔ Présentation Offres ➔ Promesse du Texte sans paiement prématuré).
+- **Dernière mise à jour** : 5 Octobre 2026 (00:15 UTC)
+- **Statut Opérationnel** : **Jalon 64 100% Validé & Déployé** (Remise à Zéro Complète du Site Vierge sans aucune suppression de données dans la base Supabase).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Règle Inviolable du Paiement Post-Validation du Texte** :
-    - Le client ne passe **JAMAIS** au paiement avant d'avoir reçu et validé le texte poétique écrit pour lui.
-    - Lors de la sélection d'une formule (1 200 F / 3 000 F), le système promet immédiatement la rédaction du texte (*« Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis 🙏 »*) avec action `lyrics` sans aucune coordonnée de paiement.
-    - La demande de paiement Mobile Money (+226 05 77 73 08 Wendyam Anicet junior Sekongo) est réservée **strictement** au moment où le client valide le texte (*« Texte validé »*, *« C'est bon »*, *« J'aime beaucoup »*).
-  - **Séquençage Fluide & Non Robotique du Tunnel de Prise de Commande** :
-    - *Demande de tarif précoce* : Réponse transparente et directe sur les deux formules (1 200 F texte / 3 000 F vidéo) sans balancer de numéro de dépôt, ramenant naturellement vers la prise de brief (*« C'est pour quelle occasion ou pour qui ? »*).
-    - *Brief complété* : Envoi prioritaire du Vocal de procédure d'une minute.
-    - *Validation du vocal de procédure par le client* : Déclenchement automatique de la présentation des deux formules sans silence parasite.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` en 4.68s, 0 erreur).
-- **Prochaine tâche exacte** :
-  1. Suivi des nouveaux contacts WhatsApp entrant dans le tunnel de prise de commande.
-  2. Observation en direct des discussions clients et validation des conversions.
+  - **Site Vierge & Données Propres** :
+    - Toutes les données de démonstration et mocks historiques (`INITIAL_ORDERS`, `MOCK_CONVERSATIONS`, `REAL_CONVERSATIONS`, `REAL_PIPELINE_LEADS`, `REAL_AUTOMATION_RULES`, `REAL_AUTOMATION_LOGS`, `REAL_STUDIO_METRICS`) ont été purgées de l'interface et remplacées par des collections vides propres.
+    - Le solde d'ouverture legacy non rattaché (`revenue_opening_balances`) est strictement isolé par `user_id`, garantissant 0 F CFA de CA factice pour tout nouveau studio sans altérer ni supprimer la ligne en base de données Supabase.
+    - Nettoyage automatique au chargement du cache localStorage (`velaris_studio_orders_demo`).
+    - L'ensemble des vues de l'Atelier Studio OS (Cockpit, Atelier, Discussions WhatsApp, Pipeline Kanban, Automatisations, Analyste & Copilot IA) affichent désormais des états neutres et prêts à accueillir de vraies interactions en temps réel.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` en 5.56s, 0 erreur).
+- **Prochaine tâche immédiate** :
+  1. Utilisation du site en condition réelle avec les nouveaux contacts entrants WhatsApp WAHA et créations de commandes.
 
 ---
 

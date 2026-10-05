@@ -305,7 +305,7 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
 
     // Utilisateur connecté : métriques STRICTEMENT isolées à son studio (RLS)
     const [balanceRes, ordersRes, convRes] = await Promise.all([
-      supabase.from('revenue_opening_balances').select('amount_cents').limit(1).maybeSingle(),
+      supabase.from('revenue_opening_balances').select('amount_cents').eq('user_id', session.user.id).limit(1).maybeSingle(),
       supabase.from('orders').select('amount_cents, status').order('created_at', { ascending: false }).limit(ORDER_LIMIT),
       supabase.from('conversations').select('id', { count: 'exact', head: true }),
     ]);
