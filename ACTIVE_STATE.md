@@ -8,15 +8,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 5 Octobre 2026 (00:15 UTC)
-- **Statut Opérationnel** : **Jalon 64 100% Validé & Déployé** (Remise à Zéro Complète du Site Vierge sans aucune suppression de données dans la base Supabase).
+- **Dernière mise à jour** : 5 Octobre 2026 (00:32 UTC)
+- **Statut Opérationnel** : **Jalon 64 100% Validé & Déployé en Production** (Remise à Zéro Complète du Site Vierge sans aucune suppression de données dans la base Supabase).
 - **Consigne d'Arrêt & Point de Reprise** :
   - **Site Vierge & Données Propres** :
     - Toutes les données de démonstration et mocks historiques (`INITIAL_ORDERS`, `MOCK_CONVERSATIONS`, `REAL_CONVERSATIONS`, `REAL_PIPELINE_LEADS`, `REAL_AUTOMATION_RULES`, `REAL_AUTOMATION_LOGS`, `REAL_STUDIO_METRICS`) ont été purgées de l'interface et remplacées par des collections vides propres.
     - Le solde d'ouverture legacy non rattaché (`revenue_opening_balances`) est strictement isolé par `user_id`, garantissant 0 F CFA de CA factice pour tout nouveau studio sans altérer ni supprimer la ligne en base de données Supabase.
     - Nettoyage automatique au chargement du cache localStorage (`velaris_studio_orders_demo`).
     - L'ensemble des vues de l'Atelier Studio OS (Cockpit, Atelier, Discussions WhatsApp, Pipeline Kanban, Automatisations, Analyste & Copilot IA) affichent désormais des états neutres et prêts à accueillir de vraies interactions en temps réel.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` en 5.56s, 0 erreur).
+  - **Déploiement GitHub Pages Réparé & Vérifié en Direct** :
+    - Diagnostic : le workflow GitHub Pages échouait systématiquement à l'étape Checkout (`fatal: No url found for submodule path 'dist' in .gitmodules`) en raison d'un faux submodule `dist` (mode `160000`) et d'un commit parasite de `node_modules` sur la branche `gh-pages`.
+    - Correction : suppression du lien submodule et des fichiers résiduels sur `gh-pages` (commit `2703f36`). Le workflow GitHub Actions Pages (`37247759018`) a réussi à 100%.
+    - Vérification en direct sur `https://anicetjr20045-commits.github.io/velaris/` : bundle actif `assets/index--P5D8uPD.js`, zéro occurrence de « Moussa Traoré », site 100% vierge.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` avec 0 erreur).
 - **Prochaine tâche immédiate** :
   1. Utilisation du site en condition réelle avec les nouveaux contacts entrants WhatsApp WAHA et créations de commandes.
 
