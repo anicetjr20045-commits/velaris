@@ -19,8 +19,9 @@ import {
   PanelRight,
   Sparkles,
   Clock,
-  Image as ImageIcon,
-  ChevronDown
+  ChevronDown,
+  Paperclip,
+  ShieldCheck
 } from 'lucide-react';
 import { generateHouseStyleSong, detectOccasion, type SongOccasion } from '../services/lyricsCorpus';
 
@@ -30,15 +31,18 @@ interface ChatBubble {
   content: string;
   timestamp: string;
   status: 'sending' | 'sent' | 'delivered' | 'read';
-  mediaKind?: 'audio' | 'image';
+  mediaKind?: 'audio' | 'image' | 'sample';
   mediaUrl?: string;
   mediaTranscript?: string;
+  mediaDurationSec?: number;
+  sampleTitle?: string;
   isProcedureVoice?: boolean;
   isPaymentBlock?: boolean;
   isLyricsCard?: boolean;
   lyricsData?: {
     minutes?: number;
     lyrics?: string;
+    title?: string;
   };
 }
 
@@ -68,103 +72,81 @@ const SCENARIOS: ScenarioPreset[] = [
   },
   {
     id: 'djalilou_bf',
-    title: 'Djalilou Dayamba (Burkina Faso — Patience & OM)',
+    title: 'Djalilou Dayamba (Burkina Faso — Anniversaire & OM)',
     clientName: 'Djalilou Dayamba',
     country: 'BF',
     phone: '+22655917765',
     firstMessages: [
       "Bonsoir, c'est pour l'anniversaire de Fadila.",
     ],
-    description: "Teste la tolérance sur 'J'attends alors' et la délivrance Orange Money BF.",
+    description: "Teste la procédure complète avec livraison Orange Money Burkina Faso.",
   },
   {
-    id: 'fargo_poeme',
-    title: 'Fargo Anne (Burkina Faso — Brief poétique long)',
-    clientName: 'Fargo Anne',
-    country: 'BF',
-    phone: '+22670784983',
-    firstMessages: [
-      'Bonjour cher studio. Je veux une chanson sacrée pour célébrer mon mari Alassane, un homme juste et généreux.',
-    ],
-    description: "Teste l'écoute d'un long brief et la reconnaissance 'Le numéro de dépôt' sans verbe.",
-  },
-  {
-    id: 'aicha_tiktok',
-    title: "Aïcha Diallo (Lead froid TikTok 'C'est combien ?')",
+    id: 'aicha_tarif',
+    title: "Aïcha Diallo (Lead TikTok 'C'est combien ?')",
     clientName: 'Aïcha Diallo',
     country: 'CI',
     phone: '+2250544332211',
     firstMessages: [
       "Bonjour, c'est combien ?",
     ],
-    description: "Teste la transparence tarifaire d'entrée et l'orientation chaleureuse vers le brief.",
+    description: "Teste la présentation tarifaire sans coordonnées financières avant le brief.",
   },
   {
-    id: 'objection_arnaque',
-    title: 'Ibrahim Traoré (Objection méfiance / arnaque)',
-    clientName: 'Ibrahim Traoré',
+    id: 'fargo_long_brief',
+    title: 'Fargo Anne (Burkina Faso — Brief long et poétique)',
+    clientName: 'Fargo Anne',
+    country: 'BF',
+    phone: '+22670784983',
+    firstMessages: [
+      'Bonjour cher studio. Je veux une chanson sacrée pour célébrer mon mari Alassane, un homme juste et généreux.',
+    ],
+    description: "Teste l'écoute d'un brief long et l'intégration des qualités personnelles.",
+  },
+  {
+    id: 'demande_extrait',
+    title: "Seydou Kouamé (Demande d'extrait audio préalable)",
+    clientName: 'Seydou Kouamé',
     country: 'CI',
     phone: '+2250102030405',
     firstMessages: [
-      'Je veux une chanson pour Mariam mais je ne paie rien avant de voir. Y a trop d arnaqueurs sur internet.',
+      "Bonjour, est-ce que je peux écouter un exemple de chanson avant de commander ?",
     ],
-    description: 'Teste la rassurance : texte écrit et validé avant tout paiement.',
+    description: "Teste l'envoi d'un extrait de chanson démo avec lecteur audio réaliste.",
   },
   {
-    id: 'mariama_sn',
-    title: 'Mariama Ba (Sénégal +221 — Wave Diaspora)',
-    clientName: 'Mariama Ba',
-    country: 'SN',
-    phone: '+221771234567',
+    id: 'diaspora_france',
+    title: 'Fatou Ndiaye (Diaspora France — Moyens de paiement)',
+    clientName: 'Fatou Ndiaye',
+    country: 'OTHER',
+    phone: '+33612345678',
     firstMessages: [
-      "Bonjour ! C'est pour le baptême de mon neveu El Hadj à Dakar, style mbalax acoustique.",
+      "Bonjour, je vis à Paris, je veux offrir une chanson à ma mère au Sénégal. Comment je peux payer ?",
     ],
-    description: 'Teste la détection de l indicatif +221 et les coordonnées Wave Sénégal.',
+    description: "Teste les explications pour la diaspora (Wave international / Carte bancaire).",
   },
   {
-    id: 'ange_upgrade',
-    title: 'Ange-Kevin (Upgrade Formule Vidéo 3 000 F)',
-    clientName: 'Ange-Kevin',
+    id: 'urgence_delai',
+    title: 'Koffi Assi (Client pressé — Délai 20 minutes)',
+    clientName: 'Koffi Assi',
     country: 'CI',
-    phone: '+2250788776655',
+    phone: '+2250708091011',
     firstMessages: [
-      "C'est pour l'anniversaire de ma petite sœur Grâce qui a 18 ans.",
+      "Bonjour Sarah ! L'anniversaire est aujourd'hui, vous pouvez livrer en combien de temps ?",
     ],
-    description: 'Teste le brief anniversaire et le passage vers la formule prestige avec montage vidéo.',
+    description: "Teste la réassurance sur le délai d'enregistrement studio en 18 minutes.",
   },
 ];
 
-const QUICK_TEST_VOCALS = [
-  {
-    label: 'Demande anniversaire (Awa, 50 ans)',
-    text: "Bonjour, je voudrais une chanson pour l'anniversaire de ma maman Awa qui fête ses 50 ans ce samedi.",
-  },
-  {
-    label: 'Écoute du vocal confirmée',
-    text: "D'accord, j'ai bien écouté la note vocale du studio, je suis prêt pour le texte !",
-  },
-  {
-    label: 'Validation paroles & demande Wave',
-    text: "Wouah le texte est magnifique ! C'est validé, donnez-moi le numéro Wave pour le paiement.",
-  },
-];
-
-const QUICK_TEST_IMAGES = [
-  {
-    label: 'Reçu Wave CI (1 200 F CFA)',
-    text: 'Voilà la capture de mon transfert Wave de 1 200 F CFA effectué avec succès.',
-    url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    label: 'Reçu Orange Money BF (3 000 F CFA)',
-    text: 'Reçu Orange Money de 3 000 F validé pour la formule vidéo.',
-    url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    label: 'Photo souvenir pour clip',
-    text: 'Voici la photo souvenir à intégrer dans le montage de la vidéo.',
-    url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=600&auto=format&fit=crop&q=80',
-  },
+const QUICK_TEST_SHORTCUTS = [
+  { label: "C'est combien ?", text: "C'est combien pour une chanson ?" },
+  { label: "Extrait démo", text: "Est-ce que je peux écouter un extrait avant ?" },
+  { label: "Vocal écouté", text: "D'accord j'ai bien écouté la note vocale !" },
+  { label: "Formule 1 200 F", text: "Je prends la formule à 1 200 F CFA s'il vous plaît" },
+  { label: "Formule 3 000 F", text: "Je choisis la formule Prestige à 3 000 F avec la vidéo" },
+  { label: "Texte validé", text: "Le texte est vraiment magnifique, je valide avec plaisir !" },
+  { label: "Délai studio ?", text: "La chanson sera prête en combien de temps ?" },
+  { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
 export const PlaygroundView: FC = () => {
@@ -177,9 +159,10 @@ export const PlaygroundView: FC = () => {
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [input, setInput] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [aiPresenceState, setAiPresenceState] = useState<'idle' | 'typing' | 'recording_audio'>('idle');
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
-  // Système de Rafale / Debounce glissant 1.8s
+  // Système de Rafale / Debounce glissant 1.8s (Strictement conforme à WAHA)
   const [burstQueue, setBurstQueue] = useState<string[]>([]);
   const BURST_WINDOW_MS = 1800;
   const burstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,10 +170,12 @@ export const PlaygroundView: FC = () => {
   // État du Brief & Tunnel commercial
   const [detectedRecipient, setDetectedRecipient] = useState<string | null>(null);
   const [detectedOccasionStr, setDetectedOccasionStr] = useState<string | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<'1200' | '3000' | null>(null);
   const [commercialStage, setCommercialStage] = useState<string>('ACCUEIL');
   const [procedureVoiceSent, setProcedureVoiceSent] = useState<boolean>(false);
   const [lyricsDelivered, setLyricsDelivered] = useState<boolean>(false);
   const [paymentDelivered, setPaymentDelivered] = useState<boolean>(false);
+  const [currentSongTitle, setCurrentSongTitle] = useState<string | null>(null);
   const [merchantAlerts, setMerchantAlerts] = useState<string[]>([]);
   const [latencyMs, setLatencyMs] = useState<number>(340);
 
@@ -201,31 +186,181 @@ export const PlaygroundView: FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Lecteur audio vocal procédure
+  // Lecteur audio interactif pour vocaux & démos
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioPlaybackRate, setAudioPlaybackRate] = useState<number>(1);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioGainRef = useRef<GainNode | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Scroll automatique au fil de l'eau
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, isAiThinking, burstQueue]);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [messages, aiPresenceState, burstQueue]);
 
   // Synchronisation Indicatif Pays
   const handleCountryChange = (c: 'CI' | 'BF' | 'SN' | 'OTHER') => {
     setCountryCode(c);
     if (c === 'CI') setClientPhone('+2250788776655');
     else if (c === 'BF') setClientPhone('+22655917765');
-    else if (c === 'SN') setClientPhone('+221771234567');
+    else if (c === 'SN') setClientPhone('+221778889900');
     else setClientPhone('+33612345678');
+  };
+
+  // Synthèse d'un bip / pop subtil WhatsApp pour le réalisme
+  const playPopSound = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08); // A5
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {
+      // Ignorer si bloqué par la politique audio du navigateur
+    }
+  };
+
+  // Synthèse sonore pour l'écoute du vocal de procédure ou de l'extrait
+  const playSynthesizedAcousticTrack = (audioId: string, durationSec = 15) => {
+    if (playingAudioId === audioId) {
+      stopSynthesizedAudio();
+      return;
+    }
+    stopSynthesizedAudio();
+    setPlayingAudioId(audioId);
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioContextRef.current = ctx;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.connect(ctx.destination);
+      audioGainRef.current = gain;
+
+      // Séquence d'arpège acoustique douce (Kora / Guitare)
+      const notes = [261.63, 329.63, 392.00, 523.25, 440.00, 329.63, 392.00, 293.66];
+      let noteIndex = 0;
+
+      const interval = setInterval(() => {
+        if (!audioContextRef.current) {
+          clearInterval(interval);
+          return;
+        }
+        const osc = ctx.createOscillator();
+        const noteGain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(notes[noteIndex % notes.length], ctx.currentTime);
+        noteGain.gain.setValueAtTime(0.05, ctx.currentTime);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.connect(noteGain);
+        noteGain.connect(gain);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+        noteIndex++;
+      }, 240 / audioPlaybackRate);
+
+      setTimeout(() => {
+        clearInterval(interval);
+        stopSynthesizedAudio();
+      }, (durationSec * 1000) / audioPlaybackRate);
+    } catch {
+      setPlayingAudioId(null);
+    }
+  };
+
+  const stopSynthesizedAudio = () => {
+    if (audioContextRef.current) {
+      try {
+        void audioContextRef.current.close();
+      } catch {
+        // ignore
+      }
+      audioContextRef.current = null;
+    }
+    setPlayingAudioId(null);
+  };
+
+  // Enregistrement micro réel
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      mediaRecorderRef.current = mr;
+      audioChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        const duration = recordSeconds || 3;
+        sendDirectAudioMessage(duration);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mr.start();
+      setIsRecording(true);
+      setRecordSeconds(0);
+      recordIntervalRef.current = setInterval(() => {
+        setRecordSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.warn('Microphone inaccessible, envoi vocal simulé :', err);
+      sendDirectAudioMessage(4);
+    }
+  };
+
+  const stopRecording = () => {
+    if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const sendDirectAudioMessage = (durationSec: number) => {
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const voiceBubble: ChatBubble = {
+      id: `user_voice_${Date.now()}`,
+      role: 'user',
+      content: '🎙️ Note vocale client (brief parlé)',
+      timestamp: nowStr,
+      status: 'sent',
+      mediaKind: 'audio',
+      mediaDurationSec: durationSec,
+      mediaTranscript: "Bonjour Sarah, c'est pour l'anniversaire de ma mère Awa samedi prochain, elle aime la musique acoustique.",
+    };
+
+    setMessages((prev) => [...prev, voiceBubble]);
+    handleInboundUserText(voiceBubble.mediaTranscript || "Note vocale de brief client");
   };
 
   // Chargement d'un scénario pré-configuré
   const loadScenario = (sc: ScenarioPreset) => {
+    stopSynthesizedAudio();
+    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+
     setMessages([]);
     setBurstQueue([]);
     setMerchantAlerts([]);
     setProcedureVoiceSent(false);
     setLyricsDelivered(false);
     setPaymentDelivered(false);
+    setSelectedOffer(null);
+    setCurrentSongTitle(null);
     setCommercialStage('BRIEF');
     setClientName(sc.clientName);
     setCountryCode(sc.country);
@@ -245,10 +380,67 @@ export const PlaygroundView: FC = () => {
     setMessages(initialBubbles);
     setTimeout(() => {
       void runIntelligentTurn(initialBubbles);
-    }, 500);
+    }, 400);
   };
 
-  // Exécution du moteur d'IA WhatsApp en local (reproduction exacte de production)
+  // Saisie utilisateur & Déclenchement de la fenêtre de rafale 1.8s
+  const handleSendMessage = () => {
+    if (!input.trim() || isAiThinking) return;
+    const text = input.trim();
+    setInput('');
+    handleInboundUserText(text);
+  };
+
+  const handleInboundUserText = (text: string) => {
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newBubble: ChatBubble = {
+      id: `user_${Date.now()}_${Math.random()}`,
+      role: 'user',
+      content: text,
+      timestamp: nowStr,
+      status: 'sent',
+    };
+
+    setMessages((prev) => [...prev, newBubble]);
+
+    // Ajout à la file de rafale
+    const updatedBurst = [...burstQueue, text];
+    setBurstQueue(updatedBurst);
+
+    // Annule le compte à rebours précédent : fenêtre de debounce glissante de 1.8s
+    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+
+    burstTimeoutRef.current = setTimeout(() => {
+      flushBurstQueue(updatedBurst);
+    }, BURST_WINDOW_MS);
+  };
+
+  // Traitement du vidage de la file de rafale
+  const flushBurstQueue = (pendingItems: string[]) => {
+    if (pendingItems.length === 0) return;
+    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+    setBurstQueue([]);
+
+    // 1. Passage réaliste des coches : Envoyé -> Délivré (gris) -> Lu (bleu)
+    setMessages((prev) =>
+      prev.map((m) => (m.role === 'user' && m.status === 'sent' ? { ...m, status: 'delivered' } : m))
+    );
+
+    setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((m) => (m.role === 'user' && m.status === 'delivered' ? { ...m, status: 'read' } : m))
+      );
+
+      // 2. Déclenchement du raisonnement et de la réponse
+      setMessages((currentHistory) => {
+        void runIntelligentTurn(currentHistory);
+        return currentHistory;
+      });
+    }, 600);
+  };
+
+  // Moteur d'IA WhatsApp complet, réactif et modulaire
   const runIntelligentTurn = async (history: ChatBubble[]) => {
     if (isAiThinking) return;
     setIsAiThinking(true);
@@ -259,41 +451,44 @@ export const PlaygroundView: FC = () => {
     const lastInbound = inbounds[inbounds.length - 1];
     const lastText = (lastInbound?.content || '').toLowerCase();
 
-    // 1. Détection du destinataire
+    // 1. Extraction ciblée du prénom / destinataire
     let recipient = detectedRecipient;
-    const nameMatch = allInboundText.match(/(?:pour|de|fête|fete)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
+    const nameMatch =
+      allInboundText.match(/(?:pour|de|fête|fete)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
       allInboundText.match(/(?:nom(?:mé|mee)?|s['’]appelle|prénom|prenom)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
-      allInboundText.match(/\b(Awa|Fadila|Mariam|Marc|Laure|Grâce|Grace|Sarah|Christian|Yvonne|Kouassi|Alassane|El Hadj)\b/i);
-    if (nameMatch && nameMatch[1]) {
+      allInboundText.match(/\b(Awa|Fadila|Mariam|Marc|Laure|Grâce|Grace|Sarah|Christian|Yvonne|Kouassi|Alassane|El Hadj|Fatou|Seydou|Koffi)\b/i);
+    if (nameMatch && nameMatch[1] && !/anniversaire|mariage|chanson|formule|combien/i.test(nameMatch[1])) {
       recipient = nameMatch[1].trim();
       setDetectedRecipient(recipient);
     }
 
-    // 2. Détection de l'occasion
+    // 2. Extraction de l'occasion
     const occasion: SongOccasion = detectOccasion(allInboundText);
     const occasionDisplay = occasion !== 'autre' ? occasion : 'Célébration sur-mesure';
     setDetectedOccasionStr(occasionDisplay);
 
-    // Simulation de délai de réflexion réaliste (500ms à 900ms)
-    await new Promise((r) => setTimeout(r, 650));
-    setLatencyMs(Date.now() - start);
+    // 3. Détection des intentions clés du client
+    const isPaymentClaim = /\b(payé|paye|dépot fait|depot fait|transfert fait|capture|reçu|recu|voilà le reçu|voila le recu|voici le recu|envoyé le dépôt)\b/i.test(lastText);
+    const isTextValidation = /\b(valide|validé|valider|c'est bon|parfait|super|magnifique|j'adore|jadore|on garde|je prends le texte|le texte me va|on peut enregistrer)\b/i.test(lastText);
+    const isExplicitPaymentRequest = /\b(sur quel|quelle numéro|sur quoi|comment payer|numéro wave|numero wave|numéro orange|numero de depot|numéro de dépôt|coordonnées|coordonnees)\b/i.test(lastText);
+    const isOfferSelection = /\b(1\s*200|3\s*000|mille deux|trois mille|formule vidéo|modele video|chanson seule|formule prestige|formule decouverte)\b/i.test(lastText);
+    const isVocalAck = procedureVoiceSent && /\b(d'accord|ok|bien reçu|j'ai écouté|jai ecoute|compris|super|très bien)\b/i.test(lastText);
+    const isPriceQuestionOnly = !recipient && /\b(c'est combien|prix|tarifs?|tarif|combien ça coûte|c'est combien la chanson)\b/i.test(lastText);
+    const isSampleRequest = /\b(exemple|extrait|démo|demo|écouter|ecouter|déjà fait|deja fait|échantillon)\b/i.test(lastText);
+    const isDelayQuestion = /\b(combien de temps|délai|delai|prêt quand|pret quand|aujourd'hui|urgent|combien de minutes)\b/i.test(lastText);
+    const isDifferenceQuestion = /\b(différence|difference|pourquoi 3000|pourquoi 3 000|vidéo|video|la formule prestige)\b/i.test(lastText);
+    const isRevisionRequest = lyricsDelivered && /\b(modifier|modifie|changer|change|rajoute|ajoute|deuxième couplet|refrain|enlever)\b/i.test(lastText);
+    const isDiasporaQuestion = /\b(france|paris|étranger|etranger|diaspora|western union|carte bancaire|sendwave|ria)\b/i.test(lastText);
+    const isVoiceAuthenticityQuestion = /\b(vraie voix|robot|qui chante|chanteur|voix humaine|vrai chanteur)\b/i.test(lastText);
 
     const newAssistantBubbles: ChatBubble[] = [];
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Analyse de l'intention et de l'étape
-    const isPaymentClaim = /\b(payé|paye|dépot fait|depot fait|transfert fait|capture|reçu|recu|voilà le reçu|voila le recu)\b/i.test(lastText);
-    const isTextValidation = /\b(valide|validé|valider|c'est bon|parfait|super|magnifique|j'adore|jadore|on garde|je prends le texte|le texte me va)\b/i.test(lastText);
-    const isExplicitPaymentRequest = /\b(sur quel|quelle numéro|sur quoi|comment payer|numéro wave|numero wave|numéro orange|numero de depot|numéro de dépôt)\b/i.test(lastText);
-    const isOfferSelection = /\b(1\s*200|3\s*000|mille deux|trois mille|formule vidéo|modele video|chanson seule)\b/i.test(lastText);
-    const isVocalAck = procedureVoiceSent && /\b(d'accord|ok|bien reçu|j'ai écouté|jai ecoute|compris|super|très bien)\b/i.test(lastText);
-    const isPriceQuestionOnly = !recipient && /\b(c'est combien|prix|tarifs?|tarif|combien ça coûte)\b/i.test(lastText);
-
     if (isPaymentClaim) {
-      // Étape : Clôture totale & Lancement Studio
+      // 🎯 Étape : Justificatif de règlement reçu -> Mise en production studio 18 min
       setCommercialStage('PRODUCTION_STUDIO');
       setMerchantAlerts((prev) => [
-        `Paiement reçu (${countryCode === 'BF' ? 'Orange Money' : 'Wave'}) — Commande de ${recipient || clientName} passée en studio Suno !`,
+        `Paiement reçu (${countryCode === 'BF' ? 'Orange Money' : 'Wave'}) — Commande de ${recipient || clientName} passée en studio de mixage !`,
         ...prev
       ]);
       newAssistantBubbles.push({
@@ -306,28 +501,28 @@ export const PlaygroundView: FC = () => {
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_2`,
         role: 'assistant',
-        content: 'Votre commande est confirmée et passe immédiatement en enregistrement studio. Vous recevrez votre chanson terminée d ici 18 minutes chrono ! 🎵',
+        content: 'Votre commande est confirmée et passe immédiatement en enregistrement studio avec nos artistes. Vous recevrez votre chanson terminée directement ici d’ici 18 minutes chrono ! 🎵⏳',
         timestamp: nowStr,
         status: 'read',
       });
     } else if (isTextValidation || isExplicitPaymentRequest) {
-      // Étape : Validation du texte -> Envoi des coordonnées de paiement
+      // 🎯 Étape : Validation du texte -> Envoi des coordonnées de paiement (INV-07 STRICT)
       setPaymentDelivered(true);
       setCommercialStage('PAIEMENT');
 
       let payCoord = '';
       if (countryCode === 'BF') {
-        payCoord = `📱 Orange Money Burkina Faso :\n+226 05 77 73 08 (Wendyam Anicet junior Sekongo)\nSyntaxe directe : *144*4*6*05777308*1200#\nMontant : 1 200 F CFA\n\nMerci de m'envoyer la capture du dépôt une fois effectué !`;
+        payCoord = `📱 Orange Money Burkina Faso :\n+226 05 77 73 08 (Wendyam Anicet junior Sekongo)\nSyntaxe directe : *144*4*6*05777308*${selectedOffer === '3000' ? '3000' : '1200'}#\nMontant : ${selectedOffer === '3000' ? '3 000' : '1 200'} F CFA\n\nMerci de m'envoyer la capture d'écran du SMS de dépôt une fois effectué !`;
       } else if (countryCode === 'SN') {
-        payCoord = `📱 Wave Sénégal :\n+221 77 123 45 67\nMontant : 1 200 F CFA\n\nMerci de m'envoyer la capture du transfert pour lancer l enregistrement studio !`;
+        payCoord = `📱 Wave Sénégal :\n+221 77 123 45 67\nMontant : ${selectedOffer === '3000' ? '3 000' : '1 200'} F CFA\n\nMerci de m'envoyer la capture du transfert pour lancer l'enregistrement immédiat au studio !`;
       } else {
-        payCoord = `📱 Wave Côte d'Ivoire :\n+225 07 00 00 00 00 (ou Orange Money CI au +225 07 11 22 33 44)\nMontant : 1 200 F CFA\n\nMerci de m'envoyer la capture du transfert pour lancer l enregistrement au studio ! 🙏`;
+        payCoord = `📱 Wave Côte d'Ivoire :\n+225 07 00 00 00 00 (ou Orange Money CI au +225 07 11 22 33 44)\nMontant : ${selectedOffer === '3000' ? '3 000' : '1 200'} F CFA\n\nMerci de m'envoyer la capture du transfert pour lancer l'enregistrement au studio ! 🙏`;
       }
 
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_1`,
         role: 'assistant',
-        content: `C'est parfait ! 🙏 Voici nos coordonnées sécurisées pour le règlement :`,
+        content: `C'est un réel bonheur que le texte vous touche ! 🙏 Voici nos coordonnées officielles et sécurisées pour le règlement :`,
         timestamp: nowStr,
         status: 'read',
       });
@@ -339,8 +534,57 @@ export const PlaygroundView: FC = () => {
         status: 'read',
         isPaymentBlock: true,
       });
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_3`,
+        role: 'assistant',
+        content: `Dès que vous m'envoyez la capture du reçu, nos chanteurs et musiciens entrent en cabine d'enregistrement 🎙️`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+    } else if (isRevisionRequest) {
+      // 🎯 Étape : Modification poétique demandée par le client
+      setCommercialStage('PAROLES_LIVRÉES');
+      const revisedSong = generateHouseStyleSong({
+        recipient: recipient || 'Mon Amour',
+        occasion: occasion,
+        style: 'Afro-pop acoustique douce et chaleureuse',
+        senderName: clientName,
+        memories: ["Chaque parole a été réajustée selon votre souhait intime", "Votre tendresse et vos mots sont gravés au cœur du texte"],
+      });
+      setCurrentSongTitle(revisedSong.title);
+
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_1`,
+        role: 'assistant',
+        content: `C'est parfaitement noté ! J'ai réajusté le texte avec notre équipe d'écriture. Voici la nouvelle version personnalisée :`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+      newAssistantBubbles.push({
+        id: `ai_lyrics_${Date.now()}`,
+        role: 'assistant',
+        content: revisedSong.lyrics,
+        timestamp: nowStr,
+        status: 'read',
+        isLyricsCard: true,
+        lyricsData: {
+          minutes: 8,
+          title: revisedSong.title,
+          lyrics: revisedSong.lyrics,
+        },
+      });
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_3`,
+        role: 'assistant',
+        content: `Est-ce que cette version perfectionnée vous convient pour passer à l'enregistrement studio ? 😊`,
+        timestamp: nowStr,
+        status: 'read',
+      });
     } else if (isOfferSelection || (procedureVoiceSent && lyricsDelivered === false && (isVocalAck || recipient))) {
-      // Étape : Génération et livraison des paroles studio
+      // 🎯 Étape : Choix de formule -> Génération et livraison des paroles sur-mesure
+      if (/3\s*000|prestige|vidéo/i.test(lastText)) setSelectedOffer('3000');
+      else setSelectedOffer('1200');
+
       setLyricsDelivered(true);
       setCommercialStage('PAROLES_LIVRÉES');
 
@@ -350,10 +594,12 @@ export const PlaygroundView: FC = () => {
         style: 'Afro-pop acoustique douce et chaleureuse',
         senderName: clientName,
       });
+      setCurrentSongTitle(generated.title);
+
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_1`,
         role: 'assistant',
-        content: `C'est bien noté pour ${recipient || 'votre proche'} 🙏 Notre studio a préparé votre texte avec tout son soin. Voici vos paroles sur-mesure :`,
+        content: `C'est un excellent choix ! 🙏 Notre studio a rédigé votre texte avec tout son amour et sa sensibilité poétique. Voici vos paroles sur-mesure :`,
         timestamp: nowStr,
         status: 'read',
       });
@@ -366,28 +612,91 @@ export const PlaygroundView: FC = () => {
         isLyricsCard: true,
         lyricsData: {
           minutes: 8,
+          title: generated.title,
           lyrics: generated.lyrics,
         },
       });
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_3`,
         role: 'assistant',
-        content: `Prenez le temps de lire ce texte et dites-moi si tout vous convient parfaitement ou si vous souhaitez un ajustement 😊`,
+        content: `Prenez le temps de lire ce texte et dites-moi si tout vous convient ou si vous souhaitez ajuster un mot particulier 😊`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+    } else if (isSampleRequest) {
+      // 🎯 Étape : Demande d'extrait de chanson démo
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_1`,
+        role: 'assistant',
+        content: `Avec un immense plaisir ! Voici un extrait d'une de nos récentes compositions studio dans un style Afro-pop acoustique chaleureux :`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+      newAssistantBubbles.push({
+        id: `ai_sample_${Date.now()}`,
+        role: 'assistant',
+        content: '🎵 Extrait Démo Studio Velaris — Chanson Personnalisée (Afro-pop & Kora)',
+        timestamp: nowStr,
+        status: 'read',
+        mediaKind: 'sample',
+        mediaDurationSec: 45,
+        sampleTitle: 'Extrait Démo Velaris Studio · Afro-pop acoustique',
+      });
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_3`,
+        role: 'assistant',
+        content: `Nous adaptons la voix et les instruments à vos préférences (Afro-pop, Zouk, Rumba, Mandingue, Gospel...). Quel style plairait le plus à votre proche ? 😊`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+    } else if (isDifferenceQuestion) {
+      // 🎯 Étape : Explication de la différence 1 200 F vs 3 000 F
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_1`,
+        role: 'assistant',
+        content: `C'est très simple ! 🙏\n\n• La Formule Découverte à 1 200 F CFA vous donne la chanson complète enregistrée en studio, mixée et chantée en haute qualité MP3.\n• La Formule Prestige à 3 000 F CFA comprend la chanson complète + un magnifique clip vidéo personnalisé avec vos photos de souvenirs qui défilent avec les paroles synchronisées, parfait pour diffuser sur WhatsApp ou sur écran géant ! 🎬✨\n\nLaquelle préférez-vous pour cette surprise ?`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+    } else if (isDelayQuestion) {
+      // 🎯 Étape : Question sur le délai de livraison
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_1`,
+        role: 'assistant',
+        content: `C'est ultra-rapide ! ⚡ Le texte est écrit et validé avec vous en quelques minutes. Une fois les paroles validées et le paiement confirmé, votre chanson finale chantée et masterisée vous est livrée en 18 à 20 minutes chrono directement sur WhatsApp !`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+    } else if (isVoiceAuthenticityQuestion) {
+      // 🎯 Étape : Question sur la voix humaine vs robot
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_1`,
+        role: 'assistant',
+        content: `Nos créations sont de véritables œuvres musicales chantées avec des voix chaleureuses et mélodieuses d'artistes du studio, accompagnées de vraies mélodies de guitare, piano et percussions acoustiques. Ce n'est pas un texte récité, c'est une vraie chanson d'émotion qui donne des frissons ! 🎵`,
+        timestamp: nowStr,
+        status: 'read',
+      });
+    } else if (isDiasporaQuestion) {
+      // 🎯 Étape : Question paiement diaspora
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_1`,
+        role: 'assistant',
+        content: `Pour nos clients de la diaspora (France, Europe, Canada, USA), c'est très facile ! Vous pouvez régler par Wave International, par carte bancaire sécurisée, ou via Sendwave/Ria directement vers notre numéro de studio. Dès la validation de vos paroles, je vous donnerai les accès adaptés ! 🙏`,
         timestamp: nowStr,
         status: 'read',
       });
     } else if (isVocalAck) {
-      // Étape : Vocal écouté -> Présentation des offres
+      // 🎯 Étape : Vocal écouté -> Présentation des offres
       setCommercialStage('PRÉSENTATION_OFFRES');
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_1`,
         role: 'assistant',
-        content: `C'est un plaisir ! Nous avons deux formules simples au studio :\n\n1. Formule Découverte à 1 200 F CFA : La chanson personnalisée complète chantée et masterisée.\n2. Formule Prestige à 3 000 F CFA : La chanson complète + le montage vidéo avec vos photos souvenirs.\n\nQuelle formule vous ferait le plus plaisir ? 😊`,
+        content: `C'est un plaisir ! Nous avons deux formules simples au studio :\n\n1. Formule Découverte à 1 200 F CFA : La chanson personnalisée complète chantée et masterisée en studio.\n2. Formule Prestige à 3 000 F CFA : La chanson complète + le montage vidéo avec vos photos souvenirs.\n\nQuelle formule vous ferait le plus plaisir pour ${recipient || 'cette occasion'} ? 😊`,
         timestamp: nowStr,
         status: 'read',
       });
     } else if (recipient) {
-      // Étape : Brief complet -> Envoi du vocal de procédure seul (INV-11)
+      // 🎯 Étape : Brief complet -> Envoi du vocal de procédure seul (INV-11)
       setProcedureVoiceSent(true);
       setCommercialStage('VOCAL_PROCÉDURE');
       setMerchantAlerts((prev) => [
@@ -409,19 +718,28 @@ export const PlaygroundView: FC = () => {
         status: 'read',
         isProcedureVoice: true,
         mediaKind: 'audio',
+        mediaDurationSec: 33,
+        mediaTranscript: "Bonjour et bienvenue chez Velaris ! Je suis Sarah. Pour créer votre chanson, vous me donnez quelques anecdotes et le style souhaité. Notre studio compose d'abord votre texte sur-mesure pour validation. Une fois validé, nos chanteurs entrent en studio et votre chanson finale est prête en moins de 20 minutes chrono !",
+      });
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_3`,
+        role: 'assistant',
+        content: `Écoutez cette petite note vocale et dites-moi dès que c'est bon pour vous 😊`,
+        timestamp: nowStr,
+        status: 'read',
       });
     } else if (isPriceQuestionOnly) {
-      // Question tarif d'entrée sans brief
+      // 🎯 Question tarif d'entrée sans brief
       setCommercialStage('BRIEF');
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_1`,
         role: 'assistant',
-        content: `Bonjour et bienvenue chez Velaris Studio ! 🙏 Nos chansons personnalisées commencent à partir de 1 200 F CFA (et 3 000 F avec clip vidéo).\n\nPour qui aimeriez-vous créer cette surprise ? 😊`,
+        content: `Bonjour et bienvenue chez Velaris Studio ! 🙏 Nos chansons personnalisées commencent à partir de 1 200 F CFA (et 3 000 F avec clip vidéo souvenirs).\n\nPour quelle personne et quelle occasion aimeriez-vous créer cette surprise ? 😊`,
         timestamp: nowStr,
         status: 'read',
       });
     } else {
-      // Accueil ou demande de brief
+      // 🎯 Accueil ou demande de brief
       setCommercialStage('BRIEF');
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_1`,
@@ -432,185 +750,78 @@ export const PlaygroundView: FC = () => {
       });
     }
 
-    // Ajout fluide des bulles avec micro-temporisation
-    for (const bubble of newAssistantBubbles) {
-      await new Promise((r) => setTimeout(r, 180));
+    // 4. Simulation temporelle hyper-réaliste avec indicateur de présence WhatsApp
+    setLatencyMs(Date.now() - start + 850);
+
+    for (let i = 0; i < newAssistantBubbles.length; i++) {
+      const bubble = newAssistantBubbles[i];
+      const isVoice = bubble.isProcedureVoice || bubble.mediaKind === 'audio';
+
+      // Sarah passe en "enregistre un audio..." ou "en train d'écrire..."
+      setAiPresenceState(isVoice ? 'recording_audio' : 'typing');
+
+      // Temps de saisie réaliste proportionnel au message
+      const typingMs = isVoice ? 2400 : Math.min(2800, Math.max(1400, bubble.content.length * 20));
+      await new Promise((r) => setTimeout(r, typingMs));
+
+      // Arrivée de la bulle
       setMessages((prev) => [...prev, bubble]);
+      playPopSound();
+
+      // Petite pause entre deux bulles consécutives
+      if (i < newAssistantBubbles.length - 1) {
+        setAiPresenceState('idle');
+        await new Promise((r) => setTimeout(r, 600));
+      }
     }
 
+    setAiPresenceState('idle');
     setIsAiThinking(false);
   };
 
-  // Traitement du vidage de la file de rafale
-  const flushBurstQueue = (pendingItems: string[]) => {
-    if (pendingItems.length === 0) return;
-    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-    setBurstQueue([]);
-
+  // Envoi rapide d'un justificatif de paiement simulé
+  const handleSendPaymentSlipImage = () => {
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const newBubbles: ChatBubble[] = pendingItems.map((text, idx) => ({
-      id: `user_${Date.now()}_${idx}`,
+    const imgBubble: ChatBubble = {
+      id: `user_slip_${Date.now()}`,
       role: 'user',
-      content: text,
+      content: 'Capture du reçu de transfert Mobile Money (1 200 F CFA)',
       timestamp: nowStr,
-      status: 'read',
-    }));
-
-    const nextHistory = [...messages, ...newBubbles];
-    setMessages(nextHistory);
-    void runIntelligentTurn(nextHistory);
-  };
-
-  // Envoi avec débounce glissant (Burst mode)
-  const handleSendMessage = () => {
-    const text = input.trim();
-    if (!text || isAiThinking) return;
-    setInput('');
-
-    const updatedQueue = [...burstQueue, text];
-    setBurstQueue(updatedQueue);
-
-    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-    burstTimeoutRef.current = setTimeout(() => {
-      flushBurstQueue(updatedQueue);
-    }, BURST_WINDOW_MS);
-  };
-
-  // Forcer l'envoi immédiat de la rafale
-  const handleForceSendBurst = () => {
-    if (burstQueue.length > 0) {
-      flushBurstQueue(burstQueue);
-    }
-  };
-
-  // Envoi d'un vocal préenregistré
-  const handleSendQuickVocal = (vocalText: string) => {
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const bubble: ChatBubble = {
-      id: `user_vocal_${Date.now()}`,
-      role: 'user',
-      content: `🎙️ ${vocalText}`,
-      timestamp: nowStr,
-      status: 'read',
-      mediaKind: 'audio',
-      mediaTranscript: vocalText,
-    };
-    const nextHistory = [...messages, bubble];
-    setMessages(nextHistory);
-    void runIntelligentTurn(nextHistory);
-  };
-
-  // Envoi d'une capture d'écran / reçu
-  const handleSendQuickImage = (img: { label: string; text: string; url: string }) => {
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const bubble: ChatBubble = {
-      id: `user_img_${Date.now()}`,
-      role: 'user',
-      content: img.text,
-      timestamp: nowStr,
-      status: 'read',
+      status: 'sent',
       mediaKind: 'image',
-      mediaUrl: img.url,
+      mediaUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80',
     };
-    const nextHistory = [...messages, bubble];
-    setMessages(nextHistory);
-    void runIntelligentTurn(nextHistory);
-  };
-
-  // Enregistrement micro direct
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunksRef.current = [];
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-        handleSendQuickVocal("Bonjour, c'est pour l'anniversaire de ma maman Awa !");
-      };
-
-      recorder.start();
-      setIsRecording(true);
-      setRecordSeconds(0);
-      recordIntervalRef.current = setInterval(() => {
-        setRecordSeconds((s) => s + 1);
-      }, 1000);
-    } catch {
-      handleSendQuickVocal("Bonjour, c'est pour l'anniversaire de ma maman Awa !");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-    }
-  };
-
-  // Synthèse acoustique Web Audio API
-  const playAcousticPreview = (id: string) => {
-    if (playingAudioId === id) {
-      setPlayingAudioId(null);
-      return;
-    }
-    setPlayingAudioId(id);
-
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const notes = [261.63, 329.63, 392.0, 523.25];
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.22);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.22);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.22 + 0.8);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + i * 0.22);
-        osc.stop(ctx.currentTime + i * 0.22 + 0.85);
-      });
-
-      setTimeout(() => {
-        setPlayingAudioId(null);
-      }, 2000);
-    } catch {
-      setPlayingAudioId(null);
-    }
+    setMessages((prev) => [...prev, imgBubble]);
+    handleInboundUserText("Voilà le reçu du transfert que je viens d'effectuer !");
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8.5rem)] max-w-7xl mx-auto space-y-4 px-2 sm:px-4">
+    <div className="flex flex-col h-[calc(100vh-6.5rem)] min-h-[760px] w-full space-y-3">
       {/* Barre Supérieure de Contrôle Studio */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#08090C] border border-white/[0.08] px-4 py-3 rounded-2xl shadow-xl">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#08090C] border border-white/[0.08] px-4 py-2.5 rounded-2xl shadow-xl shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-white tracking-tight">Playground Studio WhatsApp</h1>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Moteur Autonome Actif
+              <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight">Playground Studio WhatsApp</h1>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Moteur Autonome Actif (DeepSeek/Gemini)
               </span>
             </div>
-            <p className="text-xs text-neutral-400">
-              Testez la réception en rafale, l'envoi de vocaux, les paroles générées et la clôture Mobile Money.
+            <p className="text-xs text-neutral-400 hidden sm:block">
+              Simulateur réaliste : temporisation rafale 1.8s, vocaux de procédure, génération 32-48 vers et encaissement.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* Sélecteur de Scénario Pré-enregistré */}
           <div className="relative">
             <select
-              aria-label="Charger un scénario de pub"
+              aria-label="Charger un scénario de test"
               onChange={(e) => {
                 const sc = SCENARIOS.find((s) => s.id === e.target.value);
                 if (sc) loadScenario(sc);
@@ -618,7 +829,7 @@ export const PlaygroundView: FC = () => {
               defaultValue=""
               className="h-9 px-3 pr-8 rounded-xl bg-[#0E1015] border border-white/[0.08] text-xs text-white appearance-none cursor-pointer focus:outline-none focus:border-white/20"
             >
-              <option value="" disabled>Charger un scénario de test…</option>
+              <option value="" disabled>Charger un scénario client…</option>
               {SCENARIOS.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.title}
@@ -631,119 +842,123 @@ export const PlaygroundView: FC = () => {
           <button
             type="button"
             onClick={() => {
+              stopSynthesizedAudio();
               setMessages([]);
               setBurstQueue([]);
               setDetectedRecipient(null);
               setDetectedOccasionStr(null);
+              setSelectedOffer(null);
               setCommercialStage('ACCUEIL');
+              setProcedureVoiceSent(false);
+              setLyricsDelivered(false);
+              setPaymentDelivered(false);
             }}
+            title="Effacer et recommencer la discussion"
             className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-xs text-neutral-300 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Réinitialiser</span>
+            <span className="hidden sm:inline">Réinitialiser</span>
           </button>
 
           <button
             type="button"
             onClick={() => setInspectorOpen(!inspectorOpen)}
-            title="Inspecteur de cerveau"
-            className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            title={inspectorOpen ? "Masquer l'inspecteur" : "Afficher l'inspecteur"}
+            className={`h-9 px-3 rounded-xl border transition-colors flex items-center gap-1.5 text-xs cursor-pointer ${
+              inspectorOpen
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                : 'border-white/[0.08] bg-white/[0.02] text-neutral-400 hover:text-white'
+            }`}
           >
-            <PanelRight className="w-4 h-4" />
+            <PanelRight className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Inspecteur Studio</span>
           </button>
         </div>
       </div>
 
       {/* Conteneur Principal : WhatsApp Web Mockup + Inspecteur */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
-        {/* Colonne WhatsApp Web */}
-        <div className={`flex flex-col rounded-2xl border border-white/[0.08] bg-[#0B0E14] overflow-hidden shadow-2xl ${inspectorOpen ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+        {/* Colonne WhatsApp Web (Majestueuse, confortable et ergonomique) */}
+        <div className={`flex flex-col rounded-2xl border border-white/[0.08] bg-[#0b141a] overflow-hidden shadow-2xl ${inspectorOpen ? 'lg:col-span-8 xl:col-span-8' : 'lg:col-span-12'}`}>
           {/* En-tête de Discussion WhatsApp */}
-          <div className="flex items-center justify-between px-4 py-2.5 bg-[#121620] border-b border-white/[0.08]">
+          <div className="flex items-center justify-between px-4 py-3 bg-[#1f2c34] border-b border-white/[0.06] shrink-0">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-emerald-700/40 border border-emerald-500/30 flex items-center justify-center text-emerald-300 font-semibold text-sm">
+                <div className="w-10 h-10 rounded-full bg-emerald-800/80 border border-emerald-400/40 flex items-center justify-center text-white font-bold text-sm tracking-wide shadow-inner">
                   VS
                 </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#121620]" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#1f2c34]" />
               </div>
 
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-white">Sarah · Velaris Studio</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded border border-white/10 text-neutral-400">
+                  <span className="text-[15px] font-semibold text-white">Sarah · Velaris Studio</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Officiel
                   </span>
                 </div>
-                <div className="text-xs text-emerald-400 flex items-center gap-1 font-medium">
-                  {isAiThinking ? (
-                    <span className="animate-pulse flex items-center gap-1 text-emerald-300">
-                      <Radio className="w-3 h-3 animate-spin" /> en train d'écrire…
+                <div className="text-xs font-normal">
+                  {aiPresenceState === 'typing' ? (
+                    <span className="text-emerald-400 font-medium animate-pulse flex items-center gap-1">
+                      <Radio className="w-3 h-3 animate-spin" /> en train d’écrire…
+                    </span>
+                  ) : aiPresenceState === 'recording_audio' ? (
+                    <span className="text-emerald-400 font-medium animate-pulse flex items-center gap-1">
+                      <Mic className="w-3 h-3 animate-bounce" /> enregistre un message vocal…
                     </span>
                   ) : (
-                    <span>en ligne</span>
+                    <span className="text-neutral-400">en ligne</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Sélecteur de Pays Prospect */}
-            <div className="flex items-center gap-2 bg-[#0E1015] px-2.5 py-1 rounded-lg border border-white/[0.08]">
-              <Phone className="w-3.5 h-3.5 text-neutral-400" />
-              <span className="text-xs text-neutral-400">Prospect :</span>
+            {/* Sélecteur de Pays Prospect & Simulation de Ligne */}
+            <div className="flex items-center gap-2 bg-[#111b21] px-3 py-1.5 rounded-xl border border-white/[0.08]">
+              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs text-neutral-400 hidden sm:inline">Ligne prospect :</span>
               <select
                 aria-label="Sélectionner le pays du prospect"
                 value={countryCode}
                 onChange={(e) => handleCountryChange(e.target.value as any)}
                 className="bg-transparent border-0 text-xs text-white font-medium focus:outline-none cursor-pointer"
               >
-                <option value="CI" className="bg-[#0E1015]">Côte d'Ivoire (+225)</option>
-                <option value="BF" className="bg-[#0E1015]">Burkina Faso (+226)</option>
-                <option value="SN" className="bg-[#0E1015]">Sénégal (+221)</option>
-                <option value="OTHER" className="bg-[#0E1015]">France (+33)</option>
+                <option value="CI" className="bg-[#111b21]">Côte d'Ivoire (+225)</option>
+                <option value="BF" className="bg-[#111b21]">Burkina Faso (+226)</option>
+                <option value="SN" className="bg-[#111b21]">Sénégal (+221)</option>
+                <option value="OTHER" className="bg-[#111b21]">France (+33)</option>
               </select>
             </div>
           </div>
 
-          {/* Fil des Messages */}
+          {/* Fil des Messages WhatsApp (Spacieux, lisible, texture authentique) */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#08090C] bg-opacity-95 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]"
+            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 bg-[#0b141a] bg-opacity-95 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]"
           >
             {messages.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-neutral-500">
-                  <Bot className="w-6 h-6" />
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-[#1f2c34] border border-white/[0.08] flex items-center justify-center text-emerald-400 shadow-xl">
+                  <Bot className="w-7 h-7" />
                 </div>
-                <div className="max-w-md space-y-1">
-                  <p className="text-sm font-medium text-white">Simulateur WhatsApp prêt</p>
-                  <p className="text-xs text-neutral-400">
-                    Tapez un message, testez l'envoi en rafale, ou chargez l'un des scénarios ci-dessus.
+                <div className="max-w-md space-y-1.5">
+                  <p className="text-base font-medium text-white">Simulateur WhatsApp Prêt</p>
+                  <p className="text-xs text-neutral-400 leading-relaxed">
+                    Écrivez un message comme un vrai client, testez une rafale de 2 ou 3 messages consécutifs, ou chargez un scénario ci-dessous.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-2 pt-2 max-w-lg">
-                  <button
-                    type="button"
-                    onClick={() => setInput("Bonjour, je voudrais une chanson pour l'anniversaire de ma maman Awa.")}
-                    className="h-7 px-2.5 rounded-lg border border-white/[0.08] bg-[#0E1015] hover:bg-white/[0.04] text-xs text-neutral-300 transition-colors cursor-pointer"
-                  >
-                    Demande Anniversaire
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInput("C'est combien ?")}
-                    className="h-7 px-2.5 rounded-lg border border-white/[0.08] bg-[#0E1015] hover:bg-white/[0.04] text-xs text-neutral-300 transition-colors cursor-pointer"
-                  >
-                    Question Tarif
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInput("Le texte me plaît beaucoup ! Quel est le numéro de paiement ?")}
-                    className="h-7 px-2.5 rounded-lg border border-white/[0.08] bg-[#0E1015] hover:bg-white/[0.04] text-xs text-neutral-300 transition-colors cursor-pointer"
-                  >
-                    Validation & Paiement
-                  </button>
+                  {QUICK_TEST_SHORTCUTS.slice(0, 4).map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setInput(s.text)}
+                      className="h-8 px-3 rounded-xl border border-white/[0.08] bg-[#111b21] hover:bg-[#1f2c34] text-xs text-neutral-300 transition-colors cursor-pointer"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -751,7 +966,7 @@ export const PlaygroundView: FC = () => {
             {messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`relative rounded-2xl px-3.5 py-2.5 max-w-[85%] sm:max-w-[75%] text-sm shadow-md ${
+                  className={`relative rounded-2xl px-4 py-3 max-w-[88%] sm:max-w-[78%] text-[14px] leading-relaxed shadow-lg ${
                     m.role === 'user'
                       ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-xs'
                       : 'bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs'
@@ -759,178 +974,223 @@ export const PlaygroundView: FC = () => {
                 >
                   {/* Image jointe */}
                   {m.mediaKind === 'image' && m.mediaUrl && (
-                    <div className="mb-2 rounded-xl overflow-hidden border border-white/10 max-w-sm">
-                      <img src={m.mediaUrl} alt="Média joint" className="w-full h-auto object-cover max-h-56" />
+                    <div className="mb-2.5 rounded-xl overflow-hidden border border-white/10 max-w-sm">
+                      <img src={m.mediaUrl} alt="Média joint" className="w-full h-auto object-cover max-h-60" />
                     </div>
                   )}
 
-                  {/* Lecteur Note Vocale de Procédure */}
-                  {m.isProcedureVoice ? (
-                    <div className="space-y-2 py-1">
+                  {/* Lecteur Audio Vocal de Procédure ou Extrait Studio */}
+                  {m.mediaKind === 'audio' && (
+                    <div className="my-1 p-3 rounded-xl bg-black/25 border border-white/10 space-y-2">
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => playAcousticPreview(m.id)}
-                          className="w-9 h-9 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 cursor-pointer"
+                          onClick={() => playSynthesizedAcousticTrack(m.id, m.mediaDurationSec || 15)}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
+                            playingAudioId === m.id
+                              ? 'bg-emerald-400 text-black shadow-lg shadow-emerald-500/20'
+                              : 'bg-emerald-500 text-white hover:bg-emerald-400'
+                          }`}
                         >
-                          {playingAudioId === m.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                          {playingAudioId === m.id ? (
+                            <Pause className="w-4 h-4 fill-current" />
+                          ) : (
+                            <Play className="w-4 h-4 ml-0.5 fill-current" />
+                          )}
                         </button>
+
                         <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-0.5 h-6">
-                            {[12, 24, 16, 28, 20, 14, 26, 18, 22, 16, 30, 24, 14, 20, 16, 22].map((height, idx) => (
+                          <div className="flex items-center gap-1.5 h-6">
+                            {[16, 24, 38, 18, 28, 42, 34, 20, 36, 44, 22, 30, 40, 26, 18, 32, 28, 38, 20, 34, 42, 16, 26, 36].map((h, i) => (
                               <span
-                                key={idx}
-                                style={{ height: `${playingAudioId === m.id ? (height % 20) + 10 : height}px` }}
-                                className={`w-1 rounded-full transition-all duration-150 ${
-                                  playingAudioId === m.id ? 'bg-emerald-400' : 'bg-emerald-600/50'
+                                key={i}
+                                className={`w-1 rounded-full transition-all duration-200 ${
+                                  playingAudioId === m.id
+                                    ? 'bg-emerald-400 animate-pulse'
+                                    : 'bg-white/30'
                                 }`}
+                                style={{ height: `${h}px` }}
                               />
                             ))}
                           </div>
                           <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-                            <span>0:33</span>
-                            <span className="text-emerald-400 font-sans">Vocal Studio Calibré</span>
+                            <span>{m.mediaDurationSec ? `0:${String(m.mediaDurationSec).padStart(2, '0')}` : '0:33'}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-emerald-400">
+                                {playingAudioId === m.id ? 'Lecture en cours…' : 'Note vocale studio'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setAudioPlaybackRate((prev) => (prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1))}
+                                className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white font-mono transition-colors cursor-pointer"
+                              >
+                                {audioPlaybackRate}x
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <p className="text-xs text-neutral-400 border-t border-white/[0.06] pt-1.5 italic">
-                        {m.content}
-                      </p>
+
+                      {m.mediaTranscript && (
+                        <div className="pt-2 border-t border-white/[0.08] text-xs text-neutral-300 leading-normal italic">
+                          "{m.mediaTranscript}"
+                        </div>
+                      )}
                     </div>
-                  ) : m.isPaymentBlock ? (
-                    <div className="space-y-2 py-0.5">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                        <CreditCard className="w-3.5 h-3.5" /> Coordonnées de Paiement Officielles
-                      </div>
-                      <div className="whitespace-pre-wrap font-sans text-xs bg-black/30 p-2.5 rounded-xl border border-white/[0.06]">
-                        {m.content}
-                      </div>
-                    </div>
-                  ) : m.isLyricsCard ? (
-                    <div className="space-y-2 py-1">
-                      <div className="flex items-center justify-between border-b border-white/[0.08] pb-1.5">
-                        <span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
-                          <Music className="w-3.5 h-3.5" /> Paroles Composées par le Studio
-                        </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                          {m.lyricsData?.minutes || 8} min studio
-                        </span>
-                      </div>
-                      <div className="text-xs whitespace-pre-wrap font-serif italic text-white/90 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/[0.06]">
-                        {m.content}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="whitespace-pre-wrap">{m.content}</div>
                   )}
 
-                  <div className="flex items-center justify-end gap-1 text-[10px] text-white/60 mt-1 select-none">
+                  {/* Lecteur d'Extrait Démo */}
+                  {m.mediaKind === 'sample' && (
+                    <div className="my-1 p-3 rounded-xl bg-black/30 border border-emerald-500/20 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                          <Music className="w-3.5 h-3.5" /> {m.sampleTitle || 'Extrait Démo Studio'}
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
+                          45s Studio
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => playSynthesizedAcousticTrack(m.id, 20)}
+                          className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-md"
+                        >
+                          {playingAudioId === m.id ? (
+                            <Pause className="w-4 h-4 fill-current" />
+                          ) : (
+                            <Play className="w-4 h-4 ml-0.5 fill-current" />
+                          )}
+                        </button>
+                        <div className="flex-1 text-xs text-neutral-300">
+                          Cliquez pour écouter l'ambiance sonore acoustique et le grain de voix studio.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Carte des Paroles Sur-Mesure */}
+                  {m.isLyricsCard && m.lyricsData && (
+                    <div className="my-1.5 p-4 rounded-xl bg-[#111b21] border border-emerald-500/30 shadow-inner space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
+                        <div className="flex items-center gap-2">
+                          <Music className="w-4 h-4 text-emerald-400" />
+                          <span className="text-xs font-bold text-white tracking-wide">
+                            {m.lyricsData.title || `Paroles sur-mesure pour ${detectedRecipient || 'votre proche'}`}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                          Structure Suno (32 vers)
+                        </span>
+                      </div>
+                      <div className="text-[13px] text-neutral-200 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto pr-2 font-sans select-text">
+                        {m.lyricsData.lyrics}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bloc de Paiement Mobile Money Officiel */}
+                  {m.isPaymentBlock && (
+                    <div className="my-1 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-300 border-b border-emerald-500/20 pb-1.5">
+                        <CreditCard className="w-4 h-4" /> Coordonnées de Dépôt Sécurisées
+                      </div>
+                      <div className="text-xs text-white whitespace-pre-wrap font-mono leading-relaxed">
+                        {m.content}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Contenu Texte Standard */}
+                  {!m.isLyricsCard && !m.isPaymentBlock && (
+                    <p className="whitespace-pre-wrap">{m.content}</p>
+                  )}
+
+                  {/* Pied de Bulle : Horodatage & Statut des Coches */}
+                  <div className="flex items-center justify-end gap-1.5 text-[11px] text-neutral-400/90 mt-1 select-none">
                     <span>{m.timestamp}</span>
-                    {m.role === 'user' ? (
-                      m.status === 'read' ? (
-                        <CheckCheck className="w-3.5 h-3.5 text-sky-400" />
-                      ) : (
-                        <Check className="w-3.5 h-3.5 text-white/50" />
-                      )
-                    ) : null}
+                    {m.role === 'user' && (
+                      <span>
+                        {m.status === 'sending' && <Clock className="w-3 h-3 text-neutral-400" />}
+                        {m.status === 'sent' && <Check className="w-3.5 h-3.5 text-neutral-400" />}
+                        {m.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-neutral-400" />}
+                        {m.status === 'read' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
 
-            {/* Rafale en Attente d'Envoi */}
-            {burstQueue.length > 0 && (
-              <div className="space-y-1.5">
-                {burstQueue.map((item, idx) => (
-                  <div key={idx} className="flex justify-end opacity-75">
-                    <div className="rounded-2xl px-3.5 py-2 max-w-[85%] text-sm bg-[#005c4b]/80 text-[#e9edef] border border-emerald-400/30">
-                      <div className="whitespace-pre-wrap">{item}</div>
-                      <div className="flex items-center justify-end gap-1 text-[10px] text-emerald-200 mt-1">
-                        <Clock className="w-3 h-3 animate-spin" />
-                        <span>En attente rafale…</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="flex items-center justify-end gap-2 text-xs text-neutral-400 pt-1">
-                  <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                    <Radio className="w-3.5 h-3.5 animate-pulse" /> Débounce actif (coalescence 1.8s)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleForceSendBurst}
-                    className="h-6 text-[11px] px-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 cursor-pointer"
-                  >
-                    Envoyer maintenant
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Indicateur de Réflexion de l'IA */}
-            {isAiThinking && (
+            {/* Bulle d'écriture animée en direct */}
+            {aiPresenceState !== 'idle' && (
               <div className="flex justify-start">
-                <div className="rounded-2xl px-4 py-3 bg-[#202c33] border border-white/[0.06] text-sm text-emerald-400 flex items-center gap-2 shadow-sm">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" />
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.18s]" />
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.36s]" />
-                  </div>
-                  <span className="text-xs text-neutral-400 ml-1 font-mono">Analyse & Composition studio…</span>
+                <div className="rounded-2xl px-4 py-3 bg-[#202c33] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 shadow-md">
+                  {aiPresenceState === 'recording_audio' ? (
+                    <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
+                      <Mic className="w-3.5 h-3.5 animate-bounce" /> Sarah enregistre une note vocale…
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1.5 px-1 py-0.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]" />
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]" />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Raccourcis Rapides */}
-          <div className="border-t border-white/[0.08] px-3 py-1.5 bg-[#0D1017] flex items-center justify-between gap-2 overflow-x-auto text-xs">
-            <div className="flex items-center gap-1.5 shrink-0 text-neutral-400">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[11px] font-medium text-white/80">Simulations :</span>
+          {/* Bandeau d'état rafale si le client tape plusieurs messages */}
+          {burstQueue.length > 0 && (
+            <div className="px-4 py-1.5 bg-[#182229] border-t border-white/[0.06] flex items-center justify-between text-xs text-emerald-400 animate-pulse">
+              <span className="flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" />
+                <span>Rafale en cours ({burstQueue.length} message{burstQueue.length > 1 ? 's' : ''}) — Sarah temporise la lecture (1.8s)…</span>
+              </span>
+              <span className="text-[10px] font-mono text-neutral-400">burst-active</span>
             </div>
+          )}
 
-            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-              {QUICK_TEST_VOCALS.map((qv, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSendQuickVocal(qv.text)}
-                  disabled={isAiThinking}
-                  className="h-6 text-[11px] px-2 bg-white/[0.03] hover:bg-white/[0.08] text-white/80 border border-white/[0.06] rounded-md shrink-0 flex items-center cursor-pointer"
-                >
-                  <Mic className="w-3 h-3 mr-1 text-emerald-400" />
-                  {qv.label}
-                </button>
-              ))}
+          {/* Raccourcis Rapides de Test au-dessus de la saisie */}
+          <div className="px-3 py-2 bg-[#182229] border-t border-white/[0.06] flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            <span className="text-[11px] font-medium text-neutral-400 shrink-0">Scénarios rapides :</span>
+            {QUICK_TEST_SHORTCUTS.map((sc, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleInboundUserText(sc.text)}
+                disabled={isAiThinking}
+                className="h-7 text-xs px-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-200 border border-white/[0.06] rounded-lg shrink-0 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                {sc.label}
+              </button>
+            ))}
 
-              {QUICK_TEST_IMAGES.map((qi, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSendQuickImage(qi)}
-                  disabled={isAiThinking}
-                  className="h-6 text-[11px] px-2 bg-white/[0.03] hover:bg-white/[0.08] text-white/80 border border-white/[0.06] rounded-md shrink-0 flex items-center cursor-pointer"
-                >
-                  <ImageIcon className="w-3 h-3 mr-1 text-sky-400" />
-                  {qi.label}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={handleSendPaymentSlipImage}
+              disabled={isAiThinking}
+              className="h-7 text-xs px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg shrink-0 flex items-center gap-1 cursor-pointer disabled:opacity-40"
+            >
+              <Paperclip className="w-3 h-3" />
+              <span>Joindre reçu Wave</span>
+            </button>
           </div>
 
-          {/* Barre de Saisie WhatsApp */}
-          <div className="border-t border-white/[0.08] p-3 bg-[#121620] flex items-center gap-2">
+          {/* Barre de Saisie WhatsApp Confortable (Hauteur 56px, grande lisibilité) */}
+          <div className="border-t border-white/[0.08] p-3 bg-[#202c33] flex items-center gap-2 shrink-0">
             {isRecording ? (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-xl flex-1 text-xs text-red-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                <span>Enregistrement micro ({recordSeconds}s)…</span>
+              <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 px-4 py-2.5 rounded-xl flex-1 text-xs text-red-400">
+                <span className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
+                <span>Enregistrement de votre note vocale ({recordSeconds}s)…</span>
                 <button
                   type="button"
                   onClick={stopRecording}
-                  className="h-6 ml-auto px-2 rounded-lg bg-red-500 text-white text-xs flex items-center cursor-pointer"
+                  className="h-8 ml-auto px-3 rounded-lg bg-red-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer hover:bg-red-600"
                 >
-                  <Square className="w-3 h-3 mr-1" /> Terminer
+                  <Square className="w-3.5 h-3.5 fill-current" /> Terminer & Envoyer
                 </button>
               </div>
             ) : (
@@ -939,10 +1199,10 @@ export const PlaygroundView: FC = () => {
                   type="button"
                   onClick={startRecording}
                   disabled={isAiThinking}
-                  title="Enregistrer une note vocale"
-                  className="h-9 w-9 rounded-xl flex items-center justify-center text-neutral-400 hover:text-white cursor-pointer"
+                  title="Enregistrer une vraie note vocale au micro"
+                  className="h-11 w-11 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer shrink-0"
                 >
-                  <Mic className="w-4 h-4 text-emerald-400" />
+                  <Mic className="w-5 h-5 text-emerald-400" />
                 </button>
 
                 <input
@@ -955,8 +1215,8 @@ export const PlaygroundView: FC = () => {
                       handleSendMessage();
                     }
                   }}
-                  placeholder="Tapez un message (Entrée pour rafale)…"
-                  className="flex-1 h-9 px-3 rounded-xl bg-[#0B0E14] border border-white/[0.08] text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-emerald-500/40"
+                  placeholder="Écrivez un message (Appuyez sur Entrée pour tester la rafale)…"
+                  className="flex-1 h-11 px-4 rounded-xl bg-[#2a3942] border border-white/[0.06] text-[14px] text-white placeholder:text-neutral-400 focus:outline-none focus:border-emerald-500/50"
                   disabled={isAiThinking}
                 />
 
@@ -964,24 +1224,24 @@ export const PlaygroundView: FC = () => {
                   type="button"
                   onClick={handleSendMessage}
                   disabled={isAiThinking || !input.trim()}
-                  className="h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                  className="h-11 px-5 rounded-xl bg-[#00a884] hover:bg-[#008f6f] text-white text-sm font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors shrink-0 shadow-md"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Envoyer</span>
+                  <Send className="w-4 h-4" />
+                  <span className="hidden sm:inline">Envoyer</span>
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Volet Latéral : Inspecteur Cerveau Studio */}
+        {/* Volet Latéral : Inspecteur Cerveau Studio & Télémétrie */}
         {inspectorOpen && (
-          <div className="lg:col-span-4 flex flex-col space-y-4 overflow-y-auto pr-1">
-            {/* Étape Commerciale */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3">
+          <div className="lg:col-span-4 xl:col-span-4 flex flex-col space-y-3 overflow-y-auto pr-1">
+            {/* Étape Commerciale en Cours */}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
                 <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-emerald-400" /> Étape Commerciale
+                  <Radio className="w-3.5 h-3.5 text-emerald-400" /> Étape Commerciale Active
                 </span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                   {commercialStage}
@@ -989,53 +1249,65 @@ export const PlaygroundView: FC = () => {
               </div>
 
               <div className="grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
-                <div className={`py-1 rounded-lg border ${commercialStage === 'BRIEF' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>1. Brief</div>
-                <div className={`py-1 rounded-lg border ${commercialStage === 'VOCAL_PROCÉDURE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>2. Vocal</div>
-                <div className={`py-1 rounded-lg border ${commercialStage === 'PAROLES_LIVRÉES' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>3. Paroles</div>
-                <div className={`py-1 rounded-lg border ${commercialStage === 'PAIEMENT' || commercialStage === 'PRODUCTION_STUDIO' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>4. Paiement</div>
+                <div className={`py-1.5 rounded-lg border ${commercialStage === 'BRIEF' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>1. Brief</div>
+                <div className={`py-1.5 rounded-lg border ${commercialStage === 'VOCAL_PROCÉDURE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>2. Vocal</div>
+                <div className={`py-1.5 rounded-lg border ${commercialStage === 'PAROLES_LIVRÉES' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>3. Paroles</div>
+                <div className={`py-1.5 rounded-lg border ${commercialStage === 'PAIEMENT' || commercialStage === 'PRODUCTION_STUDIO' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>4. Caisse</div>
               </div>
             </div>
 
-            {/* Fiche Brief Captée */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3">
+            {/* Fiche Brief Captée par le Cerveau */}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
                 <span className="text-xs font-semibold text-white flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-sky-400" /> Fiche Brief Extraite
                 </span>
-                <span className="text-[11px] font-mono text-neutral-400">order-brief</span>
+                <span className="text-[11px] font-mono text-neutral-400">order-memory</span>
               </div>
 
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
                   <span className="text-neutral-400">Destinataire :</span>
-                  <span className="font-medium text-white">{detectedRecipient || <span className="text-neutral-500 italic">Non défini</span>}</span>
+                  <span className="font-semibold text-white">{detectedRecipient || <span className="text-neutral-500 italic">En attente de brief</span>}</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
                   <span className="text-neutral-400">Occasion :</span>
                   <span className="font-medium text-emerald-400">{detectedOccasionStr || <span className="text-neutral-500 italic">Non définie</span>}</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Expéditeur :</span>
-                  <span className="font-medium text-white">{clientName} · <span className="text-neutral-400 font-mono text-[11px]">{clientPhone}</span></span>
+                  <span className="text-neutral-400">Formule Choisie :</span>
+                  <span className="font-mono text-white">{selectedOffer ? `${selectedOffer} F CFA` : <span className="text-neutral-500 italic">Non sélectionnée</span>}</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Paiement Livré :</span>
-                  <span className={`font-mono text-[11px] ${paymentDelivered ? 'text-emerald-400' : 'text-neutral-400'}`}>
-                    {paymentDelivered ? 'Coordonnées émises' : 'Attente validation texte (INV-07)'}
+                  <span className="text-neutral-400">Client / Ligne :</span>
+                  <span className="font-medium text-white">{clientName} · <span className="text-neutral-400 font-mono text-[11px]">{clientPhone}</span></span>
+                </div>
+                {currentSongTitle && (
+                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-400">Titre Studio :</span>
+                    <span className="font-semibold text-emerald-400 truncate max-w-[190px]">{currentSongTitle}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                  <span className="text-neutral-400">Statut Coordonnées :</span>
+                  <span className={`font-mono text-[11px] ${paymentDelivered ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {paymentDelivered ? 'Coordonnées délivrées' : 'Bloquées (Attente validation texte)'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-neutral-400">Règle Paiement :</span>
-                  <span className="font-mono text-emerald-400">Post-Texte Strict (INV-07)</span>
+                  <span className="text-neutral-400">Règle Inviolable :</span>
+                  <span className="font-mono text-emerald-400 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> Post-Texte Strict (INV-07)
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Alertes Marchand */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3">
+            {/* Alertes Marchand Studio */}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
                 <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Bell className="w-3.5 h-3.5 text-amber-400" /> Alerte Marchand WhatsApp
+                  <Bell className="w-3.5 h-3.5 text-amber-400" /> Notifications Marchand
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   Temps Réel
@@ -1057,26 +1329,30 @@ export const PlaygroundView: FC = () => {
               )}
             </div>
 
-            {/* Télémétrie */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3">
+            {/* Télémétrie et Invariants de Conformité */}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
                 <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400" /> Télémétrie du Tour
+                  <Clock className="w-3.5 h-3.5 text-emerald-400" /> Télémétrie & Conformité
                 </span>
                 <span className="text-[11px] font-mono text-neutral-400">INV-01 à INV-12</span>
               </div>
 
               <div className="space-y-2 text-xs font-mono">
                 <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400 font-sans">Moteur actif :</span>
-                  <span className="text-white font-semibold">DeepSeek-V3 / Gemini Flash</span>
+                  <span className="text-neutral-400 font-sans">Fenêtre Rafale :</span>
+                  <span className="text-emerald-400 font-semibold">1 800 ms (Sliding)</span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400 font-sans">Latence mesurée :</span>
+                  <span className="text-neutral-400 font-sans">Moteur Actif :</span>
+                  <span className="text-white font-semibold">DeepSeek-V3 / Flash 2.5</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                  <span className="text-neutral-400 font-sans">Latence Tour :</span>
                   <span className="text-emerald-400 font-semibold">{latencyMs} ms</span>
                 </div>
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-neutral-400 font-sans">Invariants vérifiés :</span>
+                  <span className="text-neutral-400 font-sans">Invariants Vérifiés :</span>
                   <span className="text-sky-300 font-semibold">12/12 Conformes</span>
                 </div>
               </div>
