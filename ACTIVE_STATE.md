@@ -8,24 +8,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 6 Octobre 2026 (23:18 UTC)
-- **Statut Opérationnel** : **Jalon 65 100% Validé & Prêt pour Production Vercel** (Playground de Test WhatsApp Studio Ultra-Réaliste Intégré en Direct).
+- **Dernière mise à jour** : 6 Octobre 2026 (23:35 UTC)
+- **Statut Opérationnel** : **Jalon 65 100% Validé & Déployé en Production sur Vercel** (Playground Studio WhatsApp Hyper-Réaliste & Immersif).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Playground WhatsApp Studio Live** :
-    - Accessible directement via le menu Studio OS (« Playground WhatsApp » dans « Mon business »), via la palette `Cmd+K` et via l'URL `https://velaris-dun.vercel.app/#playground`.
-    - Simulation conversationnelle complète respectant le comportement exact de l'agent WhatsApp :
-      - **Fenêtre de rafale (Debounce glissant 1.8s)** : Permet d'envoyer 1, 2 ou 3 messages d'affilée sans couper le prospect, fusionnant le contexte en une seule réponse IA cohérente.
-      - **Lecteur de vocal de procédure réaliste (33s)** : Waveform audio animée, synthèse acoustique Web Audio API, transcript synchronisé.
-      - **Générateur poétique sur-mesure (`generateHouseStyleSong`)** : Création instantanée des 32-48 vers avec anecdotes du destinataire et respect des structures Suno.
-      - **Verrouillage strict INV-07 (Paiement Post-Texte)** : Aucune coordonnée bancaire/Mobile Money n'est émise avant la validation formelle des paroles par le client.
-      - **Support Multi-Pays** : Côte d'Ivoire (+225 Wave/OM), Burkina Faso (+226 Orange Money), Sénégal (+221 Wave).
-      - **Enregistrement vocal micro en direct** : Bouton d'enregistrement micro avec timer et transcription simulée réaliste.
-      - **Inspecteur Studio (Brain Monitor)** : Suivi en direct de l'étape commerciale, fiche brief extraite, alertes marchand temps réel, et télémétrie des invariants (INV-01 à INV-12).
-      - **7 Scénarios de test 1-clic** : Brief complet direct, question tarif sans brief, envoi en rafale, audio direct, client impatient, correction de texte, etc.
-  - **Règle 4 Design & Motion** : Respect absolu du Dark luxury graphite (`#050608`, `#0E1015`), 0 émoji dans les boutons UI et contrôles, icônes Lucide SVG exclusives.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` avec 0 erreur en 4.76s).
+  - **Playground WhatsApp Studio Live Déployé** :
+    - En ligne et vérifié sur `https://velaris-dun.vercel.app/#playground` (bundle actif `assets/index-BGqALH6o.js`).
+    - **Visualisation Aérée & Immersive (Non étriquée)** : Conteneur élargi jusqu'à 1700px, hauteur généreuse (`h-[calc(100vh-6.5rem)] min-h-[760px]`), taille de texte confortable (14px), fond d'écran texturé WhatsApp Web sombre (`#0b141a`), barre de saisie spacieuse de 56px de hauteur avec bouton de pièce jointe pour joindre un reçu de transfert.
+    - **Simulation Temporelle 100% Authentique** :
+      - Transition réaliste des coches : 1 coche grise (envoyé) ➔ 2 coches grises (délivré) ➔ 2 coches bleues (lu).
+      - Indicateur de présence dynamique : Sarah affiche *"en train d’écrire…"* ou *"enregistre un message vocal…"*, avec bulle de frappe animée à 3 points pulsants dans la conversation.
+      - Débit réaliste proportionnel au message (1.8s à 3s) et livraison multi-bulles séquentielle (une bulle à la fois, rythmée par un micro-chime pop audio Web Audio API).
+      - Fenêtre de rafale (Debounce glissant 1.8s) pour fusionner les envois successifs d'un client.
+    - **Couverture Conversationnelle Exhaustive** :
+      - Salutations, tarifs (1 200 F / 3 000 F), explication de la vidéo souvenirs.
+      - Brief complet (détection prénoms, occasions, souvenirs).
+      - Envoi et lecture du vocal de procédure (33s) avec contrôle de vitesse (1x / 1.5x / 2x).
+      - Écoute d'un extrait de chanson démo studio (45s Afro-pop acoustique).
+      - Explication des délais garantis (18 à 20 minutes chrono).
+      - Génération des 32 à 48 vers (`generateHouseStyleSong`) et révisions poétiques à la demande.
+      - Coordonnées Mobile Money strictement post-validation (Orange Money BF, Wave CI, Wave Sénégal).
+      - Clôture et compte à rebours 18 minutes dès réception du justificatif de paiement.
+  - **Résultat de la Suite de Tests & Build** : 100% propre (`tsc -b && vite build` en 3.90s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Déployer sur Vercel via git push sur `origin/main` et valider l'URL publique `https://velaris-dun.vercel.app/#playground`.
+  1. Tests libres d'Anicet sur le Playground live à l'adresse `https://velaris-dun.vercel.app/#playground`.
 
 ---
 
