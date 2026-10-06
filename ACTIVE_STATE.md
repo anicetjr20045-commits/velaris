@@ -8,21 +8,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 5 Octobre 2026 (00:32 UTC)
-- **Statut Opérationnel** : **Jalon 64 100% Validé & Déployé en Production** (Remise à Zéro Complète du Site Vierge sans aucune suppression de données dans la base Supabase).
+- **Dernière mise à jour** : 6 Octobre 2026 (23:18 UTC)
+- **Statut Opérationnel** : **Jalon 65 100% Validé & Prêt pour Production Vercel** (Playground de Test WhatsApp Studio Ultra-Réaliste Intégré en Direct).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Site Vierge & Données Propres** :
-    - Toutes les données de démonstration et mocks historiques (`INITIAL_ORDERS`, `MOCK_CONVERSATIONS`, `REAL_CONVERSATIONS`, `REAL_PIPELINE_LEADS`, `REAL_AUTOMATION_RULES`, `REAL_AUTOMATION_LOGS`, `REAL_STUDIO_METRICS`) ont été purgées de l'interface et remplacées par des collections vides propres.
-    - Le solde d'ouverture legacy non rattaché (`revenue_opening_balances`) est strictement isolé par `user_id`, garantissant 0 F CFA de CA factice pour tout nouveau studio sans altérer ni supprimer la ligne en base de données Supabase.
-    - Nettoyage automatique au chargement du cache localStorage (`velaris_studio_orders_demo`).
-    - L'ensemble des vues de l'Atelier Studio OS (Cockpit, Atelier, Discussions WhatsApp, Pipeline Kanban, Automatisations, Analyste & Copilot IA) affichent désormais des états neutres et prêts à accueillir de vraies interactions en temps réel.
-  - **Déploiement GitHub Pages Réparé & Vérifié en Direct** :
-    - Diagnostic : le workflow GitHub Pages échouait systématiquement à l'étape Checkout (`fatal: No url found for submodule path 'dist' in .gitmodules`) en raison d'un faux submodule `dist` (mode `160000`) et d'un commit parasite de `node_modules` sur la branche `gh-pages`.
-    - Correction : suppression du lien submodule et des fichiers résiduels sur `gh-pages` (commit `2703f36`). Le workflow GitHub Actions Pages (`37247759018`) a réussi à 100%.
-    - Vérification en direct sur `https://anicetjr20045-commits.github.io/velaris/` : bundle actif `assets/index--P5D8uPD.js`, zéro occurrence de « Moussa Traoré », site 100% vierge.
-  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` avec 0 erreur).
+  - **Playground WhatsApp Studio Live** :
+    - Accessible directement via le menu Studio OS (« Playground WhatsApp » dans « Mon business »), via la palette `Cmd+K` et via l'URL `https://velaris-dun.vercel.app/#playground`.
+    - Simulation conversationnelle complète respectant le comportement exact de l'agent WhatsApp :
+      - **Fenêtre de rafale (Debounce glissant 1.8s)** : Permet d'envoyer 1, 2 ou 3 messages d'affilée sans couper le prospect, fusionnant le contexte en une seule réponse IA cohérente.
+      - **Lecteur de vocal de procédure réaliste (33s)** : Waveform audio animée, synthèse acoustique Web Audio API, transcript synchronisé.
+      - **Générateur poétique sur-mesure (`generateHouseStyleSong`)** : Création instantanée des 32-48 vers avec anecdotes du destinataire et respect des structures Suno.
+      - **Verrouillage strict INV-07 (Paiement Post-Texte)** : Aucune coordonnée bancaire/Mobile Money n'est émise avant la validation formelle des paroles par le client.
+      - **Support Multi-Pays** : Côte d'Ivoire (+225 Wave/OM), Burkina Faso (+226 Orange Money), Sénégal (+221 Wave).
+      - **Enregistrement vocal micro en direct** : Bouton d'enregistrement micro avec timer et transcription simulée réaliste.
+      - **Inspecteur Studio (Brain Monitor)** : Suivi en direct de l'étape commerciale, fiche brief extraite, alertes marchand temps réel, et télémétrie des invariants (INV-01 à INV-12).
+      - **7 Scénarios de test 1-clic** : Brief complet direct, question tarif sans brief, envoi en rafale, audio direct, client impatient, correction de texte, etc.
+  - **Règle 4 Design & Motion** : Respect absolu du Dark luxury graphite (`#050608`, `#0E1015`), 0 émoji dans les boutons UI et contrôles, icônes Lucide SVG exclusives.
+  - **Résultat de la Suite de Tests & Build** : 100% au vert (`tsc -b && vite build` avec 0 erreur en 4.76s).
 - **Prochaine tâche immédiate** :
-  1. Utilisation du site en condition réelle avec les nouveaux contacts entrants WhatsApp WAHA et créations de commandes.
+  1. Déployer sur Vercel via git push sur `origin/main` et valider l'URL publique `https://velaris-dun.vercel.app/#playground`.
 
 ---
 

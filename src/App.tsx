@@ -79,6 +79,9 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
   if (rawHash === 'pipeline') {
     return { activeTab: 'studio', studioSubTab: 'pipeline' };
   }
+  if (rawHash === 'playground' || rawHash === 'play' || rawHash === 'simulateur') {
+    return { activeTab: 'studio', studioSubTab: 'playground' };
+  }
   if (rawHash === 'whatsapp') {
     return { activeTab: 'studio', studioSubTab: 'whatsapp' };
   }

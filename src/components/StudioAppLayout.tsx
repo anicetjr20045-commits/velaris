@@ -35,6 +35,7 @@ import { StudioCopilotView } from './StudioCopilotView';
 import { VelarisMark } from './VelarisMark';
 import { AdminConsoleView } from './AdminConsoleView';
 import { StudioProfileView } from './StudioProfileView';
+import { PlaygroundView } from './PlaygroundView';
 import { CommandPalette, isMacPlatform, type PaletteCommand } from './CommandPalette';
 import { getLiveConversations } from '../services/supabase';
 import { useStudioLive } from '../hooks/useStudioLive';
@@ -54,6 +55,7 @@ export type StudioTab =
   | 'revenus'
   | 'ventes'
   | 'conversations'
+  | 'playground'
   | 'pipeline'
   | 'analyste'
   | 'whatsapp'
@@ -140,6 +142,7 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
         { id: 'revenus' as StudioTab, label: 'Mes revenus', icon: LayoutGrid },
         { id: 'ventes' as StudioTab, label: 'Ventes & Caisse', icon: Wallet },
         { id: 'conversations' as StudioTab, label: 'Discussions WhatsApp', icon: MessagesSquare, count: unreadCount },
+        { id: 'playground' as StudioTab, label: 'Playground WhatsApp', icon: Sparkles },
         { id: 'analyste' as StudioTab, label: 'Analyste & Copilot IA', icon: TrendingUp },
       ]
     },
@@ -511,6 +514,10 @@ export const StudioAppLayout: FC<StudioAppLayoutProps> = ({
               />
             )}
 
+
+            {currentTab === 'playground' && (
+              <PlaygroundView />
+            )}
 
             {currentTab === 'automations' && (
               <AutomationsView />
