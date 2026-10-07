@@ -19,18 +19,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (03:35 UTC)
-- **Statut Opérationnel** : **Jalon 72 Validé & Déployé** (Découplage Linéaire Commande pour Autrui vs Soi-Même, Prénom Chanté Systématique, Enchaînement Direct du Message, Cache v7 & Build Validé).
+- **Dernière mise à jour** : 7 Octobre 2026 (03:45 UTC)
+- **Statut Opérationnel** : **Jalon 73 Validé & Déployé** (Unification Totale du Brief en 4 Étapes Simples, Zéro Jargon Technique « Refrain », Remontée Visuelle des Erreurs API, Cache v8 & Build Validé).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Mise en Service Active du Playground & Cache v7** :
-    - Clé de cache passée à `velaris_agent_config_v7` avec purge automatique des versions antérieures (`v1` à `v6`).
-    - Élimination des contradictions de fin de prompt : le Pilier 2 et le Pilier 3 sont désormais structurés en deux cas clairs (CAS A : Pour Autrui / CAS B : Pour Soi-Même).
-    - Commande pour soi-même : demande systématique du prénom du client pour faire chanter le refrain, puis date de fête (sans âge), puis saut direct de la question d'expéditeur vers les réussites/souhaits personnels avec rassurance.
-    - Élimination totale de la section redondante de fin de prompt « Règles d'intelligence adaptative ».
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.39s, 0 erreur).
+  - **Mise en Service Active du Playground & Cache v8** :
+    - Clé de cache passée à `velaris_agent_config_v8` avec purge automatique des versions antérieures (`v1` à `v7`).
+    - Suppression totale du jargon technique (« pour mettre dans le refrain ») lors de la demande du prénom.
+    - Unification du tunnel de brief en 4 étapes simples et linéaires pour tous (1. Prénom simple, 2. Date sans âge, 3. Expéditeur avec discrétion sauf si commande pour soi-même, 4. Message avec rassurance universelle).
+    - Ajout de la remontée visuelle explicite des erreurs HTTP/API (comme `Insufficient Balance`) sous forme de bulles d'alerte pour ne plus laisser l'utilisateur dans le doute si le compte LLM manque de crédits.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.67s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v7.
-  2. Valider le comportement sur les commandes pour soi-même et pour autrui.
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v8.
+  2. Noter la nécessité éventuelle de recharger quelques crédits sur son compte DeepSeek (ou renseigner une clé personnelle dans l'onglet Moteur).
 
 ---
 
@@ -47,6 +47,21 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 73. Unification Simplifiée du Brief (4 Étapes) & Remontée des Erreurs API (7 Octobre 2026)
+- **Éradication du Jargon Technique** :
+  - Suppression de toute mention « pour le faire chanter au refrain ». La demande du prénom redevient sobre et naturelle pour la commande.
+- **Unification Universelle du Parcours** :
+  - Fusion des anciens embranchements en une séquence universelle unique de 4 étapes :
+    1. Prénom simple.
+    2. Date d'événement (sans demande d'âge).
+    3. Expéditeur (sauf si commande pour soi-même où la question saute naturellement).
+    4. Message & rassurance déculpabilisante (identique pour tous).
+- **Gestion Transparente des Erreurs API** :
+  - Capture et affichage direct dans le chat des alertes de quota/solde (`Insufficient Balance`, etc.) pour éviter tout silence mystérieux en cas de compte à sec.
+- **Cache v8 & Validation** :
+  - Purge automatique `v1` à `v7` ➔ transition `velaris_agent_config_v8`.
+  - Build Vite & TypeScript validé à 100% (4.67s, 0 erreur).
 
 ### 72. Découplage Linéaire Commande pour Autrui vs Soi-Même & Cache v7 (7 Octobre 2026)
 - **Résolution du Bug de Silence sur Commande Personnelle** :
