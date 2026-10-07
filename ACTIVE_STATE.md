@@ -8,17 +8,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (02:40 UTC)
-- **Statut Opérationnel** : **Jalon 68 100% Validé & Déployé** (Architecture d'Excellence Commerciale : Brief Adaptatif en 3 Piliers, Interpolation Dynamique des Variables Studio & Modèle Officiel Velaris Intégré).
+- **Dernière mise à jour** : 7 Octobre 2026 (02:45 UTC)
+- **Statut Opérationnel** : **Jalon 68 100% Validé & Connecté en Direct** (Prompt Officiel Velaris 3 Piliers & Moteur DeepSeek Activés par Défaut dans le Playground).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Déploiement du Cerveau Commercial Velaris** :
-    - `VELARIS_CLOSING_PROMPT_TEMPLATE` formalisé avec les 3 Piliers (1. Occasion, 2. Destinataire, 3. Expéditeur & Message), zéro question redondante, gestion fluide des commandes pour soi-même et des dates clés.
-    - Timing stratégique validé : accusé de réception empathique d'entrée sur brief complet, vocal de procédure envoyé lors de la demande du brief, offres présentées ensuite, et **style musical réservé exclusivement en post-paiement**.
-    - Interpolation dynamique temps réel des variables studio (`{AGENT_NAME}`, `{STUDIO_NAME}`, `{PRIX_DECOUVERTE}`, `{PRIX_PRESTIGE}`) dans tous les appels LLM (DeepSeek, Gemini, OpenAI).
-    - Bouton rapide d'injection *« Modèle Velaris (3 Piliers) »* dans l'Inspecteur du Playground en complément de la *« Page blanche »*.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.50s, 0 erreur).
+  - **Mise en Service Active du Playground** :
+    - `DEFAULT_AGENT_CONFIG` préconfiguré avec `systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE`, `agentName: 'Alex'`, `studioName: 'Velaris Studio'`, `provider: 'deepseek'`, `model: 'deepseek-chat'` et clé API DeepSeek connectée.
+    - Clé de persistance mise à jour en `velaris_agent_config_v3` (purgeant automatiquement les anciens caches vides `v1` et `v2`).
+    - L'agent répond désormais en conditions réelles et en direct avec l'intelligence de DeepSeek V3 selon les 3 Piliers.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.54s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Passer aux tests en direct dans le Playground et ajuster si nécessaire les dernières subtilités de réponse.
+  1. Tester les conversations dans le Playground et vérifier les réponses réelles de l'IA sur les différents cas clients.
 
 ---
 
