@@ -21,8 +21,14 @@ import time
 import subprocess
 import threading
 import signal
+import select
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(line_buffering=True)
 
 PORT = int(os.environ.get("VELARIS_AI_PORT", "4041"))
 MODEL_NAME = "gemini-3.8-flash-low"
@@ -66,23 +72,30 @@ class AgyWorker:
             "--dangerously-skip-permissions",
             "--disable-slash-commands"
         ]
+        clean_env = os.environ.copy()
+        for key in ["ANTIGRAVITY_AGENT", "ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_TRAJECTORY_ID", "ANTIGRAVITY_SOURCE_METADATA"]:
+            clean_env.pop(key, None)
+
         self.proc = subprocess.Popen(
             cmd,
             cwd=RUNTIME_DIR,
+            env=clean_env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1
         )
-        # Read init event emitted by agy (plain loop to prevent stream buffering issues)
+        # Read init event emitted by agy with select non-blocking
         init_start = time.time()
         while time.time() - init_start < 25:
+            if self.proc.poll() is not None:
+                break
+            rlist, _, _ = select.select([self.proc.stdout], [], [], 0.4)
+            if not rlist:
+                continue
             line = self.proc.stdout.readline()
             if not line:
-                if self.proc.poll() is not None:
-                    break
-                time.sleep(0.04)
                 continue
             line = line.strip()
             if not line:
@@ -110,32 +123,38 @@ class AgyWorker:
                     pass
             self.proc = None
 
-    def query(self, prompt: str, timeout: int = 40) -> tuple[str, int]:
+    def query(self, prompt: str, timeout: int = 60) -> tuple[str, int]:
         with self.lock:
             if not self.is_alive():
-                print("[Worker] Processus arrêté, redémarrage à chaud...")
+                print("[Worker] Processus arrêté, redémarrage à chaud...", flush=True)
                 self._start_worker()
 
             payload = {"event": "user", "message": {"content": prompt}}
             try:
                 self.proc.stdin.write(json.dumps(payload) + "\n")
                 self.proc.stdin.flush()
+                print(f"[Worker] Prompt sent to agy ({len(prompt)} chars)...", flush=True)
             except Exception as e:
-                print(f"[Worker] Write error: {e}, recycling worker...")
+                print(f"[Worker] Write error: {e}, recycling worker...", flush=True)
                 self._start_worker()
                 self.proc.stdin.write(json.dumps(payload) + "\n")
                 self.proc.stdin.flush()
+                print(f"[Worker] Prompt resent to new agy ({len(prompt)} chars)...", flush=True)
 
             start_t = time.time()
             response_text = ""
             total_tokens = 0
 
             while time.time() - start_t < timeout:
+                if self.proc.poll() is not None:
+                    raise RuntimeError("Agy worker process terminated unexpectedly.")
+
+                rlist, _, _ = select.select([self.proc.stdout], [], [], 0.5)
+                if not rlist:
+                    continue
+
                 line = self.proc.stdout.readline()
                 if not line:
-                    if self.proc.poll() is not None:
-                        raise RuntimeError("Agy worker process terminated unexpectedly.")
-                    time.sleep(0.04)
                     continue
 
                 line = line.strip()
@@ -145,6 +164,8 @@ class AgyWorker:
                 try:
                     data = json.loads(line)
                     evt = data.get("event")
+                    if evt != "step_update":
+                        print(f"[Worker] Evt: {evt}", flush=True)
                     if evt == "result":
                         res = data.get("result", {})
                         if res.get("status") == "ERROR":
@@ -160,7 +181,7 @@ class AgyWorker:
                     continue
 
             if not response_text and time.time() - start_t >= timeout:
-                print("[Worker] Timeout reached, terminating worker...")
+                print("[Worker] Timeout reached, terminating worker...", flush=True)
                 self.kill()
                 raise TimeoutError("Agy response timed out.")
 
@@ -214,16 +235,25 @@ class WorkerPool:
         while True:
             time.sleep(1.5)
             self.check_token_update()
+
+            needs_standby = False
             with self.pool_lock:
                 if self.standby_worker is None or not self.standby_worker.is_alive():
-                    try:
-                        t0 = time.time()
-                        w = AgyWorker()
-                        if w.is_alive():
-                            self.standby_worker = w
-                            print(f"[Pool] Standby warm worker ready in {round(time.time()-t0, 2)}s.")
-                    except Exception as e:
-                        print(f"[Pool] Standby worker init error: {e}")
+                    needs_standby = True
+
+            if needs_standby:
+                try:
+                    t0 = time.time()
+                    w = AgyWorker()
+                    if w.is_alive():
+                        with self.pool_lock:
+                            if self.standby_worker is None or not self.standby_worker.is_alive():
+                                self.standby_worker = w
+                                print(f"[Pool] Standby warm worker ready in {round(time.time()-t0, 2)}s.", flush=True)
+                            else:
+                                w.kill()
+                except Exception as e:
+                    print(f"[Pool] Standby worker init error: {e}", flush=True)
 
     def _cleanup_loop(self):
         """Cleans up inactive sessions every 60 seconds (inactivity > 15 min)."""
@@ -236,21 +266,19 @@ class WorkerPool:
                     if now - worker.last_active > 900:  # 15 minutes
                         to_prune.append(key)
                 for key in to_prune:
-                    print(f"[Pool] Pruning expired session {key} (inactive > 15m).")
+                    print(f"[Pool] Pruning expired session {key} (inactive > 15m).", flush=True)
                     w = self.active_workers.pop(key, None)
                     if w:
                         w.kill()
 
     def _take_standby(self) -> AgyWorker:
-        w = None
         with self.pool_lock:
             if self.standby_worker and self.standby_worker.is_alive():
                 w = self.standby_worker
                 self.standby_worker = None
-        if w is None:
-            print("[Pool] Standby non prêt, démarrage synchrone du worker...")
-            w = AgyWorker()
-        return w
+                return w
+        print("[Pool] Standby non prêt, démarrage synchrone du worker...", flush=True)
+        return AgyWorker()
 
     def get_worker(self, session_key: str, message_count: int) -> AgyWorker:
         self.check_token_update()
@@ -259,15 +287,15 @@ class WorkerPool:
 
         if worker and worker.is_alive():
             # If conversation was cleared or restarted
-            if message_count <= 2 or message_count < worker.last_message_count:
-                print(f"[Pool] Session {session_key} reset detected. Re-assigning warm worker.")
+            if (message_count <= 2 and worker.turn_count > 0) or (worker.last_message_count > 0 and message_count < worker.last_message_count):
+                print(f"[Pool] Session {session_key} reset detected. Re-assigning warm worker.", flush=True)
                 worker.kill()
                 worker = self._take_standby()
                 with self.pool_lock:
                     self.active_workers[session_key] = worker
             return worker
 
-        print(f"[Pool] Assigning worker to session: {session_key}")
+        print(f"[Pool] Assigning worker to session: {session_key}", flush=True)
         worker = self._take_standby()
         with self.pool_lock:
             self.active_workers[session_key] = worker

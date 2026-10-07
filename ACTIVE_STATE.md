@@ -65,7 +65,13 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
     - Sur page HTTPS (Lovable, Vercel, domaine de prod) : cible prioritairement `https://waha.velarisagent.life/v1/chat/completions`.
     - En local (`localhost:8080`) : utilise le proxy Vite `/api/local-llm/chat/completions` avec fallback immédiat sur `http://127.0.0.1:4041/v1/chat/completions`.
   - Résilience aux statuts HTTP : interception transparente des erreurs 404 et 405 pour tester automatiquement le niveau suivant au lieu de planter le chat.
-- **Cache v11 & Validation** :
+- **Durcissement du Daemon Résident (`scripts/velaris_ai_daemon.py`)** :
+  - Élimination des fuites de variables d'environnement de session parent (`ANTIGRAVITY_*`) dans les sous-processus `agy`.
+  - Redirection non-bloquante de `stderr` vers `subprocess.DEVNULL` pour prévenir tout gel de buffer de tube OS (évitement de deadlock).
+  - Découplage de `self.pool_lock` lors de l'instanciation des workers pour zéro contention sur les requêtes entrantes.
+  - Vitesse validée en multi-tours : Turn 1 en 4.8s, Turn 2 en 3.3s, Turn 3 en 4.1s.
+- **Validation Finale & Cache v11** :
+  - Test en direct de bout en bout validé via `https://waha.velarisagent.life/v1/chat/completions` avec succès.
   - Clé de configuration bumpée à `velaris_agent_config_v11` avec purge automatique des versions `v1` à `v10`.
   - Build de production Vite & TypeScript sans aucune erreur (`dist/index.html` et bundles générés en 4.47s).
 

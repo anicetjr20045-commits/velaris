@@ -19,7 +19,7 @@ if curl -s "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
 fi
 
 echo "🚀 Lancement de Velaris AI Daemon sur le port $PORT..."
-setsid python3 "$PROJECT_DIR/scripts/velaris_ai_daemon.py" > "$LOG_FILE" 2>&1 &
+setsid python3 -u "$PROJECT_DIR/scripts/velaris_ai_daemon.py" > "$LOG_FILE" 2>&1 &
 PID=$!
 echo $PID > "$PID_FILE"
 echo "📌 PID enregistré : $PID (Logs : $LOG_FILE)"
