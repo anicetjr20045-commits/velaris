@@ -60,7 +60,7 @@ export interface AgentConfig {
   studioName: string;
   role: string;
   systemPrompt: string;
-  provider: 'local_smart' | 'deepseek' | 'gemini' | 'openai';
+  provider: 'local_agy' | 'deepseek' | 'gemini' | 'openai';
   model: string;
   apiKey: string;
   temperature: number;
@@ -146,9 +146,9 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   studioName: 'Velaris Studio',
   role: 'Conseiller Vente WhatsApp',
   systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE,
-  provider: 'deepseek',
-  model: 'deepseek-chat',
-  apiKey: 'sk-b0634dca8dcb4a868c7ba4ba15117f7f',
+  provider: 'local_agy',
+  model: 'gemini-3.8-flash-low',
+  apiKey: '',
   temperature: 0.3,
   tariffs: {
     decouvertePrice: '1 200',
@@ -244,10 +244,10 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v9';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v10';
 
 export const PlaygroundView: FC = () => {
-  // 1. Configuration persistante de l'Agent IA (initialisée avec le modèle officiel Velaris & DeepSeek)
+  // 1. Configuration persistante de l'Agent IA (initialisée avec le Daemon Résident Local 0€)
   const [config, setConfig] = useState<AgentConfig>(() => {
     try {
       localStorage.removeItem('velaris_agent_config_v1');
@@ -258,6 +258,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v6');
       localStorage.removeItem('velaris_agent_config_v7');
       localStorage.removeItem('velaris_agent_config_v8');
+      localStorage.removeItem('velaris_agent_config_v9');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -590,7 +591,58 @@ export const PlaygroundView: FC = () => {
       .replace(/{PRIX_DECOUVERTE}/g, config.tariffs.decouvertePrice || '1 200')
       .replace(/{PRIX_PRESTIGE}/g, config.tariffs.prestigePrice || '3 000');
 
-    if (config.apiKey && config.provider !== 'local_smart') {
+    if (config.provider === 'local_agy') {
+      try {
+        const proxyUrl = '/api/local-llm/chat/completions';
+        const directUrl = 'http://127.0.0.1:4041/v1/chat/completions';
+
+        const requestBody = JSON.stringify({
+          model: config.model || 'gemini-3.8-flash-low',
+          conversationId: clientPhone,
+          messages: [
+            { role: 'system', content: effectiveSystemPrompt },
+            ...history.map((h) => ({
+              role: h.role === 'user' ? 'user' : 'assistant',
+              content: h.content,
+            })),
+          ],
+        });
+
+        let res: Response | null = null;
+        try {
+          res = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody,
+          });
+        } catch {
+          res = await fetch(directUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: requestBody,
+          });
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          const reply = data.choices?.[0]?.message?.content?.trim();
+          if (reply) {
+            generatedTexts = reply.split(/\n\n+/).filter(Boolean);
+          }
+        } else if (res) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData.error?.message || `Erreur HTTP ${res.status}`;
+          generatedTexts = [
+            `[Alerte Daemon Velaris : ${errMsg}] (Vérifiez le statut du service avec 'bash scripts/status_daemon.sh').`,
+          ];
+        }
+      } catch (err) {
+        console.warn('Échec appel Daemon Velaris :', err);
+        generatedTexts = [
+          `[Alerte Daemon Velaris : Le service local sur le port 4041 n'est pas joignable. Lancez 'bash scripts/start_daemon.sh' sur le serveur pour activer l'IA résidente gratuite 0€].`,
+        ];
+      }
+    } else if (config.apiKey) {
       try {
         if (config.provider === 'deepseek') {
           const res = await fetch('https://api.deepseek.com/chat/completions', {
@@ -696,7 +748,7 @@ export const PlaygroundView: FC = () => {
         ];
       } else {
         generatedTexts = [
-          `[Mode simulation locale] Le prompt système est actif (${config.systemPrompt.length} caractères). Pour que l'agent génère des réponses dynamiques en direct selon vos consignes, saisissez votre clé d'API (DeepSeek, Gemini ou OpenAI) dans l'onglet Moteur.`,
+          `[Mode simulation locale] Le prompt système est actif (${config.systemPrompt.length} caractères). Pour que l'agent génère des réponses dynamiques en direct selon vos consignes, activez le Daemon Local 0€ ou renseignez votre clé d'API dans l'onglet Moteur.`,
         ];
       }
     }
@@ -764,7 +816,7 @@ export const PlaygroundView: FC = () => {
               <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight">Playground Studio WhatsApp</h1>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Agent : {config.agentName} ({config.provider === 'local_smart' ? 'Moteur Libre' : config.provider})
+                Agent : {config.agentName} ({config.provider === 'local_agy' ? 'Daemon 0€' : config.provider})
               </span>
             </div>
             <p className="text-xs text-neutral-400 hidden sm:block">
@@ -1392,21 +1444,33 @@ export const PlaygroundView: FC = () => {
                       value={config.provider}
                       onChange={(e) => {
                         const prov = e.target.value as any;
-                        let defModel = 'deepseek-chat';
+                        let defModel = 'gemini-3.8-flash-low';
+                        if (prov === 'deepseek') defModel = 'deepseek-chat';
                         if (prov === 'gemini') defModel = 'gemini-1.5-flash';
                         if (prov === 'openai') defModel = 'gpt-4o-mini';
                         handleSaveConfig({ ...config, provider: prov, model: defModel });
                       }}
                       className="w-full h-9 px-3 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                     >
-                      <option value="local_smart">Moteur Libre Local (Aucune clé requise)</option>
+                      <option value="local_agy">Daemon Local 0€ (Gemini Flash Résident - Illimité)</option>
                       <option value="deepseek">DeepSeek (API deepseek-chat)</option>
                       <option value="gemini">Google Gemini (gemini-1.5-flash / gemini-2.0-flash)</option>
                       <option value="openai">OpenAI (gpt-4o-mini)</option>
                     </select>
                   </div>
 
-                  {config.provider !== 'local_smart' && (
+                  {config.provider === 'local_agy' ? (
+                    <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[11px] font-semibold text-emerald-400">Daemon Résident Velaris (Port 4041)</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-300 ml-auto">0€ Illimité</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-300 leading-relaxed">
+                        Inférence instantanée via le moteur résident <span className="font-mono text-emerald-300">gemini-3.8-flash-low</span>. Aucune clé API payante requise, session persistante et zéro risque de coupure de solde.
+                      </p>
+                    </div>
+                  ) : (
                     <>
                       <div>
                         <label className="text-[11px] text-neutral-400 block mb-1">Nom du Modèle :</label>

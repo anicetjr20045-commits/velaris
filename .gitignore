@@ -33,3 +33,11 @@ dist-ssr
 *.sh
 *.txt
 serve.js
+
+# Allow production daemon scripts
+!scripts/
+!scripts/**
+
+# Scratch and runtime data
+scratch/
+*.pid
