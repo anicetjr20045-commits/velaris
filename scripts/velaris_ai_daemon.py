@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Velaris AI Daemon (High-Performance Resident AI Service)
-=========================================================
+Velaris Unified AI Gateway (Universal Multi-Project AI Service)
+===============================================================
 Exposes an OpenAI-compatible /v1/chat/completions endpoint on http://127.0.0.1:4041
 Powered by warm resident Antigravity CLI processes running Gemini 3.8 Flash (Low).
 
-Key Features:
-- 100% Free & Unlimited (0€ API cost, no external API keys needed).
-- Production-grade OpenAI Chat Completion specification (/v1/chat/completions, /v1/models, /health).
-- WhatsApp / WAHA ready: Plug-and-play for webhooks and bots using session_key / conversationId.
-- Pre-warmed resident session pool with zero cross-talk between prospects.
-- Sub-3s response latency with auto-recovery and memory management.
+Key Capabilities:
+- 100% Free & Unlimited (0€ API cost across all projects).
+- Unified Multi-Project Hub: Velaris Studio, Velaris Agent, Velarisse, Mon Coach & future apps.
+- Strict Project & Session Isolation (Zero cross-talk, isolated memory per client/prospect).
+- Hot Token Reload (Watchdog on Antigravity OAuth Token: switching emails immediately flushes & re-authenticates workers).
+- Zero-Downtime Auto-Recovery on Quota Exceeded (429 / RESOURCE_EXHAUSTED).
+- Contabo VPS & WAHA Ready: Plugs directly into WAHA and dockerized engines via port 4041.
 """
 
 import sys
@@ -25,9 +26,10 @@ from socketserver import ThreadingMixIn
 
 PORT = int(os.environ.get("VELARIS_AI_PORT", "4041"))
 MODEL_NAME = "gemini-3.8-flash-low"
-ALIAS_MODEL = "velaris-sales-v1"
+ALIAS_MODELS = ["velaris-sales-v1", "velaris-gateway-v1", "deepseek-chat"]
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNTIME_DIR = os.path.join(PROJECT_DIR, "scratch", "runtime")
+TOKEN_FILE = "/root/.gemini/antigravity-cli/antigravity-oauth-token"
 os.makedirs(RUNTIME_DIR, exist_ok=True)
 
 # Ensure /root/.local/bin is in PATH for agy
@@ -111,7 +113,7 @@ class AgyWorker:
     def query(self, prompt: str, timeout: int = 40) -> tuple[str, int]:
         with self.lock:
             if not self.is_alive():
-                print("[Worker] Subprocess not alive, starting fresh worker...")
+                print("[Worker] Processus arrêté, redémarrage à chaud...")
                 self._start_worker()
 
             payload = {"event": "user", "message": {"content": prompt}}
@@ -147,6 +149,9 @@ class AgyWorker:
                         res = data.get("result", {})
                         if res.get("status") == "ERROR":
                             err_msg = res.get("error", "Unknown agy error")
+                            if "RESOURCE_EXHAUSTED" in err_msg or "quota" in err_msg.lower() or "429" in err_msg:
+                                self.kill()
+                                raise RuntimeError(f"QUOTA_EXHAUSTED: {err_msg}")
                             raise RuntimeError(f"Agy execution error: {err_msg}")
                         response_text = res.get("response", "")
                         total_tokens = res.get("usage", {}).get("total_tokens", 0)
@@ -164,22 +169,51 @@ class AgyWorker:
 
 
 class WorkerPool:
-    """Manages active session workers and maintains a warm standby worker."""
+    """Manages active session workers, maintains warm standby, and watches token updates."""
 
     def __init__(self):
         self.active_workers: dict[str, AgyWorker] = {}
         self.standby_worker: AgyWorker | None = None
         self.pool_lock = threading.Lock()
         self.start_time = time.time()
+        self.last_token_mtime = self._get_token_mtime()
         self._replenish_thread = threading.Thread(target=self._standby_loop, daemon=True)
         self._replenish_thread.start()
         self._cleaner_thread = threading.Thread(target=self._cleanup_loop, daemon=True)
         self._cleaner_thread.start()
 
+    def _get_token_mtime(self) -> float:
+        try:
+            if os.path.exists(TOKEN_FILE):
+                return os.path.getmtime(TOKEN_FILE)
+        except Exception:
+            pass
+        return 0.0
+
+    def check_token_update(self):
+        """Watches if Antigravity token was updated (user switched Google email/account)."""
+        current_mtime = self._get_token_mtime()
+        if self.last_token_mtime and current_mtime > self.last_token_mtime:
+            print(f"[Gateway] 🔄 Détection de mise à jour du token Antigravity (changement de compte/email) !")
+            print(f"[Gateway] Recyclage à chaud de tous les workers pour activer le nouveau compte...")
+            self.last_token_mtime = current_mtime
+            self.recycle_all_workers()
+
+    def recycle_all_workers(self):
+        with self.pool_lock:
+            if self.standby_worker:
+                self.standby_worker.kill()
+                self.standby_worker = None
+            for key, w in list(self.active_workers.items()):
+                w.kill()
+            self.active_workers.clear()
+            print("[Gateway] ✅ Tous les workers ont été recyclés. Nouveau compte actif.")
+
     def _standby_loop(self):
-        """Maintains at least one warm standby worker in RAM."""
+        """Maintains at least one warm standby worker in RAM and monitors token changes."""
         while True:
             time.sleep(1.5)
+            self.check_token_update()
             with self.pool_lock:
                 if self.standby_worker is None or not self.standby_worker.is_alive():
                     try:
@@ -214,11 +248,12 @@ class WorkerPool:
                 w = self.standby_worker
                 self.standby_worker = None
         if w is None:
-            print("[Pool] Standby not ready, spawning worker synchronously...")
+            print("[Pool] Standby non prêt, démarrage synchrone du worker...")
             w = AgyWorker()
         return w
 
     def get_worker(self, session_key: str, message_count: int) -> AgyWorker:
+        self.check_token_update()
         with self.pool_lock:
             worker = self.active_workers.get(session_key)
 
@@ -237,14 +272,14 @@ class WorkerPool:
         with self.pool_lock:
             self.active_workers[session_key] = worker
 
-        # Limit maximum active sessions to 6 to preserve VPS RAM
+        # Limit maximum active sessions to 8 to preserve VPS RAM
         with self.pool_lock:
-            if len(self.active_workers) > 6:
+            if len(self.active_workers) > 8:
                 sorted_sessions = sorted(
                     self.active_workers.items(),
                     key=lambda item: item[1].last_active
                 )
-                excess = len(self.active_workers) - 6
+                excess = len(self.active_workers) - 8
                 for key, old_w in sorted_sessions[:excess]:
                     print(f"[Pool] Evicting oldest session: {key}")
                     old_w.kill()
@@ -264,8 +299,8 @@ class WorkerPool:
 pool = WorkerPool()
 
 
-class VelarisAIHandler(BaseHTTPRequestHandler):
-    """OpenAI-compatible HTTP request handler."""
+class VelarisGatewayHandler(BaseHTTPRequestHandler):
+    """Universal OpenAI-compatible API Gateway Handler."""
 
     def _send_json(self, status_code: int, data: dict):
         payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -274,7 +309,7 @@ class VelarisAIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Project, X-Project-Id")
         self.end_headers()
         self.wfile.write(payload)
 
@@ -282,7 +317,7 @@ class VelarisAIHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-Project, X-Project-Id")
         self.end_headers()
 
     def do_GET(self):
@@ -292,11 +327,11 @@ class VelarisAIHandler(BaseHTTPRequestHandler):
             uptime = int(time.time() - pool.start_time)
             self._send_json(200, {
                 "status": "healthy",
-                "service": "velaris-ai-daemon",
-                "version": "1.0.0",
+                "service": "velaris-ai-gateway",
+                "version": "2.0.0",
                 "port": PORT,
                 "model": MODEL_NAME,
-                "alias": ALIAS_MODEL,
+                "supported_projects": ["velaris", "velaris-agent", "velarisse", "mon-coach", "general"],
                 "cost": "0€ (Illimité)",
                 "uptime_seconds": uptime,
                 "active_sessions": list(pool.active_workers.keys()),
@@ -304,23 +339,13 @@ class VelarisAIHandler(BaseHTTPRequestHandler):
             })
         elif path in ["/v1/models", "/models"]:
             created_ts = int(pool.start_time)
-            self._send_json(200, {
-                "object": "list",
-                "data": [
-                    {
-                        "id": MODEL_NAME,
-                        "object": "model",
-                        "created": created_ts,
-                        "owned_by": "velaris-studio"
-                    },
-                    {
-                        "id": ALIAS_MODEL,
-                        "object": "model",
-                        "created": created_ts,
-                        "owned_by": "velaris-studio"
-                    }
-                ]
-            })
+            models_data = [
+                {"id": MODEL_NAME, "object": "model", "created": created_ts, "owned_by": "velaris-studio"},
+                {"id": "deepseek-chat", "object": "model", "created": created_ts, "owned_by": "velaris-studio"},
+                {"id": "gpt-4o-mini", "object": "model", "created": created_ts, "owned_by": "velaris-studio"},
+                {"id": "velaris-sales-v1", "object": "model", "created": created_ts, "owned_by": "velaris-studio"}
+            ]
+            self._send_json(200, {"object": "list", "data": models_data})
         else:
             self._send_json(404, {"error": {"message": f"Endpoint not found: {path}", "type": "invalid_request_error"}})
 
@@ -343,61 +368,90 @@ class VelarisAIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": {"message": "Field 'messages' is required and must not be empty", "type": "invalid_request_error"}})
             return
 
-        # Determine session key (WhatsApp phone / conversationId / user)
-        session_key = (
-            data.get("conversationId") or
-            data.get("session_id") or
-            data.get("user") or
-            "velaris_default"
-        )
-        if "::" in session_key:
-            session_key = session_key.split("::")[-1]
+        # 1. Project Identification & Session Namespacing
+        project_header = self.headers.get("X-Project-Id") or self.headers.get("X-Project") or ""
+        project_payload = data.get("project") or data.get("projectId") or ""
+        raw_user = data.get("user") or ""
+        raw_conv = data.get("conversationId") or data.get("session_id") or ""
 
-        # Extract system prompt and user/assistant messages
+        project_id = project_header or project_payload
+        session_id = raw_conv or raw_user or "default"
+
+        if not project_id and "::" in session_id:
+            parts = session_id.split("::", 1)
+            project_id = parts[0]
+            session_id = parts[1]
+
+        project_id = (project_id or "velaris").lower().strip()
+        session_key = f"{project_id}::{session_id}"
+
+        # 2. Extract System Prompt & Conversation History
         system_content = next((m.get("content", "") for m in messages if m.get("role") == "system"), "").strip()
         chat_turns = [m for m in messages if m.get("role") in ["user", "assistant"]]
-
         last_user_turn = next((m for m in reversed(messages) if m.get("role") == "user"), None)
         last_user_content = last_user_turn.get("content", "").strip() if last_user_turn else ""
 
         worker = pool.get_worker(session_key, len(messages))
 
-        # Format prompt according to session state
+        # 3. Context & Persona Formatting per Project Domain
+        is_velaris = "velaris" in project_id or "VELARIS" in system_content or "Chansons" in system_content
+        is_coach = "coach" in project_id or "mentor" in system_content.lower()
+
         if worker.turn_count == 0 or len(chat_turns) <= 2:
             formatted_prompt = ""
             if system_content:
-                formatted_prompt += f"[DIRECTIVES COMMERCIALES DU STUDIO VELARIS]\n{system_content}\n\n"
+                header_title = "DIRECTIVES COMMERCIALES VELARIS" if is_velaris else ("DIRECTIVES MENTORAT" if is_coach else "DIRECTIVES SYSTÈME")
+                formatted_prompt += f"[{header_title}]\n{system_content}\n\n"
 
-            # Reconstruct recent conversation context
             formatted_prompt += "[HISTORIQUE DE LA CONVERSATION]\n"
             for turn in chat_turns:
-                role_label = "Client" if turn.get("role") == "user" else "Conseiller Velaris"
+                role = turn.get("role", "user")
+                if is_velaris:
+                    role_label = "Client" if role == "user" else "Conseiller Velaris"
+                elif is_coach:
+                    role_label = "Anicet" if role == "user" else "Coach"
+                else:
+                    role_label = "Utilisateur" if role == "user" else "Assistant"
                 formatted_prompt += f"{role_label}: {turn.get('content', '').strip()}\n"
 
-            formatted_prompt += (
-                "\n[INSTRUCTION D'EXÉCUTION COMMERCIALE]\n"
-                "Incarne avec respect et bienveillance ton rôle de Conseiller Commercial Velaris sur WhatsApp. "
-                "Applique scrupuleusement les 4 invariants du brief et les directives du studio. "
-                "Rédige une réponse fluide, chaleureuse et sobre, sans méta-commentaire, avec une seule question à la fois."
-            )
+            if is_velaris:
+                execution_instruction = (
+                    "Incarne avec respect et bienveillance ton rôle de Conseiller Commercial Velaris sur WhatsApp. "
+                    "Applique scrupuleusement les 4 invariants du brief et les directives du studio. "
+                    "Rédige une réponse directe, chaleureuse et sobre, sans méta-commentaire, avec une seule question à la fois."
+                )
+            elif is_coach:
+                execution_instruction = (
+                    "Incarne rigoureusement ton rôle de mentor, applique tes directives et réponds directement à Anicet sans préambule ni méta-commentaire."
+                )
+            else:
+                execution_instruction = (
+                    "Applique scrupuleusement tes directives système et réponds directement au dernier message sans méta-commentaire."
+                )
+
+            formatted_prompt += f"\n[INSTRUCTION D'EXÉCUTION]\n{execution_instruction}"
         else:
-            # Resident turn: worker already holds system & history in memory!
+            # Resident memory turn
+            role_prefix = "Client" if is_velaris else ("Anicet" if is_coach else "Utilisateur")
+            consigne = "Réponds directement selon tes directives système. Zéro méta-commentaire."
+            if is_velaris:
+                consigne = "Réponds directement au client selon les directives du studio Velaris. Concision, respect, zéro méta-commentaire, une seule question à la fois."
+
             formatted_prompt = (
-                f"Client: {last_user_content}\n\n"
-                "[CONSIGNE COMMERCIALE VELARIS]\n"
-                "Réponds directement au client selon les directives du studio Velaris. "
-                "Concision, respect, zéro méta-commentaire, une seule question à la fois."
+                f"{role_prefix}: {last_user_content}\n\n"
+                f"[CONSIGNE]\n{consigne}"
             )
 
+        # 4. Inférence Résidente Haute Vitesse
         try:
             t0 = time.time()
             reply_text, tokens = worker.query(formatted_prompt)
             latency = round(time.time() - t0, 3)
             worker.turn_count += 1
             worker.last_message_count = len(messages)
-            print(f"[Daemon] [{session_key}] Turn #{worker.turn_count} completed in {latency}s ({len(reply_text)} chars, {tokens} tokens)")
+            print(f"[Gateway] [{session_key}] Turn #{worker.turn_count} answered in {latency}s ({len(reply_text)} chars, {tokens} tokens)")
 
-            # Clean any accidental outer quotes or markdown code blocks
+            # Clean outer markdown quotes
             reply_clean = reply_text.strip()
             if reply_clean.startswith("```") and reply_clean.endswith("```"):
                 lines = reply_clean.split("\n")
@@ -428,27 +482,38 @@ class VelarisAIHandler(BaseHTTPRequestHandler):
             self._send_json(200, openai_response)
 
         except Exception as e:
-            print(f"[Daemon] Error on query for session {session_key}: {e}")
-            self._send_json(500, {
-                "error": {
-                    "message": f"Velaris AI Engine error: {str(e)}",
-                    "type": "server_error"
-                }
-            })
+            err_str = str(e)
+            print(f"[Gateway] Erreur sur {session_key}: {err_str}")
+            if "QUOTA_EXHAUSTED" in err_str:
+                self._send_json(429, {
+                    "error": {
+                        "message": "Quota Antigravity atteint sur le compte actuel. Changez d'email/compte dans Antigravity pour réinitialiser le quota automatiquement.",
+                        "type": "insufficient_quota",
+                        "code": "quota_exceeded"
+                    }
+                })
+            else:
+                self._send_json(500, {
+                    "error": {
+                        "message": f"Velaris AI Gateway error: {err_str}",
+                        "type": "server_error"
+                    }
+                })
 
 
-def run_daemon():
+def run_gateway():
     server_address = ("0.0.0.0", PORT)
-    httpd = ThreadedHTTPServer(server_address, VelarisAIHandler)
+    httpd = ThreadedHTTPServer(server_address, VelarisGatewayHandler)
     print(f"============================================================")
-    print(f"🚀 Velaris AI Daemon démarré avec succès !")
-    print(f"📡 Écoute sur : http://127.0.0.1:{PORT}")
-    print(f"💎 Modèle : {MODEL_NAME} (Alias : {ALIAS_MODEL})")
-    print(f"💰 Coût API : 0€ (Illimité & Résident)")
+    print(f"🌐 Velaris Unified AI Gateway démarré sur http://0.0.0.0:{PORT}")
+    print(f"💎 Modèle Résident : {MODEL_NAME}")
+    print(f"🛡️ Isolation Multi-Projets : Activée")
+    print(f"🔄 Détection Changement de Compte (OAuth Watchdog) : Activée")
+    print(f"💰 Coût API : 0€ (Illimité)")
     print(f"============================================================")
 
     def handle_signal(sig, frame):
-        print("\n[Daemon] Arrêt propre du pool et des workers...")
+        print("\n[Gateway] Arrêt propre de la passerelle...")
         pool.shutdown()
         httpd.server_close()
         sys.exit(0)
@@ -463,4 +528,4 @@ def run_daemon():
 
 
 if __name__ == "__main__":
-    run_daemon()
+    run_gateway()

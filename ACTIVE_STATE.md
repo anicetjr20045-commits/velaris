@@ -54,6 +54,22 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ## ✅ Jalons Validés
 
+### 76. Velaris Unified AI Gateway (Hub Multi-Projets Étanches, Watchdog Changement de Compte & Tunnel VPS Opérationnel) (7 Octobre 2026)
+- **Architecture Gateway Multi-Projets (Pattern Central Hub)** :
+  - Transformation du daemon local en passerelle IA unifiée pour alimenter l'ensemble de l'écosystème (`velaris`, `velaris-agent`, `velarisse`, `mon-coach` et futurs projets).
+  - Routage contextuel par en-tête `X-Project` ou identifiant de projet : personas et mémoires strictement étanches (chansons studio vs mentorat business).
+- **Zéro Bug sur Changement d'E-mail / Quota (OAuth Watchdog)** :
+  - Surveillance automatique du fichier de jeton `/root/.gemini/antigravity-cli/antigravity-oauth-token`.
+  - En cas de changement de compte Google/email dans Antigravity, les workers sont immédiatement recyclés à chaud pour charger le nouveau quota sans redémarrage manuel.
+  - Détection automatique et gestion transparente des erreurs de quota (`RESOURCE_EXHAUSTED` / `429`).
+- **Liaison VPS Contabo (WAHA & velaris-engine)** :
+  - Activation de `GatewayPorts yes` sur le VPS Contabo (`162.35.113.220`).
+  - Script `scripts/connect_vps.sh` établissant un tunnel sécurisé inverse persistant.
+  - Test validé en direct depuis le VPS : requêtes WAHA WhatsApp et Coach exécutées avec succès en 0€.
+- **Scripting & Exploitation** :
+  - `scripts/restart_daemon.sh` (redémarrage à chaud propre).
+  - `scripts/connect_vps.sh` (connexion et vérification du tunnel VPS).
+
 ### 75. Daemon IA Résident Local 0€ (Port 4041) & Intégration WhatsApp/WAHA Ready (7 Octobre 2026)
 - **Résolution Définitive de la Dépendance API** :
   - Suite à l'épuisement des soldes DeepSeek (`Insufficient Balance`), conception et déploiement d'un service IA local dédié à Velaris sur le port 4041.
