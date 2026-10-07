@@ -8,19 +8,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (03:00 UTC)
-- **Statut Opérationnel** : **Jalon 69 Validé & Déployé** (Raffinement des 3 Piliers : Prénom Chanté au Refrain, Date/Âge Anniversaire, Option Discrétion Expéditeur, Cache Purge v4 & Build 100% Validé).
+- **Dernière mise à jour** : 7 Octobre 2026 (03:10 UTC)
+- **Statut Opérationnel** : **Jalon 70 Validé & Déployé** (Éradication Flatterie Artificielle, Pilotage Actif du Brief, Rassurance Déculpabilisante sur le Message, Cache v5 & Build Validé).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Mise en Service Active du Playground & Cache v4** :
-    - Clé de cache passée à `velaris_agent_config_v4` avec suppression automatique des caches obsolètes `v1`, `v2`, `v3` et fallback sécurisé si un prompt vide était présent.
-    - Prompt `VELARIS_CLOSING_PROMPT_TEMPLATE` enrichi pour exiger :
-      - Pilier 2 : Le prénom indispensable pour faire chanter le refrain si le client ne donne que le lien (« mon mari », « mon frère »), ainsi que la date ou l'âge si c'est un anniversaire ou événement daté.
-      - Pilier 3 : L'option discrétion proposée avec tact si l'expéditeur donne seulement un titre (« sa femme », « son frère ») : faire figurer son prénom ou rester discret (« de la part de ta femme »).
-    - Zéro émoji dans le prompt conformément aux directives de sobriété et d'absence de slop.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.35s, 0 erreur).
+  - **Mise en Service Active du Playground & Cache v5** :
+    - Clé de cache passée à `velaris_agent_config_v5` avec suppression automatique des caches obsolètes `v1`, `v2`, `v3`, `v4` et fallback sécurisé.
+    - Éradication de la fausse flatterie : interdiction des superlatifs forcés (« Waouh magnifique », « Quel beau prénom »), remplacement par un respect simple, sobre et authentique.
+    - Mener la conversation : l'agent ne laisse plus jamais de vide ; chaque bulle se termine par la question suivante du brief. Enchaînement immédiat sur la date/âge pour un anniversaire dès que le prénom est donné.
+    - Rassurance déculpabilisante (Pilier 3) : mention explicite que si le client n'a pas de message préparé, ce n'est pas grave, les auteurs du studio s'occupent d'écrire de très belles paroles personnalisées.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.44s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v4.
-  2. Valider le comportement sur les cas testés (ex: « c'est pour un anniversaire », « c'est pour mon mari », « c'est de la part de sa femme »).
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v5.
+  2. Tester les nouveaux enchaînements et vérifier la posture sobre, proactive et rassurante de l'agent.
 
 ---
 
@@ -37,6 +36,17 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 70. Éradication de la Flatterie Artificielle, Pilotage Actif & Rassurance Déculpabilisante (7 Octobre 2026)
+- **Posture Commerciale & Voix Humaine Vraie** :
+  - Suppression radicale des exclamations surjouées et des compliments mielleux. Ton digne, fraternel et direct ouest-africain.
+  - Pilotage obligatoire : l'agent tient fermement les rênes de la conversation, recadre avec bienveillance les digressions et termine toujours par la question de l'étape suivante.
+  - Dès réception du prénom pour un anniversaire : relance automatique et immédiate sur la date ou l'âge sans attendre que le client ne parle.
+- **Rassurance Déculpabilisante (Pilier 3)** :
+  - Décharge émotionnelle pour le client : s'il n'a pas de message particulier ou d'anecdote, les auteurs du studio prennent en charge toute l'écriture poétique.
+- **Cache v5 & Déploiement** :
+  - Migration de persistance vers `velaris_agent_config_v5` (purgeant `v1` à `v4`).
+  - Build Vite & TypeScript validé à 100% (4.44s, 0 erreur).
 
 ### 69. Raffinement des 3 Piliers de Briefing & Cache Purge v4 (7 Octobre 2026)
 - **Pilier 2 Enrichi (Destinataire & Prénom Chanté)** :
