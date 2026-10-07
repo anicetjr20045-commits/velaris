@@ -15,15 +15,15 @@ import { generateKieSong, deliverSongToWhatsApp, waitForKieSong } from './kie';
 import { getStudioCredits } from './billing';
 import { phoneMatches } from './supabase';
 
-const AUTOMATION_CONFIG_KEY = 'velaris_song_automation_config_v1';
+const AUTOMATION_CONFIG_KEY = 'velaris_song_automation_config_v2';
 
 export const SONG_TRIGGER_DEFAULT = '\u{1F3B5}'; // note de musique
 
 const DEFAULT_CONFIG: SongAutomationConfig = {
-  enabled: true,
+  enabled: false,
   reactionEmoji: SONG_TRIGGER_DEFAULT,
-  autoDeliverWhatsApp: true,
-  notifyOnComplete: true,
+  autoDeliverWhatsApp: false,
+  notifyOnComplete: false,
   ordersCreatedCount: 0,
 };
 

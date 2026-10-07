@@ -24,7 +24,6 @@ import {
   EyeOff,
   Cpu
 } from 'lucide-react';
-import { generateHouseStyleSong, detectOccasion } from '../services/lyricsCorpus';
 
 export interface ChatBubble {
   id: string;
@@ -79,42 +78,23 @@ export interface AgentConfig {
 }
 
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
-  agentName: 'Sarah',
-  studioName: 'Velaris Studio',
-  role: 'Conseillère Vente WhatsApp',
-  systemPrompt: `Tu es Sarah, conseillère clientèle chaleureuse et vendeuse experte pour Velaris Studio, un studio de chansons personnalisées en Afrique de l'Ouest.
-
-OBJECTIF COMMERCIAL :
-Accueillir le client avec respect et empathie, comprendre l'histoire de la personne à qui la chanson est dédiée, présenter nos offres claires et accompagner le client jusqu'au paiement sécurisé et à la livraison rapide.
-
-OFFRES DU STUDIO :
-- Formule Découverte : 1 200 F CFA (chanson complète enregistrée et masterisée en studio, prête en 18 minutes).
-- Formule Prestige : 3 000 F CFA (chanson complète + montage vidéo avec les photos souvenirs).
-
-PAIEMENT MOBILE MONEY :
-- Orange Money Burkina Faso : +226 05 77 73 08 (Wendyam Anicet junior Sekongo)
-- Wave Côte d'Ivoire : +225 07 00 00 00 00
-- Wave Sénégal : +221 77 123 45 67
-
-CONSIGNES DE COMMUNICATION :
-1. Parle avec une voix humaine, naturelle et bienveillante (style WhatsApp ouest-africain courtois).
-2. Ne fais jamais de réponses robotiques ou administratives froides.
-3. Pose une seule question à la fois pour ne pas submerger le client.
-4. Réponds toujours avec clarté aux questions sur les tarifs ou le fonctionnement.
-5. Sois concise (1 à 2 bulles naturelles par tour).`,
+  agentName: '',
+  studioName: '',
+  role: '',
+  systemPrompt: '',
   provider: 'local_smart',
   model: 'deepseek-chat',
   apiKey: '',
   temperature: 0.3,
   tariffs: {
-    decouvertePrice: '1 200',
-    prestigePrice: '3 000',
+    decouvertePrice: '',
+    prestigePrice: '',
   },
   payment: {
-    orangeMoneyBf: '+226 05 77 73 08 (Wendyam Anicet junior Sekongo)',
-    waveCi: '+225 07 00 00 00 00',
-    waveSn: '+221 77 123 45 67',
-    accountHolder: 'Wendyam Anicet junior Sekongo',
+    orangeMoneyBf: '',
+    waveCi: '',
+    waveSn: '',
+    accountHolder: '',
   },
 };
 
@@ -200,11 +180,14 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v2';
+
 export const PlaygroundView: FC = () => {
-  // 1. Configuration persistante de l'Agent IA
+  // 1. Configuration persistante de l'Agent IA (100% vierge par défaut)
   const [config, setConfig] = useState<AgentConfig>(() => {
     try {
-      const saved = localStorage.getItem('velaris_agent_config_v1');
+      localStorage.removeItem('velaris_agent_config_v1');
+      const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         return { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(saved) };
       }
@@ -263,7 +246,7 @@ export const PlaygroundView: FC = () => {
   const handleSaveConfig = (newCfg: AgentConfig) => {
     setConfig(newCfg);
     try {
-      localStorage.setItem('velaris_agent_config_v1', JSON.stringify(newCfg));
+      localStorage.setItem(AGENT_CONFIG_STORAGE_KEY, JSON.stringify(newCfg));
       setSaveFeedback(true);
       setTimeout(() => setSaveFeedback(false), 2000);
     } catch {
@@ -422,7 +405,7 @@ export const PlaygroundView: FC = () => {
       status: 'sent',
       mediaKind: 'audio',
       mediaDurationSec: durationSec,
-      mediaTranscript: "Bonjour Sarah, c'est pour l'anniversaire de ma mère Awa samedi prochain, elle aime la musique acoustique.",
+      mediaTranscript: "Bonjour, c'est pour l'anniversaire de ma mère Awa samedi prochain, elle aime la musique acoustique.",
     };
 
     setMessages((prev) => [...prev, voiceBubble]);
@@ -517,26 +500,6 @@ export const PlaygroundView: FC = () => {
     setIsAiThinking(true);
     const start = Date.now();
 
-    const inbounds = history.filter((m) => m.role === 'user');
-    const allInboundText = inbounds.map((m) => m.content).join(' ');
-    const lastInbound = inbounds[inbounds.length - 1];
-    const lastText = (lastInbound?.content || '').toLowerCase();
-
-    // Extraction passive (pour information dans l'inspecteur uniquement)
-    const nameMatch =
-      allInboundText.match(/(?:pour|de|fête|fete)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
-      allInboundText.match(/(?:nom(?:mé|mee)?|s['’]appelle|prénom|prenom)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
-      allInboundText.match(/\b(Awa|Fadila|Mariam|Marc|Laure|Grâce|Grace|Sarah|Christian|Yvonne|Kouassi|Alassane|El Hadj|Fatou|Seydou|Koffi)\b/i);
-    let resolvedRecipient = detectedRecipient;
-    if (nameMatch && nameMatch[1] && !/anniversaire|mariage|chanson|formule|combien/i.test(nameMatch[1])) {
-      resolvedRecipient = nameMatch[1].trim();
-      setDetectedRecipient(resolvedRecipient);
-    }
-
-    const detectedOcc = detectOccasion(allInboundText);
-    if (detectedOcc !== 'autre') {
-      setDetectedOccasionStr(detectedOcc);
-    }
 
     const newAssistantBubbles: ChatBubble[] = [];
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -624,117 +587,31 @@ export const PlaygroundView: FC = () => {
           }
         }
       } catch (err) {
-        console.warn('Échec appel API externe, repli sur le moteur local :', err);
+        console.warn('Échec appel API externe :', err);
       }
     }
 
-    // 2. Moteur Intelligent Neutre (sans règles d'interdiction rigides)
+    // 2. Traitement si aucune réponse API externe (100% neutre, aucune règle ni regex)
     if (generatedTexts.length === 0) {
-      // Détection des intentions naturelles sans verrous
-      const wantsPaymentCoords = /\b(sur quel|quelle numéro|sur quoi|comment payer|numéro wave|numero wave|numéro orange|numero de depot|numéro de dépôt|coordonnées|coordonnees|le dépôt|le depot)\b/i.test(lastText);
-      const claimsPaid = /\b(payé|paye|dépot fait|depot fait|transfert fait|capture|reçu|recu|voici le recu|envoyé le dépôt)\b/i.test(lastText);
-      const wantsLyrics = /\b(texte|paroles|écrire|ecrire|composer|générer|generer|chanson pour|version)\b/i.test(lastText) && !/\b(combien|prix)\b/i.test(lastText);
-      const wantsPrice = /\b(c'est combien|prix|tarifs?|tarif|combien ça coûte)\b/i.test(lastText);
-      const wantsSample = /\b(exemple|extrait|démo|demo|écouter|ecouter)\b/i.test(lastText);
-      const wantsVoiceExpl = /\b(procédure|procedure|comment ça se passe|comment vous travaillez|vocal)\b/i.test(lastText);
-
-      if (claimsPaid) {
+      if (!config.systemPrompt.trim()) {
         generatedTexts = [
-          `Paiement bien reçu avec un immense merci ! 🙏`,
-          `Votre commande passe immédiatement en production au studio. Vous recevrez la chanson terminée ici d'ici 18 minutes chrono ! 🎵⏳`,
-        ];
-        setMerchantAlerts((prev) => [
-          `Paiement signalé par ${clientName} (${clientPhone}) — Prise en charge studio active.`,
-          ...prev,
-        ]);
-      } else if (wantsPaymentCoords) {
-        let coord = '';
-        if (countryCode === 'BF') {
-          coord = `📱 Orange Money Burkina Faso :\n${config.payment.orangeMoneyBf}\nMontant : ${config.tariffs.decouvertePrice} F CFA (ou ${config.tariffs.prestigePrice} F CFA pour la formule Prestige)\n\nMerci d'envoyer la capture du SMS de dépôt après validation !`;
-        } else if (countryCode === 'SN') {
-          coord = `📱 Wave Sénégal :\n${config.payment.waveSn}\nMontant : ${config.tariffs.decouvertePrice} F CFA\n\nMerci d'envoyer la capture après transfert !`;
-        } else {
-          coord = `📱 Wave Côte d'Ivoire :\n${config.payment.waveCi}\nTitulaire : ${config.payment.accountHolder}\nMontant : ${config.tariffs.decouvertePrice} F CFA (ou ${config.tariffs.prestigePrice} F CFA)\n\nMerci d'envoyer la capture d'écran une fois effectué !`;
-        }
-        generatedTexts = [
-          `Voici nos coordonnées officielles pour le règlement :`,
-          coord,
-        ];
-      } else if (wantsSample) {
-        newAssistantBubbles.push({
-          id: `ai_${Date.now()}_sample`,
-          role: 'assistant',
-          content: '🎵 Extrait Démo Studio — Chanson Personnalisée Afro-pop',
-          timestamp: nowStr,
-          status: 'read',
-          mediaKind: 'sample',
-          mediaDurationSec: 45,
-          sampleTitle: 'Extrait Démo Studio · Afro-pop acoustique',
-        });
-        generatedTexts = [
-          `Avec plaisir ! Voici un extrait d'une de nos récentes créations studio. Nous personnalisons les voix et le style (Afro-pop, Zouk, Rumba, etc.) selon vos souhaits !`,
-        ];
-      } else if (wantsVoiceExpl) {
-        newAssistantBubbles.push({
-          id: `ai_${Date.now()}_voice`,
-          role: 'assistant',
-          content: '🎙️ Note vocale explicative du studio (procédure & composition)',
-          timestamp: nowStr,
-          status: 'read',
-          isProcedureVoice: true,
-          mediaKind: 'audio',
-          mediaDurationSec: 33,
-          mediaTranscript: `Bonjour et bienvenue chez ${config.studioName} ! Je suis ${config.agentName}. Nous composons votre chanson sur-mesure à partir de vos anecdotes. Une fois validée avec vous, nos artistes l'enregistrent en moins de 20 minutes chrono !`,
-        });
-        generatedTexts = [
-          `Je vous explique tout en détail dans cette note vocale ! Dites-moi dès que vous l'avez écoutée 😊`,
-        ];
-      } else if (wantsLyrics && resolvedRecipient) {
-        const generated = generateHouseStyleSong({
-          recipient: resolvedRecipient,
-          occasion: detectedOcc,
-          style: 'Afro-pop acoustique douce',
-          senderName: clientName,
-        });
-        setCurrentSongTitle(generated.title);
-        newAssistantBubbles.push({
-          id: `ai_${Date.now()}_lyrics`,
-          role: 'assistant',
-          content: generated.lyrics,
-          timestamp: nowStr,
-          status: 'read',
-          isLyricsCard: true,
-          lyricsData: {
-            minutes: 8,
-            title: generated.title,
-            lyrics: generated.lyrics,
-          },
-        });
-        generatedTexts = [
-          `Notre studio a préparé les paroles personnalisées pour ${resolvedRecipient} ! Voici votre texte :`,
-          `Prenez le temps de lire ces paroles et dites-moi si tout vous convient ou si vous souhaitez un ajustement particulier 😊`,
-        ];
-      } else if (wantsPrice) {
-        generatedTexts = [
-          `Bonjour ! Chez ${config.studioName}, nos tarifs sont très simples et transparents :\n\n• Formule Découverte : ${config.tariffs.decouvertePrice} F CFA (chanson complète enregistrée et masterisée en studio, prête en 18 minutes).\n• Formule Prestige : ${config.tariffs.prestigePrice} F CFA (chanson complète + montage vidéo avec vos photos souvenirs).\n\nPour qui aimeriez-vous créer cette surprise ? 😊`,
+          "L'agent IA est actuellement vierge (aucun prompt système configuré). Renseignez vos consignes dans l'onglet 'Prompt Système' pour définir son identité, ses règles et son comportement commercial.",
         ];
       } else {
         generatedTexts = [
-          `Bonjour et bienvenue chez ${config.studioName} ! 🙏 Je suis ${config.agentName}. C'est un réel plaisir de vous accompagner. Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ?`,
+          `[Mode simulation locale] Le prompt système est actif (${config.systemPrompt.length} caractères). Pour que l'agent génère des réponses dynamiques en direct selon vos consignes, saisissez votre clé d'API (DeepSeek, Gemini ou OpenAI) dans l'onglet Moteur.`,
         ];
       }
     }
 
     // Ajout des bulles de texte générées
     generatedTexts.forEach((text, i) => {
-      const isPayBlock = text.includes('📱') || text.includes('Orange Money') || text.includes('Wave');
       newAssistantBubbles.push({
         id: `ai_${Date.now()}_${i}`,
         role: 'assistant',
         content: text,
         timestamp: nowStr,
         status: 'read',
-        isPaymentBlock: isPayBlock,
       });
     });
 
@@ -743,11 +620,9 @@ export const PlaygroundView: FC = () => {
     // Distribution séquentielle avec délai de frappe WhatsApp réaliste
     for (let i = 0; i < newAssistantBubbles.length; i++) {
       const bubble = newAssistantBubbles[i];
-      const isVoice = bubble.isProcedureVoice || bubble.mediaKind === 'audio';
+      setAiPresenceState('typing');
 
-      setAiPresenceState(isVoice ? 'recording_audio' : 'typing');
-
-      const typingMs = isVoice ? 2200 : Math.min(2600, Math.max(1200, bubble.content.length * 18));
+      const typingMs = Math.min(2600, Math.max(1200, bubble.content.length * 18));
       await new Promise((r) => setTimeout(r, typingMs));
 
       setMessages((prev) => [...prev, bubble]);
@@ -1129,7 +1004,7 @@ export const PlaygroundView: FC = () => {
               </div>
             ))}
 
-            {/* Bulle de saisie en cours de Sarah */}
+            {/* Bulle de saisie en cours de l'agent */}
             {aiPresenceState !== 'idle' && (
               <div className="flex justify-start">
                 <div className="rounded-2xl px-4 py-2.5 bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 text-xs">
@@ -1328,7 +1203,7 @@ export const PlaygroundView: FC = () => {
                       value={config.agentName}
                       onChange={(e) => handleSaveConfig({ ...config, agentName: e.target.value })}
                       className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50"
-                      placeholder="Ex: Sarah, Alex..."
+                      placeholder="Ex: Nom de l'agent..."
                     />
                   </div>
                   <div>
@@ -1338,7 +1213,7 @@ export const PlaygroundView: FC = () => {
                       value={config.studioName}
                       onChange={(e) => handleSaveConfig({ ...config, studioName: e.target.value })}
                       className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50"
-                      placeholder="Ex: Velaris Studio..."
+                      placeholder="Ex: Nom du studio..."
                     />
                   </div>
                 </div>
@@ -1371,14 +1246,14 @@ export const PlaygroundView: FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setPromptDraft(DEFAULT_AGENT_CONFIG.systemPrompt);
-                        handleSaveConfig({ ...config, systemPrompt: DEFAULT_AGENT_CONFIG.systemPrompt });
+                        setPromptDraft('');
+                        handleSaveConfig({ ...config, systemPrompt: '' });
                       }}
-                      title="Restaurer le prompt modèle du studio"
+                      title="Réinitialiser à zéro"
                       className="h-8 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 text-xs flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       <RefreshCw className="w-3 h-3" />
-                      <span>Modèle Studio</span>
+                      <span>Réinitialiser</span>
                     </button>
                   </div>
 

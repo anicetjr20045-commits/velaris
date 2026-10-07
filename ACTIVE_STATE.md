@@ -8,19 +8,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (00:55 UTC)
-- **Statut Opérationnel** : **Jalon 66 100% Validé & Prêt pour Déploiement** (Éradication Totale des Règles en Dur & Agent IA Configurable de A à Z avec Prompt Système Live).
+- **Dernière mise à jour** : 7 Octobre 2026 (01:15 UTC)
+- **Statut Opérationnel** : **Jalon 67 100% Validé & Conforme Page Blanche Vierge** (Éradication Intégrale de Tout Prompt Système Prérempli, Zéro Regex, Zéro Arbre de Décision Codé en Dur, Zéro Automatisation Active).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Purge et Libération Totale de l'Agent IA** :
-    - Éradication intégrale des ~300 lignes d'embranchements conditionnels rigides (`isPaymentClaim`, `isTextValidation`, `isPriceQuestionOnly`, etc.) et des faux invariants (`INV-01 à INV-12`) dans [`PlaygroundView.tsx`](file:///root/projets/velaris/src/components/PlaygroundView.tsx).
-    - Neutralisation complète des censeurs restrictifs dans le moteur d'exécution ([`engine/src/guards/index.ts`](file:///root/projets/velaris/engine/src/guards/index.ts)).
-  - **Architecture de Configuration de l'Agent IA Déployée** :
-    - **Éditeur de Prompt Système en Direct** : Disponible dans l'Inspecteur Studio avec compteur de caractères, bouton *Page blanche* (pour vider intégralement et tester from scratch), bouton *Modèle Studio*, et persistance locale (`localStorage`).
-    - **Sélecteur de Moteur & Modèle Multi-Fournisseurs** : Support de *Local Autonome (sans clé)*, *DeepSeek (deepseek-chat)*, *Google Gemini (gemini-1.5-flash / gemini-2.0-flash)*, *OpenAI (gpt-4o-mini)* avec saisie sécurisée de la clé d'API.
-    - **Configuration Dynamique des Tarifs & Caisse** : Tarifs et coordonnées Mobile Money configurables en direct et injectés proprement dans les données de l'agent.
+  - **Audit & Purge Intégrale Réalisés avec Succès** :
+    - `DEFAULT_AGENT_CONFIG` réinitialisé à une page blanche absolue (aucun nom prérempli, aucun prompt système, aucun tarif ni coordonnée Mobile Money en dur).
+    - `runAgentTurn` épuré à 100% : suppression de toutes les regexes d'interception (`wantsPaymentCoords`, `claimsPaid`, `wantsLyrics`, `wantsPrice`, `wantsSample`, `wantsVoiceExpl`, `nameMatch`).
+    - Zéro réponse préprogrammée ou arbre de scénario imposé.
+    - `localStorage` migré vers `velaris_agent_config_v2` avec suppression active de `velaris_agent_config_v1` (pour vider automatiquement le cache de tout navigateur).
+    - `songAutomation.ts` désactivé par défaut (`enabled: false`, `autoDeliverWhatsApp: false`, `notifyOnComplete: false`).
+    - L'agent est 100% vierge et attend la saisie des consignes par l'utilisateur.
   - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 3.99s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Définir ensemble avec Anicet le prompt et les règles précises de l'agent IA à partir de la page blanche.
+  1. Paramétrer et configurer avec Anicet l'agent IA de A à Z (identité, style, règles de vente, seuils et comportement sur WhatsApp).
 
 ---
 
