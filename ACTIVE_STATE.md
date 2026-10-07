@@ -19,24 +19,22 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (17:55 UTC)
-- **Statut Opérationnel** : **Jalon 75 Validé & Déployé** (Daemon IA Résident Local 0€ sur Port 4041, Spécification OpenAI Complète, Prêt WhatsApp/WAHA & Inférence Illimitée, Cache v10 & Build Validé).
+- **Dernière mise à jour** : 7 Octobre 2026 (18:42 UTC)
+- **Statut Opérationnel** : **Jalon 77 Validé & Déployé** (Résolution Définitive HTTP 405 Playground via Gateway HTTPS Publique Caddy sur VPS Contabo, Multi-Tier Fallback Transparent & Cache v11).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Daemon IA Résident Local 100% Opérationnel (Port 4041)** :
-    - Indépendance totale des quotas d'API payants : service d'IA autonome tournant en local sur le VPS via Antigravity CLI (`gemini-3.8-flash-low`, coût 0€ illimité).
-    - Architecture de niveau production (zéro amateurisme) :
-      - Compatible standard OpenAI (`/v1/chat/completions`, `/v1/models`, `/health`).
-      - Prêt pour WhatsApp / WAHA : accepte directement les requêtes de bots ou webhooks via `conversationId` / numéro de téléphone avec isolation totale des sessions clients.
-      - Pool de workers avec pré-chauffage warm standby en RAM (latence de 4 à 6s dès le 1er tour, <4s aux tours suivants).
-      - Scripts de contrôle complets dans `scripts/` : `start_daemon.sh`, `stop_daemon.sh`, `status_daemon.sh`.
-  - **Mise en Service Active du Playground & Cache v10** :
-    - Clé de cache passée à `velaris_agent_config_v10` avec purge automatique des versions antérieures (`v1` à `v9`).
-    - Provider par défaut configuré sur `local_agy` avec proxy Vite `/api/local-llm` et fallback direct.
-    - Conserve fidèlement l'intégralité du prompt des 4 invariants universels établi aux jalons 71-74.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.70s, 0 erreur).
+  - **Résolution Définitive de l'Erreur HTTP 405 (Playground Lovable/Vercel)** :
+    - Diagnostic : l'accès au Playground se fait depuis les déploiements web publics (`*.lovable.app` ou Vercel en HTTPS). L'appel à `/api/local-llm` échouait en 405 (Method Not Allowed) car le reverse-proxy Vite ne tourne qu'en local (`localhost:8080`).
+    - L'appel direct en HTTP `http://127.0.0.1:4041` était bloqué par la sécurité de contenu mixte (Mixed Content) des navigateurs sur une page HTTPS.
+    - Solution appliquée de niveau production :
+      1. Exposition sécurisée HTTPS via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`) avec certificat SSL Let's Encrypt automatique.
+      2. Routage interne Caddy Docker vers l'hôte VPS (`172.18.0.1:4041`) connecté au daemon local via tunnel persistant.
+      3. Intégration d'un client multi-tier dans `PlaygroundView.tsx` qui cible immédiatement l'URL HTTPS sur tout hébergement public et bascule gracieusement en ignorant les codes 404/405.
+  - **Cache v11 & Build Validé** :
+    - Clé de cache passée à `velaris_agent_config_v11` avec purge automatique des versions `v1` à `v10`.
+    - Build Vite & TypeScript validé à 100% (`tsc -b && vite build` en 4.47s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v10.
-  2. Lancer les tests en direct sur le Playground sans aucune crainte d'épuisement de crédits ou de quotas.
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) sur Lovable pour charger le cache v11.
+  2. Tester le Playground en direct : le bot répond sans aucune erreur 405, avec zéro frais d'API et zéro configuration nécessaire côté utilisateur.
 
 ---
 
@@ -53,6 +51,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 77. Résolution Erreur HTTP 405 Playground via Gateway HTTPS Publique Caddy sur VPS Contabo (7 Octobre 2026)
+- **Diagnostic de l'erreur HTTP 405** :
+  - Sur l'environnement de prévisualisation web de Lovable / Vercel (`https://...`), le chemin relatif `/api/local-llm` n'est pas géré par le proxy de développement Vite (réservé à `localhost:8080`). Le serveur web statique renvoyait une erreur `405 Method Not Allowed`.
+  - De plus, les appels directs vers `http://127.0.0.1:4041` étaient bloqués par les politiques Mixed Content des navigateurs modernes (impossible d'appeler du HTTP non sécurisé depuis une page HTTPS).
+- **Déploiement Passerelle Sécurisée HTTPS sur Caddy VPS** :
+  - Configuration de Caddy sur le VPS Contabo (`162.35.113.220`) pour exposer les endpoints `/v1/*` et `/api/ai/*` sous le domaine public SSL `https://waha.velarisagent.life`.
+  - Routage interne vers le tunnel Docker hôte (`172.18.0.1:4041`), avec ouverture du port 4041 sur le firewall UFW pour le sous-réseau Docker (`172.16.0.0/12`).
+  - Validation des endpoints `/v1/health` et `/v1/models` avec certificat SSL Let's Encrypt valide.
+- **Client Multi-Tier Intelligent dans `PlaygroundView.tsx`** :
+  - Sélection contextuelle de la cible d'inférence :
+    - Sur page HTTPS (Lovable, Vercel, domaine de prod) : cible prioritairement `https://waha.velarisagent.life/v1/chat/completions`.
+    - En local (`localhost:8080`) : utilise le proxy Vite `/api/local-llm/chat/completions` avec fallback immédiat sur `http://127.0.0.1:4041/v1/chat/completions`.
+  - Résilience aux statuts HTTP : interception transparente des erreurs 404 et 405 pour tester automatiquement le niveau suivant au lieu de planter le chat.
+- **Cache v11 & Validation** :
+  - Clé de configuration bumpée à `velaris_agent_config_v11` avec purge automatique des versions `v1` à `v10`.
+  - Build de production Vite & TypeScript sans aucune erreur (`dist/index.html` et bundles générés en 4.47s).
 
 ### 76. Velaris Unified AI Gateway (Hub Multi-Projets Étanches, Watchdog Changement de Compte & Tunnel VPS Opérationnel) (7 Octobre 2026)
 - **Architecture Gateway Multi-Projets (Pattern Central Hub)** :

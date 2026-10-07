@@ -244,10 +244,10 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v10';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v11';
 
 export const PlaygroundView: FC = () => {
-  // 1. Configuration persistante de l'Agent IA (initialisée avec le Daemon Résident Local 0€)
+  // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
   const [config, setConfig] = useState<AgentConfig>(() => {
     try {
       localStorage.removeItem('velaris_agent_config_v1');
@@ -259,6 +259,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v7');
       localStorage.removeItem('velaris_agent_config_v8');
       localStorage.removeItem('velaris_agent_config_v9');
+      localStorage.removeItem('velaris_agent_config_v10');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -593,11 +594,13 @@ export const PlaygroundView: FC = () => {
 
     if (config.provider === 'local_agy') {
       try {
+        const publicHttpsGatewayUrl = 'https://waha.velarisagent.life/v1/chat/completions';
         const proxyUrl = '/api/local-llm/chat/completions';
-        const directUrl = 'http://127.0.0.1:4041/v1/chat/completions';
+        const directLocalUrl = 'http://127.0.0.1:4041/v1/chat/completions';
 
         const requestBody = JSON.stringify({
           model: config.model || 'gemini-3.8-flash-low',
+          project: 'velaris',
           conversationId: clientPhone,
           messages: [
             { role: 'system', content: effectiveSystemPrompt },
@@ -608,19 +611,37 @@ export const PlaygroundView: FC = () => {
           ],
         });
 
+        // Ordonnancement intelligent selon l'environnement (HTTPS distant vs HTTP localhost)
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const endpointsToTry = isHttps
+          ? [publicHttpsGatewayUrl, proxyUrl]
+          : [proxyUrl, directLocalUrl, publicHttpsGatewayUrl];
+
         let res: Response | null = null;
-        try {
-          res = await fetch(proxyUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: requestBody,
-          });
-        } catch {
-          res = await fetch(directUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: requestBody,
-          });
+        let lastFailureReason = '';
+
+        for (const url of endpointsToTry) {
+          try {
+            const attempt = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Project': 'velaris',
+              },
+              body: requestBody,
+            });
+
+            // Si le serveur renvoie 404 ou 405 (proxy non supporté sur l'hébergement courant), tester le endpoint suivant
+            if (attempt.status === 404 || attempt.status === 405) {
+              lastFailureReason = `HTTP ${attempt.status}`;
+              continue;
+            }
+
+            res = attempt;
+            break;
+          } catch (err: any) {
+            lastFailureReason = err?.message || 'Erreur réseau';
+          }
         }
 
         if (res && res.ok) {
@@ -634,6 +655,10 @@ export const PlaygroundView: FC = () => {
           const errMsg = errData.error?.message || `Erreur HTTP ${res.status}`;
           generatedTexts = [
             `[Alerte Daemon Velaris : ${errMsg}] (Vérifiez le statut du service avec 'bash scripts/status_daemon.sh').`,
+          ];
+        } else {
+          generatedTexts = [
+            `[Alerte Daemon Velaris : Service injoignable (${lastFailureReason})]. Vérifiez la passerelle avec 'bash scripts/status_daemon.sh' et la connexion VPS avec 'bash scripts/connect_vps.sh'.`,
           ];
         }
       } catch (err) {
