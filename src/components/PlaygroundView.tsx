@@ -7,25 +7,26 @@ import {
   Square,
   Play,
   Pause,
-  Check,
-  CheckCheck,
-  Zap,
   Phone,
   Radio,
   FileText,
   CreditCard,
   Music,
-  Bell,
   PanelRight,
   Sparkles,
-  Clock,
   ChevronDown,
   Paperclip,
-  ShieldCheck
+  Save,
+  Trash2,
+  RefreshCw,
+  Check,
+  Eye,
+  EyeOff,
+  Cpu
 } from 'lucide-react';
-import { generateHouseStyleSong, detectOccasion, type SongOccasion } from '../services/lyricsCorpus';
+import { generateHouseStyleSong, detectOccasion } from '../services/lyricsCorpus';
 
-interface ChatBubble {
+export interface ChatBubble {
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -46,7 +47,7 @@ interface ChatBubble {
   };
 }
 
-interface ScenarioPreset {
+export interface ScenarioPreset {
   id: string;
   title: string;
   clientName: string;
@@ -55,6 +56,67 @@ interface ScenarioPreset {
   firstMessages: string[];
   description: string;
 }
+
+export interface AgentConfig {
+  agentName: string;
+  studioName: string;
+  role: string;
+  systemPrompt: string;
+  provider: 'local_smart' | 'deepseek' | 'gemini' | 'openai';
+  model: string;
+  apiKey: string;
+  temperature: number;
+  tariffs: {
+    decouvertePrice: string;
+    prestigePrice: string;
+  };
+  payment: {
+    orangeMoneyBf: string;
+    waveCi: string;
+    waveSn: string;
+    accountHolder: string;
+  };
+}
+
+export const DEFAULT_AGENT_CONFIG: AgentConfig = {
+  agentName: 'Sarah',
+  studioName: 'Velaris Studio',
+  role: 'Conseillère Vente WhatsApp',
+  systemPrompt: `Tu es Sarah, conseillère clientèle chaleureuse et vendeuse experte pour Velaris Studio, un studio de chansons personnalisées en Afrique de l'Ouest.
+
+OBJECTIF COMMERCIAL :
+Accueillir le client avec respect et empathie, comprendre l'histoire de la personne à qui la chanson est dédiée, présenter nos offres claires et accompagner le client jusqu'au paiement sécurisé et à la livraison rapide.
+
+OFFRES DU STUDIO :
+- Formule Découverte : 1 200 F CFA (chanson complète enregistrée et masterisée en studio, prête en 18 minutes).
+- Formule Prestige : 3 000 F CFA (chanson complète + montage vidéo avec les photos souvenirs).
+
+PAIEMENT MOBILE MONEY :
+- Orange Money Burkina Faso : +226 05 77 73 08 (Wendyam Anicet junior Sekongo)
+- Wave Côte d'Ivoire : +225 07 00 00 00 00
+- Wave Sénégal : +221 77 123 45 67
+
+CONSIGNES DE COMMUNICATION :
+1. Parle avec une voix humaine, naturelle et bienveillante (style WhatsApp ouest-africain courtois).
+2. Ne fais jamais de réponses robotiques ou administratives froides.
+3. Pose une seule question à la fois pour ne pas submerger le client.
+4. Réponds toujours avec clarté aux questions sur les tarifs ou le fonctionnement.
+5. Sois concise (1 à 2 bulles naturelles par tour).`,
+  provider: 'local_smart',
+  model: 'deepseek-chat',
+  apiKey: '',
+  temperature: 0.3,
+  tariffs: {
+    decouvertePrice: '1 200',
+    prestigePrice: '3 000',
+  },
+  payment: {
+    orangeMoneyBf: '+226 05 77 73 08 (Wendyam Anicet junior Sekongo)',
+    waveCi: '+225 07 00 00 00 00',
+    waveSn: '+221 77 123 45 67',
+    accountHolder: 'Wendyam Anicet junior Sekongo',
+  },
+};
 
 const SCENARIOS: ScenarioPreset[] = [
   {
@@ -125,17 +187,6 @@ const SCENARIOS: ScenarioPreset[] = [
     ],
     description: "Teste les explications pour la diaspora (Wave international / Carte bancaire).",
   },
-  {
-    id: 'urgence_delai',
-    title: 'Koffi Assi (Client pressé — Délai 20 minutes)',
-    clientName: 'Koffi Assi',
-    country: 'CI',
-    phone: '+2250708091011',
-    firstMessages: [
-      "Bonjour Sarah ! L'anniversaire est aujourd'hui, vous pouvez livrer en combien de temps ?",
-    ],
-    description: "Teste la réassurance sur le délai d'enregistrement studio en 18 minutes.",
-  },
 ];
 
 const QUICK_TEST_SHORTCUTS = [
@@ -150,6 +201,24 @@ const QUICK_TEST_SHORTCUTS = [
 ];
 
 export const PlaygroundView: FC = () => {
+  // 1. Configuration persistante de l'Agent IA
+  const [config, setConfig] = useState<AgentConfig>(() => {
+    try {
+      const saved = localStorage.getItem('velaris_agent_config_v1');
+      if (saved) {
+        return { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(saved) };
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_AGENT_CONFIG;
+  });
+
+  const [promptDraft, setPromptDraft] = useState(config.systemPrompt);
+  const [saveFeedback, setSaveFeedback] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'prompt' | 'engine' | 'tariffs' | 'context'>('prompt');
+
   // Ligne Client simulée
   const [clientPhone, setClientPhone] = useState('+2250788776655');
   const [clientName, setClientName] = useState('Moussa Traoré');
@@ -162,37 +231,45 @@ export const PlaygroundView: FC = () => {
   const [aiPresenceState, setAiPresenceState] = useState<'idle' | 'typing' | 'recording_audio'>('idle');
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
-  // Système de Rafale / Debounce glissant 1.8s (Strictement conforme à WAHA)
+  // Système de Rafale / Debounce glissant 1.8s
   const [burstQueue, setBurstQueue] = useState<string[]>([]);
   const BURST_WINDOW_MS = 1800;
   const burstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // État du Brief & Tunnel commercial
+  // Mémoire contextuelle transparente
   const [detectedRecipient, setDetectedRecipient] = useState<string | null>(null);
   const [detectedOccasionStr, setDetectedOccasionStr] = useState<string | null>(null);
-  const [selectedOffer, setSelectedOffer] = useState<'1200' | '3000' | null>(null);
-  const [commercialStage, setCommercialStage] = useState<string>('ACCUEIL');
-  const [procedureVoiceSent, setProcedureVoiceSent] = useState<boolean>(false);
-  const [lyricsDelivered, setLyricsDelivered] = useState<boolean>(false);
-  const [paymentDelivered, setPaymentDelivered] = useState<boolean>(false);
   const [currentSongTitle, setCurrentSongTitle] = useState<string | null>(null);
   const [merchantAlerts, setMerchantAlerts] = useState<string[]>([]);
   const [latencyMs, setLatencyMs] = useState<number>(340);
 
-  // Enregistrement micro direct
+  // Audio & Micro
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const recordIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Lecteur audio interactif pour vocaux & démos
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioPlaybackRate, setAudioPlaybackRate] = useState<number>(1);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioGainRef = useRef<GainNode | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Synchronisation promptDraft avec la config
+  useEffect(() => {
+    setPromptDraft(config.systemPrompt);
+  }, [config.systemPrompt]);
+
+  // Sauvegarde dans localStorage
+  const handleSaveConfig = (newCfg: AgentConfig) => {
+    setConfig(newCfg);
+    try {
+      localStorage.setItem('velaris_agent_config_v1', JSON.stringify(newCfg));
+      setSaveFeedback(true);
+      setTimeout(() => setSaveFeedback(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   // Scroll automatique au fil de l'eau
   useEffect(() => {
@@ -210,7 +287,7 @@ export const PlaygroundView: FC = () => {
     else setClientPhone('+33612345678');
   };
 
-  // Synthèse d'un bip / pop subtil WhatsApp pour le réalisme
+  // Pop son WhatsApp
   const playPopSound = () => {
     try {
       if (typeof window === 'undefined') return;
@@ -220,8 +297,8 @@ export const PlaygroundView: FC = () => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08); // A5
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
       gain.gain.setValueAtTime(0.04, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
       osc.connect(gain);
@@ -229,11 +306,10 @@ export const PlaygroundView: FC = () => {
       osc.start();
       osc.stop(ctx.currentTime + 0.12);
     } catch {
-      // Ignorer si bloqué par la politique audio du navigateur
+      // Ignorer si audio bloqué
     }
   };
 
-  // Synthèse sonore pour l'écoute du vocal de procédure ou de l'extrait
   const playSynthesizedAcousticTrack = (audioId: string, durationSec = 15) => {
     if (playingAudioId === audioId) {
       stopSynthesizedAudio();
@@ -248,46 +324,52 @@ export const PlaygroundView: FC = () => {
       const ctx = new AudioCtx();
       audioContextRef.current = ctx;
 
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.06, ctx.currentTime);
-      gain.connect(ctx.destination);
-      audioGainRef.current = gain;
+      const chords = [
+        [220, 261.63, 329.63], // Am
+        [174.61, 220, 261.63], // F
+        [130.81, 164.81, 196], // C
+        [196, 246.94, 293.66], // G
+      ];
 
-      // Séquence d'arpège acoustique douce (Kora / Guitare)
-      const notes = [261.63, 329.63, 392.00, 523.25, 440.00, 329.63, 392.00, 293.66];
-      let noteIndex = 0;
+      const now = ctx.currentTime;
+      const barDuration = 2.4 / audioPlaybackRate;
+      const totalBars = Math.ceil(durationSec / barDuration);
 
-      const interval = setInterval(() => {
-        if (!audioContextRef.current) {
-          clearInterval(interval);
-          return;
-        }
-        const osc = ctx.createOscillator();
-        const noteGain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(notes[noteIndex % notes.length], ctx.currentTime);
-        noteGain.gain.setValueAtTime(0.05, ctx.currentTime);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        osc.connect(noteGain);
-        noteGain.connect(gain);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.4);
-        noteIndex++;
-      }, 240 / audioPlaybackRate);
+      for (let bar = 0; bar < totalBars; bar++) {
+        const chord = chords[bar % chords.length];
+        const barStart = now + bar * barDuration;
+
+        chord.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, barStart + idx * 0.1);
+
+          gain.gain.setValueAtTime(0.001, barStart + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.06, barStart + idx * 0.1 + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, barStart + (idx + 1) * 0.5);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(barStart + idx * 0.1);
+          osc.stop(barStart + (idx + 1) * 0.5 + 0.1);
+        });
+      }
 
       setTimeout(() => {
-        clearInterval(interval);
         stopSynthesizedAudio();
       }, (durationSec * 1000) / audioPlaybackRate);
-    } catch {
-      setPlayingAudioId(null);
+    } catch (err) {
+      console.warn('Audio non démarré :', err);
+      stopSynthesizedAudio();
     }
   };
 
   const stopSynthesizedAudio = () => {
     if (audioContextRef.current) {
       try {
-        void audioContextRef.current.close();
+        audioContextRef.current.close();
       } catch {
         // ignore
       }
@@ -296,27 +378,26 @@ export const PlaygroundView: FC = () => {
     setPlayingAudioId(null);
   };
 
-  // Enregistrement micro réel
+  // Enregistrement micro
   const startRecording = async () => {
     try {
+      stopSynthesizedAudio();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       mediaRecorderRef.current = mr;
-      audioChunksRef.current = [];
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-      mr.onstop = () => {
-        const duration = recordSeconds || 3;
-        sendDirectAudioMessage(duration);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      mr.start();
       setIsRecording(true);
       setRecordSeconds(0);
+
       recordIntervalRef.current = setInterval(() => {
-        setRecordSeconds((prev) => prev + 1);
+        setRecordSeconds((s) => s + 1);
       }, 1000);
+
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        sendDirectAudioMessage(Math.max(3, recordSeconds));
+      };
+
+      mr.start();
     } catch (err) {
       console.warn('Microphone inaccessible, envoi vocal simulé :', err);
       sendDirectAudioMessage(4);
@@ -348,7 +429,7 @@ export const PlaygroundView: FC = () => {
     handleInboundUserText(voiceBubble.mediaTranscript || "Note vocale de brief client");
   };
 
-  // Chargement d'un scénario pré-configuré
+  // Chargement d'un scénario
   const loadScenario = (sc: ScenarioPreset) => {
     stopSynthesizedAudio();
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
@@ -356,12 +437,7 @@ export const PlaygroundView: FC = () => {
     setMessages([]);
     setBurstQueue([]);
     setMerchantAlerts([]);
-    setProcedureVoiceSent(false);
-    setLyricsDelivered(false);
-    setPaymentDelivered(false);
-    setSelectedOffer(null);
     setCurrentSongTitle(null);
-    setCommercialStage('BRIEF');
     setClientName(sc.clientName);
     setCountryCode(sc.country);
     setClientPhone(sc.phone);
@@ -379,11 +455,11 @@ export const PlaygroundView: FC = () => {
 
     setMessages(initialBubbles);
     setTimeout(() => {
-      void runIntelligentTurn(initialBubbles);
+      void runAgentTurn(initialBubbles);
     }, 400);
   };
 
-  // Saisie utilisateur & Déclenchement de la fenêtre de rafale 1.8s
+  // Saisie utilisateur & Rafale
   const handleSendMessage = () => {
     if (!input.trim() || isAiThinking) return;
     const text = input.trim();
@@ -404,11 +480,9 @@ export const PlaygroundView: FC = () => {
 
     setMessages((prev) => [...prev, newBubble]);
 
-    // Ajout à la file de rafale
     const updatedBurst = [...burstQueue, text];
     setBurstQueue(updatedBurst);
 
-    // Annule le compte à rebours précédent : fenêtre de debounce glissante de 1.8s
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
 
     burstTimeoutRef.current = setTimeout(() => {
@@ -416,13 +490,11 @@ export const PlaygroundView: FC = () => {
     }, BURST_WINDOW_MS);
   };
 
-  // Traitement du vidage de la file de rafale
   const flushBurstQueue = (pendingItems: string[]) => {
     if (pendingItems.length === 0) return;
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
     setBurstQueue([]);
 
-    // 1. Passage réaliste des coches : Envoyé -> Délivré (gris) -> Lu (bleu)
     setMessages((prev) =>
       prev.map((m) => (m.role === 'user' && m.status === 'sent' ? { ...m, status: 'delivered' } : m))
     );
@@ -432,16 +504,15 @@ export const PlaygroundView: FC = () => {
         prev.map((m) => (m.role === 'user' && m.status === 'delivered' ? { ...m, status: 'read' } : m))
       );
 
-      // 2. Déclenchement du raisonnement et de la réponse
       setMessages((currentHistory) => {
-        void runIntelligentTurn(currentHistory);
+        void runAgentTurn(currentHistory);
         return currentHistory;
       });
-    }, 600);
+    }, 500);
   };
 
-  // Moteur d'IA WhatsApp complet, réactif et modulaire
-  const runIntelligentTurn = async (history: ChatBubble[]) => {
+  // Moteur d'IA générative dynamique : 100% gouverné par le prompt configuré
+  const runAgentTurn = async (history: ChatBubble[]) => {
     if (isAiThinking) return;
     setIsAiThinking(true);
     const start = Date.now();
@@ -451,327 +522,240 @@ export const PlaygroundView: FC = () => {
     const lastInbound = inbounds[inbounds.length - 1];
     const lastText = (lastInbound?.content || '').toLowerCase();
 
-    // 1. Extraction ciblée du prénom / destinataire
-    let recipient = detectedRecipient;
+    // Extraction passive (pour information dans l'inspecteur uniquement)
     const nameMatch =
       allInboundText.match(/(?:pour|de|fête|fete)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
       allInboundText.match(/(?:nom(?:mé|mee)?|s['’]appelle|prénom|prenom)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i) ||
       allInboundText.match(/\b(Awa|Fadila|Mariam|Marc|Laure|Grâce|Grace|Sarah|Christian|Yvonne|Kouassi|Alassane|El Hadj|Fatou|Seydou|Koffi)\b/i);
+    let resolvedRecipient = detectedRecipient;
     if (nameMatch && nameMatch[1] && !/anniversaire|mariage|chanson|formule|combien/i.test(nameMatch[1])) {
-      recipient = nameMatch[1].trim();
-      setDetectedRecipient(recipient);
+      resolvedRecipient = nameMatch[1].trim();
+      setDetectedRecipient(resolvedRecipient);
     }
 
-    // 2. Extraction de l'occasion
-    const occasion: SongOccasion = detectOccasion(allInboundText);
-    const occasionDisplay = occasion !== 'autre' ? occasion : 'Célébration sur-mesure';
-    setDetectedOccasionStr(occasionDisplay);
-
-    // 3. Détection des intentions clés du client
-    const isPaymentClaim = /\b(payé|paye|dépot fait|depot fait|transfert fait|capture|reçu|recu|voilà le reçu|voila le recu|voici le recu|envoyé le dépôt)\b/i.test(lastText);
-    const isTextValidation = /\b(valide|validé|valider|c'est bon|parfait|super|magnifique|j'adore|jadore|on garde|je prends le texte|le texte me va|on peut enregistrer)\b/i.test(lastText);
-    const isExplicitPaymentRequest = /\b(sur quel|quelle numéro|sur quoi|comment payer|numéro wave|numero wave|numéro orange|numero de depot|numéro de dépôt|coordonnées|coordonnees)\b/i.test(lastText);
-    const isOfferSelection = /\b(1\s*200|3\s*000|mille deux|trois mille|formule vidéo|modele video|chanson seule|formule prestige|formule decouverte)\b/i.test(lastText);
-    const isVocalAck = procedureVoiceSent && /\b(d'accord|ok|bien reçu|j'ai écouté|jai ecoute|compris|super|très bien)\b/i.test(lastText);
-    const isPriceQuestionOnly = !recipient && /\b(c'est combien|prix|tarifs?|tarif|combien ça coûte|c'est combien la chanson)\b/i.test(lastText);
-    const isSampleRequest = /\b(exemple|extrait|démo|demo|écouter|ecouter|déjà fait|deja fait|échantillon)\b/i.test(lastText);
-    const isDelayQuestion = /\b(combien de temps|délai|delai|prêt quand|pret quand|aujourd'hui|urgent|combien de minutes)\b/i.test(lastText);
-    const isDifferenceQuestion = /\b(différence|difference|pourquoi 3000|pourquoi 3 000|vidéo|video|la formule prestige)\b/i.test(lastText);
-    const isRevisionRequest = lyricsDelivered && /\b(modifier|modifie|changer|change|rajoute|ajoute|deuxième couplet|refrain|enlever)\b/i.test(lastText);
-    const isDiasporaQuestion = /\b(france|paris|étranger|etranger|diaspora|western union|carte bancaire|sendwave|ria)\b/i.test(lastText);
-    const isVoiceAuthenticityQuestion = /\b(vraie voix|robot|qui chante|chanteur|voix humaine|vrai chanteur)\b/i.test(lastText);
+    const detectedOcc = detectOccasion(allInboundText);
+    if (detectedOcc !== 'autre') {
+      setDetectedOccasionStr(detectedOcc);
+    }
 
     const newAssistantBubbles: ChatBubble[] = [];
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    if (isPaymentClaim) {
-      // 🎯 Étape : Justificatif de règlement reçu -> Mise en production studio 18 min
-      setCommercialStage('PRODUCTION_STUDIO');
-      setMerchantAlerts((prev) => [
-        `Paiement reçu (${countryCode === 'BF' ? 'Orange Money' : 'Wave'}) — Commande de ${recipient || clientName} passée en studio de mixage !`,
-        ...prev
-      ]);
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: 'Paiement bien reçu avec un immense merci ! 🙏🥰',
-        timestamp: nowStr,
-        status: 'read',
-      });
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_2`,
-        role: 'assistant',
-        content: 'Votre commande est confirmée et passe immédiatement en enregistrement studio avec nos artistes. Vous recevrez votre chanson terminée directement ici d’ici 18 minutes chrono ! 🎵⏳',
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isTextValidation || isExplicitPaymentRequest) {
-      // 🎯 Étape : Validation du texte -> Envoi des coordonnées de paiement (INV-07 STRICT)
-      setPaymentDelivered(true);
-      setCommercialStage('PAIEMENT');
+    // 1. Appel API Externe Réel si configuré (DeepSeek, Gemini, OpenAI)
+    let generatedTexts: string[] = [];
 
-      let payCoord = '';
-      if (countryCode === 'BF') {
-        payCoord = `📱 Orange Money Burkina Faso :\n+226 05 77 73 08 (Wendyam Anicet junior Sekongo)\nSyntaxe directe : *144*4*6*05777308*${selectedOffer === '3000' ? '3000' : '1200'}#\nMontant : ${selectedOffer === '3000' ? '3 000' : '1 200'} F CFA\n\nMerci de m'envoyer la capture d'écran du SMS de dépôt une fois effectué !`;
-      } else if (countryCode === 'SN') {
-        payCoord = `📱 Wave Sénégal :\n+221 77 123 45 67\nMontant : ${selectedOffer === '3000' ? '3 000' : '1 200'} F CFA\n\nMerci de m'envoyer la capture du transfert pour lancer l'enregistrement immédiat au studio !`;
-      } else {
-        payCoord = `📱 Wave Côte d'Ivoire :\n+225 07 00 00 00 00 (ou Orange Money CI au +225 07 11 22 33 44)\nMontant : ${selectedOffer === '3000' ? '3 000' : '1 200'} F CFA\n\nMerci de m'envoyer la capture du transfert pour lancer l'enregistrement au studio ! 🙏`;
+    if (config.apiKey && config.provider !== 'local_smart') {
+      try {
+        if (config.provider === 'deepseek') {
+          const res = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: config.model || 'deepseek-chat',
+              temperature: config.temperature,
+              messages: [
+                { role: 'system', content: config.systemPrompt },
+                ...history.map((h) => ({
+                  role: h.role === 'user' ? 'user' : 'assistant',
+                  content: h.content,
+                })),
+              ],
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const reply = data.choices?.[0]?.message?.content?.trim();
+            if (reply) {
+              generatedTexts = reply.split(/\n\n+/).filter(Boolean);
+            }
+          }
+        } else if (config.provider === 'gemini') {
+          const modelName = config.model || 'gemini-1.5-flash';
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: config.systemPrompt }] },
+                contents: history.map((h) => ({
+                  role: h.role === 'user' ? 'user' : 'model',
+                  parts: [{ text: h.content }],
+                })),
+                generationConfig: { temperature: config.temperature },
+              }),
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            if (reply) {
+              generatedTexts = reply.split(/\n\n+/).filter(Boolean);
+            }
+          }
+        } else if (config.provider === 'openai') {
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: config.model || 'gpt-4o-mini',
+              temperature: config.temperature,
+              messages: [
+                { role: 'system', content: config.systemPrompt },
+                ...history.map((h) => ({
+                  role: h.role === 'user' ? 'user' : 'assistant',
+                  content: h.content,
+                })),
+              ],
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const reply = data.choices?.[0]?.message?.content?.trim();
+            if (reply) {
+              generatedTexts = reply.split(/\n\n+/).filter(Boolean);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Échec appel API externe, repli sur le moteur local :', err);
       }
-
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est un réel bonheur que le texte vous touche ! 🙏 Voici nos coordonnées officielles et sécurisées pour le règlement :`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-      newAssistantBubbles.push({
-        id: `ai_pay_${Date.now()}`,
-        role: 'assistant',
-        content: payCoord,
-        timestamp: nowStr,
-        status: 'read',
-        isPaymentBlock: true,
-      });
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_3`,
-        role: 'assistant',
-        content: `Dès que vous m'envoyez la capture du reçu, nos chanteurs et musiciens entrent en cabine d'enregistrement 🎙️`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isRevisionRequest) {
-      // 🎯 Étape : Modification poétique demandée par le client
-      setCommercialStage('PAROLES_LIVRÉES');
-      const revisedSong = generateHouseStyleSong({
-        recipient: recipient || 'Mon Amour',
-        occasion: occasion,
-        style: 'Afro-pop acoustique douce et chaleureuse',
-        senderName: clientName,
-        memories: ["Chaque parole a été réajustée selon votre souhait intime", "Votre tendresse et vos mots sont gravés au cœur du texte"],
-      });
-      setCurrentSongTitle(revisedSong.title);
-
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est parfaitement noté ! J'ai réajusté le texte avec notre équipe d'écriture. Voici la nouvelle version personnalisée :`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-      newAssistantBubbles.push({
-        id: `ai_lyrics_${Date.now()}`,
-        role: 'assistant',
-        content: revisedSong.lyrics,
-        timestamp: nowStr,
-        status: 'read',
-        isLyricsCard: true,
-        lyricsData: {
-          minutes: 8,
-          title: revisedSong.title,
-          lyrics: revisedSong.lyrics,
-        },
-      });
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_3`,
-        role: 'assistant',
-        content: `Est-ce que cette version perfectionnée vous convient pour passer à l'enregistrement studio ? 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isOfferSelection || (procedureVoiceSent && lyricsDelivered === false && (isVocalAck || recipient))) {
-      // 🎯 Étape : Choix de formule -> Génération et livraison des paroles sur-mesure
-      if (/3\s*000|prestige|vidéo/i.test(lastText)) setSelectedOffer('3000');
-      else setSelectedOffer('1200');
-
-      setLyricsDelivered(true);
-      setCommercialStage('PAROLES_LIVRÉES');
-
-      const generated = generateHouseStyleSong({
-        recipient: recipient || 'Mon Amour',
-        occasion: occasion,
-        style: 'Afro-pop acoustique douce et chaleureuse',
-        senderName: clientName,
-      });
-      setCurrentSongTitle(generated.title);
-
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est un excellent choix ! 🙏 Notre studio a rédigé votre texte avec tout son amour et sa sensibilité poétique. Voici vos paroles sur-mesure :`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-      newAssistantBubbles.push({
-        id: `ai_lyrics_${Date.now()}`,
-        role: 'assistant',
-        content: generated.lyrics,
-        timestamp: nowStr,
-        status: 'read',
-        isLyricsCard: true,
-        lyricsData: {
-          minutes: 8,
-          title: generated.title,
-          lyrics: generated.lyrics,
-        },
-      });
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_3`,
-        role: 'assistant',
-        content: `Prenez le temps de lire ce texte et dites-moi si tout vous convient ou si vous souhaitez ajuster un mot particulier 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isSampleRequest) {
-      // 🎯 Étape : Demande d'extrait de chanson démo
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `Avec un immense plaisir ! Voici un extrait d'une de nos récentes compositions studio dans un style Afro-pop acoustique chaleureux :`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-      newAssistantBubbles.push({
-        id: `ai_sample_${Date.now()}`,
-        role: 'assistant',
-        content: '🎵 Extrait Démo Studio Velaris — Chanson Personnalisée (Afro-pop & Kora)',
-        timestamp: nowStr,
-        status: 'read',
-        mediaKind: 'sample',
-        mediaDurationSec: 45,
-        sampleTitle: 'Extrait Démo Velaris Studio · Afro-pop acoustique',
-      });
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_3`,
-        role: 'assistant',
-        content: `Nous adaptons la voix et les instruments à vos préférences (Afro-pop, Zouk, Rumba, Mandingue, Gospel...). Quel style plairait le plus à votre proche ? 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isDifferenceQuestion) {
-      // 🎯 Étape : Explication de la différence 1 200 F vs 3 000 F
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est très simple ! 🙏\n\n• La Formule Découverte à 1 200 F CFA vous donne la chanson complète enregistrée en studio, mixée et chantée en haute qualité MP3.\n• La Formule Prestige à 3 000 F CFA comprend la chanson complète + un magnifique clip vidéo personnalisé avec vos photos de souvenirs qui défilent avec les paroles synchronisées, parfait pour diffuser sur WhatsApp ou sur écran géant ! 🎬✨\n\nLaquelle préférez-vous pour cette surprise ?`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isDelayQuestion) {
-      // 🎯 Étape : Question sur le délai de livraison
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est ultra-rapide ! ⚡ Le texte est écrit et validé avec vous en quelques minutes. Une fois les paroles validées et le paiement confirmé, votre chanson finale chantée et masterisée vous est livrée en 18 à 20 minutes chrono directement sur WhatsApp !`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isVoiceAuthenticityQuestion) {
-      // 🎯 Étape : Question sur la voix humaine vs robot
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `Nos créations sont de véritables œuvres musicales chantées avec des voix chaleureuses et mélodieuses d'artistes du studio, accompagnées de vraies mélodies de guitare, piano et percussions acoustiques. Ce n'est pas un texte récité, c'est une vraie chanson d'émotion qui donne des frissons ! 🎵`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isDiasporaQuestion) {
-      // 🎯 Étape : Question paiement diaspora
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `Pour nos clients de la diaspora (France, Europe, Canada, USA), c'est très facile ! Vous pouvez régler par Wave International, par carte bancaire sécurisée, ou via Sendwave/Ria directement vers notre numéro de studio. Dès la validation de vos paroles, je vous donnerai les accès adaptés ! 🙏`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isVocalAck) {
-      // 🎯 Étape : Vocal écouté -> Présentation des offres
-      setCommercialStage('PRÉSENTATION_OFFRES');
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est un plaisir ! Nous avons deux formules simples au studio :\n\n1. Formule Découverte à 1 200 F CFA : La chanson personnalisée complète chantée et masterisée en studio.\n2. Formule Prestige à 3 000 F CFA : La chanson complète + le montage vidéo avec vos photos souvenirs.\n\nQuelle formule vous ferait le plus plaisir pour ${recipient || 'cette occasion'} ? 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (recipient) {
-      // 🎯 Étape : Brief complet -> Envoi du vocal de procédure seul (INV-11)
-      setProcedureVoiceSent(true);
-      setCommercialStage('VOCAL_PROCÉDURE');
-      setMerchantAlerts((prev) => [
-        `Brief capté : ${recipient} (${occasionDisplay}) — Vocal de procédure envoyé.`,
-        ...prev
-      ]);
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `C'est une magnifique intention pour ${recipient} ! 🙏 Je vous explique tout en détail dans cette petite note vocale 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-      newAssistantBubbles.push({
-        id: `ai_voice_${Date.now()}`,
-        role: 'assistant',
-        content: '🎙️ Note vocale explicative du studio (procédure & composition sur-mesure)',
-        timestamp: nowStr,
-        status: 'read',
-        isProcedureVoice: true,
-        mediaKind: 'audio',
-        mediaDurationSec: 33,
-        mediaTranscript: "Bonjour et bienvenue chez Velaris ! Je suis Sarah. Pour créer votre chanson, vous me donnez quelques anecdotes et le style souhaité. Notre studio compose d'abord votre texte sur-mesure pour validation. Une fois validé, nos chanteurs entrent en studio et votre chanson finale est prête en moins de 20 minutes chrono !",
-      });
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_3`,
-        role: 'assistant',
-        content: `Écoutez cette petite note vocale et dites-moi dès que c'est bon pour vous 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else if (isPriceQuestionOnly) {
-      // 🎯 Question tarif d'entrée sans brief
-      setCommercialStage('BRIEF');
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `Bonjour et bienvenue chez Velaris Studio ! 🙏 Nos chansons personnalisées commencent à partir de 1 200 F CFA (et 3 000 F avec clip vidéo souvenirs).\n\nPour quelle personne et quelle occasion aimeriez-vous créer cette surprise ? 😊`,
-        timestamp: nowStr,
-        status: 'read',
-      });
-    } else {
-      // 🎯 Accueil ou demande de brief
-      setCommercialStage('BRIEF');
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_1`,
-        role: 'assistant',
-        content: `Bonjour et bienvenue au studio Velaris ! 🙏 C'est un bonheur de vous accompagner. Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ?`,
-        timestamp: nowStr,
-        status: 'read',
-      });
     }
 
-    // 4. Simulation temporelle hyper-réaliste avec indicateur de présence WhatsApp
-    setLatencyMs(Date.now() - start + 850);
+    // 2. Moteur Intelligent Neutre (sans règles d'interdiction rigides)
+    if (generatedTexts.length === 0) {
+      // Détection des intentions naturelles sans verrous
+      const wantsPaymentCoords = /\b(sur quel|quelle numéro|sur quoi|comment payer|numéro wave|numero wave|numéro orange|numero de depot|numéro de dépôt|coordonnées|coordonnees|le dépôt|le depot)\b/i.test(lastText);
+      const claimsPaid = /\b(payé|paye|dépot fait|depot fait|transfert fait|capture|reçu|recu|voici le recu|envoyé le dépôt)\b/i.test(lastText);
+      const wantsLyrics = /\b(texte|paroles|écrire|ecrire|composer|générer|generer|chanson pour|version)\b/i.test(lastText) && !/\b(combien|prix)\b/i.test(lastText);
+      const wantsPrice = /\b(c'est combien|prix|tarifs?|tarif|combien ça coûte)\b/i.test(lastText);
+      const wantsSample = /\b(exemple|extrait|démo|demo|écouter|ecouter)\b/i.test(lastText);
+      const wantsVoiceExpl = /\b(procédure|procedure|comment ça se passe|comment vous travaillez|vocal)\b/i.test(lastText);
 
+      if (claimsPaid) {
+        generatedTexts = [
+          `Paiement bien reçu avec un immense merci ! 🙏`,
+          `Votre commande passe immédiatement en production au studio. Vous recevrez la chanson terminée ici d'ici 18 minutes chrono ! 🎵⏳`,
+        ];
+        setMerchantAlerts((prev) => [
+          `Paiement signalé par ${clientName} (${clientPhone}) — Prise en charge studio active.`,
+          ...prev,
+        ]);
+      } else if (wantsPaymentCoords) {
+        let coord = '';
+        if (countryCode === 'BF') {
+          coord = `📱 Orange Money Burkina Faso :\n${config.payment.orangeMoneyBf}\nMontant : ${config.tariffs.decouvertePrice} F CFA (ou ${config.tariffs.prestigePrice} F CFA pour la formule Prestige)\n\nMerci d'envoyer la capture du SMS de dépôt après validation !`;
+        } else if (countryCode === 'SN') {
+          coord = `📱 Wave Sénégal :\n${config.payment.waveSn}\nMontant : ${config.tariffs.decouvertePrice} F CFA\n\nMerci d'envoyer la capture après transfert !`;
+        } else {
+          coord = `📱 Wave Côte d'Ivoire :\n${config.payment.waveCi}\nTitulaire : ${config.payment.accountHolder}\nMontant : ${config.tariffs.decouvertePrice} F CFA (ou ${config.tariffs.prestigePrice} F CFA)\n\nMerci d'envoyer la capture d'écran une fois effectué !`;
+        }
+        generatedTexts = [
+          `Voici nos coordonnées officielles pour le règlement :`,
+          coord,
+        ];
+      } else if (wantsSample) {
+        newAssistantBubbles.push({
+          id: `ai_${Date.now()}_sample`,
+          role: 'assistant',
+          content: '🎵 Extrait Démo Studio — Chanson Personnalisée Afro-pop',
+          timestamp: nowStr,
+          status: 'read',
+          mediaKind: 'sample',
+          mediaDurationSec: 45,
+          sampleTitle: 'Extrait Démo Studio · Afro-pop acoustique',
+        });
+        generatedTexts = [
+          `Avec plaisir ! Voici un extrait d'une de nos récentes créations studio. Nous personnalisons les voix et le style (Afro-pop, Zouk, Rumba, etc.) selon vos souhaits !`,
+        ];
+      } else if (wantsVoiceExpl) {
+        newAssistantBubbles.push({
+          id: `ai_${Date.now()}_voice`,
+          role: 'assistant',
+          content: '🎙️ Note vocale explicative du studio (procédure & composition)',
+          timestamp: nowStr,
+          status: 'read',
+          isProcedureVoice: true,
+          mediaKind: 'audio',
+          mediaDurationSec: 33,
+          mediaTranscript: `Bonjour et bienvenue chez ${config.studioName} ! Je suis ${config.agentName}. Nous composons votre chanson sur-mesure à partir de vos anecdotes. Une fois validée avec vous, nos artistes l'enregistrent en moins de 20 minutes chrono !`,
+        });
+        generatedTexts = [
+          `Je vous explique tout en détail dans cette note vocale ! Dites-moi dès que vous l'avez écoutée 😊`,
+        ];
+      } else if (wantsLyrics && resolvedRecipient) {
+        const generated = generateHouseStyleSong({
+          recipient: resolvedRecipient,
+          occasion: detectedOcc,
+          style: 'Afro-pop acoustique douce',
+          senderName: clientName,
+        });
+        setCurrentSongTitle(generated.title);
+        newAssistantBubbles.push({
+          id: `ai_${Date.now()}_lyrics`,
+          role: 'assistant',
+          content: generated.lyrics,
+          timestamp: nowStr,
+          status: 'read',
+          isLyricsCard: true,
+          lyricsData: {
+            minutes: 8,
+            title: generated.title,
+            lyrics: generated.lyrics,
+          },
+        });
+        generatedTexts = [
+          `Notre studio a préparé les paroles personnalisées pour ${resolvedRecipient} ! Voici votre texte :`,
+          `Prenez le temps de lire ces paroles et dites-moi si tout vous convient ou si vous souhaitez un ajustement particulier 😊`,
+        ];
+      } else if (wantsPrice) {
+        generatedTexts = [
+          `Bonjour ! Chez ${config.studioName}, nos tarifs sont très simples et transparents :\n\n• Formule Découverte : ${config.tariffs.decouvertePrice} F CFA (chanson complète enregistrée et masterisée en studio, prête en 18 minutes).\n• Formule Prestige : ${config.tariffs.prestigePrice} F CFA (chanson complète + montage vidéo avec vos photos souvenirs).\n\nPour qui aimeriez-vous créer cette surprise ? 😊`,
+        ];
+      } else {
+        generatedTexts = [
+          `Bonjour et bienvenue chez ${config.studioName} ! 🙏 Je suis ${config.agentName}. C'est un réel plaisir de vous accompagner. Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ?`,
+        ];
+      }
+    }
+
+    // Ajout des bulles de texte générées
+    generatedTexts.forEach((text, i) => {
+      const isPayBlock = text.includes('📱') || text.includes('Orange Money') || text.includes('Wave');
+      newAssistantBubbles.push({
+        id: `ai_${Date.now()}_${i}`,
+        role: 'assistant',
+        content: text,
+        timestamp: nowStr,
+        status: 'read',
+        isPaymentBlock: isPayBlock,
+      });
+    });
+
+    setLatencyMs(Date.now() - start + 420);
+
+    // Distribution séquentielle avec délai de frappe WhatsApp réaliste
     for (let i = 0; i < newAssistantBubbles.length; i++) {
       const bubble = newAssistantBubbles[i];
       const isVoice = bubble.isProcedureVoice || bubble.mediaKind === 'audio';
 
-      // Sarah passe en "enregistre un audio..." ou "en train d'écrire..."
       setAiPresenceState(isVoice ? 'recording_audio' : 'typing');
 
-      // Temps de saisie réaliste proportionnel au message
-      const typingMs = isVoice ? 2400 : Math.min(2800, Math.max(1400, bubble.content.length * 20));
+      const typingMs = isVoice ? 2200 : Math.min(2600, Math.max(1200, bubble.content.length * 18));
       await new Promise((r) => setTimeout(r, typingMs));
 
-      // Arrivée de la bulle
       setMessages((prev) => [...prev, bubble]);
       playPopSound();
 
-      // Petite pause entre deux bulles consécutives
       if (i < newAssistantBubbles.length - 1) {
         setAiPresenceState('idle');
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
 
@@ -779,7 +763,7 @@ export const PlaygroundView: FC = () => {
     setIsAiThinking(false);
   };
 
-  // Envoi rapide d'un justificatif de paiement simulé
+  // Reçu de paiement simulé
   const handleSendPaymentSlipImage = () => {
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const imgBubble: ChatBubble = {
@@ -808,11 +792,11 @@ export const PlaygroundView: FC = () => {
               <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight">Playground Studio WhatsApp</h1>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Moteur Autonome Actif (DeepSeek/Gemini)
+                Agent : {config.agentName} ({config.provider === 'local_smart' ? 'Moteur Libre' : config.provider})
               </span>
             </div>
             <p className="text-xs text-neutral-400 hidden sm:block">
-              Simulateur réaliste : temporisation rafale 1.8s, vocaux de procédure, génération 32-48 vers et encaissement.
+              Simulateur réaliste, 100% gouverné par votre prompt système. Zéro règle cachée ni restriction forcée.
             </p>
           </div>
         </div>
@@ -847,11 +831,8 @@ export const PlaygroundView: FC = () => {
               setBurstQueue([]);
               setDetectedRecipient(null);
               setDetectedOccasionStr(null);
-              setSelectedOffer(null);
-              setCommercialStage('ACCUEIL');
-              setProcedureVoiceSent(false);
-              setLyricsDelivered(false);
-              setPaymentDelivered(false);
+              setCurrentSongTitle(null);
+              setMerchantAlerts([]);
             }}
             title="Effacer et recommencer la discussion"
             className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-xs text-neutral-300 flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -871,28 +852,28 @@ export const PlaygroundView: FC = () => {
             }`}
           >
             <PanelRight className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Inspecteur Studio</span>
+            <span className="hidden md:inline">Configuration IA & Prompt</span>
           </button>
         </div>
       </div>
 
       {/* Conteneur Principal : WhatsApp Web Mockup + Inspecteur */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
-        {/* Colonne WhatsApp Web (Majestueuse, confortable et ergonomique) */}
-        <div className={`flex flex-col rounded-2xl border border-white/[0.08] bg-[#0b141a] overflow-hidden shadow-2xl ${inspectorOpen ? 'lg:col-span-8 xl:col-span-8' : 'lg:col-span-12'}`}>
+        {/* Colonne WhatsApp Web */}
+        <div className={`flex flex-col rounded-2xl border border-white/[0.08] bg-[#0b141a] overflow-hidden shadow-2xl ${inspectorOpen ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-12'}`}>
           {/* En-tête de Discussion WhatsApp */}
           <div className="flex items-center justify-between px-4 py-3 bg-[#1f2c34] border-b border-white/[0.06] shrink-0">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-emerald-800/80 border border-emerald-400/40 flex items-center justify-center text-white font-bold text-sm tracking-wide shadow-inner">
-                  VS
+                  {config.agentName.slice(0, 2).toUpperCase()}
                 </div>
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#1f2c34]" />
               </div>
 
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-semibold text-white">Sarah · Velaris Studio</span>
+                  <span className="text-[15px] font-semibold text-white">{config.agentName} · {config.studioName}</span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Officiel
                   </span>
@@ -931,7 +912,7 @@ export const PlaygroundView: FC = () => {
             </div>
           </div>
 
-          {/* Fil des Messages WhatsApp (Spacieux, lisible, texture authentique) */}
+          {/* Fil des Messages WhatsApp */}
           <div
             ref={scrollRef}
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 bg-[#0b141a] bg-opacity-95 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]"
@@ -942,9 +923,9 @@ export const PlaygroundView: FC = () => {
                   <Bot className="w-7 h-7" />
                 </div>
                 <div className="max-w-md space-y-1.5">
-                  <p className="text-base font-medium text-white">Simulateur WhatsApp Prêt</p>
+                  <p className="text-base font-medium text-white">Agent IA Vierge & Prêt</p>
                   <p className="text-xs text-neutral-400 leading-relaxed">
-                    Écrivez un message comme un vrai client, testez une rafale de 2 ou 3 messages consécutifs, ou chargez un scénario ci-dessous.
+                    Écrivez un message comme un vrai client. L'agent répondra exactement selon le Prompt Système configuré dans le panneau de droite.
                   </p>
                 </div>
 
@@ -979,7 +960,7 @@ export const PlaygroundView: FC = () => {
                     </div>
                   )}
 
-                  {/* Lecteur Audio Vocal de Procédure ou Extrait Studio */}
+                  {/* Lecteur Audio */}
                   {m.mediaKind === 'audio' && (
                     <div className="my-1 p-3 rounded-xl bg-black/25 border border-white/10 space-y-2">
                       <div className="flex items-center gap-3">
@@ -1039,7 +1020,7 @@ export const PlaygroundView: FC = () => {
                     </div>
                   )}
 
-                  {/* Lecteur d'Extrait Démo */}
+                  {/* Lecteur Extrait Démo */}
                   {m.mediaKind === 'sample' && (
                     <div className="my-1 p-3 rounded-xl bg-black/30 border border-emerald-500/20 space-y-2">
                       <div className="flex items-center justify-between">
@@ -1050,11 +1031,16 @@ export const PlaygroundView: FC = () => {
                           45s Studio
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 pt-1">
+
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => playSynthesizedAcousticTrack(m.id, 20)}
-                          className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-md"
+                          onClick={() => playSynthesizedAcousticTrack(m.id, 45)}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
+                            playingAudioId === m.id
+                              ? 'bg-emerald-400 text-black shadow-lg shadow-emerald-500/20'
+                              : 'bg-emerald-500 text-white hover:bg-emerald-400'
+                          }`}
                         >
                           {playingAudioId === m.id ? (
                             <Pause className="w-4 h-4 fill-current" />
@@ -1062,59 +1048,80 @@ export const PlaygroundView: FC = () => {
                             <Play className="w-4 h-4 ml-0.5 fill-current" />
                           )}
                         </button>
-                        <div className="flex-1 text-xs text-neutral-300">
-                          Cliquez pour écouter l'ambiance sonore acoustique et le grain de voix studio.
+
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-1.5 h-6">
+                            {[20, 32, 44, 26, 36, 48, 30, 22, 40, 44, 28, 34, 42, 38, 24, 30, 36, 44, 28, 38, 46, 22, 32, 40].map((h, i) => (
+                              <span
+                                key={i}
+                                className={`w-1 rounded-full transition-all duration-200 ${
+                                  playingAudioId === m.id
+                                    ? 'bg-emerald-400 animate-pulse'
+                                    : 'bg-white/30'
+                                }`}
+                                style={{ height: `${h}px` }}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
+                            <span>0:45</span>
+                            <span className="text-emerald-400">Afro-pop acoustique</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Carte des Paroles Sur-Mesure */}
+                  {/* Carte Paroles */}
                   {m.isLyricsCard && m.lyricsData && (
-                    <div className="my-1.5 p-4 rounded-xl bg-[#111b21] border border-emerald-500/30 shadow-inner space-y-2.5">
+                    <div className="my-2 p-3.5 rounded-xl bg-black/40 border border-emerald-500/30 space-y-2.5">
                       <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
                         <div className="flex items-center gap-2">
-                          <Music className="w-4 h-4 text-emerald-400" />
-                          <span className="text-xs font-bold text-white tracking-wide">
-                            {m.lyricsData.title || `Paroles sur-mesure pour ${detectedRecipient || 'votre proche'}`}
+                          <Sparkles className="w-4 h-4 text-emerald-400" />
+                          <span className="font-semibold text-white text-xs sm:text-sm">
+                            {m.lyricsData.title || 'Paroles Personnalisées Studio'}
                           </span>
                         </div>
-                        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                          Structure Suno (32 vers)
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                          {m.lyricsData.lyrics ? `${m.lyricsData.lyrics.split('\n').filter(Boolean).length} vers` : '32-48 vers'}
                         </span>
                       </div>
-                      <div className="text-[13px] text-neutral-200 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto pr-2 font-sans select-text">
+
+                      <div className="max-h-64 overflow-y-auto pr-1 text-xs text-neutral-300 whitespace-pre-line font-mono leading-relaxed bg-[#0E1015]/80 p-3 rounded-lg border border-white/[0.04]">
                         {m.lyricsData.lyrics}
                       </div>
                     </div>
                   )}
 
-                  {/* Bloc de Paiement Mobile Money Officiel */}
+                  {/* Bloc Coordonnées de Paiement */}
                   {m.isPaymentBlock && (
-                    <div className="my-1 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-300 border-b border-emerald-500/20 pb-1.5">
-                        <CreditCard className="w-4 h-4" /> Coordonnées de Dépôt Sécurisées
+                    <div className="my-2 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs font-mono space-y-1">
+                      <div className="font-semibold text-emerald-300 flex items-center gap-1 text-[13px]">
+                        <CreditCard className="w-4 h-4" /> Coordonnées Mobile Money
                       </div>
-                      <div className="text-xs text-white whitespace-pre-wrap font-mono leading-relaxed">
+                      <p className="whitespace-pre-line text-neutral-200 font-sans text-xs pt-1">
                         {m.content}
-                      </div>
+                      </p>
                     </div>
                   )}
 
-                  {/* Contenu Texte Standard */}
+                  {/* Texte de la bulle */}
                   {!m.isLyricsCard && !m.isPaymentBlock && (
                     <p className="whitespace-pre-wrap">{m.content}</p>
                   )}
 
-                  {/* Pied de Bulle : Horodatage & Statut des Coches */}
-                  <div className="flex items-center justify-end gap-1.5 text-[11px] text-neutral-400/90 mt-1 select-none">
+                  {/* Horodatage & Statut */}
+                  <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-neutral-400 font-mono">
                     <span>{m.timestamp}</span>
                     {m.role === 'user' && (
-                      <span>
-                        {m.status === 'sending' && <Clock className="w-3 h-3 text-neutral-400" />}
-                        {m.status === 'sent' && <Check className="w-3.5 h-3.5 text-neutral-400" />}
-                        {m.status === 'delivered' && <CheckCheck className="w-3.5 h-3.5 text-neutral-400" />}
-                        {m.status === 'read' && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
+                      <span className="inline-flex items-center ml-0.5">
+                        {m.status === 'read' ? (
+                          <span className="text-[#53bdeb]">✓✓</span>
+                        ) : m.status === 'delivered' ? (
+                          <span className="text-neutral-400">✓✓</span>
+                        ) : (
+                          <span className="text-neutral-400">✓</span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -1122,38 +1129,42 @@ export const PlaygroundView: FC = () => {
               </div>
             ))}
 
-            {/* Bulle d'écriture animée en direct */}
+            {/* Bulle de saisie en cours de Sarah */}
             {aiPresenceState !== 'idle' && (
               <div className="flex justify-start">
-                <div className="rounded-2xl px-4 py-3 bg-[#202c33] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 shadow-md">
+                <div className="rounded-2xl px-4 py-2.5 bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 text-xs">
                   {aiPresenceState === 'recording_audio' ? (
-                    <span className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
-                      <Mic className="w-3.5 h-3.5 animate-bounce" /> Sarah enregistre une note vocale…
-                    </span>
+                    <>
+                      <Mic className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                      <span className="text-emerald-400 font-medium font-mono">{config.agentName} enregistre un message vocal…</span>
+                    </>
                   ) : (
-                    <div className="flex items-center gap-1.5 px-1 py-0.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce" />
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]" />
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]" />
-                    </div>
+                    <>
+                      <div className="flex gap-1 py-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse [animation-delay:200ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse [animation-delay:400ms]" />
+                      </div>
+                      <span className="text-neutral-300 font-mono">{config.agentName} est en train d’écrire…</span>
+                    </>
                   )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Bandeau d'état rafale si le client tape plusieurs messages */}
+          {/* Bandeau Rafale Active */}
           {burstQueue.length > 0 && (
-            <div className="px-4 py-1.5 bg-[#182229] border-t border-white/[0.06] flex items-center justify-between text-xs text-emerald-400 animate-pulse">
-              <span className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5" />
-                <span>Rafale en cours ({burstQueue.length} message{burstQueue.length > 1 ? 's' : ''}) — Sarah temporise la lecture (1.8s)…</span>
+            <div className="px-4 py-1.5 bg-[#182229] border-t border-white/[0.06] flex items-center justify-between text-xs text-emerald-400 shrink-0">
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span>Rafale en cours ({burstQueue.length} message{burstQueue.length > 1 ? 's' : ''}) — {config.agentName} temporise la lecture (1.8s)…</span>
               </span>
               <span className="text-[10px] font-mono text-neutral-400">burst-active</span>
             </div>
           )}
 
-          {/* Raccourcis Rapides de Test au-dessus de la saisie */}
+          {/* Raccourcis Rapides de Test */}
           <div className="px-3 py-2 bg-[#182229] border-t border-white/[0.06] flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
             <span className="text-[11px] font-medium text-neutral-400 shrink-0">Scénarios rapides :</span>
             {QUICK_TEST_SHORTCUTS.map((sc, i) => (
@@ -1175,11 +1186,11 @@ export const PlaygroundView: FC = () => {
               className="h-7 text-xs px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg shrink-0 flex items-center gap-1 cursor-pointer disabled:opacity-40"
             >
               <Paperclip className="w-3 h-3" />
-              <span>Joindre reçu Wave</span>
+              <span>Joindre reçu</span>
             </button>
           </div>
 
-          {/* Barre de Saisie WhatsApp Confortable (Hauteur 56px, grande lisibilité) */}
+          {/* Barre de Saisie WhatsApp */}
           <div className="border-t border-white/[0.08] p-3 bg-[#202c33] flex items-center gap-2 shrink-0">
             {isRecording ? (
               <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 px-4 py-2.5 rounded-xl flex-1 text-xs text-red-400">
@@ -1234,129 +1245,396 @@ export const PlaygroundView: FC = () => {
           </div>
         </div>
 
-        {/* Volet Latéral : Inspecteur Cerveau Studio & Télémétrie */}
+        {/* Volet Latéral : Inspecteur Cerveau Studio & Configuration Prompt */}
         {inspectorOpen && (
-          <div className="lg:col-span-4 xl:col-span-4 flex flex-col space-y-3 overflow-y-auto pr-1">
-            {/* Étape Commerciale en Cours */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-emerald-400" /> Étape Commerciale Active
-                </span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                  {commercialStage}
-                </span>
-              </div>
+          <div className="lg:col-span-5 xl:col-span-5 flex flex-col space-y-3 overflow-y-auto pr-1">
+            {/* Barre d'onglets de configuration */}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-2 flex items-center gap-1 text-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setInspectorTab('prompt')}
+                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                  inspectorTab === 'prompt'
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Prompt Système</span>
+              </button>
 
-              <div className="grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
-                <div className={`py-1.5 rounded-lg border ${commercialStage === 'BRIEF' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>1. Brief</div>
-                <div className={`py-1.5 rounded-lg border ${commercialStage === 'VOCAL_PROCÉDURE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>2. Vocal</div>
-                <div className={`py-1.5 rounded-lg border ${commercialStage === 'PAROLES_LIVRÉES' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>3. Paroles</div>
-                <div className={`py-1.5 rounded-lg border ${commercialStage === 'PAIEMENT' || commercialStage === 'PRODUCTION_STUDIO' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-white/[0.02] text-neutral-400 border-white/[0.04]'}`}>4. Caisse</div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setInspectorTab('engine')}
+                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                  inspectorTab === 'engine'
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Moteur & Clé</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInspectorTab('tariffs')}
+                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                  inspectorTab === 'tariffs'
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Offres</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInspectorTab('context')}
+                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                  inspectorTab === 'context'
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Mémoire</span>
+              </button>
             </div>
 
-            {/* Fiche Brief Captée par le Cerveau */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-sky-400" /> Fiche Brief Extraite
-                </span>
-                <span className="text-[11px] font-mono text-neutral-400">order-memory</span>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Destinataire :</span>
-                  <span className="font-semibold text-white">{detectedRecipient || <span className="text-neutral-500 italic">En attente de brief</span>}</span>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Occasion :</span>
-                  <span className="font-medium text-emerald-400">{detectedOccasionStr || <span className="text-neutral-500 italic">Non définie</span>}</span>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Formule Choisie :</span>
-                  <span className="font-mono text-white">{selectedOffer ? `${selectedOffer} F CFA` : <span className="text-neutral-500 italic">Non sélectionnée</span>}</span>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Client / Ligne :</span>
-                  <span className="font-medium text-white">{clientName} · <span className="text-neutral-400 font-mono text-[11px]">{clientPhone}</span></span>
-                </div>
-                {currentSongTitle && (
-                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                    <span className="text-neutral-400">Titre Studio :</span>
-                    <span className="font-semibold text-emerald-400 truncate max-w-[190px]">{currentSongTitle}</span>
+            {/* Onglet 1 : Éditeur de Prompt Système */}
+            {inspectorTab === 'prompt' && (
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 flex-1 flex flex-col min-h-[460px]">
+                <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
+                  <div>
+                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" /> Prompt Système de l'Agent IA
+                    </span>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      Éditez librement ce prompt. L'agent obéira exactement à vos instructions.
+                    </p>
                   </div>
-                )}
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400">Statut Coordonnées :</span>
-                  <span className={`font-mono text-[11px] ${paymentDelivered ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {paymentDelivered ? 'Coordonnées délivrées' : 'Bloquées (Attente validation texte)'}
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                    {promptDraft.length} caractères
                   </span>
                 </div>
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-neutral-400">Règle Inviolable :</span>
-                  <span className="font-mono text-emerald-400 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Post-Texte Strict (INV-07)
-                  </span>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Nom de l'agent :</label>
+                    <input
+                      type="text"
+                      value={config.agentName}
+                      onChange={(e) => handleSaveConfig({ ...config, agentName: e.target.value })}
+                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50"
+                      placeholder="Ex: Sarah, Alex..."
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Studio :</label>
+                    <input
+                      type="text"
+                      value={config.studioName}
+                      onChange={(e) => handleSaveConfig({ ...config, studioName: e.target.value })}
+                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50"
+                      placeholder="Ex: Velaris Studio..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex-1 flex flex-col min-h-[260px]">
+                  <label className="text-[11px] text-neutral-400 block mb-1">Consignes & Directives du Prompt :</label>
+                  <textarea
+                    value={promptDraft}
+                    onChange={(e) => setPromptDraft(e.target.value)}
+                    placeholder="Écrivez le prompt système de votre agent ici..."
+                    className="flex-1 w-full p-3 rounded-xl bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono leading-relaxed focus:outline-none focus:border-emerald-500/50 resize-y min-h-[220px]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPromptDraft('');
+                        handleSaveConfig({ ...config, systemPrompt: '' });
+                      }}
+                      title="Effacer le prompt (Page blanche)"
+                      className="h-8 px-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Page blanche</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPromptDraft(DEFAULT_AGENT_CONFIG.systemPrompt);
+                        handleSaveConfig({ ...config, systemPrompt: DEFAULT_AGENT_CONFIG.systemPrompt });
+                      }}
+                      title="Restaurer le prompt modèle du studio"
+                      className="h-8 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Modèle Studio</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveConfig({ ...config, systemPrompt: promptDraft })}
+                    className="h-8 px-3.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                  >
+                    {saveFeedback ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" /> Enregistré !
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" /> Sauvegarder
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Alertes Marchand Studio */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Bell className="w-3.5 h-3.5 text-amber-400" /> Notifications Marchand
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  Temps Réel
-                </span>
-              </div>
+            {/* Onglet 2 : Moteur IA & Clé API */}
+            {inspectorTab === 'engine' && (
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-4">
+                <div className="border-b border-white/[0.08] pb-2">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-sky-400" /> Moteur d'Exécution & LLM
+                  </span>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    Sélectionnez le fournisseur d'IA ou testez sans clé avec le moteur libre local.
+                  </p>
+                </div>
 
-              {merchantAlerts.length === 0 ? (
-                <p className="text-xs text-neutral-500 italic py-1">
-                  Aucune alerte marchand émise pour le moment.
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {merchantAlerts.map((alt, idx) => (
-                    <div key={idx} className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl text-xs text-amber-200">
-                      {alt}
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Fournisseur d'IA :</label>
+                    <select
+                      value={config.provider}
+                      onChange={(e) => {
+                        const prov = e.target.value as any;
+                        let defModel = 'deepseek-chat';
+                        if (prov === 'gemini') defModel = 'gemini-1.5-flash';
+                        if (prov === 'openai') defModel = 'gpt-4o-mini';
+                        handleSaveConfig({ ...config, provider: prov, model: defModel });
+                      }}
+                      className="w-full h-9 px-3 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                    >
+                      <option value="local_smart">Moteur Libre Local (Aucune clé requise)</option>
+                      <option value="deepseek">DeepSeek (API deepseek-chat)</option>
+                      <option value="gemini">Google Gemini (gemini-1.5-flash / gemini-2.0-flash)</option>
+                      <option value="openai">OpenAI (gpt-4o-mini)</option>
+                    </select>
+                  </div>
+
+                  {config.provider !== 'local_smart' && (
+                    <>
+                      <div>
+                        <label className="text-[11px] text-neutral-400 block mb-1">Nom du Modèle :</label>
+                        <input
+                          type="text"
+                          value={config.model}
+                          onChange={(e) => handleSaveConfig({ ...config, model: e.target.value })}
+                          className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 font-mono"
+                          placeholder="Ex: deepseek-chat, gemini-1.5-flash..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] text-neutral-400 block mb-1">Clé d'API {config.provider} :</label>
+                        <div className="relative">
+                          <input
+                            type={showApiKey ? 'text' : 'password'}
+                            value={config.apiKey}
+                            onChange={(e) => handleSaveConfig({ ...config, apiKey: e.target.value })}
+                            className="w-full h-8 pl-2.5 pr-8 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 font-mono"
+                            placeholder="sk-..."
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            className="absolute right-2 top-2 text-neutral-400 hover:text-white cursor-pointer"
+                          >
+                            {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-neutral-500 mt-1">
+                          Votre clé reste stockée localement dans votre navigateur et n'est jamais partagée.
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] text-neutral-400">Température créative :</span>
+                      <span className="text-[11px] font-mono text-emerald-400">{config.temperature}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Télémétrie et Invariants de Conformité */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 shrink-0">
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-emerald-400" /> Télémétrie & Conformité
-                </span>
-                <span className="text-[11px] font-mono text-neutral-400">INV-01 à INV-12</span>
-              </div>
-
-              <div className="space-y-2 text-xs font-mono">
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400 font-sans">Fenêtre Rafale :</span>
-                  <span className="text-emerald-400 font-semibold">1 800 ms (Sliding)</span>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400 font-sans">Moteur Actif :</span>
-                  <span className="text-white font-semibold">DeepSeek-V3 / Flash 2.5</span>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                  <span className="text-neutral-400 font-sans">Latence Tour :</span>
-                  <span className="text-emerald-400 font-semibold">{latencyMs} ms</span>
-                </div>
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-neutral-400 font-sans">Invariants Vérifiés :</span>
-                  <span className="text-sky-300 font-semibold">12/12 Conformes</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={config.temperature}
+                      onChange={(e) => handleSaveConfig({ ...config, temperature: parseFloat(e.target.value) })}
+                      className="w-full accent-emerald-400 cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Onglet 3 : Tarifs & Paiements Mobile Money */}
+            {inspectorTab === 'tariffs' && (
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-4">
+                <div className="border-b border-white/[0.08] pb-2">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-400" /> Tarifs & Coordonnées Mobile Money
+                  </span>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    Ces montants et coordonnées sont transmis à l'agent pour ses réponses commerciales.
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] text-neutral-400 block mb-1">Tarif Découverte (F CFA) :</label>
+                      <input
+                        type="text"
+                        value={config.tariffs.decouvertePrice}
+                        onChange={(e) =>
+                          handleSaveConfig({
+                            ...config,
+                            tariffs: { ...config.tariffs, decouvertePrice: e.target.value },
+                          })
+                        }
+                        className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-neutral-400 block mb-1">Tarif Prestige (F CFA) :</label>
+                      <input
+                        type="text"
+                        value={config.tariffs.prestigePrice}
+                        onChange={(e) =>
+                          handleSaveConfig({
+                            ...config,
+                            tariffs: { ...config.tariffs, prestigePrice: e.target.value },
+                          })
+                        }
+                        className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Orange Money (Burkina Faso) :</label>
+                    <input
+                      type="text"
+                      value={config.payment.orangeMoneyBf}
+                      onChange={(e) =>
+                        handleSaveConfig({
+                          ...config,
+                          payment: { ...config.payment, orangeMoneyBf: e.target.value },
+                        })
+                      }
+                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Wave (Côte d'Ivoire) :</label>
+                    <input
+                      type="text"
+                      value={config.payment.waveCi}
+                      onChange={(e) =>
+                        handleSaveConfig({
+                          ...config,
+                          payment: { ...config.payment, waveCi: e.target.value },
+                        })
+                      }
+                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Nom du titulaire :</label>
+                    <input
+                      type="text"
+                      value={config.payment.accountHolder}
+                      onChange={(e) =>
+                        handleSaveConfig({
+                          ...config,
+                          payment: { ...config.payment, accountHolder: e.target.value },
+                        })
+                      }
+                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Onglet 4 : Mémoire & Contexte */}
+            {inspectorTab === 'context' && (
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3">
+                <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
+                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" /> Éléments Extraits de la Conversation
+                  </span>
+                  <span className="text-[11px] font-mono text-neutral-400">Zéro règle bloquante</span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-400">Destinataire capté :</span>
+                    <span className="font-semibold text-white">{detectedRecipient || <span className="text-neutral-500 italic">Non précisé</span>}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-400">Occasion :</span>
+                    <span className="font-medium text-emerald-400">{detectedOccasionStr || <span className="text-neutral-500 italic">Non définie</span>}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-400">Client / Téléphone :</span>
+                    <span className="font-medium text-white">{clientName} · <span className="text-neutral-400 font-mono text-[11px]">{clientPhone}</span></span>
+                  </div>
+                  {currentSongTitle && (
+                    <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                      <span className="text-neutral-400">Titre composé :</span>
+                      <span className="font-semibold text-emerald-400 truncate max-w-[190px]">{currentSongTitle}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-neutral-400">Latence dernier tour :</span>
+                    <span className="font-mono text-emerald-400">{latencyMs} ms</span>
+                  </div>
+                </div>
+
+                {/* Notifications Marchand */}
+                <div className="pt-2 border-t border-white/[0.06] space-y-2">
+                  <span className="text-[11px] font-semibold text-neutral-300 block">Journal d'événements du tour :</span>
+                  {merchantAlerts.length === 0 ? (
+                    <p className="text-[11px] text-neutral-500 italic">Aucun événement particulier enregistré.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {merchantAlerts.map((alt, idx) => (
+                        <div key={idx} className="bg-white/[0.03] border border-white/[0.06] p-2 rounded-lg text-[11px] text-neutral-300">
+                          {alt}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

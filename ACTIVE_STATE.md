@@ -8,29 +8,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 6 Octobre 2026 (23:35 UTC)
-- **Statut Opérationnel** : **Jalon 65 100% Validé & Déployé en Production sur Vercel** (Playground Studio WhatsApp Hyper-Réaliste & Immersif).
+- **Dernière mise à jour** : 7 Octobre 2026 (00:55 UTC)
+- **Statut Opérationnel** : **Jalon 66 100% Validé & Prêt pour Déploiement** (Éradication Totale des Règles en Dur & Agent IA Configurable de A à Z avec Prompt Système Live).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Playground WhatsApp Studio Live Déployé** :
-    - En ligne et vérifié sur `https://velaris-dun.vercel.app/#playground` (bundle actif `assets/index-BGqALH6o.js`).
-    - **Visualisation Aérée & Immersive (Non étriquée)** : Conteneur élargi jusqu'à 1700px, hauteur généreuse (`h-[calc(100vh-6.5rem)] min-h-[760px]`), taille de texte confortable (14px), fond d'écran texturé WhatsApp Web sombre (`#0b141a`), barre de saisie spacieuse de 56px de hauteur avec bouton de pièce jointe pour joindre un reçu de transfert.
-    - **Simulation Temporelle 100% Authentique** :
-      - Transition réaliste des coches : 1 coche grise (envoyé) ➔ 2 coches grises (délivré) ➔ 2 coches bleues (lu).
-      - Indicateur de présence dynamique : Sarah affiche *"en train d’écrire…"* ou *"enregistre un message vocal…"*, avec bulle de frappe animée à 3 points pulsants dans la conversation.
-      - Débit réaliste proportionnel au message (1.8s à 3s) et livraison multi-bulles séquentielle (une bulle à la fois, rythmée par un micro-chime pop audio Web Audio API).
-      - Fenêtre de rafale (Debounce glissant 1.8s) pour fusionner les envois successifs d'un client.
-    - **Couverture Conversationnelle Exhaustive** :
-      - Salutations, tarifs (1 200 F / 3 000 F), explication de la vidéo souvenirs.
-      - Brief complet (détection prénoms, occasions, souvenirs).
-      - Envoi et lecture du vocal de procédure (33s) avec contrôle de vitesse (1x / 1.5x / 2x).
-      - Écoute d'un extrait de chanson démo studio (45s Afro-pop acoustique).
-      - Explication des délais garantis (18 à 20 minutes chrono).
-      - Génération des 32 à 48 vers (`generateHouseStyleSong`) et révisions poétiques à la demande.
-      - Coordonnées Mobile Money strictement post-validation (Orange Money BF, Wave CI, Wave Sénégal).
-      - Clôture et compte à rebours 18 minutes dès réception du justificatif de paiement.
-  - **Résultat de la Suite de Tests & Build** : 100% propre (`tsc -b && vite build` en 3.90s, 0 erreur).
+  - **Purge et Libération Totale de l'Agent IA** :
+    - Éradication intégrale des ~300 lignes d'embranchements conditionnels rigides (`isPaymentClaim`, `isTextValidation`, `isPriceQuestionOnly`, etc.) et des faux invariants (`INV-01 à INV-12`) dans [`PlaygroundView.tsx`](file:///root/projets/velaris/src/components/PlaygroundView.tsx).
+    - Neutralisation complète des censeurs restrictifs dans le moteur d'exécution ([`engine/src/guards/index.ts`](file:///root/projets/velaris/engine/src/guards/index.ts)).
+  - **Architecture de Configuration de l'Agent IA Déployée** :
+    - **Éditeur de Prompt Système en Direct** : Disponible dans l'Inspecteur Studio avec compteur de caractères, bouton *Page blanche* (pour vider intégralement et tester from scratch), bouton *Modèle Studio*, et persistance locale (`localStorage`).
+    - **Sélecteur de Moteur & Modèle Multi-Fournisseurs** : Support de *Local Autonome (sans clé)*, *DeepSeek (deepseek-chat)*, *Google Gemini (gemini-1.5-flash / gemini-2.0-flash)*, *OpenAI (gpt-4o-mini)* avec saisie sécurisée de la clé d'API.
+    - **Configuration Dynamique des Tarifs & Caisse** : Tarifs et coordonnées Mobile Money configurables en direct et injectés proprement dans les données de l'agent.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 3.99s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Tests libres d'Anicet sur le Playground live à l'adresse `https://velaris-dun.vercel.app/#playground`.
+  1. Définir ensemble avec Anicet le prompt et les règles précises de l'agent IA à partir de la page blanche.
 
 ---
 

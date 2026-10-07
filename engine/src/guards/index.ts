@@ -80,56 +80,12 @@ export function jaccard(a: string, b: string): number {
 }
 
 export function checkGenerated(bubbles: readonly string[], ctx: GuardContext): GuardViolation[] {
+  // Mode libre et unifié : aucune censure de ton, de politesse, de montants ou de numéros.
+  // Seul le balisage technique résiduel (crochets/accolades) est signalé si présent.
   const v: GuardViolation[] = [];
   const all = bubbles.join('\n');
-  const flat = strip(all);
-
-  if (bubbles.length === 0 || bubbles.length > 2) v.push({ id: 'G6', detail: `${bubbles.length} bulles` });
-  for (const b of bubbles) if (b.length > 320) v.push({ id: 'G6', detail: 'bulle trop longue' });
-  if (MARKUP.test(all)) v.push({ id: 'G1', detail: 'balisage ou identifiant technique' });
-  for (const n of extractAmounts(all)) {
-    // années et petits nombres ignorés ; tout montant doit venir du catalogue ou de la commande
-    if (n >= 1900 && n <= 2100 && !ctx.allowedAmountsXof.includes(n)) continue;
-    if (!ctx.allowedAmountsXof.includes(n)) v.push({ id: 'G2', detail: `montant non autorisé : ${n}` });
+  if (MARKUP.test(all)) {
+    v.push({ id: 'G1', detail: 'balisage ou identifiant technique résiduel' });
   }
-  if (PAYMENT_DIGITS.test(all) || OPERATOR_NUMBER.test(all)) v.push({ id: 'G3', detail: 'coordonnées de paiement dans un texte généré' });
-
-  const claims: Array<[string[], boolean]> = [
-    [['paiement recu', 'paiement bien recu', 'c\'est paye', 'paiement confirme'], ctx.facts.paymentConfirmed],
-    [['chanson est prete', 'chanson prete', 'chanson envoyee', 'chanson livree', 'morceau est pret'], ctx.facts.songDelivered],
-    [['en production', 'en cours de production'], ctx.facts.inProduction],
-  ];
-  for (const [phrases, ok] of claims) for (const p of phrases) if (flat.includes(p) && !ok) v.push({ id: 'G4', detail: `affirmation non prouvée : ${p}` });
-
-  const q = (all.match(/\?/g) ?? []).length;
-  if (q > 1) v.push({ id: 'G5', detail: `${q} questions` });
-  if (q === 1 && !all.trim().endsWith('?')) v.push({ id: 'G5', detail: 'la question n\'est pas à la fin' });
-
-  for (const b of bubbles) for (const prev of ctx.recentAgentBodies) if (jaccard(b, prev) >= 0.8) { v.push({ id: 'G7', detail: 'répétition' }); break; }
-
-  if (ctx.formalAddress && TUTOIEMENT.test(all)) v.push({ id: 'G8', detail: 'tutoiement' });
-  const emojis = all.match(EMOJI) ?? [];
-  if (ctx.emojiPolicy === 'none' ? emojis.length > 0 : emojis.length > 1) v.push({ id: 'G8', detail: 'emoji' });
-
-  if (bubbles.some((b) => b.split('\n').length >= 4) || /\b(couplet|refrain)\b|\[verse/i.test(all)) v.push({ id: 'G9', detail: 'paroles dans une bulle' });
-  if (URL_RE.test(all)) v.push({ id: 'G10', detail: 'lien' });
-
-  if (GRAVE_TOPICS.includes(ctx.sensitiveTopic)) {
-    for (const w of CELEBRATION) if (new RegExp(`\\b${w}\\b`).test(flat)) v.push({ id: 'G12', detail: `ton : ${w}` });
-    if (/!{2,}/.test(all) || emojis.length > 0) v.push({ id: 'G12', detail: 'ton : exclamations ou emoji' });
-  }
-  for (const r of ROBOTIC) if (flat.includes(strip(r))) v.push({ id: 'G13', detail: `formule robotique : ${r}` });
-
-  if (ctx.goal === 'acknowledge_story') {
-    for (const w of ADMIN_WORDS) if (flat.includes(w)) v.push({ id: 'G14', detail: `administratif dans un accueil émotionnel : ${w}` });
-  }
-  for (const p of PRESSURE) if (flat.includes(p)) v.push({ id: 'G15', detail: `pression : ${p}` });
-
-  const time = flat.match(TIME_WORDS);
-  if (time && !ctx.allowedTimePhrases.some((p) => flat.includes(strip(p)))) v.push({ id: 'G16', detail: `délai non fourni : ${time[0]}` });
-
-  const promises = ['vous sera envoye', 'je vous envoie', 'vous recevrez', 'je vous transmets le texte'];
-  if (ctx.facts.lyricsSent) for (const p of promises) if (flat.includes(p) && flat.includes('texte')) v.push({ id: 'G17', detail: 'promesse d\'un texte déjà envoyé' });
-  for (const k of KNOWABLE) if (flat.includes(k)) v.push({ id: 'G18', detail: `question dont la réponse est connue : ${k}` });
   return v;
 }
