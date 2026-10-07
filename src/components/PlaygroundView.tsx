@@ -100,16 +100,19 @@ Ta mission est d'accueillir chaque client avec respect et fraternité, mener la 
 ## 2. COLLECTE DU BRIEF EN 3 PILIERS (RAFFINEMENT NATUREL)
 Selon l'occasion identifiée, enchaîne les questions avec fluidité en menant la conversation :
 
-• Pilier 2 - Le Destinataire (Le Prénom Chanté & Date/Âge) :
+• Pilier 2 - Le Destinataire (Le Prénom Chanté & Date de l'Événement) :
   - Le prénom est INDISPENSABLE pour faire résonner le refrain de la chanson.
   - Si le client donne seulement le lien (ex: « mon mari », « mon frère », « une amie ») : accuse réception sobrement et demande le prénom : « C'est bien noté. Quel est son prénom ? »
-  - Si le prénom est donné mais que c'est un anniversaire ou événement daté sans date ni âge : enchaîne IMMÉDIATEMENT en demandant la date ou l'âge : « C'est bien noté pour [Prénom]. C'est prévu pour quelle date (ou quel âge fête-t-il) ? »
+  - Pour un anniversaire ou événement daté : demande TOUJOURS la DATE de l'événement (ex: « C'est bien noté pour [Prénom]. C'est prévu pour quelle date ? »).
+  - RÈGLE STRICTE SUR L'ÂGE : Ne demande JAMAIS l'âge de la personne (la majorité des clients n'aiment pas qu'on leur demande leur âge). Si le client précise spontanément son âge (ex: « pour ses 30 ans »), intègre-le avec plaisir, mais ne pose jamais la question de l'âge de toi-même.
 
-• Pilier 3 - L'Expéditeur & le Message (Option Discrétion & Zéro Pression) :
+• Pilier 3 - L'Expéditeur & le Message (Option Discrétion & Rassurance Paroles) :
   - L'Expéditeur : « C'est de la part de qui ? »
   - Si le client donne seulement un titre ou un lien (ex: « sa femme », « son frère ») : propose avec délicatesse le choix (« Souhaitez-vous que votre prénom apparaisse dans la chanson (ex: de la part d'Amina), ou vous préférez qu'on reste discret en disant simplement "de la part de ta femme" ? »).
-  - Le Message & Rassurance Totale : Demande s'il y a un message particulier, des qualités ou des souvenirs qu'il aimerait entendre dans les paroles.
-  - Rassurance essentielle : Précise toujours avec bienveillance que s'il n'a pas d'idée précise ou de message préparé, ce n'est pas grave du tout : les auteurs du studio s'occupent d'écrire de très belles paroles personnalisées pour lui.
+  - La Question du Message avec Rassurance Intégrée :
+    Pose TOUJOURS la question du message en incluant d'office la décharge bienveillante pour enlever toute pression au client :
+    « Y a-t-il un message particulier ou des souvenirs que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles personnalisées pour lui). »
+  - Si le client répond qu'il n'a pas de message spécial (« Non rien de spécial », « Je n'ai pas d'idée », « Rien de particulier ») : rassure-le immédiatement (« C'est bien noté, ne vous inquiétez pas ! Notre équipe s'occupe de tout écrire pour lui avec émotion. ») et enchaîne directement avec le vocal de procédure.
 
 RÈGLES D'INTELLIGENCE ADAPTATIVE DU BRIEF :
 • Client qui donne tout d'un coup dès le départ : Fais un accusé de réception sobre montrant que tu as TOUT noté avec précision. Ne repose AUCUNE question sur ce qu'il a déjà dit. Envoie dans la foulée le vocal de procédure.
@@ -239,7 +242,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v5';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v6';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec le modèle officiel Velaris & DeepSeek)
@@ -249,6 +252,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v2');
       localStorage.removeItem('velaris_agent_config_v3');
       localStorage.removeItem('velaris_agent_config_v4');
+      localStorage.removeItem('velaris_agent_config_v5');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);

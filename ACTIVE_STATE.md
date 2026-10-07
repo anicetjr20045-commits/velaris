@@ -8,18 +8,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (03:10 UTC)
-- **Statut Opérationnel** : **Jalon 70 Validé & Déployé** (Éradication Flatterie Artificielle, Pilotage Actif du Brief, Rassurance Déculpabilisante sur le Message, Cache v5 & Build Validé).
+- **Dernière mise à jour** : 7 Octobre 2026 (03:25 UTC)
+- **Statut Opérationnel** : **Jalon 71 Validé & Déployé** (Demande Exclusive de Date pour Anniversaire sans Demande d'Âge, Rassurance Paroles Fusionnée dans la Question, Cache v6 & Build Validé).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Mise en Service Active du Playground & Cache v5** :
-    - Clé de cache passée à `velaris_agent_config_v5` avec suppression automatique des caches obsolètes `v1`, `v2`, `v3`, `v4` et fallback sécurisé.
-    - Éradication de la fausse flatterie : interdiction des superlatifs forcés (« Waouh magnifique », « Quel beau prénom »), remplacement par un respect simple, sobre et authentique.
-    - Mener la conversation : l'agent ne laisse plus jamais de vide ; chaque bulle se termine par la question suivante du brief. Enchaînement immédiat sur la date/âge pour un anniversaire dès que le prénom est donné.
-    - Rassurance déculpabilisante (Pilier 3) : mention explicite que si le client n'a pas de message préparé, ce n'est pas grave, les auteurs du studio s'occupent d'écrire de très belles paroles personnalisées.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.44s, 0 erreur).
+  - **Mise en Service Active du Playground & Cache v6** :
+    - Clé de cache passée à `velaris_agent_config_v6` avec purge automatique des versions antérieures (`v1` à `v5`).
+    - Suppression stricte de la demande d'âge pour les anniversaires : l'agent demande uniquement la date (« C'est prévu pour quelle date ? »).
+    - Fusion indissociable de la formule de rassurance dans la question du Pilier 3 (« Y a-t-il un message particulier... ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles personnalisées pour lui). »).
+    - Prise en charge immédiate si le client dit n'avoir aucun message particulier : validation sans friction et transition vers le vocal de procédure.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.14s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v5.
-  2. Tester les nouveaux enchaînements et vérifier la posture sobre, proactive et rassurante de l'agent.
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v6.
+  2. Valider le comportement sur les cas d'anniversaire et de recueil du message.
 
 ---
 
@@ -36,6 +36,16 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 71. Date Exclusive Anniversaire (Zéro Demande d'Âge) & Rassurance Fusionnée (7 Octobre 2026)
+- **Pilier 2 (Date Unique)** :
+  - Interdiction de demander l'âge pour les anniversaires (respect de la pudeur des clients). Demande exclusive de la date de la fête.
+- **Pilier 3 (Formule Indissociable de Rassurance)** :
+  - Intégration directe de la formule de rassurance dès la formulation de la question pour lever tout blocage psychologique.
+  - Réaction chaleureuse et fluide si le client n'a pas de message : transition immédiate vers le vocal de procédure sans reposer de question.
+- **Cache v6 & Validation** :
+  - Purge automatique `v1` à `v5` ➔ transition `velaris_agent_config_v6`.
+  - Build Vite & TypeScript validé à 100% (4.14s, 0 erreur).
 
 ### 70. Éradication de la Flatterie Artificielle, Pilotage Actif & Rassurance Déculpabilisante (7 Octobre 2026)
 - **Posture Commerciale & Voix Humaine Vraie** :
