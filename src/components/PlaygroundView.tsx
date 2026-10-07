@@ -76,27 +76,6 @@ export interface AgentConfig {
   };
 }
 
-export const DEFAULT_AGENT_CONFIG: AgentConfig = {
-  agentName: '',
-  studioName: '',
-  role: '',
-  systemPrompt: '',
-  provider: 'local_smart',
-  model: 'deepseek-chat',
-  apiKey: '',
-  temperature: 0.3,
-  tariffs: {
-    decouvertePrice: '',
-    prestigePrice: '',
-  },
-  payment: {
-    orangeMoneyBf: '',
-    waveCi: '',
-    waveSn: '',
-    accountHolder: '',
-  },
-};
-
 export const VELARIS_CLOSING_PROMPT_TEMPLATE = `# IDENTITÉ & RÔLE DU CONSEILLER
 Tu es {AGENT_NAME}, conseiller(ère) clientèle chaleureux(se), dévoué(e) et expert(e) pour {STUDIO_NAME}, un studio professionnel de création de chansons personnalisées en Afrique de l'Ouest.
 Ta mission est d'accueillir chaque client avec respect et fraternité, comprendre l'histoire unique de la personne qu'il souhaite honorer, et le guider pas à pas jusqu'à la création et livraison de sa chanson.
@@ -144,6 +123,27 @@ RÈGLES D'INTELLIGENCE ADAPTATIVE DU BRIEF :
 ## 6. FINALISATION DU STYLE MUSICAL (POST-PAIEMENT)
 - Une fois le texte validé et le paiement confirmé : demande au client quel style musical il préfère pour l'enregistrement (Afro-pop acoustique douce, Zouk lover, Rumba congolaise, Afrobeat festif, etc.).
 - Exception : Si le client posait une question sur le style plus tôt dans la discussion, réponds-lui avec enthousiasme, mais ne force pas le choix du style avant le paiement.`;
+
+export const DEFAULT_AGENT_CONFIG: AgentConfig = {
+  agentName: 'Alex',
+  studioName: 'Velaris Studio',
+  role: 'Conseiller Vente WhatsApp',
+  systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE,
+  provider: 'deepseek',
+  model: 'deepseek-chat',
+  apiKey: 'sk-b0634dca8dcb4a868c7ba4ba15117f7f',
+  temperature: 0.3,
+  tariffs: {
+    decouvertePrice: '1 200',
+    prestigePrice: '3 000',
+  },
+  payment: {
+    orangeMoneyBf: '+226 05 77 73 08 (Wendyam Anicet junior Sekongo)',
+    waveCi: '+225 07 00 00 00 00',
+    waveSn: '+221 77 123 45 67',
+    accountHolder: 'Wendyam Anicet junior Sekongo',
+  },
+};
 
 const SCENARIOS: ScenarioPreset[] = [
   {
@@ -227,13 +227,14 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v2';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v3';
 
 export const PlaygroundView: FC = () => {
-  // 1. Configuration persistante de l'Agent IA (100% vierge par défaut)
+  // 1. Configuration persistante de l'Agent IA (initialisée avec le modèle officiel Velaris & DeepSeek)
   const [config, setConfig] = useState<AgentConfig>(() => {
     try {
       localStorage.removeItem('velaris_agent_config_v1');
+      localStorage.removeItem('velaris_agent_config_v2');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         return { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(saved) };
