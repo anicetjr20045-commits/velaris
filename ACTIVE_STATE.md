@@ -19,22 +19,35 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (18:42 UTC)
-- **Statut Opérationnel** : **Jalon 77 Validé & Déployé** (Résolution Définitive HTTP 405 Playground via Gateway HTTPS Publique Caddy sur VPS Contabo, Multi-Tier Fallback Transparent & Cache v11).
-- **Consigne d'Arrêt & Point de Reprise** :
-  - **Résolution Définitive de l'Erreur HTTP 405 (Playground Lovable/Vercel)** :
-    - Diagnostic : l'accès au Playground se fait depuis les déploiements web publics (`*.lovable.app` ou Vercel en HTTPS). L'appel à `/api/local-llm` échouait en 405 (Method Not Allowed) car le reverse-proxy Vite ne tourne qu'en local (`localhost:8080`).
-    - L'appel direct en HTTP `http://127.0.0.1:4041` était bloqué par la sécurité de contenu mixte (Mixed Content) des navigateurs sur une page HTTPS.
-    - Solution appliquée de niveau production :
-      1. Exposition sécurisée HTTPS via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`) avec certificat SSL Let's Encrypt automatique.
-      2. Routage interne Caddy Docker vers l'hôte VPS (`172.18.0.1:4041`) connecté au daemon local via tunnel persistant.
-      3. Intégration d'un client multi-tier dans `PlaygroundView.tsx` qui cible immédiatement l'URL HTTPS sur tout hébergement public et bascule gracieusement en ignorant les codes 404/405.
-  - **Cache v11 & Build Validé** :
-    - Clé de cache passée à `velaris_agent_config_v11` avec purge automatique des versions `v1` à `v10`.
-    - Build Vite & TypeScript validé à 100% (`tsc -b && vite build` en 4.47s, 0 erreur).
-- **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) sur Lovable pour charger le cache v11.
-  2. Tester le Playground en direct : le bot répond sans aucune erreur 405, avec zéro frais d'API et zéro configuration nécessaire côté utilisateur.
+- **Dernière mise à jour** : 7 Octobre 2026 (19:22 UTC)
+- **Statut Opérationnel** : **Jalon 77 Validé & Prêt pour Reprise d'Entraînement** (Infrastructure Gateway 0€ HTTPS opérationnelle, Cache v11 en ligne, Matrice Universelle du Brief gravée).
+- **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
+  - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
+    - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion (mariage, deuil, anniversaire, fête, etc.), ce qui rendait l'IA robotique, vulnérable aux oublis et incohérente dès qu'une occasion imprévue se présentait, nous avons conçu et adopté **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
+    - L'IA comprend la logique profonde de la création d'une chanson personnalisée et sait d'elle-même quelle question poser sans friction, en 1 seule question à la fois :
+      1. **L'Être ou les Êtres Honorés (Le Prénom)** :
+         - Si couple (mariage, noces) ➔ demande naturellement les **deux prénoms du couple**.
+         - Si deuil / hommage ➔ formule des condoléances dignes et demande avec respect le prénom du défunt.
+         - Si commande pour autrui ➔ prénom simple de la personne.
+         - Si commande pour soi-même (« mon anniversaire », « pour moi ») ➔ demande sobrement son prénom pour la commande (sans aucun jargon technique comme « pour le faire chanter au refrain »).
+      2. **Le Repère Temporel (La Date)** :
+         - Demande la date clé de l'événement (sans jamais demander d'âge indiscret).
+      3. **L'Émetteur (De la part de qui)** :
+         - Si commande pour autrui ➔ « C'est de la part de qui ? » (avec discrétion proposée).
+         - Si commande pour soi-même ➔ **SAUT NATUREL ET SPONTANÉ de la question** (l'émetteur étant le client lui-même, poser la question est une anomalie que l'IA ne doit jamais commettre).
+      4. **L'Âme des Paroles (Message, Souvenirs & Rassurance Déculpabilisante)** :
+         - Demande ce que le client aimerait transmettre ou ses souvenirs marquants.
+         - **Rassurance clé systématique** : Déculpabiliser le client qui n'a pas d'inspiration (*« Et si vous n'avez pas d'idées précises en tête, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous »*).
+  - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
+    - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 et exposée en HTTPS public via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`).
+    - Zéro dépendance aux clés d'API payantes (propulsé par Gemini 3.8 Flash via le runtime CLI agy en coût 0€ illimité).
+    - Temps de réponse mesurés : Tour 1 en **4.8s**, Tour 2 en **3.3s**, Tour 3 en **4.1s**.
+    - Playground synchronisé en **Cache v11** (`velaris_agent_config_v11`).
+- **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
+  1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
+  2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).
+  3. **Scénario C : Deuil / Hommage** (Vérifier la sobriété, les condoléances respectueuses et l'absence de tout mot festif).
+  4. **Scénario D : Anniversaire classique pour un proche** (Vérifier le parcours fluide des 4 étapes jusqu'au vocal de procédure et choix d'offre).
 
 ---
 
