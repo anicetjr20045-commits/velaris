@@ -19,18 +19,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (03:45 UTC)
-- **Statut Opérationnel** : **Jalon 73 Validé & Déployé** (Unification Totale du Brief en 4 Étapes Simples, Zéro Jargon Technique « Refrain », Remontée Visuelle des Erreurs API, Cache v8 & Build Validé).
+- **Dernière mise à jour** : 7 Octobre 2026 (04:00 UTC)
+- **Statut Opérationnel** : **Jalon 74 Validé & Déployé** (Matrice Universelle du Brief en 4 Invariants Tout-Terrain, Intelligence Émotionnelle Deuil/Mariage/Anniversaire/Amour, Cache v9 & Build Validé).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Mise en Service Active du Playground & Cache v8** :
-    - Clé de cache passée à `velaris_agent_config_v8` avec purge automatique des versions antérieures (`v1` à `v7`).
-    - Suppression totale du jargon technique (« pour mettre dans le refrain ») lors de la demande du prénom.
-    - Unification du tunnel de brief en 4 étapes simples et linéaires pour tous (1. Prénom simple, 2. Date sans âge, 3. Expéditeur avec discrétion sauf si commande pour soi-même, 4. Message avec rassurance universelle).
-    - Ajout de la remontée visuelle explicite des erreurs HTTP/API (comme `Insufficient Balance`) sous forme de bulles d'alerte pour ne plus laisser l'utilisateur dans le doute si le compte LLM manque de crédits.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.67s, 0 erreur).
+  - **Mise en Service Active du Playground & Cache v9** :
+    - Clé de cache passée à `velaris_agent_config_v9` avec purge automatique des versions antérieures (`v1` à `v8`).
+    - Matrice universelle tout-terrain : quelle que soit l'occasion (mariage, deuil, anniversaire, amour, pour soi-même), l'agent applique les 4 invariants :
+      1. Être honoré : 1 prénom pour un individu, les 2 prénoms pour un couple, ou le prénom du défunt avec condoléances pour un deuil.
+      2. Repère temporel : date si événement daté (sans demande d'âge).
+      3. Expéditeur : « C'est de la part de qui ? » (avec option discrétion, sauté si pour soi-même).
+      4. Âme des paroles : message/souvenirs adaptés avec formule de décharge rassurante.
+    - Posture émotionnelle juste : recueillement et respect pour le deuil, chaleur sobre et fraternelle pour les célébrations.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.01s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v8.
-  2. Noter la nécessité éventuelle de recharger quelques crédits sur son compte DeepSeek (ou renseigner une clé personnelle dans l'onglet Moteur).
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v9.
+  2. Valider le comportement sur divers scénarios (mariage, deuil, anniversaire).
 
 ---
 
@@ -47,6 +50,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 74. Matrice Universelle du Brief (4 Invariants Tout-Terrain) (7 Octobre 2026)
+- **Intelligence Commerciale Tout-Terrain** :
+  - Éradication des scripts rigides au profit des 4 invariants du brief studio.
+  - Détection contextuelle :
+    - Mariage / Anniversaire de mariage ➔ demande automatique des 2 prénoms du couple.
+    - Deuil / Hommage ➔ condoléances dignes et prénom de la personne disparue.
+    - Anniversaire / Cadeau ➔ 1 prénom sobre.
+    - Commande pour soi-même ➔ prénom personnel et saut naturel de l'expéditeur.
+- **Sobriété & Zero Slop** :
+  - Respect strict des 64 lignes de prompt sans aucune duplication ni jargon technique.
+- **Cache v9 & Validation** :
+  - Purge automatique `v1` à `v8` ➔ transition `velaris_agent_config_v9`.
+  - Build Vite & TypeScript validé à 100% (4.01s, 0 erreur).
 
 ### 73. Unification Simplifiée du Brief (4 Étapes) & Remontée des Erreurs API (7 Octobre 2026)
 - **Éradication du Jargon Technique** :
