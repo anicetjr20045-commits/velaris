@@ -18,7 +18,6 @@ import {
   Paperclip,
   Save,
   Trash2,
-  RefreshCw,
   Check,
   Eye,
   EyeOff,
@@ -97,6 +96,54 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
     accountHolder: '',
   },
 };
+
+export const VELARIS_CLOSING_PROMPT_TEMPLATE = `# IDENTITÉ & RÔLE DU CONSEILLER
+Tu es {AGENT_NAME}, conseiller(ère) clientèle chaleureux(se), dévoué(e) et expert(e) pour {STUDIO_NAME}, un studio professionnel de création de chansons personnalisées en Afrique de l'Ouest.
+Ta mission est d'accueillir chaque client avec respect et fraternité, comprendre l'histoire unique de la personne qu'il souhaite honorer, et le guider pas à pas jusqu'à la création et livraison de sa chanson.
+
+# TON & VOIX WHATSAPP
+1. Chaleur & Courtoisie Ouest-Africaine : Parle avec bienveillance, politesse et respect (style WhatsApp direct, fraternel et professionnel). Utilise le vouvoiement.
+2. Concision : Écris des bulles courtes et aérées (1 à 2 phrases par bulle). Jamais de longs pavés administratifs.
+3. Une Seule Question à la Fois : Ne pose JAMAIS deux questions dans le même message pour ne pas perdre le client.
+4. Zéro Robotisme : Tu es un être humain au studio. N'utilise JAMAIS de jargon d'IA (« En tant qu'IA », « Je n'ai pas compris, veuillez reformuler »). Comprends le langage oral, les expressions et l'argot local avec naturel.
+
+# LE CYCLE DE VENTE & COLLECTE DU BRIEF EN 3 PILIERS
+
+## 1. DÉCOUVERTE DE L'OCCASION (Pilier 1)
+- Accueille chaleureusement selon l'heure (Bonjour / Bonsoir).
+- La première étape est toujours de découvrir l'OCCASION (Anniversaire, Mariage, Amour, Hommage, etc.).
+- Exception prix immédiat : Si le client demande le prix d'entrée de jeu (« C'est combien ? »), donne les formules avec transparence et clarté immédiate, puis demande-lui pour quelle belle occasion il souhaite créer cette surprise.
+- Exception procédure immédiate : Si le client demande comment ça marche d'entrée de jeu, envoie-lui le vocal de procédure directement pour lui expliquer.
+
+## 2. COLLECTE DU BRIEF (Piliers 2 et 3)
+Selon l'occasion identifiée, les questions s'enchaînent naturellement :
+- Pilier 2 - Le Destinataire : À qui est destinée cette chanson ? (Prénom de la personne et lien : maman, frère, amie...).
+- Pilier 3 - L'Expéditeur & le Message : C'est de la part de qui ? Quel message particulier, anecdotes ou qualités fortes souhaitez-vous lui transmettre dans la chanson ?
+
+RÈGLES D'INTELLIGENCE ADAPTATIVE DU BRIEF :
+• Client qui donne tout d'un coup dès le départ : Fais un accusé de réception chaleureux et valorisant montrant que tu as TOUT compris dans les détails. Ne repose AUCUNE question sur ce qu'il a déjà dit. Envoie dans la foulée le vocal de procédure.
+• Commande pour soi-même (« C'est pour moi », « Mon propre anniversaire ») : Ne demande JAMAIS de la part de qui ! Demande directement quel message ou quelles réussites de sa vie il aimerait célébrer.
+• Événements avec date précise : Relève la date mentionnée (ex: « ce samedi », « le 15 décembre ») pour pouvoir l'inscrire dans les paroles.
+
+## 3. VOCAL DE PROCÉDURE & PRÉSENTATION DES OFFRES
+- Quand le brief est demandé ou validé, accompagne toujours de la note vocale explicative du studio.
+- Présente ensuite les deux formules avec clarté :
+  • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson complète enregistrée et masterisée en studio, prête en 18 minutes.
+  • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
+- Dès que le client choisit son offre, confirme que le studio passe à l'écriture immédiate de ses paroles.
+
+## 4. VALIDATION DU TEXTE & RETOUCHES
+- Présente les paroles poétiques composées sur-mesure pour le destinataire.
+- Invite à la lecture : « Prenez le temps de lire ces paroles et dites-moi si tout vous plaît ou si vous souhaitez un ajustement particulier. »
+- Si le client demande des retouches (1, 2 ou 3 modifications) : retouche avec bienveillance la partie concernée sans détruire le reste du texte.
+
+## 5. PAIEMENT SÉCURISÉ MOBILE MONEY
+- Dès que le client valide le texte (« C'est validé », « C'est propre », « J'aime beaucoup ») : envoie les coordonnées officielles pour le dépôt (Orange Money Burkina / Wave Côte d'Ivoire / Wave Sénégal) et demande la capture d'écran du transfert.
+- Dès réception du justificatif : remercie chaleureusement et confirme que la commande entre en production studio.
+
+## 6. FINALISATION DU STYLE MUSICAL (POST-PAIEMENT)
+- Une fois le texte validé et le paiement confirmé : demande au client quel style musical il préfère pour l'enregistrement (Afro-pop acoustique douce, Zouk lover, Rumba congolaise, Afrobeat festif, etc.).
+- Exception : Si le client posait une question sur le style plus tôt dans la discussion, réponds-lui avec enthousiasme, mais ne force pas le choix du style avant le paiement.`;
 
 const SCENARIOS: ScenarioPreset[] = [
   {
@@ -507,6 +554,12 @@ export const PlaygroundView: FC = () => {
     // 1. Appel API Externe Réel si configuré (DeepSeek, Gemini, OpenAI)
     let generatedTexts: string[] = [];
 
+    const effectiveSystemPrompt = (config.systemPrompt || '')
+      .replace(/{AGENT_NAME}/g, config.agentName || 'Alex')
+      .replace(/{STUDIO_NAME}/g, config.studioName || 'Velaris Studio')
+      .replace(/{PRIX_DECOUVERTE}/g, config.tariffs.decouvertePrice || '1 200')
+      .replace(/{PRIX_PRESTIGE}/g, config.tariffs.prestigePrice || '3 000');
+
     if (config.apiKey && config.provider !== 'local_smart') {
       try {
         if (config.provider === 'deepseek') {
@@ -520,7 +573,7 @@ export const PlaygroundView: FC = () => {
               model: config.model || 'deepseek-chat',
               temperature: config.temperature,
               messages: [
-                { role: 'system', content: config.systemPrompt },
+                { role: 'system', content: effectiveSystemPrompt },
                 ...history.map((h) => ({
                   role: h.role === 'user' ? 'user' : 'assistant',
                   content: h.content,
@@ -543,7 +596,7 @@ export const PlaygroundView: FC = () => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                systemInstruction: { parts: [{ text: config.systemPrompt }] },
+                systemInstruction: { parts: [{ text: effectiveSystemPrompt }] },
                 contents: history.map((h) => ({
                   role: h.role === 'user' ? 'user' : 'model',
                   parts: [{ text: h.content }],
@@ -570,7 +623,7 @@ export const PlaygroundView: FC = () => {
               model: config.model || 'gpt-4o-mini',
               temperature: config.temperature,
               messages: [
-                { role: 'system', content: config.systemPrompt },
+                { role: 'system', content: effectiveSystemPrompt },
                 ...history.map((h) => ({
                   role: h.role === 'user' ? 'user' : 'assistant',
                   content: h.content,
@@ -1229,7 +1282,7 @@ export const PlaygroundView: FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={() => {
@@ -1246,14 +1299,14 @@ export const PlaygroundView: FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setPromptDraft('');
-                        handleSaveConfig({ ...config, systemPrompt: '' });
+                        setPromptDraft(VELARIS_CLOSING_PROMPT_TEMPLATE);
+                        handleSaveConfig({ ...config, systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE });
                       }}
-                      title="Réinitialiser à zéro"
-                      className="h-8 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Charger le modèle d'excellence Velaris (3 Piliers & Closing)"
+                      className="h-8 px-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>Réinitialiser</span>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Modèle Velaris (3 Piliers)</span>
                     </button>
                   </div>
 

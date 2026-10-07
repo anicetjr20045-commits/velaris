@@ -8,19 +8,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (01:15 UTC)
-- **Statut Opérationnel** : **Jalon 67 100% Validé & Conforme Page Blanche Vierge** (Éradication Intégrale de Tout Prompt Système Prérempli, Zéro Regex, Zéro Arbre de Décision Codé en Dur, Zéro Automatisation Active).
+- **Dernière mise à jour** : 7 Octobre 2026 (02:40 UTC)
+- **Statut Opérationnel** : **Jalon 68 100% Validé & Déployé** (Architecture d'Excellence Commerciale : Brief Adaptatif en 3 Piliers, Interpolation Dynamique des Variables Studio & Modèle Officiel Velaris Intégré).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Audit & Purge Intégrale Réalisés avec Succès** :
-    - `DEFAULT_AGENT_CONFIG` réinitialisé à une page blanche absolue (aucun nom prérempli, aucun prompt système, aucun tarif ni coordonnée Mobile Money en dur).
-    - `runAgentTurn` épuré à 100% : suppression de toutes les regexes d'interception (`wantsPaymentCoords`, `claimsPaid`, `wantsLyrics`, `wantsPrice`, `wantsSample`, `wantsVoiceExpl`, `nameMatch`).
-    - Zéro réponse préprogrammée ou arbre de scénario imposé.
-    - `localStorage` migré vers `velaris_agent_config_v2` avec suppression active de `velaris_agent_config_v1` (pour vider automatiquement le cache de tout navigateur).
-    - `songAutomation.ts` désactivé par défaut (`enabled: false`, `autoDeliverWhatsApp: false`, `notifyOnComplete: false`).
-    - L'agent est 100% vierge et attend la saisie des consignes par l'utilisateur.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 3.99s, 0 erreur).
+  - **Déploiement du Cerveau Commercial Velaris** :
+    - `VELARIS_CLOSING_PROMPT_TEMPLATE` formalisé avec les 3 Piliers (1. Occasion, 2. Destinataire, 3. Expéditeur & Message), zéro question redondante, gestion fluide des commandes pour soi-même et des dates clés.
+    - Timing stratégique validé : accusé de réception empathique d'entrée sur brief complet, vocal de procédure envoyé lors de la demande du brief, offres présentées ensuite, et **style musical réservé exclusivement en post-paiement**.
+    - Interpolation dynamique temps réel des variables studio (`{AGENT_NAME}`, `{STUDIO_NAME}`, `{PRIX_DECOUVERTE}`, `{PRIX_PRESTIGE}`) dans tous les appels LLM (DeepSeek, Gemini, OpenAI).
+    - Bouton rapide d'injection *« Modèle Velaris (3 Piliers) »* dans l'Inspecteur du Playground en complément de la *« Page blanche »*.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.50s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Paramétrer et configurer avec Anicet l'agent IA de A à Z (identité, style, règles de vente, seuils et comportement sur WhatsApp).
+  1. Passer aux tests en direct dans le Playground et ajuster si nécessaire les dernières subtilités de réponse.
 
 ---
 
