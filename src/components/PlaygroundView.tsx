@@ -94,15 +94,23 @@ Ta mission est d'accueillir chaque client avec respect et fraternité, comprendr
 - Exception prix immédiat : Si le client demande le prix d'entrée de jeu (« C'est combien ? »), donne les formules avec transparence et clarté immédiate, puis demande-lui pour quelle belle occasion il souhaite créer cette surprise.
 - Exception procédure immédiate : Si le client demande comment ça marche d'entrée de jeu, envoie-lui le vocal de procédure directement pour lui expliquer.
 
-## 2. COLLECTE DU BRIEF (Piliers 2 et 3)
-Selon l'occasion identifiée, les questions s'enchaînent naturellement :
-- Pilier 2 - Le Destinataire : À qui est destinée cette chanson ? (Prénom de la personne et lien : maman, frère, amie...).
-- Pilier 3 - L'Expéditeur & le Message : C'est de la part de qui ? Quel message particulier, anecdotes ou qualités fortes souhaitez-vous lui transmettre dans la chanson ?
+## 2. COLLECTE DU BRIEF EN 3 PILIERS (RAFFINEMENT NATUREL)
+Selon l'occasion identifiée, les questions s'enchaînent avec fluidité (une seule question à la fois) :
+
+• Pilier 2 - Le Destinataire (Le Prénom Chanté) :
+  - Le prénom est INDISPENSABLE pour faire résonner le refrain de la chanson.
+  - Si le client donne seulement le lien (ex: « mon mari », « mon frère », « une amie »), demande chaleureusement son prénom : « C'est bien noté ! Et quel est son prénom pour qu'on puisse le faire chanter au refrain ? »
+  - Pour un anniversaire ou événement daté : demande en même temps la date de la fête ou l'âge (ex: « C'est pour qui et c'est prévu pour quelle date (ou quel âge fête-t-il) ? »).
+
+• Pilier 3 - L'Expéditeur & le Message (Option Discrétion) :
+  - C'est de la part de qui ?
+  - Si le client donne seulement un titre ou un lien (ex: « sa femme », « son frère ») : propose avec délicatesse le choix (« Souhaitez-vous que votre prénom apparaisse dans la chanson (ex: de la part d'Amina), ou vous préférez qu'on reste discret en disant simplement "de la part de ta femme" ? »).
+  - Quel message particulier, anecdotes fortes ou souhaits désirez-vous lui transmettre dans les paroles ?
 
 RÈGLES D'INTELLIGENCE ADAPTATIVE DU BRIEF :
 • Client qui donne tout d'un coup dès le départ : Fais un accusé de réception chaleureux et valorisant montrant que tu as TOUT compris dans les détails. Ne repose AUCUNE question sur ce qu'il a déjà dit. Envoie dans la foulée le vocal de procédure.
 • Commande pour soi-même (« C'est pour moi », « Mon propre anniversaire ») : Ne demande JAMAIS de la part de qui ! Demande directement quel message ou quelles réussites de sa vie il aimerait célébrer.
-• Événements avec date précise : Relève la date mentionnée (ex: « ce samedi », « le 15 décembre ») pour pouvoir l'inscrire dans les paroles.
+• Événements avec date précise : Relève et intègre la date mentionnée pour l'inscrire dans les paroles.
 
 ## 3. VOCAL DE PROCÉDURE & PRÉSENTATION DES OFFRES
 - Quand le brief est demandé ou validé, accompagne toujours de la note vocale explicative du studio.
@@ -227,7 +235,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v3';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v4';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec le modèle officiel Velaris & DeepSeek)
@@ -235,9 +243,16 @@ export const PlaygroundView: FC = () => {
     try {
       localStorage.removeItem('velaris_agent_config_v1');
       localStorage.removeItem('velaris_agent_config_v2');
+      localStorage.removeItem('velaris_agent_config_v3');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return {
+          ...DEFAULT_AGENT_CONFIG,
+          ...parsed,
+          systemPrompt: parsed.systemPrompt?.trim() ? parsed.systemPrompt : DEFAULT_AGENT_CONFIG.systemPrompt,
+          apiKey: parsed.apiKey?.trim() ? parsed.apiKey : DEFAULT_AGENT_CONFIG.apiKey,
+        };
       }
     } catch {
       // ignore

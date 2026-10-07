@@ -8,16 +8,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (02:45 UTC)
-- **Statut Opérationnel** : **Jalon 68 100% Validé & Connecté en Direct** (Prompt Officiel Velaris 3 Piliers & Moteur DeepSeek Activés par Défaut dans le Playground).
+- **Dernière mise à jour** : 7 Octobre 2026 (03:00 UTC)
+- **Statut Opérationnel** : **Jalon 69 Validé & Déployé** (Raffinement des 3 Piliers : Prénom Chanté au Refrain, Date/Âge Anniversaire, Option Discrétion Expéditeur, Cache Purge v4 & Build 100% Validé).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Mise en Service Active du Playground** :
-    - `DEFAULT_AGENT_CONFIG` préconfiguré avec `systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE`, `agentName: 'Alex'`, `studioName: 'Velaris Studio'`, `provider: 'deepseek'`, `model: 'deepseek-chat'` et clé API DeepSeek connectée.
-    - Clé de persistance mise à jour en `velaris_agent_config_v3` (purgeant automatiquement les anciens caches vides `v1` et `v2`).
-    - L'agent répond désormais en conditions réelles et en direct avec l'intelligence de DeepSeek V3 selon les 3 Piliers.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.54s, 0 erreur).
+  - **Mise en Service Active du Playground & Cache v4** :
+    - Clé de cache passée à `velaris_agent_config_v4` avec suppression automatique des caches obsolètes `v1`, `v2`, `v3` et fallback sécurisé si un prompt vide était présent.
+    - Prompt `VELARIS_CLOSING_PROMPT_TEMPLATE` enrichi pour exiger :
+      - Pilier 2 : Le prénom indispensable pour faire chanter le refrain si le client ne donne que le lien (« mon mari », « mon frère »), ainsi que la date ou l'âge si c'est un anniversaire ou événement daté.
+      - Pilier 3 : L'option discrétion proposée avec tact si l'expéditeur donne seulement un titre (« sa femme », « son frère ») : faire figurer son prénom ou rester discret (« de la part de ta femme »).
+    - Zéro émoji dans le prompt conformément aux directives de sobriété et d'absence de slop.
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.35s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Tester les conversations dans le Playground et vérifier les réponses réelles de l'IA sur les différents cas clients.
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v4.
+  2. Valider le comportement sur les cas testés (ex: « c'est pour un anniversaire », « c'est pour mon mari », « c'est de la part de sa femme »).
 
 ---
 
@@ -34,6 +37,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 69. Raffinement des 3 Piliers de Briefing & Cache Purge v4 (7 Octobre 2026)
+- **Pilier 2 Enrichi (Destinataire & Prénom Chanté)** :
+  - Exigence explicite du prénom pour le refrain lorsque le client ne donne que le lien (« mon mari », « mon frère », etc.).
+  - Demande conjointe de la date de célébration ou de l'âge fêté si l'occasion est un anniversaire ou un événement daté.
+- **Pilier 3 Enrichi (Expéditeur & Option Discrétion)** :
+  - Proposition bienveillante du choix entre prénom chanté ou discrétion (« de la part de ta femme ») si l'expéditeur ne donne qu'un titre.
+- **Architecture Propre & Migration Cache v4** :
+  - Passage de la clé locale à `velaris_agent_config_v4` avec nettoyage automatique des versions `v1`, `v2`, `v3`.
+  - Fallback robuste évitant tout écran blanc ou prompt vide en cas de cache résiduel.
+  - Zéro emoji, zéro empilement de regex, zéro slop : fidélité absolue au modèle de vente directe.
+- **Validation Build** : `tsc -b && vite build` validé en 4.35s (0 erreur).
+
+### 68. Intégration Moteur DeepSeek V3 en Direct & Purge des Regexes Héritées (7 Octobre 2026)
+- Connexion native de l'API DeepSeek V3 (`deepseek-chat`) par défaut dans le Playground avec clé opérationnelle.
+- Remplacement du moteur statique par le prompt commercial adaptatif `VELARIS_CLOSING_PROMPT_TEMPLATE`.
+- Élimination des arbres de réponses rigides et des expressions régulières bloquantes.
 
 ### 63. Verrouillage Métier du Tunnel de Prise de Commande & Règle Inviolable du Paiement Post-Texte (4 Octobre 2026)
 - **Application Stricte de la Règle Métier d'Anicet (`analyzeNextStep`)** ([`ConversationsView.tsx`](file:///root/projets/velaris/src/components/ConversationsView.tsx)) :
