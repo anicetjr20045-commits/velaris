@@ -5,6 +5,17 @@
 
 ---
 
+## 🛡️ RÈGLE D'OR INVIOLABLE : ZÉRO EMPILEMENT, ZÉRO SLOP, AUDIT PERMANENT DU PROMPT
+1. **Zéro Empilement de Règles** : Ne jamais ajouter une règle sur une règle. Tout ajout doit être une simplification ou un ajustement chirurgical du prompt existant.
+2. **Audit Permanent à Chaque Étape** : À chaque modification, relire l'intégralité de `VELARIS_CLOSING_PROMPT_TEMPLATE` pour garantir :
+   - Strictement zéro règle redondante ou contradictoire.
+   - Strictement zéro regex / filtre TypeScript venant polluer le prompt ou le comportement.
+   - Structure chronologique linéaire pure (Occasion ➔ Brief 3 Piliers ➔ Vocal & Offres ➔ Paroles ➔ Paiement ➔ Style).
+   - Concision absolue (< 70 lignes).
+3. **Zéro Émoji & Zéro Façon Slop** : Dignité, respect ouest-africain authentique, ton direct et humain.
+
+---
+
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
