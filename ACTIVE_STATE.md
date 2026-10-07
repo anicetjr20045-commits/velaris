@@ -19,18 +19,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (03:25 UTC)
-- **Statut Opérationnel** : **Jalon 71 Validé & Déployé** (Demande Exclusive de Date pour Anniversaire sans Demande d'Âge, Rassurance Paroles Fusionnée dans la Question, Cache v6 & Build Validé).
+- **Dernière mise à jour** : 7 Octobre 2026 (03:35 UTC)
+- **Statut Opérationnel** : **Jalon 72 Validé & Déployé** (Découplage Linéaire Commande pour Autrui vs Soi-Même, Prénom Chanté Systématique, Enchaînement Direct du Message, Cache v7 & Build Validé).
 - **Consigne d'Arrêt & Point de Reprise** :
-  - **Mise en Service Active du Playground & Cache v6** :
-    - Clé de cache passée à `velaris_agent_config_v6` avec purge automatique des versions antérieures (`v1` à `v5`).
-    - Suppression stricte de la demande d'âge pour les anniversaires : l'agent demande uniquement la date (« C'est prévu pour quelle date ? »).
-    - Fusion indissociable de la formule de rassurance dans la question du Pilier 3 (« Y a-t-il un message particulier... ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles personnalisées pour lui). »).
-    - Prise en charge immédiate si le client dit n'avoir aucun message particulier : validation sans friction et transition vers le vocal de procédure.
-  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.14s, 0 erreur).
+  - **Mise en Service Active du Playground & Cache v7** :
+    - Clé de cache passée à `velaris_agent_config_v7` avec purge automatique des versions antérieures (`v1` à `v6`).
+    - Élimination des contradictions de fin de prompt : le Pilier 2 et le Pilier 3 sont désormais structurés en deux cas clairs (CAS A : Pour Autrui / CAS B : Pour Soi-Même).
+    - Commande pour soi-même : demande systématique du prénom du client pour faire chanter le refrain, puis date de fête (sans âge), puis saut direct de la question d'expéditeur vers les réussites/souhaits personnels avec rassurance.
+    - Élimination totale de la section redondante de fin de prompt « Règles d'intelligence adaptative ».
+  - **Résultat du Build** : 100% propre (`tsc -b && vite build` en 4.39s, 0 erreur).
 - **Prochaine tâche immédiate** :
-  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v6.
-  2. Valider le comportement sur les cas d'anniversaire et de recueil du message.
+  1. Inviter l'utilisateur à actualiser la page de son navigateur (F5 / Cmd+R) pour charger le cache v7.
+  2. Valider le comportement sur les commandes pour soi-même et pour autrui.
 
 ---
 
@@ -47,6 +47,15 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 72. Découplage Linéaire Commande pour Autrui vs Soi-Même & Cache v7 (7 Octobre 2026)
+- **Résolution du Bug de Silence sur Commande Personnelle** :
+  - Identification de la cause : l'ancienne règle plaçait l'exception « Commande pour soi-même » tout en bas du prompt, entrant en conflit direct avec le Pilier 3 (« C'est de la part de qui ? »). L'agent se retrouvait bloqué et sautait aussi la demande du prénom du client.
+  - Structure en 2 cas explicites (CAS A : Pour Autrui / CAS B : Pour Soi-Même) :
+    - Pour soi-même : demande du prénom en premier pour faire chanter le refrain, puis date de fête, puis transition directe vers le message/souhaits sans jamais demander d'expéditeur.
+- **Cache v7 & Validation** :
+  - Purge automatique `v1` à `v6` ➔ transition `velaris_agent_config_v7`.
+  - Build Vite & TypeScript validé à 100% (4.39s, 0 erreur).
 
 ### 71. Date Exclusive Anniversaire (Zéro Demande d'Âge) & Rassurance Fusionnée (7 Octobre 2026)
 - **Pilier 2 (Date Unique)** :
