@@ -19,12 +19,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (14:15 UTC)
-- **Statut Opérationnel** : **Jalon 92 Validé — Les 4 Piliers Opérationnels d'Élite & Clarification Absolue des Projets** (Silence Human-In-The-Loop & Reprise ✨, Vision/OCR Document vs Reçu vs Portrait, Timing Formule Vidéo & Debounce Rafale Photos, Échantillons Démo & Règle d'Or du Pont Conversationnel, 0 erreur tsc/vite/vitest).
+- **Dernière mise à jour** : 8 Octobre 2026 (14:30 UTC)
+- **Statut Opérationnel** : **Jalon 93 Validé — Clôture Définitive du Brief sur Réponse Brève & Règle Anti-Perroquet** (Zéro boucle sur « juste pour lui rendre hommage » ou « rien de spécial », clôture immédiate de l'invariant 4, transmission directe du vocal, formulation naturelle « comme indiqué plus haut », 0 erreur tsc/vite/vitest).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
+  - **Clôture Immédiate de l'Âme des Paroles sur Réponse Brève (Jalon 93)** :
+    - Dès que l'IA a posé la question du message particulier / souvenirs, TOUTE réponse du client (ex: « juste pour lui rendre hommage », « pour son anniversaire », « juste lui dire merci », « rien de spécial ») vaut RÉPONSE DÉFINITIVE.
+    - Interdiction formelle de reposer la question ou de demander s'il y a d'autres souvenirs.
+    - Clôture immédiate du brief des 4 repères et transmission directe de la note vocale de procédure.
+  - **Règle Anti-Perroquet & Références Naturelles (Jalon 93)** :
+    - Ne jamais répéter mot pour mot un texte déjà formulé plus haut dans le fil.
+    - Référence élégante : « Comme indiqué plus haut... », « Comme vu ensemble... » ou résumé concis direct.
   - **Pilier 1 — Silence Human-In-The-Loop & Reprise Chirurgicale ✨** :
     - Silence immédiat dès message sortant du commerçant (`fromMe`).
     - Reprise via `✨` : calcul du vecteur d'état des 4 invariants du brief (Destinataire, Occasion, Expéditeur, Histoire) pour poser uniquement la seule question manquante, sans bégaiement ni régression.
