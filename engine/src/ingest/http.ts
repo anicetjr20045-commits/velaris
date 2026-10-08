@@ -129,7 +129,7 @@ export function createIngestServer(deps: IngestServerDeps): Server {
         });
       }
 
-      if (parsedUrl.pathname === '/api/qr/image' && req.method === 'GET') {
+      if (parsedUrl.pathname === '/api/qr/image' && (req.method === 'GET' || req.method === 'HEAD')) {
         const session = parsedUrl.searchParams.get('session') || 'Test';
         if (!deps.waha) return json(res, 503, { ok: false, error: 'waha_not_configured' });
         const s = await deps.waha.getSession(session);
@@ -145,6 +145,10 @@ export function createIngestServer(deps: IngestServerDeps): Server {
           'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
           'Content-Length': img.buffer.length,
         });
+        if (req.method === 'HEAD') {
+          res.end();
+          return;
+        }
         res.end(img.buffer);
         return;
       }
