@@ -14,8 +14,8 @@ if ssh -o ConnectTimeout=4 root@$VPS_IP "curl -s http://127.0.0.1:$PORT/health" 
   exit 0
 fi
 
-echo "🚀 Établissement du tunnel SSH sécurisé (Port $PORT ➔ VPS Contabo)..."
-ssh -f -N -R 0.0.0.0:$PORT:127.0.0.1:$PORT root@$VPS_IP
+echo "🚀 Établissement du tunnel SSH sécurisé avec keepalive (Port $PORT ➔ VPS Contabo)..."
+ssh -f -N -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ExitOnForwardFailure=yes -R 0.0.0.0:$PORT:127.0.0.1:$PORT root@$VPS_IP
 
 sleep 2
 
