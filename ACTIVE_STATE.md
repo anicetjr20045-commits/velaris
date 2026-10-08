@@ -19,40 +19,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (02:15 UTC)
-- **Statut Opérationnel** : **Jalon 82 Validé & Prêt pour Entraînement** (Gestion Intelligente des Paroles Déjà Fournies par le Client, Cache v16 actif, Passerelle IA 0€ opérationnelle).
+- **Dernière mise à jour** : 8 Octobre 2026 (02:55 UTC)
+- **Statut Opérationnel** : **Jalon 83 Validé** (Reconnaissance Intelligente des Anciens Clients, Cache v17 actif, Architecture des 3 Piliers : Rafales, Délais & Livraison Déterministe).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
-    - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion (mariage, deuil, anniversaire, fête, etc.), ce qui rendait l'IA robotique, vulnérable aux oublis et incohérente dès qu'une occasion imprévue se présentait, nous avons conçu et adopté **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
-    - L'IA comprend la logique profonde de la création d'une chanson personnalisée et sait d'elle-même quelle question poser sans friction, en 1 seule question à la fois :
-      1. **L'Être ou les Êtres Honorés (Le Prénom)** :
-         - Si couple (mariage, noces) ➔ demande naturellement les **deux prénoms du couple**.
-         - Si deuil / hommage ➔ formule des condoléances dignes et demande avec respect le prénom du défunt.
-         - Si commande pour autrui ➔ prénom simple de la personne.
-         - Si commande pour soi-même (« mon anniversaire », « pour moi ») ➔ demande sobrement son prénom pour la commande (sans aucun jargon technique comme « pour le faire chanter au refrain »).
-      2. **Le Repère Temporel (La Date)** :
-         - Demande la date clé de l'événement (sans jamais demander d'âge indiscret).
-      3. **L'Émetteur (De la part de qui)** :
-         - Si commande pour autrui ➔ « C'est de la part de qui ? » (avec discrétion proposée).
-         - Si commande pour soi-même ➔ **SAUT NATUREL ET SPONTANÉ de la question** (l'émetteur étant le client lui-même, poser la question est une anomalie que l'IA ne doit jamais commettre).
-      4. **L'Âme des Paroles (Intelligence d'écoute active & Rassurance déculpabilisante)** :
-         - Si le client a déjà exprimé son intention : l'IA ne repose **jamais** la question générale (« Quel est le message ? »). Elle valide sobrement l'émotion et demande si d'autres anecdotes ou souvenirs doivent apparaître dans la chanson.
-         - Si le client n'a rien mentionné : question sobre avec rassurance systématique.
+    - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion, l'agent applique **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
+  - **Reconnaissance Intelligente des Anciens Clients / Habitués (Jalon 83)** :
+    - Détection via fiche CRM ou annonce spontanée du client.
+    - Accueil chaleureux d'habitué (*« Ravi de vous revoir ! »*).
+    - **Suppression intégrale du vocal de procédure** et de toute réexplication lourde du fonctionnement.
+    - Brief rapide selon les 4 invariants, puis **demande directe du choix d'offre sans pitch pesant** (*« On part sur la formule classique à 1 200 F ou avec la vidéo souvenir à 3 000 F ? »*).
+  - **L'Architecture des 3 Piliers (Code Déterministe vs IA)** :
+    1. *Le Moteur Asynchrone (Code)* : Debounce glissant des messages en rafale, temporisation humaine de 20-25 secondes, simulation de frappe, et Schedulers BDD de livraison.
+    2. *Le Contexte CRM (BDD)* : Injection factuelle du statut prospect vs habitué.
+    3. *Le Cerveau IA (Prompt Système Épuré)* : 100% libre de converser, d'écouter et de conseiller sans surcharge de règles.
   - **Prise en Charge des Paroles Déjà Rédigées par le Client (Jalon 82)** :
-    - Si le client colle directement ses propres paroles (couplets, poème) : l'IA ne pose aucune question de brief inutile.
-    - Elle accuse sobrement réception et demande uniquement si le client souhaite que son texte soit gardé 100% intact ou légèrement adapté au rythme musical.
-    - Dès confirmation ➔ Envoi direct du vocal de procédure ➔ Offres ➔ Paiement Mobile Money et choix du style musical immédiat (le texte étant déjà prêt, zéro attente de rédaction).
-  - **La Boussole d'Adaptabilité Tout-Terrain & Gestion du Désordre (Jalon 81)** :
-    - Réponses transparentes et immédiates aux questions spontanées (Prix d'abord, Procédure d'abord, Délais).
-    - Maintien rigoureux de la Checklist Mentale des 4 Invariants : quel que soit l'ordre des messages du client, l'agent ne demande que les éléments manquants et ne passe jamais au choix d'offre avant que le brief ne soit complet.
+    - Si paroles fournies ➔ saut du brief, question intact vs adaptation, vocal, offres, et paiement direct.
   - **Promesse Ferme de Livraison du Texte en 15 min (Jalon 81)** :
-    - Dès que le client choisit son offre (hors texte déjà fourni), confirmation immédiate et ancrage temporel formel : *« Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »*
-  - **Simplicité Radicale & Zéro Faux Enthousiasme (Jalon 80)** :
-    - Éradication totale de la flagornerie et des compliments artificiels. Accusés de réception posés et sobres.
+    - Dès le choix de la formule ➔ engagement formel de livraison sous 15 minutes max.
   - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
-    - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 et exposée en HTTPS public via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`).
-    - Zéro dépendance aux clés d'API payantes (propulsé par Gemini 3.8 Flash via le runtime CLI agy en coût 0€ illimité).
-    - Playground synchronisé en **Cache v16** (`velaris_agent_config_v16`).
+    - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 (Gemini 3.8 Flash, latence 3.8s, prompt multi-tours à historique intégral).
+    - Playground synchronisé en **Cache v17** (`velaris_agent_config_v17`) avec toggle interactif Profil CRM (Nouveau Prospect vs Client Fidèle) et scénario Mariam dédié.
 - **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
   1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
   2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).
@@ -75,6 +62,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 83. Reconnaissance des Anciens Clients (Cache v17) & Architecture des 3 Piliers (8 Octobre 2026)
+- **Traitement Intuitif du Client Fidèle / Habitué** :
+  - Détection automatique via fiche CRM (`clientProfile: 'returning'`) ou formulation du client (« Je reviens vers vous », « vous aviez déjà composé... »).
+  - Accueil chaleureux et sobre d'habitué (« Ravi de vous revoir ! »).
+  - Suppression intégrale de la note vocale de procédure et des explications redondantes sur le fonctionnement.
+  - Brief rapide selon les 4 invariants, puis demande directe du choix d'offre sans pitch lourd : « On part sur la formule classique à 1 200 F ou avec la vidéo souvenir à 3 000 F ? ».
+- **Interface Playground Studio Cache v17** :
+  - Ajout d'un badge interactif « Profil CRM » (Nouveau Prospect vs Client Fidèle).
+  - Scénario Mariam Ouédraogo pré-enregistré pour test instantané en 1 clic.
+  - Purge automatique des caches antérieurs `v1` à `v16`.
+- **Passerelle IA 0€ Optimisée** :
+  - Intégration systématique de l'historique complet des messages dans `scripts/velaris_ai_daemon.py` pour éliminer tout risque d'amnésie multi-tours.
+  - Réponses fluides en 3.8s validées avec succès.
 
 ### 82. Prise en Charge des Paroles Fournies par le Client & Cache v16 (8 Octobre 2026)
 - **Traitement Intuitif du Client-Auteur** :

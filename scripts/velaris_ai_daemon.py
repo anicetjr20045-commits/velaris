@@ -425,51 +425,39 @@ class VelarisGatewayHandler(BaseHTTPRequestHandler):
         is_velaris = "velaris" in project_id or "VELARIS" in system_content or "Chansons" in system_content
         is_coach = "coach" in project_id or "mentor" in system_content.lower()
 
-        if worker.turn_count == 0 or len(chat_turns) <= 2:
-            formatted_prompt = ""
-            if system_content:
-                header_title = "DIRECTIVES COMMERCIALES VELARIS" if is_velaris else ("DIRECTIVES MENTORAT" if is_coach else "DIRECTIVES SYSTÈME")
-                formatted_prompt += f"[{header_title}]\n{system_content}\n\n"
+        formatted_prompt = ""
+        if system_content:
+            header_title = "DIRECTIVES COMMERCIALES VELARIS" if is_velaris else ("DIRECTIVES MENTORAT" if is_coach else "DIRECTIVES SYSTÈME")
+            formatted_prompt += f"[{header_title}]\n{system_content}\n\n"
 
-            formatted_prompt += "[HISTORIQUE DE LA CONVERSATION]\n"
-            for turn in chat_turns:
-                role = turn.get("role", "user")
-                if is_velaris:
-                    role_label = "Client" if role == "user" else "Conseiller Velaris"
-                elif is_coach:
-                    role_label = "Anicet" if role == "user" else "Coach"
-                else:
-                    role_label = "Utilisateur" if role == "user" else "Assistant"
-                formatted_prompt += f"{role_label}: {turn.get('content', '').strip()}\n"
-
+        formatted_prompt += "[HISTORIQUE DE LA CONVERSATION]\n"
+        for turn in chat_turns:
+            role = turn.get("role", "user")
             if is_velaris:
-                execution_instruction = (
-                    "Incarne ton rôle de Conseiller Velaris sur WhatsApp avec simplicité, politesse et sobriété. "
-                    "Zéro faux enthousiasme, zéro compliment artificiel ni flagornerie. "
-                    "Applique scrupuleusement les 4 invariants du brief et les directives du studio. "
-                    "Rédige une réponse directe, courte et sobre, avec une seule question à la fois."
-                )
+                role_label = "Client" if role == "user" else "Conseiller Velaris"
             elif is_coach:
-                execution_instruction = (
-                    "Incarne rigoureusement ton rôle de mentor, applique tes directives et réponds directement à Anicet sans préambule ni méta-commentaire."
-                )
+                role_label = "Anicet" if role == "user" else "Coach"
             else:
-                execution_instruction = (
-                    "Applique scrupuleusement tes directives système et réponds directement au dernier message sans méta-commentaire."
-                )
+                role_label = "Utilisateur" if role == "user" else "Assistant"
+            formatted_prompt += f"{role_label}: {turn.get('content', '').strip()}\n"
 
-            formatted_prompt += f"\n[INSTRUCTION D'EXÉCUTION]\n{execution_instruction}"
-        else:
-            # Resident memory turn
-            role_prefix = "Client" if is_velaris else ("Anicet" if is_coach else "Utilisateur")
-            consigne = "Réponds directement selon tes directives système. Zéro méta-commentaire."
-            if is_velaris:
-                consigne = "Réponds directement au client selon les directives du studio Velaris. Concision, sobriété, zéro faux enthousiasme, une seule question à la fois."
-
-            formatted_prompt = (
-                f"{role_prefix}: {last_user_content}\n\n"
-                f"[CONSIGNE]\n{consigne}"
+        if is_velaris:
+            execution_instruction = (
+                "Incarne ton rôle de Conseiller Velaris sur WhatsApp avec simplicité, politesse et sobriété. "
+                "Zéro faux enthousiasme, zéro compliment artificiel ni flagornerie. "
+                "Applique scrupuleusement les 4 invariants du brief et les directives du studio. "
+                "Rédige une réponse directe, courte et sobre, avec une seule question à la fois."
             )
+        elif is_coach:
+            execution_instruction = (
+                "Incarne rigoureusement ton rôle de mentor, applique tes directives et réponds directement à Anicet sans préambule ni méta-commentaire."
+            )
+        else:
+            execution_instruction = (
+                "Applique scrupuleusement tes directives système et réponds directement au dernier message sans méta-commentaire."
+            )
+
+        formatted_prompt += f"\n[INSTRUCTION D'EXÉCUTION]\n{execution_instruction}"
 
         # 4. Inférence Résidente Haute Vitesse
         try:

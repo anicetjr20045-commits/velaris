@@ -21,7 +21,8 @@ import {
   Check,
   Eye,
   EyeOff,
-  Cpu
+  Cpu,
+  UserCheck
 } from 'lucide-react';
 
 export interface ChatBubble {
@@ -53,6 +54,7 @@ export interface ScenarioPreset {
   phone: string;
   firstMessages: string[];
   description: string;
+  clientProfile?: 'new' | 'returning';
 }
 
 export interface AgentConfig {
@@ -107,6 +109,13 @@ Dans la vraie vie, chaque client s'exprime à sa manière et l'ordre des échang
        « C'est bien noté, nous avons bien reçu vos paroles. Souhaitez-vous que notre équipe conserve votre texte exactement intact tel quel pour l'enregistrement, ou préférez-vous que nous l'adaptions légèrement au rythme musical si besoin ? »
      • Dès que le client a répondu, transmets directement la note vocale de procédure.
      • Dès qu'il a répondu au vocal, présente les offres. Les paroles étant déjà prêtes, la commande passe directement au règlement et au choix du style musical dès son choix de formule.
+4. Cas Particulier : Le Client Récurrent / Ancien Client Fidèle :
+   - Si le message du client ou le contexte CRM indique qu'il a déjà commandé par le passé (ex: « Je reviens vers vous », « Vous aviez déjà fait une chanson pour... », mention de client fidèle) :
+     • Accueille-le chaleureusement comme un habitué (« Ravi de vous revoir ! »).
+     • Ne lui envoie JAMAIS le vocal de procédure et ne lui réexplique pas le fonctionnement : il connaît déjà le studio.
+     • Effectue le brief de sa nouvelle chanson normalement selon les 4 invariants.
+     • Dès que le brief est complet, ne fais pas de présentation lourde des formules : demande-lui directement son choix :
+       « C'est bien noté ! On part sur la formule classique à {PRIX_DECOUVERTE} F CFA ou avec la vidéo souvenir à {PRIX_PRESTIGE} F CFA ? »
 
 # LE CYCLE DE VENTE & MATRICE UNIVERSELLE DU BRIEF
 
@@ -256,6 +265,18 @@ const SCENARIOS: ScenarioPreset[] = [
     ],
     description: "Teste les explications pour la diaspora (Wave international / Carte bancaire).",
   },
+  {
+    id: 'mariam_fidele',
+    title: 'Mariam Ouédraogo (Ancienne cliente fidèle)',
+    clientName: 'Mariam Ouédraogo',
+    country: 'BF',
+    phone: '+22676001122',
+    clientProfile: 'returning',
+    firstMessages: [
+      "Bonjour ! Je reviens vers vous, vous aviez composé une magnifique chanson pour l'anniversaire de ma mère le mois passé. Aujourd'hui je veux une chanson pour le baptême de mon neveu Kevin ce dimanche.",
+    ],
+    description: "Teste l'accueil chaleureux d'une habituée : aucun vocal de procédure, brief direct puis choix d'offre sans pitch lourd.",
+  },
 ];
 
 const QUICK_TEST_SHORTCUTS = [
@@ -269,7 +290,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v16';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v17';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
@@ -290,6 +311,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v13');
       localStorage.removeItem('velaris_agent_config_v14');
       localStorage.removeItem('velaris_agent_config_v15');
+      localStorage.removeItem('velaris_agent_config_v16');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -315,6 +337,7 @@ export const PlaygroundView: FC = () => {
   const [clientPhone, setClientPhone] = useState('+2250788776655');
   const [clientName, setClientName] = useState('Moussa Traoré');
   const [countryCode, setCountryCode] = useState<'CI' | 'BF' | 'SN' | 'OTHER'>('CI');
+  const [clientProfile, setClientProfile] = useState<'new' | 'returning'>('new');
 
   // État de la conversation WhatsApp
   const [messages, setMessages] = useState<ChatBubble[]>([]);
@@ -533,6 +556,7 @@ export const PlaygroundView: FC = () => {
     setClientName(sc.clientName);
     setCountryCode(sc.country);
     setClientPhone(sc.phone);
+    setClientProfile(sc.clientProfile || 'new');
 
     const initialBubbles: ChatBubble[] = sc.firstMessages.map((msg, i) => ({
       id: `init_${Date.now()}_${i}`,
@@ -616,7 +640,11 @@ export const PlaygroundView: FC = () => {
     // 1. Appel API Externe Réel si configuré (DeepSeek, Gemini, OpenAI)
     let generatedTexts: string[] = [];
 
-    const effectiveSystemPrompt = (config.systemPrompt || '')
+    const crmContextNote = clientProfile === 'returning'
+      ? "\n\n[FICHE CLIENT CRM : Client fidèle et régulier. A déjà commandé et payé une chanson personnalisée le mois passé. Il connaît déjà la démarche et les tarifs du studio.]"
+      : "\n\n[FICHE CLIENT CRM : Nouveau prospect — Première prise de contact avec le studio.]";
+
+    const effectiveSystemPrompt = ((config.systemPrompt || '') + crmContextNote)
       .replace(/{AGENT_NAME}/g, config.agentName || 'Alex')
       .replace(/{STUDIO_NAME}/g, config.studioName || 'Velaris Studio')
       .replace(/{PRIX_DECOUVERTE}/g, config.tariffs.decouvertePrice || '1 200')
@@ -973,21 +1001,37 @@ export const PlaygroundView: FC = () => {
               </div>
             </div>
 
-            {/* Sélecteur de Pays Prospect & Simulation de Ligne */}
-            <div className="flex items-center gap-2 bg-[#111b21] px-3 py-1.5 rounded-xl border border-white/[0.08]">
-              <Phone className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs text-neutral-400 hidden sm:inline">Ligne prospect :</span>
-              <select
-                aria-label="Sélectionner le pays du prospect"
-                value={countryCode}
-                onChange={(e) => handleCountryChange(e.target.value as any)}
-                className="bg-transparent border-0 text-xs text-white font-medium focus:outline-none cursor-pointer"
+            {/* Profil Client CRM & Sélecteur de Pays Prospect */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setClientProfile((prev) => (prev === 'new' ? 'returning' : 'new'))}
+                title="Cliquer pour basculer : Nouveau Prospect vs Client Fidèle (Habitué)"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
+                  clientProfile === 'returning'
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 shadow-sm'
+                    : 'bg-[#111b21] border-white/[0.08] text-neutral-400 hover:text-white'
+                }`}
               >
-                <option value="CI" className="bg-[#111b21]">Côte d'Ivoire (+225)</option>
-                <option value="BF" className="bg-[#111b21]">Burkina Faso (+226)</option>
-                <option value="SN" className="bg-[#111b21]">Sénégal (+221)</option>
-                <option value="OTHER" className="bg-[#111b21]">France (+33)</option>
-              </select>
+                <UserCheck className={`w-3.5 h-3.5 ${clientProfile === 'returning' ? 'text-amber-400' : 'text-neutral-400'}`} />
+                <span className="hidden sm:inline">{clientProfile === 'returning' ? 'Habitué (Fidèle)' : 'Nouveau Prospect'}</span>
+              </button>
+
+              <div className="flex items-center gap-2 bg-[#111b21] px-3 py-1.5 rounded-xl border border-white/[0.08]">
+                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs text-neutral-400 hidden sm:inline">Ligne :</span>
+                <select
+                  aria-label="Sélectionner le pays du prospect"
+                  value={countryCode}
+                  onChange={(e) => handleCountryChange(e.target.value as any)}
+                  className="bg-transparent border-0 text-xs text-white font-medium focus:outline-none cursor-pointer"
+                >
+                  <option value="CI" className="bg-[#111b21]">Côte d'Ivoire (+225)</option>
+                  <option value="BF" className="bg-[#111b21]">Burkina Faso (+226)</option>
+                  <option value="SN" className="bg-[#111b21]">Sénégal (+221)</option>
+                  <option value="OTHER" className="bg-[#111b21]">France (+33)</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -1696,6 +1740,12 @@ export const PlaygroundView: FC = () => {
                   <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
                     <span className="text-neutral-400">Client / Téléphone :</span>
                     <span className="font-medium text-white">{clientName} · <span className="text-neutral-400 font-mono text-[11px]">{clientPhone}</span></span>
+                  </div>
+                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-400">Profil CRM :</span>
+                    <span className={`font-semibold ${clientProfile === 'returning' ? 'text-amber-400' : 'text-neutral-300'}`}>
+                      {clientProfile === 'returning' ? 'Client Fidèle (Habitué)' : 'Nouveau Prospect'}
+                    </span>
                   </div>
                   {currentSongTitle && (
                     <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
