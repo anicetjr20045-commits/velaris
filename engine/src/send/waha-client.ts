@@ -185,6 +185,26 @@ export class WahaClient {
     }
   }
 
+  async requestPairingCode(session: string, phoneNumber: string): Promise<{ ok: boolean; code?: string; error?: string }> {
+    try {
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/${encodeURIComponent(session)}/auth/request-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        body: JSON.stringify({ phoneNumber: cleanPhone }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        return { ok: false, error: `http_${res.status}: ${text}` };
+      }
+      const data = await res.json() as { code?: string };
+      return data.code ? { ok: true, code: data.code } : { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
   async archiveChat(session: string, chatId: string, archived: boolean): Promise<{ ok: boolean; error?: string }> {
     try {
       const action = archived ? 'archive' : 'unarchive';

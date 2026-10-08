@@ -153,6 +153,22 @@ export function createIngestServer(deps: IngestServerDeps): Server {
         return;
       }
 
+      if (parsedUrl.pathname === '/api/qr/pairing-code' && req.method === 'POST') {
+        const session = parsedUrl.searchParams.get('session') || 'Test';
+        if (!deps.waha) return json(res, 503, { ok: false, error: 'waha_not_configured' });
+        let body: any;
+        try {
+          const raw = await readBody(req);
+          body = JSON.parse(raw.toString('utf8'));
+        } catch {
+          return json(res, 400, { ok: false, error: 'invalid_json_body' });
+        }
+        const phoneNumber = String(body.phoneNumber || '');
+        if (!phoneNumber) return json(res, 400, { ok: false, error: 'missing_phone_number' });
+        const r = await deps.waha.requestPairingCode(session, phoneNumber);
+        return json(res, r.ok ? 200 : 500, r);
+      }
+
       // Endpoint d'archivage / désarchivage synchronisé WhatsApp & Supabase
       if (parsedUrl.pathname === '/api/chat-archive' && req.method === 'POST') {
         let body: any;
