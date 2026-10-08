@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (14:30 UTC)
-- **Statut Opérationnel** : **Jalon 93 Validé — Clôture Définitive du Brief sur Réponse Brève & Règle Anti-Perroquet** (Zéro boucle sur « juste pour lui rendre hommage » ou « rien de spécial », clôture immédiate de l'invariant 4, transmission directe du vocal, formulation naturelle « comme indiqué plus haut », 0 erreur tsc/vite/vitest).
+- **Dernière mise à jour** : 8 Octobre 2026 (15:40 UTC)
+- **Statut Opérationnel** : **Jalon 94 Validé — Migration Chirurgicale WAHA vers Chromium Headless (WEBJS) sur VPS Contabo** (Éradication définitive des coupures Baileys/NOWEB, passage au moteur officiel Chromium headless avec allocation mémoire partagée `shm_size: 1gb`, sessions `Test` et `anicet2` opérationnelles en `SCAN_QR_CODE` avec WWebVersion `2.3000.1049703040`, backup physique d'archivage NOWEB sécurisé, portail de scan direct actif sur `https://waha.velarisagent.life/qr/`).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
@@ -112,6 +112,19 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 94. Migration Chirurgicale WAHA vers Chromium Headless (WEBJS) sur VPS Contabo (8 Octobre 2026)
+- **Éradication Définitive des Déconnexions & Bugs Protocolaires (Adieu Baileys/NOWEB)** :
+  - Le moteur NOWEB (émulation purement réseau en WebSocket) provoquait des crashs récurrents (`FAILED`) et des désynchronisations permanentes suite aux mises à jour de chiffrement WhatsApp.
+  - Bascule intégrale vers le moteur officiel Chromium Headless (`WHATSAPP_DEFAULT_ENGINE=WEBJS`), embarquant la version officielle du client web WhatsApp (`WWebVersion 2.3000.1049703040`).
+- **Durcissement Infrastructure VPS Contabo (`162.35.113.220`)** :
+  - Sauvegarde physique intégrale des sessions historiques NOWEB (`/var/lib/docker/volumes/waha_sessions_backup_noweb_20261008_153123`).
+  - Allocation d'un segment de mémoire partagée dédié `shm_size: "1gb"` dans `docker-compose.yml` pour immuniser Chromium contre tout plantage sur les flux médias ou rendus canvas.
+  - Télémétrie validée après lancement des 2 sessions : 1.29 GiB de RAM consommée par WAHA, 1.5 GiB de RAM libre disponible, CPU en idle à 6%.
+- **Initialisation des Sessions & Portail QR Code Live** :
+  - Session principale `Test` (`+22656240533`) : branchée sur `velaris-engine` (`http://waha-bridge:3001/webhook`) avec signature HMAC, statut `SCAN_QR_CODE`.
+  - Session secondaire `anicet2` (`+22658357772`) : webhook `https://velaris.money/api/public/webhooks/waha`, statut `SCAN_QR_CODE`.
+  - Portail public de scan en direct actif avec rafraîchissement automatique : `https://waha.velarisagent.life/qr/`.
 
 ### 83. Reconnaissance des Anciens Clients (Cache v17) & Architecture des 3 Piliers (8 Octobre 2026)
 - **Traitement Intuitif du Client Fidèle / Habitué** :
