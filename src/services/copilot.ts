@@ -339,6 +339,7 @@ export const OCCASION_LABELS: Record<SongOccasion, string> = {
   hommage: 'Hommage & deuil',
   naissance: 'Baptême & naissance',
   fete: 'Fête & célébration',
+  famille: 'Famille & parents',
   institution: 'Chanson publicitaire',
   autre: 'Célébration sur mesure',
 };

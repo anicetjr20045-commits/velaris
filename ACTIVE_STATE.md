@@ -19,11 +19,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (10:15 UTC)
-- **Statut Opérationnel** : **Jalon 85 Validé** (Destinataires Multiples Ambigus, Traitement Séquentiel Strict, Règle d'or de Livraison en 15 min, Cache v18 actif, Preset Aminata Enfants).
+- **Dernière mise à jour** : 8 Octobre 2026 (10:45 UTC)
+- **Statut Opérationnel** : **Jalon 86 Validé** (Bibliothèque d'Étalons d'Or du Patron synchronisée, 631 Chansons Réelles analysées, Respiration Verticale, Support Occasion 'famille', Build Vite & TypeScript 100% propre).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion, l'agent applique **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
+  - **La Bibliothèque d'Étalons d'Or du Patron (Jalon 86)** :
+    - Intégration des 5 chefs-d'œuvre authentiques écrits à la main par le fondateur issus de 631 textes réels WhatsApp.
+    - Élimination des crochets techniques `[Intro]`, `[Refrain]` au profit de sections épurées pour WhatsApp.
+    - Respiration verticale, suspensions « … », cartouche de dédicace et bénédictions ouest-africaines profondes.
+    - Support officiel de la catégorie `famille` dans `lyricsCorpus.ts`, `lyrics-corpus.ts` et `OCCASION_LABELS` de `copilot.ts`.
   - **Cas Particulier 5 : Destinataires Multiples Ambigus & Traitement Séquentiel Strict (Jalon 85)** :
     - Clarification immédiate dès mention floue de plusieurs personnes : *« Souhaitez-vous une seule chanson commune qui les réunit ensemble, ou bien une chanson personnalisée séparée pour chacun d'eux ? »*
     - Si séparées : Traitement séquentiel strict commande par commande (brief complet du 1er destinataire ➔ choix d'offre ➔ texte 15 min ➔ paiement, puis enchaînement proactif sur le 2e).
