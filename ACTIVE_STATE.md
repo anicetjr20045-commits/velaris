@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (02:55 UTC)
-- **Statut Opérationnel** : **Jalon 83 Validé** (Reconnaissance Intelligente des Anciens Clients, Cache v17 actif, Architecture des 3 Piliers : Rafales, Délais & Livraison Déterministe).
+- **Dernière mise à jour** : 8 Octobre 2026 (09:25 UTC)
+- **Statut Opérationnel** : **Jalon 84 Validé** (Étanchéité des Conversations & Critère Strict de Commande Payée pour Client Fidèle, Cache v17 actif, Architecture des 3 Piliers).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion, l'agent applique **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
