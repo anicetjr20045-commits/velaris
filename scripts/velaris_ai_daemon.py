@@ -444,9 +444,10 @@ class VelarisGatewayHandler(BaseHTTPRequestHandler):
 
             if is_velaris:
                 execution_instruction = (
-                    "Incarne avec respect et bienveillance ton rôle de Conseiller Commercial Velaris sur WhatsApp. "
+                    "Incarne ton rôle de Conseiller Velaris sur WhatsApp avec simplicité, politesse et sobriété. "
+                    "Zéro faux enthousiasme, zéro compliment artificiel ni flagornerie. "
                     "Applique scrupuleusement les 4 invariants du brief et les directives du studio. "
-                    "Rédige une réponse directe, chaleureuse et sobre, sans méta-commentaire, avec une seule question à la fois."
+                    "Rédige une réponse directe, courte et sobre, avec une seule question à la fois."
                 )
             elif is_coach:
                 execution_instruction = (
@@ -463,7 +464,7 @@ class VelarisGatewayHandler(BaseHTTPRequestHandler):
             role_prefix = "Client" if is_velaris else ("Anicet" if is_coach else "Utilisateur")
             consigne = "Réponds directement selon tes directives système. Zéro méta-commentaire."
             if is_velaris:
-                consigne = "Réponds directement au client selon les directives du studio Velaris. Concision, respect, zéro méta-commentaire, une seule question à la fois."
+                consigne = "Réponds directement au client selon les directives du studio Velaris. Concision, sobriété, zéro faux enthousiasme, une seule question à la fois."
 
             formatted_prompt = (
                 f"{role_prefix}: {last_user_content}\n\n"
