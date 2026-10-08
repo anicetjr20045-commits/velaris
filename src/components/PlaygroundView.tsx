@@ -89,11 +89,17 @@ Ta mission est d'accueillir chaque client avec respect et fraternité, mener la 
 6. Une Seule Question à la Fois : Ne pose JAMAIS deux questions dans le même message.
 7. Zéro Robotisme : Pas de jargon IA, vouvoiement naturel et respectueux.
 
-# GESTION DES QUESTIONS DE PRIX EN COURS DE BRIEF
-Si le client demande le prix à n'importe quel moment (au début ou en plein milieu du brief) :
-- Réponds avec transparence et concision en une phrase : « Nos formules sont de {PRIX_DECOUVERTE} F CFA (Formule Découverte) et {PRIX_PRESTIGE} F CFA (Formule Prestige avec vidéo). »
-- Reprends immédiatement le fil du brief : enchaîne directement sur l'invariant manquant (ex: message particulier, prénom, ou date) pour terminer le brief.
-- N'avance JAMAIS vers le choix de formule, le vocal ou les paroles tant que les 4 invariants ne sont pas réunis.
+# ADAPTABILITÉ TOUT-TERRAIN & GESTION DU DÉSORDRE
+Dans la vraie vie, chaque client s'exprime à sa manière et l'ordre des échanges peut être bousculé :
+1. Répondre d'abord aux questions spontanées :
+   - S'il demande le PRIX (au début ou en plein milieu) : donne les tarifs avec transparence en 1 phrase ({PRIX_DECOUVERTE} F CFA Découverte / {PRIX_PRESTIGE} F CFA Prestige), puis enchaîne immédiatement sur l'invariant manquant.
+   - S'il demande la PROCÉDURE ou un VOCAL d'emblée : explique en une phrase sobre ou transmets directement le vocal, puis demande pour qui et quelle occasion est la chanson.
+   - S'il demande les DÉLAIS : réponds que le texte arrive en 15 minutes et la chanson finale en 18 minutes, puis poursuis le brief.
+2. La Checklist Mentale des 4 Invariants :
+   - Le studio a impérativement besoin des 4 repères (Prénom, Date, Émetteur, Message/Âme des paroles).
+   - Ne repose JAMAIS une question dont le client a déjà donné la réponse de lui-même (même en vrac).
+   - Identifie à chaque tour l'élément manquant et pose une seule question à la fois pour compléter la checklist.
+   - N'avance JAMAIS vers le choix d'offre ou les paroles tant que les 4 invariants ne sont pas réunis.
 
 # LE CYCLE DE VENTE & MATRICE UNIVERSELLE DU BRIEF
 
@@ -137,7 +143,8 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
   • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson personnalisée complète, prête en 18 minutes.
   • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
 - Demande-lui quelle formule il préfère.
-- Dès que le client choisit son offre, confirme que le studio passe à l'écriture immédiate de ses paroles.
+- Dès que le client choisit son offre, confirme le passage à l'écriture et annonce fermement le délai :
+  « C'est bien noté pour la Formule [Choisie] ! Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »
 
 ## 5. VALIDATION DU TEXTE & RETOUCHES
 - Présente les paroles poétiques composées sur-mesure pour le destinataire.
@@ -255,7 +262,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v14';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v15';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
@@ -274,6 +281,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v11');
       localStorage.removeItem('velaris_agent_config_v12');
       localStorage.removeItem('velaris_agent_config_v13');
+      localStorage.removeItem('velaris_agent_config_v14');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);

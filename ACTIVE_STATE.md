@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (01:40 UTC)
-- **Statut Opérationnel** : **Jalon 80 Validé & Prêt pour Entraînement** (Simplicité Radicale sans faux enthousiasme, Reprise chirurgicale après interruption tarifaire, Cache v14 actif, Daemon résident 0€ réaligné).
+- **Dernière mise à jour** : 8 Octobre 2026 (01:50 UTC)
+- **Statut Opérationnel** : **Jalon 81 Validé & Prêt pour Entraînement** (Boussole d'Adaptabilité Tout-Terrain, Promesse Ferme de Livraison du Texte en 15 min, Cache v15 actif, Gateway 0€ opérationnelle).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion (mariage, deuil, anniversaire, fête, etc.), ce qui rendait l'IA robotique, vulnérable aux oublis et incohérente dès qu'une occasion imprévue se présentait, nous avons conçu et adopté **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
@@ -38,15 +38,17 @@
       4. **L'Âme des Paroles (Intelligence d'écoute active & Rassurance déculpabilisante)** :
          - Si le client a déjà exprimé son intention : l'IA ne repose **jamais** la question générale (« Quel est le message ? »). Elle valide sobrement l'émotion et demande si d'autres anecdotes ou souvenirs doivent apparaître dans la chanson.
          - Si le client n'a rien mentionné : question sobre avec rassurance systématique.
+  - **La Boussole d'Adaptabilité Tout-Terrain & Gestion du Désordre (Jalon 81)** :
+    - Réponses transparentes et immédiates aux questions spontanées (Prix d'abord, Procédure d'abord, Délais).
+    - Maintien rigoureux de la Checklist Mentale des 4 Invariants : quel que soit l'ordre des messages du client, l'agent ne demande que les éléments manquants et ne passe jamais au choix d'offre avant que le brief ne soit complet.
+  - **Promesse Ferme de Livraison du Texte en 15 min (Jalon 81)** :
+    - Dès que le client choisit son offre, confirmation immédiate et ancrage temporel formel : *« Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »*
   - **Simplicité Radicale & Zéro Faux Enthousiasme (Jalon 80)** :
-    - Éradication totale de la flagornerie et des compliments artificiels (« C'est un geste magnifique », « Waouh », « C'est touchant »).
-    - Accusés de réception posés, simples et polis (« C'est bien noté pour Moussa. »).
-  - **Gestion Universelle des Interruptions Tarifaires (Jalon 80)** :
-    - Si le prix est demandé au début ou en plein milieu du brief (ex: après l'émetteur mais avant le message) : l'IA donne les tarifs (1 200 F / 3 000 F) avec transparence en une phrase ET reprend immédiatement l'invariant manquant. Elle n'avance jamais vers le choix d'offre ou les paroles tant que les 4 invariants ne sont pas complets.
+    - Éradication totale de la flagornerie et des compliments artificiels. Accusés de réception posés et sobres.
   - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
     - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 et exposée en HTTPS public via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`).
     - Zéro dépendance aux clés d'API payantes (propulsé par Gemini 3.8 Flash via le runtime CLI agy en coût 0€ illimité).
-    - Playground synchronisé en **Cache v14** (`velaris_agent_config_v14`).
+    - Playground synchronisé en **Cache v15** (`velaris_agent_config_v15`).
 - **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
   1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
   2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).
@@ -68,6 +70,17 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 81. Boussole d'Adaptabilité Tout-Terrain, Promesse Texte 15 min & Cache v15 (8 Octobre 2026)
+- **Boussole Mentale Face au Désordre Réel** :
+  - Gestion des flux non-linéaires : client qui commence par le prix, qui réclame la procédure ou un vocal d'emblée, ou qui pose des questions sur les délais.
+  - Priorité absolue à la réponse immédiate et transparente, suivie du réalignement direct sur les invariants manquants.
+- **Ancrage Ferme de la Promesse de Livraison (15 minutes)** :
+  - Dès le choix de la formule, l'IA s'engage sur un délai concret et rassurant : « Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation ».
+- **Cache v15 & Compilation** :
+  - Bump vers `velaris_agent_config_v15` avec purge de `v1` à `v14`.
+  - Build de production Vite & TypeScript sans aucune erreur (5.41s).
+  - Tests réels validés avec brio sur requêtes dans le désordre.
 
 ### 80. Simplicité Radicale, Répression du Faux Enthousiasme & Reprise de Brief sur Prix (8 Octobre 2026)
 - **Élimination Complète de la Flagornerie et Faux Compliments** :
