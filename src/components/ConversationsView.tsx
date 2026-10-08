@@ -239,9 +239,15 @@ const MORE_SHORTCUTS: QuickShortcut[] = [
   },
   {
     id: 'validation_texte',
-    label: 'Avis & Validation définitive texte',
+    label: 'Avis & Validation définitive texte (1er envoi)',
     category: 'Validation',
     text: "Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée 🙏",
+  },
+  {
+    id: 'validation_texte_revision',
+    label: 'Avis texte modifié (retouche)',
+    category: 'Validation',
+    text: "Qu'en pensez-vous ? 🙏",
   },
   {
     id: 'delai_20m',
