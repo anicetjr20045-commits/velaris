@@ -19,9 +19,14 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (12:00 UTC)
-- **Statut Opérationnel** : **Jalon 90 Validé** (Architecture de Paiement Multi-Pays Dynamique, Parser de Sections `[Pays]`, Wave CI + Orange Money BF, Demande Systématique de Capture Reçu, Quick Reply & Accompagnement Allégé « Qu'en pensez-vous ? 🙏 » sur Révisions, 0 erreur tsc/vite).
+- **Dernière mise à jour** : 8 Octobre 2026 (13:00 UTC)
+- **Statut Opérationnel** : **Jalon 91 Validé** (Signal de Livraison Explicite 🎉, Clôture Déterministe de Commande & Enchaînement Séquentiel Intelligent, Architecture Paiement Multi-Pays, 0 erreur tsc/vite).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
+  - **Signal de Livraison Sans Équivoque 🎉 (Jalon 91)** :
+    - Confirmation par le marchand via réaction emoji ou message `🎉` (effacé côté client si écrit).
+    - Commande et job de chanson clôturés en `delivered`, `funnel_stage` à `delivered`, levée immédiate de la pause (`ai_paused: false`), client marqué `is_returning = true`.
+    - Double commande : enchaînement proactif immédiat sur le brief du 2e destinataire.
+    - Commande unique : clôture sans bruit, prête pour remerciements ou retour futur en client fidèle.
   - **Phase Critique Post-Validation du Texte & Paiement Multi-Pays (Jalon 90)** :
     - Clôture immédiate de la phase de rédaction dès validation client (pas de relance de modifications superflue).
     - Envoi déterministe des coordonnées du pays client (détection indicatif JID / mention pays).
