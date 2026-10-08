@@ -19,9 +19,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (11:27 UTC)
-- **Statut Opérationnel** : **Jalon 88 Validé** (Protocole Retouches Ciblées 5 min [Cas A], Rejet Global & Nouvelle Proposition 10 min [Cas B], Message d'Accompagnement Officiel Systématique, Rafraîchissement In-Flight, Watchdog Multi-Délais & Ancrage baseText, 0 erreur tsc/vite).
+- **Dernière mise à jour** : 8 Octobre 2026 (12:00 UTC)
+- **Statut Opérationnel** : **Jalon 90 Validé** (Architecture de Paiement Multi-Pays Dynamique, Parser de Sections `[Pays]`, Wave CI + Orange Money BF, Demande Systématique de Capture Reçu, Quick Reply & Accompagnement Allégé « Qu'en pensez-vous ? 🙏 » sur Révisions, 0 erreur tsc/vite).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
+  - **Phase Critique Post-Validation du Texte & Paiement Multi-Pays (Jalon 90)** :
+    - Clôture immédiate de la phase de rédaction dès validation client (pas de relance de modifications superflue).
+    - Envoi déterministe des coordonnées du pays client (détection indicatif JID / mention pays).
+    - Formules officielles du patron : Wave pour la Côte d'Ivoire (+226 05 77 73 08 transfrontalier) et Orange Money pour le Burkina Faso (+226 05 77 73 08 Wendyam Anicet junior Sekongo).
+    - Exigence systématique de la capture de reçu avant production studio.
+  - **Accompagnement Allégé pour Révisions (Jalon 89)** :
+    - 1ère livraison = avertissement officiel complet ; révisions suivantes = *« Qu'en pensez-vous ? 🙏 »*.
   - **Protocole Retouche Ciblée (Cas A - 40% des commandes)** :
     - Collecte et récapitulatif précis : *« Est-ce la seule modification que vous souhaitez apporter, ou aimeriez-vous ajuster d'autres éléments ? »*.
     - Validation client ➔ promesse 5 minutes ➔ retouche chirurgicale sur `baseText` ➔ révisions illimitées.
