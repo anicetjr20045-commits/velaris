@@ -19,9 +19,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (13:00 UTC)
-- **Statut Opérationnel** : **Jalon 91 Validé** (Signal de Livraison Explicite 🎉, Clôture Déterministe de Commande & Enchaînement Séquentiel Intelligent, Architecture Paiement Multi-Pays, 0 erreur tsc/vite).
+- **Dernière mise à jour** : 8 Octobre 2026 (14:15 UTC)
+- **Statut Opérationnel** : **Jalon 92 Validé — Les 4 Piliers Opérationnels d'Élite & Clarification Absolue des Projets** (Silence Human-In-The-Loop & Reprise ✨, Vision/OCR Document vs Reçu vs Portrait, Timing Formule Vidéo & Debounce Rafale Photos, Échantillons Démo & Règle d'Or du Pont Conversationnel, 0 erreur tsc/vite/vitest).
+- **Distinction Vitale des Projets (Zéro Confusion)** :
+  - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
+  - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
+  - **Pilier 1 — Silence Human-In-The-Loop & Reprise Chirurgicale ✨** :
+    - Silence immédiat dès message sortant du commerçant (`fromMe`).
+    - Reprise via `✨` : calcul du vecteur d'état des 4 invariants du brief (Destinataire, Occasion, Expéditeur, Histoire) pour poser uniquement la seule question manquante, sans bégaiement ni régression.
+  - **Pilier 2 — Traitement Multimodal Vision & OCR des Images** :
+    - Discrimination étanche en 3 flux : Document/Texte/Poème (intégré au brief pour les paroles), Reçu de paiement Wave/OM (silence comptable et alerte), Photos de personnes (vidéo souvenir).
+  - **Pilier 3 — Formule Vidéo Souvenir (3 000 F) & Debounce Rafale de Photos** :
+    - Réponse pédagogique si demande préalable sur le timing des photos (attendre la validation de la chanson).
+    - Accusé de réception unique consolidé si rafale en avance, sans coupure de brief, poursuite immédiate de la vente.
+  - **Pilier 4 — Échantillons Démo & Règle d'Or du Pont Conversationnel** :
+    - Envoi de vidéo démo ou extrait audio de style à la demande.
+    - Règle d'or anti-amnésie : conclusion obligatoire par la relance de la question du brief en cours.
   - **Signal de Livraison Sans Équivoque 🎉 (Jalon 91)** :
     - Confirmation par le marchand via réaction emoji ou message `🎉` (effacé côté client si écrit).
     - Commande et job de chanson clôturés en `delivered`, `funnel_stage` à `delivered`, levée immédiate de la pause (`ai_paused: false`), client marqué `is_returning = true`.
