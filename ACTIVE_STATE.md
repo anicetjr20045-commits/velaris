@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (01:10 UTC)
-- **Statut Opérationnel** : **Jalon 78 Validé & Prêt pour Reprise d'Entraînement** (Découplage Vocal de Procédure / Présentation des Offres, Cache v12 actif, Gateway 0€ HTTPS opérationnelle).
+- **Dernière mise à jour** : 8 Octobre 2026 (01:25 UTC)
+- **Statut Opérationnel** : **Jalon 79 Validé & Prêt pour Entraînement** (Intelligence d'écoute Invariant 4, Transparence sincère sur les offres, Cache v13 actif, Passerelle 0€ opérationnelle).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion (mariage, deuil, anniversaire, fête, etc.), ce qui rendait l'IA robotique, vulnérable aux oublis et incohérente dès qu'une occasion imprévue se présentait, nous avons conçu et adopté **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
@@ -35,17 +35,19 @@
       3. **L'Émetteur (De la part de qui)** :
          - Si commande pour autrui ➔ « C'est de la part de qui ? » (avec discrétion proposée).
          - Si commande pour soi-même ➔ **SAUT NATUREL ET SPONTANÉ de la question** (l'émetteur étant le client lui-même, poser la question est une anomalie que l'IA ne doit jamais commettre).
-      4. **L'Âme des Paroles (Message, Souvenirs & Rassurance Déculpabilisante)** :
-         - Demande ce que le client aimerait transmettre ou ses souvenirs marquants.
-         - **Rassurance clé systématique** : Déculpabiliser le client qui n'a pas d'inspiration (*« Et si vous n'avez pas d'idées précises en tête, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous »*).
-  - **Découplage Épuré du Vocal de Procédure et de la Présentation des Offres (Jalon 78)** :
-    - Envoi direct du vocal explicatif de procédure sans formule protocolaire ni cérémonie.
-    - Aucune offre envoyée dans la même bulle : l'agent attend d'abord la réponse du client.
-    - Dès que le client a répondu, présentation claire des deux offres (1 200 F / 3 000 F) avec demande de préférence.
+      4. **L'Âme des Paroles (Intelligence d'écoute active & Rassurance déculpabilisante)** :
+         - Si le client a déjà exprimé son intention (ex: « pour lui dire qu'on l'apprécie », « pour le remercier ») : l'IA ne repose **jamais** la question générale (« Quel est le message ? »). Elle accuse réception de l'émotion et demande avec souplesse s'il souhaite ajouter d'autres anecdotes ou souvenirs particuliers, tout en rassurant si cela lui convient ainsi.
+         - Si le client n'a rien mentionné : question sobre sur le message avec rassurance déculpabilisante systématique (*« Et si vous n'avez pas d'idées précises en tête, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous »*).
+         - Si le message initial était déjà riche : saut direct vers le vocal de procédure.
+  - **Vérité des Offres & Respect du Client (Jalon 79)** :
+    - Formule Découverte qualifiée honnêtement en *« Chanson personnalisée complète, prête en 18 minutes »* (suppression formelle de la mention trompeuse de « mastering en studio physique »).
+  - **Découplage Épuré Vocal de Procédure / Offres (Jalon 78)** :
+    - Envoi direct du vocal explicatif de procédure sans formule protocolaire.
+    - Aucune offre envoyée dans la même bulle : l'agent attend d'abord la réponse du client avant de présenter les formules (1 200 F / 3 000 F).
   - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
     - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 et exposée en HTTPS public via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`).
     - Zéro dépendance aux clés d'API payantes (propulsé par Gemini 3.8 Flash via le runtime CLI agy en coût 0€ illimité).
-    - Playground synchronisé en **Cache v12** (`velaris_agent_config_v12`).
+    - Playground synchronisé en **Cache v13** (`velaris_agent_config_v13`).
 - **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
   1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
   2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).
@@ -67,6 +69,18 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 79. Intelligence d'Écoute Invariant 4, Vérité des Offres & Cache v13 (8 Octobre 2026)
+- **Éradication de l'Amnésie Robotique sur l'Invariant 4** :
+  - Détection contextuelle de l'intention exprimée spontanément par le client (« pour lui dire que je l'apprécie », « pour le remercier »).
+  - L'IA ne repose plus jamais bêtement la question « Quel est le message ? ». Elle valide l'émotion exprimée et demande avec souplesse s'il souhaite ajouter d'autres anecdotes ou souvenirs particuliers (« Y a-t-il d'autres choses particulières que vous aimeriez voir apparaître dans la chanson, ou est-ce que cela vous convient ainsi ? »).
+- **Vérité & Éthique des Offres** :
+  - Suppression de la mention « enregistrée et masterisée en studio » (fausse promesse de studio analogique).
+  - Remplacement par une description authentique et sobre : « Chanson personnalisée complète, prête en 18 minutes ».
+- **Cache v13 & Tests Live** :
+  - Clé de configuration bumpée à `velaris_agent_config_v13` avec purge de `v1` à `v12`.
+  - Tests réels multi-tours validés en 3-4s sur le Daemon local 0€.
+  - Build de production Vite & TypeScript sans erreur (4.15s).
 
 ### 78. Découplage Épuré du Vocal de Procédure et de la Présentation des Offres (8 Octobre 2026)
 - **Constat & Optimisation Psychologique Vente** :

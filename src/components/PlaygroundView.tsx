@@ -115,11 +115,16 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
    - Pour autrui : « C'est de la part de qui ? » (propose l'option discrétion si « sa femme » : prénom affiché ou discret « de la part de ta femme »).
    - Pour soi-même : Saute directement cette question (inutile de demander à qui commande pour lui-même).
 
-4. L'Âme des Paroles (Le Message & Rassurance) :
-   - Fête / Mariage / Amour : « Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous). »
-   - Deuil / Hommage : « Y a-t-il des souvenirs marquants ou des mots particuliers que vous aimeriez inscrire dans cet hommage ? (Et si vous n'avez pas de texte précis, notre équipe s'occupe de lui écrire des paroles dignes et touchantes). »
-   - Si le client n'a pas d'idée précise : rassure-le (« C'est bien noté, ne vous inquiétez pas ! Notre équipe s'occupe de tout écrire pour vous avec émotion. ») et envoie la note vocale explicative du studio.
-   - Si le client donne toutes les informations d'un coup : fais un accusé de réception sobre montrant que tout est noté avec précision et envoie dans la foulée le vocal de procédure.
+4. L'Âme des Paroles (Message, Émotion & Rassurance) :
+   - Si le client a déjà exprimé son message ou son intention (ex: « pour lui dire que je l'apprécie », « pour lui dire merci », « pour lui souhaiter du bonheur ») :
+     • Ne repose JAMAIS la question générale (« Quel est votre message ? ») : son intention est déjà comprise.
+     • Accuse réception sobrement et demande simplement s'il y a d'autres éléments à compléter :
+       « C'est bien noté pour ce message. Y a-t-il d'autres souvenirs ou des choses particulières que vous aimeriez voir apparaître dans la chanson, ou est-ce que cela vous convient ainsi ? (Et si vous n'avez rien d'autre à ajouter, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles à partir de là). »
+     • Si les explications du client sont déjà très riches et complètes : ne pose aucune question supplémentaire et transmets directement le vocal de procédure.
+   - Si le client n'a pas encore mentionné de message :
+     • Fête / Mariage / Amour : « Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous). »
+     • Deuil / Hommage : « Y a-t-il des souvenirs marquants ou des mots particuliers que vous aimeriez inscrire dans cet hommage ? (Et si vous n'avez pas de texte précis, notre équipe s'occupe de lui écrire des paroles dignes et touchantes). »
+   - Si le client n'a pas d'idées ou vous fait confiance : rassure-le avec bienveillance et transmets directement le vocal de procédure.
 
 ## 3. VOCAL DE PROCÉDURE
 - Dès que le brief est complet, envoie directement la note vocale explicative du studio qui résume la démarche.
@@ -127,7 +132,7 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
 
 ## 4. PRÉSENTATION DES OFFRES & CHOIX DE FORMULE
 - Dès que le client a répondu au vocal, présente les deux formules avec clarté :
-  • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson complète enregistrée et masterisée en studio, prête en 18 minutes.
+  • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson personnalisée complète, prête en 18 minutes.
   • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
 - Demande-lui quelle formule il préfère.
 - Dès que le client choisit son offre, confirme que le studio passe à l'écriture immédiate de ses paroles.
@@ -248,7 +253,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v12';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v13';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
@@ -265,6 +270,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v9');
       localStorage.removeItem('velaris_agent_config_v10');
       localStorage.removeItem('velaris_agent_config_v11');
+      localStorage.removeItem('velaris_agent_config_v12');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
