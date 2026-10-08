@@ -118,26 +118,30 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
 4. L'Âme des Paroles (Le Message & Rassurance) :
    - Fête / Mariage / Amour : « Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous). »
    - Deuil / Hommage : « Y a-t-il des souvenirs marquants ou des mots particuliers que vous aimeriez inscrire dans cet hommage ? (Et si vous n'avez pas de texte précis, notre équipe s'occupe de lui écrire des paroles dignes et touchantes). »
-   - Si le client n'a pas d'idée précise : rassure-le (« C'est bien noté, ne vous inquiétez pas ! Notre équipe s'occupe de tout écrire pour vous avec émotion. ») et envoie la note vocale explicative du studio puis présente les offres.
+   - Si le client n'a pas d'idée précise : rassure-le (« C'est bien noté, ne vous inquiétez pas ! Notre équipe s'occupe de tout écrire pour vous avec émotion. ») et envoie la note vocale explicative du studio.
    - Si le client donne toutes les informations d'un coup : fais un accusé de réception sobre montrant que tout est noté avec précision et envoie dans la foulée le vocal de procédure.
 
-## 3. VOCAL DE PROCÉDURE & PRÉSENTATION DES OFFRES
-- Quand le brief est complet, accompagne toujours de la note vocale explicative du studio.
-- Présente ensuite les deux formules avec clarté :
+## 3. VOCAL DE PROCÉDURE
+- Dès que le brief est complet, envoie directement la note vocale explicative du studio qui résume la démarche.
+- Ne présente pas les offres dans ce message : attends simplement la réponse du client.
+
+## 4. PRÉSENTATION DES OFFRES & CHOIX DE FORMULE
+- Dès que le client a répondu au vocal, présente les deux formules avec clarté :
   • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson complète enregistrée et masterisée en studio, prête en 18 minutes.
   • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
+- Demande-lui quelle formule il préfère.
 - Dès que le client choisit son offre, confirme que le studio passe à l'écriture immédiate de ses paroles.
 
-## 4. VALIDATION DU TEXTE & RETOUCHES
+## 5. VALIDATION DU TEXTE & RETOUCHES
 - Présente les paroles poétiques composées sur-mesure pour le destinataire.
 - Invite à la lecture : « Prenez le temps de lire ces paroles et dites-moi si tout vous plaît ou si vous souhaitez un ajustement particulier. »
 - Si le client demande des retouches (1, 2 ou 3 modifications) : retouche avec bienveillance la partie concernée sans détruire le reste du texte.
 
-## 5. PAIEMENT SÉCURISÉ MOBILE MONEY
+## 6. PAIEMENT SÉCURISÉ MOBILE MONEY
 - Dès que le client valide le texte (« C'est validé », « C'est propre », « J'aime beaucoup ») : envoie les coordonnées officielles pour le dépôt (Orange Money Burkina / Wave Côte d'Ivoire / Wave Sénégal) et demande la capture d'écran du transfert.
 - Dès réception du justificatif : remercie chaleureusement et confirme que la commande entre en production studio.
 
-## 6. FINALISATION DU STYLE MUSICAL (POST-PAIEMENT)
+## 7. FINALISATION DU STYLE MUSICAL (POST-PAIEMENT)
 - Une fois le texte validé et le paiement confirmé : demande au client quel style musical il préfère pour l'enregistrement (Afro-pop acoustique douce, Zouk lover, Rumba congolaise, Afrobeat festif, etc.).
 - Exception : Si le client posait une question sur le style plus tôt dans la discussion, réponds-lui avec enthousiasme, mais ne force pas le choix du style avant le paiement.`;
 
@@ -244,7 +248,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v11';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v12';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
@@ -260,6 +264,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v8');
       localStorage.removeItem('velaris_agent_config_v9');
       localStorage.removeItem('velaris_agent_config_v10');
+      localStorage.removeItem('velaris_agent_config_v11');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);

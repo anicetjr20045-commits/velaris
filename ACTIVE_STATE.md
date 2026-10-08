@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 7 Octobre 2026 (19:22 UTC)
-- **Statut Opérationnel** : **Jalon 77 Validé & Prêt pour Reprise d'Entraînement** (Infrastructure Gateway 0€ HTTPS opérationnelle, Cache v11 en ligne, Matrice Universelle du Brief gravée).
+- **Dernière mise à jour** : 8 Octobre 2026 (01:10 UTC)
+- **Statut Opérationnel** : **Jalon 78 Validé & Prêt pour Reprise d'Entraînement** (Découplage Vocal de Procédure / Présentation des Offres, Cache v12 actif, Gateway 0€ HTTPS opérationnelle).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion (mariage, deuil, anniversaire, fête, etc.), ce qui rendait l'IA robotique, vulnérable aux oublis et incohérente dès qu'une occasion imprévue se présentait, nous avons conçu et adopté **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
@@ -38,11 +38,14 @@
       4. **L'Âme des Paroles (Message, Souvenirs & Rassurance Déculpabilisante)** :
          - Demande ce que le client aimerait transmettre ou ses souvenirs marquants.
          - **Rassurance clé systématique** : Déculpabiliser le client qui n'a pas d'inspiration (*« Et si vous n'avez pas d'idées précises en tête, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous »*).
+  - **Découplage Épuré du Vocal de Procédure et de la Présentation des Offres (Jalon 78)** :
+    - Envoi direct du vocal explicatif de procédure sans formule protocolaire ni cérémonie.
+    - Aucune offre envoyée dans la même bulle : l'agent attend d'abord la réponse du client.
+    - Dès que le client a répondu, présentation claire des deux offres (1 200 F / 3 000 F) avec demande de préférence.
   - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
     - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 et exposée en HTTPS public via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`).
     - Zéro dépendance aux clés d'API payantes (propulsé par Gemini 3.8 Flash via le runtime CLI agy en coût 0€ illimité).
-    - Temps de réponse mesurés : Tour 1 en **4.8s**, Tour 2 en **3.3s**, Tour 3 en **4.1s**.
-    - Playground synchronisé en **Cache v11** (`velaris_agent_config_v11`).
+    - Playground synchronisé en **Cache v12** (`velaris_agent_config_v12`).
 - **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
   1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
   2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).
@@ -64,6 +67,16 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 78. Découplage Épuré du Vocal de Procédure et de la Présentation des Offres (8 Octobre 2026)
+- **Constat & Optimisation Psychologique Vente** :
+  - L'envoi combiné du vocal de procédure et des offres de prix créait une surcharge cognitive et court-circuitait l'écoute du vocal.
+  - Découplage chronologique strict dans `VELARIS_CLOSING_PROMPT_TEMPLATE` :
+    - Étape 3 (Vocal de procédure) : Envoi direct et sobre de la note vocale explicative résumant la démarche, sans protocole artificiel ni cérémonie (« Prenez 30 secondes... »). Attente naturelle du retour client.
+    - Étape 4 (Présentation des offres) : Présentation des deux formules (Découverte 1 200 F / Prestige 3 000 F) uniquement après réponse du client.
+- **Cache v12 & Zero Regression** :
+  - Clé de configuration bumpée à `velaris_agent_config_v12` avec purge automatique des versions antérieures (`v1` à `v11`).
+  - Build de production Vite & TypeScript sans aucune erreur (validé en 4.21s).
 
 ### 77. Résolution Erreur HTTP 405 Playground via Gateway HTTPS Publique Caddy sur VPS Contabo (7 Octobre 2026)
 - **Diagnostic de l'erreur HTTP 405** :
