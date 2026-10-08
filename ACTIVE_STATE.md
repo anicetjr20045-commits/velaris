@@ -19,9 +19,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (10:45 UTC)
-- **Statut Opérationnel** : **Jalon 86 Validé** (Bibliothèque d'Étalons d'Or du Patron synchronisée, 631 Chansons Réelles analysées, Respiration Verticale, Support Occasion 'famille', Build Vite & TypeScript 100% propre).
+- **Dernière mise à jour** : 8 Octobre 2026 (11:27 UTC)
+- **Statut Opérationnel** : **Jalon 88 Validé** (Protocole Retouches Ciblées 5 min [Cas A], Rejet Global & Nouvelle Proposition 10 min [Cas B], Message d'Accompagnement Officiel Systématique, Rafraîchissement In-Flight, Watchdog Multi-Délais & Ancrage baseText, 0 erreur tsc/vite).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
+  - **Protocole Retouche Ciblée (Cas A - 40% des commandes)** :
+    - Collecte et récapitulatif précis : *« Est-ce la seule modification que vous souhaitez apporter, ou aimeriez-vous ajuster d'autres éléments ? »*.
+    - Validation client ➔ promesse 5 minutes ➔ retouche chirurgicale sur `baseText` ➔ révisions illimitées.
+  - **Protocole Rejet Global / Nouvelle Proposition Complète (Cas B - « Je n'aime pas du tout »)** :
+    - Accueil empathique immédiat sans défendre le texte ➔ question d'orientation de style/émotion ➔ nouveau texte repartant de zéro en 10 minutes.
+  - **Message d'Accompagnement Officiel Systématique (Jalon 87)** :
+    - Toute livraison de texte est accompagnée de la formule : *« Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée 🙏 »*.
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion, l'agent applique **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
   - **La Bibliothèque d'Étalons d'Or du Patron (Jalon 86)** :
