@@ -246,9 +246,9 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   studioName: 'Velaris Studio',
   role: 'Conseiller Vente WhatsApp',
   systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE,
-  provider: 'local_agy',
-  model: 'gemini-3.8-flash-low',
-  apiKey: '',
+  provider: 'deepseek',
+  model: 'deepseek-flash',
+  apiKey: 'sk-2e33db516a5b4677b8ccf84806cc302f',
   temperature: 0.3,
   tariffs: {
     decouvertePrice: '1 200',
@@ -368,10 +368,10 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v18';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v19';
 
 export const PlaygroundView: FC = () => {
-  // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
+  // 1. Configuration persistante de l'Agent IA (initialisée avec DeepSeek V4 Flash)
   const [config, setConfig] = useState<AgentConfig>(() => {
     try {
       localStorage.removeItem('velaris_agent_config_v1');
@@ -391,6 +391,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v15');
       localStorage.removeItem('velaris_agent_config_v16');
       localStorage.removeItem('velaris_agent_config_v17');
+      localStorage.removeItem('velaris_agent_config_v18');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -814,8 +815,9 @@ export const PlaygroundView: FC = () => {
               'Authorization': `Bearer ${config.apiKey}`,
             },
             body: JSON.stringify({
-              model: config.model || 'deepseek-chat',
+              model: config.model || 'deepseek-flash',
               temperature: config.temperature,
+              thinking: { type: 'disabled' },
               messages: [
                 { role: 'system', content: effectiveSystemPrompt },
                 ...history.map((h) => ({
@@ -830,6 +832,10 @@ export const PlaygroundView: FC = () => {
             const reply = data.choices?.[0]?.message?.content?.trim();
             if (reply) {
               generatedTexts = reply.split(/\n\n+/).filter(Boolean);
+            }
+            const cacheHit = data.usage?.prompt_cache_hit_tokens || 0;
+            if (cacheHit > 0) {
+              console.log(`[DeepSeek Context Cache] ${cacheHit} tokens réutilisés depuis le cache.`);
             }
           } else {
             const errData = await res.json().catch(() => ({}));
@@ -1622,16 +1628,17 @@ export const PlaygroundView: FC = () => {
                       value={config.provider}
                       onChange={(e) => {
                         const prov = e.target.value as any;
-                        let defModel = 'gemini-3.8-flash-low';
-                        if (prov === 'deepseek') defModel = 'deepseek-chat';
+                        let defModel = 'deepseek-flash';
+                        if (prov === 'deepseek') defModel = 'deepseek-flash';
+                        if (prov === 'local_agy') defModel = 'gemini-3.8-flash-low';
                         if (prov === 'gemini') defModel = 'gemini-1.5-flash';
                         if (prov === 'openai') defModel = 'gpt-4o-mini';
                         handleSaveConfig({ ...config, provider: prov, model: defModel });
                       }}
                       className="w-full h-9 px-3 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 cursor-pointer"
                     >
+                      <option value="deepseek">DeepSeek (API deepseek-flash / V4 Flash — Cache actif)</option>
                       <option value="local_agy">Daemon Local 0€ (Gemini Flash Résident - Illimité)</option>
-                      <option value="deepseek">DeepSeek (API deepseek-chat)</option>
                       <option value="gemini">Google Gemini (gemini-1.5-flash / gemini-2.0-flash)</option>
                       <option value="openai">OpenAI (gpt-4o-mini)</option>
                     </select>

@@ -30,12 +30,12 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
 export function assertNonReasoningModel(model: string): void {
   const m = model.toLowerCase();
   if (m.includes('reasoner') || m.includes('-r1') || m.startsWith('r1')) {
-    throw new ConfigError(`modèle refusé : ${model} (modèle à raisonnement ; utiliser deepseek-chat)`);
+    throw new ConfigError(`modèle refusé : ${model} (modèle à raisonnement ; utiliser deepseek-flash ou deepseek-chat)`);
   }
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
-  const model = env.DEEPSEEK_MODEL?.trim() || 'deepseek-chat';
+  const model = env.DEEPSEEK_MODEL?.trim() || 'deepseek-flash';
   assertNonReasoningModel(model);
   const hmac = required(env, 'WAHA_WEBHOOK_HMAC_KEY');
   if (hmac.length < 32) throw new ConfigError('WAHA_WEBHOOK_HMAC_KEY trop courte (32 caractères minimum)');

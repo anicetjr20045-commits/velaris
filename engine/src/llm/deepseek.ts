@@ -47,7 +47,7 @@ export class DeepSeekProvider implements LlmProvider {
   constructor(private readonly opts: DeepSeekOptions) {
     if (!opts.apiKey) throw new LlmError('config', 'clé DeepSeek absente', false);
     this.baseUrl = (opts.baseUrl ?? 'https://api.deepseek.com/v1').replace(/\/$/, '');
-    this.model = opts.model ?? 'deepseek-chat';
+    this.model = opts.model ?? 'deepseek-flash';
     assertNonReasoningModel(this.model);
     this.timeoutMs = opts.timeoutMs ?? 12_000;
     this.maxAttempts = Math.max(1, Math.min(opts.maxAttempts ?? 2, 3));
@@ -62,6 +62,7 @@ export class DeepSeekProvider implements LlmProvider {
       model: this.model,
       messages: [{ role: 'system', content: system }, ...req.messages],
       response_format: { type: 'json_object' },
+      thinking: { type: 'disabled' },
       temperature: req.temperature ?? 0,
       max_tokens: req.maxTokens,
       stream: false,
@@ -132,7 +133,7 @@ export class DeepSeekProvider implements LlmProvider {
       usage: {
         promptTokens: payload.usage?.prompt_tokens ?? 0,
         completionTokens: payload.usage?.completion_tokens ?? 0,
-        cacheHitTokens: payload.usage?.prompt_cache_hit_tokens ?? 0,
+        cacheHitTokens: payload.usage?.prompt_cache_hit_tokens ?? (payload.usage as any)?.prompt_tokens_details?.cached_tokens ?? 0,
       },
       reasoningDiscarded: reasoningDiscarded || guarded.strippedThinking,
     };

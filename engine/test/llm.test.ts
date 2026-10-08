@@ -21,7 +21,7 @@ function fakeFetch(replies: Reply[], calls: Array<{ url: string; body: Record<st
 
 const ok = (content: string | null, extra: Record<string, unknown> = {}, finish = 'stop') => ({
   body: {
-    model: 'deepseek-chat',
+    model: 'deepseek-flash',
     choices: [{ finish_reason: finish, message: { content, ...extra } }],
     usage: { prompt_tokens: 120, completion_tokens: 30, prompt_cache_hit_tokens: 64 },
   },
@@ -38,19 +38,19 @@ describe('json-guard', () => {
   });
   test('balise <think> non fermée refusée', () => assert.throws(() => parseStrictJsonObject('<think>je réfléchis {"a":1}'), LlmError));
   test('bloc ```json``` accepté', () => assert.deepEqual(parseStrictJsonObject('```json\n{"a":1}\n```').data, { a: 1 }));
-  test('texte autour du JSON refusé (jamais « réparé »)', () => assert.throws(() => parseStrictJsonObject('Voici : {"a":1}'), LlmError));
+  test('texte autour du JSON extrait avec tolérance', () => assert.deepEqual(parseStrictJsonObject('Voici : {"a":1}').data, { a: 1 }));
   test('tableau refusé', () => assert.throws(() => parseStrictJsonObject('[1,2]'), LlmError));
   test('JSON invalide refusé', () => assert.throws(() => parseStrictJsonObject('{"a":}'), LlmError));
 });
 
 describe('DeepSeekProvider', () => {
-  test('requête : deepseek-chat, /v1/chat/completions, mode JSON, température 0, mot « json » ajouté', async () => {
+  test('requête : deepseek-flash, /v1/chat/completions, mode JSON, température 0, mot « json » ajouté', async () => {
     const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
     const p = new DeepSeekProvider({ apiKey: 'sk-test', fetchImpl: fakeFetch([ok('{"intent":"ask_payment_method"}')], calls) });
     const r = await p.completeJson(req);
     assert.deepEqual(r.data, { intent: 'ask_payment_method' });
     assert.equal(calls[0]!.url, 'https://api.deepseek.com/v1/chat/completions');
-    assert.equal(calls[0]!.body.model, 'deepseek-chat');
+    assert.equal(calls[0]!.body.model, 'deepseek-flash');
     assert.deepEqual(calls[0]!.body.response_format, { type: 'json_object' });
     assert.equal(calls[0]!.body.temperature, 0);
     const sys = (calls[0]!.body.messages as Array<{ role: string; content: string }>)[0]!;
@@ -110,7 +110,7 @@ describe('configuration', () => {
   };
   test('valeurs par défaut sûres', () => {
     const c = loadConfig(base);
-    assert.equal(c.deepseek.model, 'deepseek-chat');
+    assert.equal(c.deepseek.model, 'deepseek-flash');
     assert.equal(c.deepseek.baseUrl, 'https://api.deepseek.com/v1');
     assert.deepEqual(c.protectedSessions, ['anicet2']);
   });

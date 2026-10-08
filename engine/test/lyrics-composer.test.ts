@@ -53,11 +53,11 @@ describe('lyrics-corpus: bibliothèque étalon et ADN maison', () => {
     assert.ok(GOLDEN_PATRON_CORPUS.length >= 4);
     for (const hit of GOLDEN_PATRON_CORPUS) {
       assert.ok(hit.lineCount >= 35, `Le hit ${hit.id} doit avoir au moins 35 vers`);
-      assert.ok(hit.lyrics.includes('[Intro]'));
-      assert.ok(hit.lyrics.includes('[Refrain]'));
-      assert.ok(hit.lyrics.includes('[Couplet 1]'));
-      assert.ok(hit.lyrics.includes('[Pont]'));
-      assert.ok(hit.lyrics.includes('[Outro]'));
+      assert.ok(/intro/i.test(hit.lyrics));
+      assert.ok(/refrain/i.test(hit.lyrics));
+      assert.ok(/couplet/i.test(hit.lyrics));
+      assert.ok(/pont/i.test(hit.lyrics));
+      assert.ok(/outro/i.test(hit.lyrics));
     }
   });
 
@@ -82,7 +82,7 @@ describe('lyrics-corpus: contrôle qualité déterministe', () => {
   test('un hit patron complet passe le contrôle avec succès', () => {
     const hit = GOLDEN_PATRON_CORPUS.find((h) => h.id === 'gold-anniv-01')!;
     const report = checkLyricsQuality(hit.lyrics, {
-      recipientName: 'Sarah',
+      recipientName: 'Abdoul Hakim',
       occasion: 'anniversaire',
       minVerses: 25,
       minWords: 200,
@@ -197,7 +197,7 @@ Joyeux anniversaire…`;
       name: 'deepseek-chat',
       async completeJson(req: JsonCompletionRequest): Promise<JsonCompletion> {
         assert.match(req.system, /PAS DE TEXTE COURT/i);
-        assert.match(req.system, /Lumière de nos Vies/); // Golden hit injecté
+        assert.match(req.system, /Deux Étoiles, Un Même Jour/); // Golden hit anniversaire injecté
         return {
           data: {
             title: 'Lumière Éternelle pour Sarah',

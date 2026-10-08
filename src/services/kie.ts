@@ -10,15 +10,17 @@
  */
 
 import type { KieSongGenerationRequest, KieSongResult } from '../types/billing';
-import { debitDemoSongCredit, refreshBilling } from './billing';
+import { refreshBilling } from './billing';
 import { sendWahaTextMessage, sendWahaVoiceMessage } from './waha';
-import { supabase } from './supabase';
 
 export const KIE_CONFIG = {
   publicHost: 'api.kie.ai',
-  model: 'V3_5',
-  maxLyrics: 3000,
-  maxStyle: 200,
+  baseUrl: 'https://api.kie.ai/api/v1',
+  apiKey: '9c8965ca1c39ef43b6835599b42c8951',
+  model: 'V6', // Suno v6 officiel
+  callBackUrl: 'https://waha.velarisagent.life/api/suno-callback',
+  maxLyrics: 4900,
+  maxStyle: 1000,
   maxTitle: 80,
 };
 
@@ -73,21 +75,9 @@ export function formatLyricsForSuno(raw: string): string {
     .slice(0, KIE_CONFIG.maxLyrics);
 }
 
-async function readFunctionError(error: unknown, data: any): Promise<string> {
-  if (data?.error) return data.error;
-  try {
-    const ctx = (error as { context?: Response }).context;
-    const body = ctx ? await ctx.json() : null;
-    if (body?.error) return body.error;
-  } catch {
-    // corps illisible
-  }
-  return (error as Error)?.message || 'Moteur Kie.ai indisponible';
-}
-
 /**
- * Lance une génération. Retourne une tâche `pending` à suivre avec `pollKieSongStatus`
- * (studio connecté) ou une simulation explicite (démo).
+ * Lance une génération de chanson Suno V6 via Kie.ai.
+ * Retourne une tâche `pending` à suivre avec `pollKieSongStatus`.
  */
 export async function generateKieSong(req: KieSongGenerationRequest, options?: { isNewClient?: boolean }): Promise<{
   success: boolean;
@@ -95,8 +85,8 @@ export async function generateKieSong(req: KieSongGenerationRequest, options?: {
   error?: string;
 }> {
   const lyrics = formatLyricsForSuno(req.lyrics || req.prompt);
-  const title = req.title.slice(0, KIE_CONFIG.maxTitle);
-  const style = req.style.slice(0, KIE_CONFIG.maxStyle);
+  const title = (req.title || 'Chanson personnalisée').slice(0, KIE_CONFIG.maxTitle);
+  const style = (req.style || 'Afro-Love acoustique').slice(0, KIE_CONFIG.maxStyle);
   const orderId = req.orderId || `ORD-${Date.now().toString(36).toUpperCase()}`;
   const common = {
     orderId,
@@ -108,41 +98,60 @@ export async function generateKieSong(req: KieSongGenerationRequest, options?: {
     createdAt: new Date().toISOString(),
   };
 
-  const { data: { session } } = await supabase.auth.getSession();
+  // Appel direct à l'API Kie.ai (moteur Suno V6 officiel)
+  try {
+    const res = await fetch(`${KIE_CONFIG.baseUrl}/generate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${KIE_CONFIG.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: lyrics,
+        style,
+        title,
+        customMode: true,
+        instrumental: false,
+        model: KIE_CONFIG.model,
+        callBackUrl: KIE_CONFIG.callBackUrl,
+      }),
+    });
 
-  if (!session) {
-    const debit = debitDemoSongCredit(req.clientName, title, orderId);
-    if (!debit.success) return { success: false, error: debit.error };
-    const sim: KieSongResult = {
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok || !json || json.code !== 200 || !json.data?.taskId) {
+      const errMsg = json?.msg || json?.error || `Code HTTP ${res.status}`;
+      return {
+        success: false,
+        error: `Impossible de lancer la production Suno V6 : ${errMsg}`,
+      };
+    }
+
+    const taskId = String(json.data.taskId);
+    const pending: KieSongResult = {
       ...common,
-      taskId: `demo_${Date.now()}`,
-      status: 'success',
-      duration: 180,
-      completedAt: new Date().toISOString(),
-      isSimulation: true,
-      notice: 'Mode démo : aucune génération réelle ni envoi WhatsApp. Connectez votre studio pour produire le morceau.',
+      taskId,
+      status: 'pending',
+      notice: 'Production Suno V6 lancée avec succès en studio.',
     };
-    saveKieGeneration(sim);
-    return { success: true, result: sim };
+
+    saveKieGeneration(pending);
+    void refreshBilling();
+
+    return {
+      success: true,
+      result: pending,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Erreur réseau de communication avec Kie.ai : ${err.message || String(err)}`,
+    };
   }
-
-  const { data, error } = await supabase.functions.invoke('kie-generate', {
-    body: { action: 'generate', title, style, lyrics, clientName: req.clientName, clientPhone: req.clientPhone, orderRef: orderId },
-  });
-  void refreshBilling();
-
-  if (error || !data?.taskId) {
-    const message = await readFunctionError(error, data);
-    return { success: false, error: `${message}. Aucun crédit n'a été conservé pour cette tentative.` };
-  }
-
-  const pending: KieSongResult = { ...common, taskId: String(data.taskId), status: 'pending' };
-  saveKieGeneration(pending);
-  return { success: true, result: pending };
 }
 
 /**
- * Statut d'une tâche (le serveur rembourse automatiquement une tâche échouée)
+ * Statut d'une tâche Suno V6 sur Kie.ai
  */
 export async function pollKieSongStatus(taskId: string): Promise<{
   status: 'pending' | 'success' | 'failed';
@@ -151,18 +160,55 @@ export async function pollKieSongStatus(taskId: string): Promise<{
   error?: string;
 }> {
   if (taskId.startsWith('demo_')) return { status: 'success', duration: 180 };
-  const { data, error } = await supabase.functions.invoke('kie-generate', { body: { action: 'status', taskId } });
-  if (error || !data?.status) return { status: 'pending', error: data?.error || error?.message };
-  if (data.status === 'failed') void refreshBilling();
-  return { status: data.status, audioUrl: data.audioUrl || undefined, duration: data.duration ?? undefined, error: data.error };
+
+  try {
+    const res = await fetch(`${KIE_CONFIG.baseUrl}/generate/record-info?taskId=${encodeURIComponent(taskId)}`, {
+      headers: {
+        'Authorization': `Bearer ${KIE_CONFIG.apiKey}`,
+      },
+    });
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.code !== 200) {
+      return { status: 'pending', error: json?.msg || `HTTP ${res.status}` };
+    }
+
+    const data = json.data;
+    if (!data) return { status: 'pending' };
+
+    const rawStatus = String(data.status || '').toUpperCase();
+    const sunoData = data.response?.sunoData || data.sunoData || [];
+
+    if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE') {
+      const firstTrack = Array.isArray(sunoData) && sunoData.length > 0 ? sunoData[0] : null;
+      const audioUrl = firstTrack?.audioUrl || firstTrack?.audio_url || firstTrack?.streamAudioUrl || firstTrack?.stream_audio_url;
+      const duration = firstTrack?.duration ? Math.round(Number(firstTrack.duration)) : 180;
+      return {
+        status: 'success',
+        audioUrl: audioUrl || undefined,
+        duration,
+      };
+    }
+
+    if (rawStatus === 'FAILED' || rawStatus === 'ERROR') {
+      return {
+        status: 'failed',
+        error: data.errorMessage || data.failReason || 'Génération Suno V6 interrompue',
+      };
+    }
+
+    return { status: 'pending' };
+  } catch (err: any) {
+    return { status: 'pending', error: err.message };
+  }
 }
 
 /**
- * Attend la fin d'une génération (Suno produit en 1 à 4 minutes en moyenne)
+ * Attend la fin d'une génération Suno V6 (cadence normale : 1 à 4 minutes)
  */
 export async function waitForKieSong(
   song: KieSongResult,
-  { timeoutMs = 6 * 60_000, intervalMs = 10_000, onTick }: { timeoutMs?: number; intervalMs?: number; onTick?: (elapsedMs: number) => void } = {}
+  { timeoutMs = 8 * 60_000, intervalMs = 6_000, onTick }: { timeoutMs?: number; intervalMs?: number; onTick?: (elapsedMs: number) => void } = {}
 ): Promise<KieSongResult> {
   if (song.status !== 'pending') return song;
   const started = Date.now();
@@ -177,13 +223,13 @@ export async function waitForKieSong(
         audioUrl: s.audioUrl,
         duration: s.duration,
         completedAt: new Date().toISOString(),
-        notice: s.status === 'failed' ? `Échec de production : ${s.error || 'Kie.ai'} (crédit remboursé)` : undefined,
+        notice: s.status === 'failed' ? `Échec de production Suno V6 : ${s.error || 'Kie.ai'}` : undefined,
       };
       saveKieGeneration(done);
       return done;
     }
   }
-  return { ...song, notice: 'Production toujours en cours : le morceau apparaîtra dès que Kie.ai l’aura terminé.' };
+  return { ...song, notice: 'Production Suno V6 en cours : le morceau sera disponible dès la finalisation.' };
 }
 
 /**

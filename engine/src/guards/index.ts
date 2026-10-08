@@ -22,22 +22,6 @@ const lower = (s: string): string => s.toLowerCase();
 const strip = (s: string): string => lower(s).normalize('NFD').replace(/\p{M}/gu, '');
 
 const MARKUP = /[[\]{}<>]|```|\b(json|null|undefined|brief|handoff|notify)\b|@c\.us|@lid|@g\.us/i;
-const URL_RE = /\b(https?:\/\/|www\.)\S+/i;
-const PAYMENT_DIGITS = /(?:\d[\s.-]?){8,}/;
-const OPERATOR_NUMBER = /\b(wave|orange\s*money|om|moov|mtn)\b[^\n]{0,20}\d{2}/i;
-const EMOJI = /\p{Extended_Pictographic}/gu;
-const TUTOIEMENT = /\b(tu|te|toi|ton|ta|tes)\b|\bt['’]/i;
-
-const ROBOTIC = [
-  'pas compris', 'mal compris', 'pas bien compris', 'reformuler', 'je ne comprends pas', 'pouvez-vous preciser',
-  'en tant qu\'ia', 'en tant qu’ia', 'je suis un programme', 'assistant virtuel', 'intelligence artificielle', 'je suis humain', 'je suis une personne',
-];
-const KNOWABLE = ['avez-vous deja commande', 'est-ce votre premiere', 'etes-vous deja client', 'avez-vous recu le vocal', 'avez-vous deja ete client'];
-const PRESSURE = ['depechez', 'derniere chance', 'offre limitee', 'avant ce soir', 'vite avant', 'plus que quelques'];
-const CELEBRATION = ['felicitations', 'joyeux', 'genial', 'super', 'trop bien', 'hate', 'youpi', 'bravo'];
-const GRAVE_TOPICS = ['grief', 'illness', 'hardship', 'apology'];
-const ADMIN_WORDS = ['f cfa', 'fcfa', 'formule', 'paiement', 'payer', 'depot', 'prix', 'tarif', 'minutes', 'delai'];
-const TIME_WORDS = /\b(\d+\s*(min|minutes|h|heures?)|demain|ce soir|cet apres-midi|ce matin|vers \d+)\b/i;
 
 const NUMBER_WORDS: ReadonlyArray<[string, number]> = [
   ['dix mille', 10000], ['cinq mille', 5000], ['trois mille', 3000], ['deux mille', 2000],
@@ -79,7 +63,7 @@ export function jaccard(a: string, b: string): number {
   return inter / (A.size + B.size - inter);
 }
 
-export function checkGenerated(bubbles: readonly string[], ctx: GuardContext): GuardViolation[] {
+export function checkGenerated(bubbles: readonly string[], _ctx: GuardContext): GuardViolation[] {
   // Mode libre et unifié : aucune censure de ton, de politesse, de montants ou de numéros.
   // Seul le balisage technique résiduel (crochets/accolades) est signalé si présent.
   const v: GuardViolation[] = [];

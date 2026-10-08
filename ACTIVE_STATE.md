@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (15:40 UTC)
-- **Statut Opérationnel** : **Jalon 94 Validé — Migration Chirurgicale WAHA vers Chromium Headless (WEBJS) sur VPS Contabo** (Éradication définitive des coupures Baileys/NOWEB, passage au moteur officiel Chromium headless avec allocation mémoire partagée `shm_size: 1gb`, sessions `Test` et `anicet2` opérationnelles en `SCAN_QR_CODE` avec WWebVersion `2.3000.1049703040`, backup physique d'archivage NOWEB sécurisé, portail de scan direct actif sur `https://waha.velarisagent.life/qr/`).
+- **Dernière mise à jour** : 8 Octobre 2026 (22:30 UTC)
+- **Statut Opérationnel** : **Jalon 95 Validé — Migration DeepSeek V4 Flash (Context Cache & Thinking Désactivé) & Automatisation Suno V6 via Kie.ai** (Intégration de la clé DeepSeek et bascule sur le modèle officiel `deepseek-flash` avec désactivation des tokens de réflexion `thinking: { type: "disabled" }` et tracking de cache, intégration de l'API Kie.ai avec clé dédiée et modèle Suno `V6` pour la génération musicale automatisée, suite de 158 tests unitaires validée à 100%, déploiement VPS contabo `velaris-engine` synchronisé et compilation Vercel/Vite 0 erreur).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
@@ -112,6 +112,21 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 95. Migration DeepSeek V4 Flash & Automatisation Suno V6 via Kie.ai (8 Octobre 2026)
+- **Migration DeepSeek V4 Flash (`deepseek-flash`) & Désactivation de la Réflexion** :
+  - Intégration de la clé API de production `sk-2e33db516a5b4677b8ccf84806cc302f` configurée comme fournisseur par défaut dans `PlaygroundView.tsx` et `engine/src/config.ts`.
+  - Désactivation explicite du mode raisonnement profond via le paramètre officiel `thinking: { type: "disabled" }` dans toutes les requêtes de complétion JSON et chat, garantissant des réponses ultra-rapides (< 1.5s).
+  - Prise en charge native du système de cache de contexte DeepSeek (`prompt_cache_hit_tokens` et `prompt_tokens_details.cached_tokens`), réduisant drastiquement les coûts et la latence sur les invites répétées (> 64 tokens).
+  - Migration du cache de configuration du Playground vers `velaris_agent_config_v19` avec purge automatique des versions antérieures (`v1` à `v18`).
+- **Automatisation de la Génération Musicale Suno V6 via Kie.ai** :
+  - Intégration du service officiel Kie.ai (`src/services/kie.ts`) avec la clé dédiée `9c8965ca1c39ef43b6835599b42c8951` (solde vérifié : 998.6 crédits).
+  - Implémentation de la génération avec le modèle Suno `V6`, mode personnalisé (`customMode: true`), paroles (`prompt`), style musical (`style`), titre (`title`) et webhook de callback (`https://waha.velarisagent.life/api/suno-callback`).
+  - Polling robuste du statut (`/api/v1/generate/record-info?taskId=...`) avec parsing des pistes audio générées (`sunoData` : mp3, vidéo, durée, titre).
+- **Validation Globale & Déploiement** :
+  - Suite de tests `engine` : 158/158 tests unitaires validés (100% vert), incluant les fixtures DeepSeek Flash et le compositeur de paroles.
+  - Déploiement du conteneur `velaris-engine` sur le VPS Contabo (`162.35.113.220`) avec injection des variables d'environnement `KIE_API_KEY` et `DEEPSEEK_MODEL=deepseek-flash`.
+  - Build frontend Vite / Vercel validé sans aucune erreur TypeScript (0 warning bloquant).
 
 ### 94. Migration Chirurgicale WAHA vers Chromium Headless (WEBJS) sur VPS Contabo (8 Octobre 2026)
 - **Éradication Définitive des Déconnexions & Bugs Protocolaires (Adieu Baileys/NOWEB)** :

@@ -430,13 +430,17 @@ class VelarisGatewayHandler(BaseHTTPRequestHandler):
             header_title = "DIRECTIVES COMMERCIALES VELARIS" if is_velaris else ("DIRECTIVES MENTORAT" if is_coach else "DIRECTIVES SYSTÈME")
             formatted_prompt += f"[{header_title}]\n{system_content}\n\n"
 
+        user_display_name = data.get("userName") or (raw_user if raw_user and not raw_user.startswith("guest_") and not raw_user.startswith("alex-") and not raw_user.startswith("david-") else "")
+        if not user_display_name:
+            user_display_name = "ton interlocuteur" if "guest" in session_key else "Anicet"
+
         formatted_prompt += "[HISTORIQUE DE LA CONVERSATION]\n"
         for turn in chat_turns:
             role = turn.get("role", "user")
             if is_velaris:
                 role_label = "Client" if role == "user" else "Conseiller Velaris"
             elif is_coach:
-                role_label = "Anicet" if role == "user" else "Coach"
+                role_label = user_display_name if role == "user" else "Coach"
             else:
                 role_label = "Utilisateur" if role == "user" else "Assistant"
             formatted_prompt += f"{role_label}: {turn.get('content', '').strip()}\n"
@@ -450,7 +454,7 @@ class VelarisGatewayHandler(BaseHTTPRequestHandler):
             )
         elif is_coach:
             execution_instruction = (
-                "Incarne rigoureusement ton rôle de mentor, applique tes directives et réponds directement à Anicet sans préambule ni méta-commentaire."
+                f"Incarne rigoureusement ton rôle de mentor, applique tes directives et réponds directement à {user_display_name} sans préambule ni méta-commentaire."
             )
         else:
             execution_instruction = (
