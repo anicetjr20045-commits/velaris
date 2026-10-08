@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (22:45 UTC)
-- **Statut Opérationnel** : **Jalon 95 Validé — Migration DeepSeek V4 Flash & Automatisation Suno V6 via Kie.ai + Portail QR Code Public Live** (Portail public de scan actif avec redirection canonique sans trailing slash sur `https://waha.velarisagent.life/qr/`, support des paramètres multi-sessions `?session=Test`, rafraîchissement automatique de QR code toutes les 12s, bouton de visualisation de l'image brute, détection live de connexion `WORKING` avec affichage du numéro, suite de 158 tests unitaires 100% verts, déploiement VPS contabo et Vercel synchronisés).
+- **Dernière mise à jour** : 8 Octobre 2026 (23:30 UTC)
+- **Statut Opérationnel** : **Jalon 96 Validé — Connexion Officielle & Opérationnelle de la Session WhatsApp `Test` sur WAHA Chromium (`WORKING`)** (Ligne `+226 56 24 05 33` ("Digital Starter") pleinement connectée et synchronisée en état `WORKING` avec chiffrement de bout en bout, patch d'extension du délai de synchronisation à 5 minutes (300 000 ms) validé et persisté dans Docker, ingestion des webhooks en temps réel sur `velaris-engine` opérationnelle, portail de gestion d'appairage multi-méthodes QR / Code 8 chiffres live).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
@@ -112,6 +112,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 96. Connexion Officielle & Opérationnelle de la Session WhatsApp `Test` sur WAHA Chromium (8 Octobre 2026)
+- **Validation Finale de la Passerelle WhatsApp (`WORKING`)** :
+  - La session `Test` (`+226 56 24 05 33`, "Digital Starter") est connectée et active avec succès en état officiel `WORKING`.
+  - Moteur sous-jacent Chromium Headless (`WEBJS`) avec version client WhatsApp `2.3000.1049761884` et synchronisation chiffrée de bout en bout des discussions terminée.
+  - Ingestion en temps réel des webhooks (`session.status`, `message`, `message.any`) vers le conteneur `velaris-engine` opérationnelle.
+- **Résolution Chirurgicale de l'Auth Timeout (30s ➔ 5 minutes)** :
+  - Identification de l'anomalie d'interruption : `whatsapp-web.js` imposait un délai rigide de 30 secondes (`authTimeoutMs: 30000`) durant l'étape `Loading your chats`.
+  - Application d'un patch d'extension à 5 minutes (300 000 ms) dans le code source du client et contrôleur de session WAHA.
+  - Sauvegarde permanente dans l'image Docker de production sur le VPS Contabo via commit d'image.
+- **Portail d'Appairage Multi-Méthodes Live (`https://waha.velarisagent.life/qr/`)** :
+  - Support de la redirection canonique sans trailing slash `/qr` ➔ `/qr/`.
+  - Intégration de la méthode sans caméra par Code d'association à 8 chiffres (`/api/qr/pairing-code`).
+  - Détection automatique et mise à jour live de l'état de connexion (`Ligne connectée`).
 
 ### 95. Migration DeepSeek V4 Flash & Automatisation Suno V6 via Kie.ai (8 Octobre 2026)
 - **Migration DeepSeek V4 Flash (`deepseek-flash`) & Désactivation de la Réflexion** :
