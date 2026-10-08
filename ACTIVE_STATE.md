@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (01:50 UTC)
-- **Statut Opérationnel** : **Jalon 81 Validé & Prêt pour Entraînement** (Boussole d'Adaptabilité Tout-Terrain, Promesse Ferme de Livraison du Texte en 15 min, Cache v15 actif, Gateway 0€ opérationnelle).
+- **Dernière mise à jour** : 8 Octobre 2026 (02:15 UTC)
+- **Statut Opérationnel** : **Jalon 82 Validé & Prêt pour Entraînement** (Gestion Intelligente des Paroles Déjà Fournies par le Client, Cache v16 actif, Passerelle IA 0€ opérationnelle).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion (mariage, deuil, anniversaire, fête, etc.), ce qui rendait l'IA robotique, vulnérable aux oublis et incohérente dès qu'une occasion imprévue se présentait, nous avons conçu et adopté **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
@@ -38,22 +38,27 @@
       4. **L'Âme des Paroles (Intelligence d'écoute active & Rassurance déculpabilisante)** :
          - Si le client a déjà exprimé son intention : l'IA ne repose **jamais** la question générale (« Quel est le message ? »). Elle valide sobrement l'émotion et demande si d'autres anecdotes ou souvenirs doivent apparaître dans la chanson.
          - Si le client n'a rien mentionné : question sobre avec rassurance systématique.
+  - **Prise en Charge des Paroles Déjà Rédigées par le Client (Jalon 82)** :
+    - Si le client colle directement ses propres paroles (couplets, poème) : l'IA ne pose aucune question de brief inutile.
+    - Elle accuse sobrement réception et demande uniquement si le client souhaite que son texte soit gardé 100% intact ou légèrement adapté au rythme musical.
+    - Dès confirmation ➔ Envoi direct du vocal de procédure ➔ Offres ➔ Paiement Mobile Money et choix du style musical immédiat (le texte étant déjà prêt, zéro attente de rédaction).
   - **La Boussole d'Adaptabilité Tout-Terrain & Gestion du Désordre (Jalon 81)** :
     - Réponses transparentes et immédiates aux questions spontanées (Prix d'abord, Procédure d'abord, Délais).
     - Maintien rigoureux de la Checklist Mentale des 4 Invariants : quel que soit l'ordre des messages du client, l'agent ne demande que les éléments manquants et ne passe jamais au choix d'offre avant que le brief ne soit complet.
   - **Promesse Ferme de Livraison du Texte en 15 min (Jalon 81)** :
-    - Dès que le client choisit son offre, confirmation immédiate et ancrage temporel formel : *« Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »*
+    - Dès que le client choisit son offre (hors texte déjà fourni), confirmation immédiate et ancrage temporel formel : *« Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »*
   - **Simplicité Radicale & Zéro Faux Enthousiasme (Jalon 80)** :
     - Éradication totale de la flagornerie et des compliments artificiels. Accusés de réception posés et sobres.
   - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
     - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 et exposée en HTTPS public via Caddy sur le VPS Contabo (`https://waha.velarisagent.life/v1/chat/completions`).
     - Zéro dépendance aux clés d'API payantes (propulsé par Gemini 3.8 Flash via le runtime CLI agy en coût 0€ illimité).
-    - Playground synchronisé en **Cache v15** (`velaris_agent_config_v15`).
+    - Playground synchronisé en **Cache v16** (`velaris_agent_config_v16`).
 - **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
   1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
   2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).
   3. **Scénario C : Deuil / Hommage** (Vérifier la sobriété, les condoléances respectueuses et l'absence de tout mot festif).
   4. **Scénario D : Anniversaire classique pour un proche** (Vérifier le parcours fluide des 4 étapes jusqu'au vocal de procédure et choix d'offre).
+  5. **Scénario E : Client avec ses propres paroles** (Vérifier l'accueil du texte, la question sur le maintien intact vs adaptation, puis le passage fluide au vocal et paiement direct).
 
 ---
 
@@ -70,6 +75,17 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 82. Prise en Charge des Paroles Fournies par le Client & Cache v16 (8 Octobre 2026)
+- **Traitement Intuitif du Client-Auteur** :
+  - Détection automatique lorsque le client fournit un poème ou un texte déjà rédigé (intro, couplet, refrain).
+  - Suppression de toutes les questions redondantes du brief (prénom, occasion, message).
+  - Question chirurgicale d'ajustement : maintien intact à 100% ou légère adaptation au rythme musical.
+  - Raccourci vers le paiement : le texte étant déjà prêt, la commande passe directement au règlement Mobile Money et au choix de style musical.
+- **Cache v16 & Validation** :
+  - Clé de configuration bumpée à `velaris_agent_config_v16` avec purge automatique.
+  - Build Vite et compilation TypeScript validés (4.13s).
+  - Test en direct sur le port 4041 validé avec succès en 3.4s.
 
 ### 81. Boussole d'Adaptabilité Tout-Terrain, Promesse Texte 15 min & Cache v15 (8 Octobre 2026)
 - **Boussole Mentale Face au Désordre Réel** :

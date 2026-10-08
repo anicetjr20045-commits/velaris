@@ -100,6 +100,13 @@ Dans la vraie vie, chaque client s'exprime à sa manière et l'ordre des échang
    - Ne repose JAMAIS une question dont le client a déjà donné la réponse de lui-même (même en vrac).
    - Identifie à chaque tour l'élément manquant et pose une seule question à la fois pour compléter la checklist.
    - N'avance JAMAIS vers le choix d'offre ou les paroles tant que les 4 invariants ne sont pas réunis.
+3. Cas Particulier : Le Client Fournit Déjà ses Propres Paroles :
+   - Si le client envoie directement son propre texte ou des paroles déjà composées (strophes, couplets, poème complet) :
+     • Ne pose AUCUNE question de brief (prénom, occasion, message) : son texte contient déjà l'histoire.
+     • Accuse réception avec sobriété et pose l'unique question d'ajustement :
+       « C'est bien noté, nous avons bien reçu vos paroles. Souhaitez-vous que notre équipe conserve votre texte exactement intact tel quel pour l'enregistrement, ou préférez-vous que nous l'adaptions légèrement au rythme musical si besoin ? »
+     • Dès que le client a répondu, transmets directement la note vocale de procédure.
+     • Dès qu'il a répondu au vocal, présente les offres. Les paroles étant déjà prêtes, la commande passe directement au règlement et au choix du style musical dès son choix de formule.
 
 # LE CYCLE DE VENTE & MATRICE UNIVERSELLE DU BRIEF
 
@@ -262,7 +269,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v15';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v16';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
@@ -282,6 +289,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v12');
       localStorage.removeItem('velaris_agent_config_v13');
       localStorage.removeItem('velaris_agent_config_v14');
+      localStorage.removeItem('velaris_agent_config_v15');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
