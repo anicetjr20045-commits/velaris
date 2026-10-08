@@ -19,8 +19,8 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (22:30 UTC)
-- **Statut Opérationnel** : **Jalon 95 Validé — Migration DeepSeek V4 Flash (Context Cache & Thinking Désactivé) & Automatisation Suno V6 via Kie.ai** (Intégration de la clé DeepSeek et bascule sur le modèle officiel `deepseek-flash` avec désactivation des tokens de réflexion `thinking: { type: "disabled" }` et tracking de cache, intégration de l'API Kie.ai avec clé dédiée et modèle Suno `V6` pour la génération musicale automatisée, suite de 158 tests unitaires validée à 100%, déploiement VPS contabo `velaris-engine` synchronisé et compilation Vercel/Vite 0 erreur).
+- **Dernière mise à jour** : 8 Octobre 2026 (22:45 UTC)
+- **Statut Opérationnel** : **Jalon 95 Validé — Migration DeepSeek V4 Flash & Automatisation Suno V6 via Kie.ai + Portail QR Code Public Live** (Portail public de scan actif avec redirection canonique sans trailing slash sur `https://waha.velarisagent.life/qr/`, support des paramètres multi-sessions `?session=Test`, rafraîchissement automatique de QR code toutes les 12s, bouton de visualisation de l'image brute, détection live de connexion `WORKING` avec affichage du numéro, suite de 158 tests unitaires 100% verts, déploiement VPS contabo et Vercel synchronisés).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
