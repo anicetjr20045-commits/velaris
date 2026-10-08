@@ -19,27 +19,32 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (09:25 UTC)
-- **Statut Opérationnel** : **Jalon 84 Validé** (Étanchéité des Conversations & Critère Strict de Commande Payée pour Client Fidèle, Cache v17 actif, Architecture des 3 Piliers).
+- **Dernière mise à jour** : 8 Octobre 2026 (10:15 UTC)
+- **Statut Opérationnel** : **Jalon 85 Validé** (Destinataires Multiples Ambigus, Traitement Séquentiel Strict, Règle d'or de Livraison en 15 min, Cache v18 actif, Preset Aminata Enfants).
 - **Consigne d'Arrêt & Point de Reprise Strict (Zéro Perte de Contexte)** :
   - **La Décision Fondatrice : Éradication du "Cas par Cas" au Profit de la Logique Universelle** :
     - Au lieu de créer des scripts rigides ou de coder le bot occasion par occasion, l'agent applique **La Matrice Universelle du Brief (Les 4 Invariants Tout-Terrain)**.
-  - **Reconnaissance Intelligente des Anciens Clients / Habitués (Jalon 83)** :
+  - **Cas Particulier 5 : Destinataires Multiples Ambigus & Traitement Séquentiel Strict (Jalon 85)** :
+    - Clarification immédiate dès mention floue de plusieurs personnes : *« Souhaitez-vous une seule chanson commune qui les réunit ensemble, ou bien une chanson personnalisée séparée pour chacun d'eux ? »*
+    - Si séparées : Traitement séquentiel strict commande par commande (brief complet du 1er destinataire ➔ choix d'offre ➔ texte 15 min ➔ paiement, puis enchaînement proactif sur le 2e).
+    - Mémoire isolée : si le client donne des détails en vrac pour la 2e chanson en plein milieu du brief de la 1ère, l'IA les retient sans se disperser et recentre sur la 1ère.
+  - **Règle d'or de la Promesse Ferme de Livraison du Texte en 15 min (Jalon 85)** :
+    - Engagement ferme de livraison en 15 minutes max uniquement dès **brief complet des 4 invariants ET offre choisie**.
+    - Interdiction de promettre 15 minutes en amont si l'offre a été mentionnée avant le recueil du brief.
+  - **Reconnaissance Intelligente des Anciens Clients / Habitués (Jalon 83-84)** :
     - Détection via fiche CRM ou annonce spontanée du client.
     - Accueil chaleureux d'habitué (*« Ravi de vous revoir ! »*).
     - **Suppression intégrale du vocal de procédure** et de toute réexplication lourde du fonctionnement.
     - Brief rapide selon les 4 invariants, puis **demande directe du choix d'offre sans pitch pesant** (*« On part sur la formule classique à 1 200 F ou avec la vidéo souvenir à 3 000 F ? »*).
   - **L'Architecture des 3 Piliers (Code Déterministe vs IA)** :
-    1. *Le Moteur Asynchrone (Code)* : Debounce glissant des messages en rafale, temporisation humaine de 20-25 secondes, simulation de frappe, et Schedulers BDD de livraison.
+    1. *Le Moteur Asynchrone (Code)* : Debounce glissant des messages en rafale, temporisation humaine de 20-25 secondes, simulation de frappe, Watchdog Dual-Lock et Schedulers BDD de livraison.
     2. *Le Contexte CRM (BDD)* : Injection factuelle du statut prospect vs habitué.
     3. *Le Cerveau IA (Prompt Système Épuré)* : 100% libre de converser, d'écouter et de conseiller sans surcharge de règles.
   - **Prise en Charge des Paroles Déjà Rédigées par le Client (Jalon 82)** :
     - Si paroles fournies ➔ saut du brief, question intact vs adaptation, vocal, offres, et paiement direct.
-  - **Promesse Ferme de Livraison du Texte en 15 min (Jalon 81)** :
-    - Dès le choix de la formule ➔ engagement formel de livraison sous 15 minutes max.
   - **État Technique Actuel (100% Opérationnel & 0€ de Coût)** :
     - Passerelle IA Résidente Unifiée v2.0 (`scripts/velaris_ai_daemon.py`) active sur le port 4041 (Gemini 3.8 Flash, latence 3.8s, prompt multi-tours à historique intégral).
-    - Playground synchronisé en **Cache v17** (`velaris_agent_config_v17`) avec toggle interactif Profil CRM (Nouveau Prospect vs Client Fidèle) et scénario Mariam dédié.
+    - Playground synchronisé en **Cache v18** (`velaris_agent_config_v18`) avec preset `aminata_enfants` dédié aux commandes multiples.
 - **Programme d'Entraînement Immédiat (À reprendre dans l'ordre)** :
   1. **Scénario A : Commande pour soi-même** (Vérifier que le conseiller demande le prénom sobrement pour la commande sans parler de refrain, demande la date, **saute spontanément la question de l'expéditeur**, et enchaîne sur le message + rassurance).
   2. **Scénario B : Mariage / Anniversaire de mariage** (Vérifier le réflexe spontané de demander les deux prénoms des mariés).

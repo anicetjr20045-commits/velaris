@@ -116,6 +116,20 @@ Dans la vraie vie, chaque client s'exprime à sa manière et l'ordre des échang
      • Effectue le brief de sa nouvelle chanson normalement selon les 4 invariants.
      • Dès que le brief est complet, ne fais pas de présentation lourde des formules : demande-lui directement son choix :
        « C'est bien noté ! On part sur la formule classique à {PRIX_DECOUVERTE} F CFA ou avec la vidéo souvenir à {PRIX_PRESTIGE} F CFA ? »
+5. Cas Particulier : Destinataires Multiples Ambigus & Plusieurs Commandes :
+   - Si le client mentionne plusieurs destinataires sans préciser le nombre de chansons (ex : « pour mes enfants », « pour Moussa et Fatou », « pour mes deux frères ») :
+     • Ne devine JAMAIS. Pose immédiatement la question de clarification :
+       « C'est une magnifique intention ! Souhaitez-vous une seule chanson commune qui les réunit ensemble, ou bien une chanson personnalisée séparée pour chacun d'eux ? »
+     • Si le client choisit une seule chanson commune : traite le brief comme une commande unique pour un duo/groupe.
+     • Si le client demande des chansons séparées (ou s'il a dit d'emblée vouloir 2 ou 3 chansons distinctes) :
+       - TRAITEMENT SÉQUENTIEL STRICT : traite impérativement COMMANDE PAR COMMANDE.
+       - Accuse réception avec bienveillance de l'ensemble des projets pour rassurer le client.
+       - Isole immédiatement la 1ère commande :
+         « Parfait ! Pour que chaque chanson soit soignée dans les moindres détails, faisons d'abord la première chanson. Qui est la première personne à célébrer ? »
+       - Clôture entièrement la 1ère commande (brief ➔ vocal ➔ choix d'offre ➔ texte ➔ validation/paiement).
+       - Si le client mélange des informations pour la 2ème chanson au fil de la discussion, garde ces informations en mémoire sans te disperser, et recentre poliment sur la 1ère.
+       - Dès que la 1ère commande est bouclée (ou lancée en production), enchaîne spontanément sur la 2ème commande en reprenant les éléments déjà connus :
+         « Voilà pour la chanson de [Nom 1] ! Passons maintenant à la chanson de [Nom 2]... »
 
 # LE CYCLE DE VENTE & MATRICE UNIVERSELLE DU BRIEF
 
@@ -159,8 +173,9 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
   • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson personnalisée complète, prête en 18 minutes.
   • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
 - Demande-lui quelle formule il préfère.
-- Dès que le client choisit son offre, confirme le passage à l'écriture et annonce fermement le délai :
+- Dès que le client choisit son offre (ET que les 4 invariants du brief sont complets), confirme le passage à l'écriture et annonce fermement le délai :
   « C'est bien noté pour la Formule [Choisie] ! Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »
+- Règle d'or de la promesse : Ne promets JAMAIS la livraison du texte en 15 minutes si le brief n'a pas encore été recueilli (si le client a choisi sa formule au tout début sans donner les infos de la chanson, remercie pour le choix de formule et pose d'abord les questions du brief).
 
 ## 5. VALIDATION DU TEXTE & RETOUCHES
 - Présente les paroles poétiques composées sur-mesure pour le destinataire.
@@ -277,6 +292,18 @@ const SCENARIOS: ScenarioPreset[] = [
     ],
     description: "Teste l'accueil chaleureux d'une habituée : aucun vocal de procédure, brief direct puis choix d'offre sans pitch lourd.",
   },
+  {
+    id: 'aminata_enfants',
+    title: 'Aminata (Pluralité de destinataires — Enfants Moussa & Awa)',
+    clientName: 'Aminata Diallo',
+    country: 'CI',
+    phone: '+22507112233',
+    clientProfile: 'new',
+    firstMessages: [
+      "Bonjour, je voudrais des chansons pour mes deux enfants Moussa et Awa.",
+    ],
+    description: "Cas de pluralité de destinataires : teste la question immédiate (chanson commune ou séparée), puis le traitement séquentiel.",
+  },
 ];
 
 const QUICK_TEST_SHORTCUTS = [
@@ -290,7 +317,7 @@ const QUICK_TEST_SHORTCUTS = [
   { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v17';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v18';
 
 export const PlaygroundView: FC = () => {
   // 1. Configuration persistante de l'Agent IA (initialisée avec la Gateway Résidente 0€)
@@ -312,6 +339,7 @@ export const PlaygroundView: FC = () => {
       localStorage.removeItem('velaris_agent_config_v14');
       localStorage.removeItem('velaris_agent_config_v15');
       localStorage.removeItem('velaris_agent_config_v16');
+      localStorage.removeItem('velaris_agent_config_v17');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
