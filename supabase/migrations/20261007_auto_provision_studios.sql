@@ -109,7 +109,7 @@ BEGIN
     ARRAY['occasion', 'recipient_name', 'offer'],
     'manager',
     '[{"provider":"Orange Money","number":"+22656240533","holder":"Velaris","country":"BF"},{"provider":"Wave","number":"+22656240533","holder":"Velaris","country":"BF"}]'::jsonb,
-    '{"✨":"resume_ai","🎵":"confirm_and_produce","📝":"mark_as_lyrics"}'::jsonb,
+    '{"✨":"resume_ai","🎵":"confirm_and_produce","🎉":"mark_delivered","📝":"mark_as_lyrics"}'::jsonb,
     1500
   )
   ON CONFLICT (user_id) DO UPDATE SET
