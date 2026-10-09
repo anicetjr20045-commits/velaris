@@ -582,6 +582,9 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
           raw.contact_facts?.procedure_voice_received ||
           raw.recent.some((r) => r.media_kind === 'audio' || (r.role === 'assistant' && r.text === null))
         ),
+        videoSampleReceived: Boolean(
+          raw.recent.some((r) => r.media_kind === 'video' || (r.text && /aper[çc]u vid[ée]o souvenir|vid[ée]o souvenir d[ée]mo/i.test(r.text)))
+        ),
       },
       persona: {
         studio_name: persona.studio_name,
@@ -655,8 +658,12 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         }
       }
 
-      // 2. Si le client a demandé un extrait de la formule vidéo souvenir
-      if (salesOutcome.videoSampleDue) {
+      // 2. Si le client a demandé un extrait de la formule vidéo souvenir (strictement 1 fois par discussion)
+      const videoSampleAlreadySent = Boolean(
+        raw.recent.some((r) => r.media_kind === 'video' || (r.text && /aper[çc]u vid[ée]o souvenir|vid[ée]o souvenir d[ée]mo/i.test(r.text)))
+      );
+
+      if (salesOutcome.videoSampleDue && !videoSampleAlreadySent) {
         const videoAsset = raw.assets.find(
           (a) => a.kind === 'sample_video' && (a.purpose === 'sample_video' || a.purpose === 'video_sample' || a.purpose === 'video')
         );
@@ -672,6 +679,8 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         }
         renderedMessages.push(videoMsg);
         trace.push('sales_brain: video sample demo enqueued');
+      } else if (salesOutcome.videoSampleDue && videoSampleAlreadySent) {
+        trace.push('guard: video sample already sent in conversation, duplicate suppressed');
       }
 
       // 3. Détection de la confirmation de formule & Alerte gérant enrichie

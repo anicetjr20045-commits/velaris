@@ -149,6 +149,7 @@ export interface SalesBrainInput {
     wa_jid: string;
     deliveredOrders?: number;
     procedureVoiceReceived?: boolean;
+    videoSampleReceived?: boolean;
   };
   persona: {
     studio_name: string;
@@ -194,6 +195,11 @@ export async function generateSalesReply(
     input.recent.some((m) => m.who !== 'client' && (m.text.includes('note vocale') || m.text.includes('vocal de procédure') || m.text.includes('[Note vocale')))
   );
 
+  const videoSampleAlreadySent = Boolean(
+    input.contact.videoSampleReceived ||
+    input.recent.some((m) => m.who !== 'client' && (/aper[çc]u vid[ée]o souvenir|vid[ée]o souvenir d[ée]mo|\[vid[ée]o souvenir/i.test(m.text)))
+  );
+
   const currentOrder = input.orders[0];
   const orderBrief = currentOrder
     ? `Occasion: ${currentOrder.occasion || 'Inconnue'}, Destinataire: ${currentOrder.recipientName || 'Inconnu'}, Expéditeur: ${currentOrder.senderName || 'Inconnu'}, Souvenirs/Message: ${currentOrder.memoriesCount > 0 ? 'Fournis' : 'Non fournis'}`
@@ -206,6 +212,7 @@ export async function generateSalesReply(
 - Prénom enregistré : ${input.contact.name || 'Non renseigné'}
 - Historique client : ${isReturning ? 'Client récurrent / fidèle (ne pas envoyer le vocal de procédure, demander directement la formule)' : 'Nouveau prospect (premier contact)'}
 - Statut Note Vocale : ${procedureVoiceAlreadySent ? 'DÉJÀ ENVOYÉE dans cette discussion (INTERDICTION FORMELLE de la renvoyer ou d\'en parler. Si le client a répondu, présenter directement les deux formules Découverte 1 200 F / Prestige 3 000 F)' : 'Non encore envoyée'}
+- Statut Démo Vidéo Souvenir : ${videoSampleAlreadySent ? 'DÉJÀ ENVOYÉE dans cette discussion (INTERDICTION STRICTE de renvoyer la vidéo démo avec "video_sample": false)' : 'Non encore envoyée'}
 - État de la commande : ${orderBrief}
 
 # FORMAT DE SORTIE OBLIGATOIRE (JSON STRICT) :
@@ -220,7 +227,7 @@ Réponds impérativement avec un objet JSON :
 
 DÉCLENCHEURS D'ACTIONS SYSTÈME (CRITIQUES) :
 - "procedure_voice": true UNIQUEMENT si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ET que le Statut Note Vocale est "Non encore envoyée". Si la note vocale a déjà été envoyée ou si le client répond au vocal (ex: « Ça me convient », « D'accord », « C'est bon »), interdiction formelle de renvoyer le vocal : présente les deux formules (Découverte 1 200 F / Prestige 3 000 F) avec "procedure_voice": false.
-- "video_sample": true si le client demande à voir un exemple, un extrait ou un aperçu vidéo de la formule vidéo souvenir / montage. La vidéo de démonstration sera envoyée automatiquement sur WhatsApp.
+- "video_sample": true UNIQUEMENT si le client demande expressément à voir un exemple, un extrait ou un aperçu vidéo de notre formule vidéo souvenir (Prestige 3 000 F) ET que le Statut Démo Vidéo Souvenir est "Non encore envoyée". Si la vidéo démo a déjà été envoyée ou si le client partage son propre lien vidéo externe (TikTok, YouTube...), renvoie impérativement "video_sample": false.
 - "formula_chosen": true dès que le client choisit sa formule (Découverte 1 200 F ou Prestige 3 000 F). Renseigne alors "chosen_formula": "decouverte" ou "prestige".
 - Règle sur les médias : Ne génère JAMAIS de phrase disant « Je vais vous envoyer le vocal » si le vocal part. Accuse simplement réception avec sobriété ou fais le pont du brief, les fichiers multimédias sont livrés directement par le système.
 
@@ -288,10 +295,27 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
         : null;
 
     // Détection déterministe pour l'extrait vidéo souvenir
-    const videoRegex = /(extrait|exemple|aper[çc]u|d[ée]mo|voir|montre(z)?|regarder).*vid[ée]o|vid[ée]o.*(souvenir|montage|ressemble|exemple|extrait)|formule prestige.*(vid[ée]o|voir)/i;
-    if (!videoSampleDue && (videoRegex.test(cleanTurnText) || messages.slice(-2).some((m) => m.role === 'user' && videoRegex.test(m.content)))) {
+    const isClientSharingExternalVideo =
+      /tiktok|youtube|youtu\.be|facebook|vm\.tiktok|copier dessus|inspirer de cette vid[ée]o|voici la vid[ée]o|regarde(z)? cette vid[ée]o|ma vid[ée]o|ce mod[èe]le/i.test(
+        cleanTurnText
+      );
+
+    const explicitVideoRequest =
+      /(extrait|exemple|aper[çc]u|d[ée]mo|montre(z)?-moi|montrer|faire voir).*vid[ée]o|vid[ée]o.*(souvenir|montage|ressemble|exemple|extrait)|formule prestige.*(vid[ée]o|voir)/i;
+
+    if (!videoSampleDue && !videoSampleAlreadySent && !isClientSharingExternalVideo && explicitVideoRequest.test(cleanTurnText)) {
       videoSampleDue = true;
       notes.push('sales_brain: video_sample triggered via client request detection');
+    }
+
+    // Interdiction stricte de renvoyer la vidéo démo si déjà envoyée ou si le client partage son propre lien externe
+    if (videoSampleDue && (videoSampleAlreadySent || isClientSharingExternalVideo)) {
+      videoSampleDue = false;
+      notes.push(
+        videoSampleAlreadySent
+          ? 'sales_brain: video_sample suppressed because already sent'
+          : 'sales_brain: video_sample suppressed because client is sharing external reference'
+      );
     }
 
     // Détection déterministe pour le vocal de procédure (strictement si pas encore envoyé)

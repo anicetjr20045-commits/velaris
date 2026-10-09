@@ -19,8 +19,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (21:10 UTC)
-- **Statut Opérationnel** : **Jalon 108 Validé — Bouclier Absolu de Silence Human-in-the-Loop & Neutralisation des Messages In-Flight** :
+- **Dernière mise à jour** : 9 Octobre 2026 (22:05 UTC)
+- **Statut Opérationnel** : **Jalon 109 Validé — Résolution Définitive du Spam Vidéo Démo & Garde Anti-Doublon Multi-Niveaux** :
+  1. **Diagnostic & Causes Racines Identifiées (Conversation cliente `22548380131@c.us`)** :
+     - **Faux positif regex sur partage de lien externe** : La cliente a partagé son propre lien TikTok en disant dans un vocal : « Essaye de voir la vidéo et puis on va un peu copier dessus ». L'ancienne regex `voir.*vidéo` a pris cette phrase pour une demande de démo Velaris, alors que la cliente partageait sa propre référence.
+     - **Fuite d'historique (`messages.slice(-2)`)** : Au tour suivant (Tour 2), lorsque la cliente répondait simplement « Mariage il s'appelle Claude », le code inspectait les deux derniers messages et retrouvait le texte du Tour 1, déclenchant un 2ème envoi vidéo.
+     - **Amorçage / Hallucination DeepSeek** : Au Tour 3, DeepSeek voyait la légende « Aperçu vidéo souvenir » à répétition dans l'historique et a halluciné `"video_sample": true` dans sa sortie JSON.
+     - **Absence totale de garde anti-doublon dans le moteur (`run-turn.ts`)** : Contrairement à la note vocale de procédure qui possédait un filtre de non-renvoi, `run-turn.ts` enfilait aveuglément le fichier `montage_sample.mp4` à chaque fois que `videoSampleDue` était vrai.
+  2. **Solution Quadruple Étanche & Déterministe** :
+     - **Garde Liens Vidéo Externes (`isClientSharingExternalVideo`)** : Détection explicite des liens et mentions (TikTok, YouTube, Facebook, « copier dessus », « ma vidéo ») qui neutralisent immédiatement `video_sample` à `false`.
+     - **Suppression du balayage arrière** : Élimination de `messages.slice(-2)` pour que seul le message client du tour en cours puisse formuler une demande de démonstration.
+     - **Verrou d'écrasement dans `sales-brain.ts`** : Si une vidéo démo a déjà été transmise dans la conversation (`videoSampleAlreadySent`), `videoSampleDue` est systématiquement forcé à `false`, même si le modèle LLM renvoie `true`.
+     - **Garde d'envoi absolue dans `run-turn.ts`** : Vérification avant toute mise en boîte d'envoi. Si une vidéo figure déjà dans l'historique récent ou les faits du contact, l'envoi est bloqué et tracé (`guard: video sample already sent in conversation, duplicate suppressed`).
+  3. **Tests (170/170 Green) & Déploiement VPS** :
+     - 4 nouveaux tests unitaires dédiés dans `llm.test.ts` (170/170 tests réussis, 30 suites).
+     - Recompilation TypeScript (`dist/`) et transfert SCP vers le VPS Contabo (`162.35.113.220`).
+     - Rebuild de l'image Docker `velaris-engine` et redémarrage du conteneur en production.
+- **Jalon 108 Validé — Bouclier Absolu de Silence Human-in-the-Loop & Neutralisation des Messages In-Flight** :
   1. **Diagnostic & Cause Racine Identifiée** :
      - **Course d'envoi dans `outbox.ts`** : lorsqu'un tour se terminait, la boîte d'envoi engageait le message (`status = 'sending'`) puis simulait un délai humain réaliste de lecture et de frappe (1,5s à 6s via `waha.typing`).
      - Pendant ce court intervalle de frappe, le commerçant répondait manuellement au client sur WhatsApp (« Belle ville »).

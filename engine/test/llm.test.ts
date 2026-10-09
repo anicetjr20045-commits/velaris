@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { ConfigError, loadConfig } from '../src/config.js';
 import { DeepSeekProvider } from '../src/llm/deepseek.js';
 import { parseStrictJsonObject } from '../src/llm/json-guard.js';
-import { LlmError } from '../src/llm/provider.js';
+import { LlmError, type LlmProvider } from '../src/llm/provider.js';
+import { generateSalesReply, type SalesBrainInput } from '../src/llm/sales-brain.js';
 
 type Reply = { status?: number; body: unknown };
 
@@ -160,3 +161,94 @@ describe('configuration', () => {
     assert.throws(() => loadConfig({ ...base, DEEPSEEK_MODEL: 'deepseek-reasoner' }), ConfigError);
   });
 });
+
+describe('sales-brain: vidéo démo déduplication et garde liens externes', () => {
+  function mockLlm(returnData: Record<string, unknown>): LlmProvider {
+    return {
+      name: 'mock',
+      async completeJson() {
+        return {
+          data: returnData,
+          model: 'mock',
+          usage: { promptTokens: 10, completionTokens: 10, cacheHitTokens: 0 },
+          latencyMs: 1,
+          attempts: 1,
+          reasoningDiscarded: false,
+        };
+      },
+    };
+  }
+
+  const baseInput: SalesBrainInput = {
+    turnText: '',
+    recent: [],
+    contact: {
+      phone: '22501020304',
+      name: 'Awa',
+      wa_jid: '22501020304@s.whatsapp.net',
+    },
+    persona: {
+      studio_name: 'Velaris Studio',
+      agent_name: 'Alex',
+      manager_first_name: 'Jean',
+    },
+    orders: [],
+  };
+
+  test('lien vidéo externe ou TikTok du client ne déclenche jamais video_sample, même si DeepSeek le propose', async () => {
+    const input: SalesBrainInput = {
+      ...baseInput,
+      turnText: 'Voici le lien tiktok https://vm.tiktok.com/xxxx essaye de voir la vidéo et puis on va un peu copier dessus',
+    };
+    const llm = mockLlm({ bubbles: ['Bien reçu.'], video_sample: true });
+    const outcome = await generateSalesReply(llm, input);
+    assert.equal(outcome.videoSampleDue, false);
+    assert.ok(outcome.notes.some((n) => n.includes('client is sharing external reference')));
+  });
+
+  test('demande expresse du client déclenche video_sample si non encore envoyé', async () => {
+    const input: SalesBrainInput = {
+      ...baseInput,
+      turnText: 'Est-ce que je peux voir un exemple de vidéo ?',
+    };
+    const llm = mockLlm({ bubbles: ['Voici notre aperçu vidéo.'], video_sample: false });
+    const outcome = await generateSalesReply(llm, input);
+    assert.equal(outcome.videoSampleDue, true);
+  });
+
+  test('vidéo démo déjà envoyée (contact ou historique) supprime strictement tout nouvel envoi', async () => {
+    const inputWithContactFlag: SalesBrainInput = {
+      ...baseInput,
+      contact: { ...baseInput.contact, videoSampleReceived: true },
+      turnText: 'Montre-moi encore la vidéo s\'il vous plaît',
+    };
+    const llm = mockLlm({ bubbles: ['Voici notre aperçu.'], video_sample: true });
+    const outcome1 = await generateSalesReply(llm, inputWithContactFlag);
+    assert.equal(outcome1.videoSampleDue, false);
+    assert.ok(outcome1.notes.some((n) => n.includes('video_sample suppressed because already sent')));
+
+    const inputWithRecentHistory: SalesBrainInput = {
+      ...baseInput,
+      recent: [{ who: 'studio', text: 'Aperçu vidéo souvenir' }],
+      turnText: 'Est-ce que je peux voir un exemple de vidéo ?',
+    };
+    const outcome2 = await generateSalesReply(llm, inputWithRecentHistory);
+    assert.equal(outcome2.videoSampleDue, false);
+    assert.ok(outcome2.notes.some((n) => n.includes('video_sample suppressed because already sent')));
+  });
+
+  test('aucun débordement du tour précédent : un message ordinaire ne re-déclenche pas la vidéo', async () => {
+    const input: SalesBrainInput = {
+      ...baseInput,
+      recent: [
+        { who: 'client', text: 'Essaye de voir la vidéo https://tiktok.com/xxxx' },
+        { who: 'studio', text: 'C\'est bien noté pour votre référence.' },
+      ],
+      turnText: 'Mariage il s\'appelle Claude',
+    };
+    const llm = mockLlm({ bubbles: ['C\'est noté pour Claude.'], video_sample: false });
+    const outcome = await generateSalesReply(llm, input);
+    assert.equal(outcome.videoSampleDue, false);
+  });
+});
+
