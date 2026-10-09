@@ -18,6 +18,7 @@ export interface MessageEvent {
   dedupKey: string;
   chatId: string;
   fromMe: boolean;
+  source?: string | null;
   waMessageId: string;
   waKey: string;
   waTimestamp: string | null;
@@ -162,6 +163,8 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
   const text = str(payload.body);
   if (!text && !mediaKind) return { ok: false, reason: 'empty_message' };
 
+  const source = str(payload.source);
+
   return {
     ok: true,
     event: {
@@ -170,6 +173,7 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
       dedupKey: waKey,
       chatId,
       fromMe,
+      source,
       waMessageId,
       waKey,
       waTimestamp: epochToIso(payload.timestamp),

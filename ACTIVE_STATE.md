@@ -19,18 +19,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (15:10 UTC)
-- **Statut Opérationnel** : **Jalon 100 Validé — Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir (Livraison Réelle Résolue & Testée)** :
-  1. **Vocal de Procédure Natif WhatsApp (PTT 33s)** : Extraction du vocal officiel depuis `velaris-agent` (audio OGG Opus natif WhatsApp 33s), embarqué en base64 dans `engine/src/assets/procedure-voice.ts` et hébergé sur Supabase Storage `product-files/assets/procedure_voice.ogg`. Envoi direct via WAHA avec `mimetype: "audio/ogg; codecs=opus"` : le client reçoit une vraie bulle vocale WhatsApp PTT (waveform, micro vert) et non plus une phrase.
+- **Dernière mise à jour** : 9 Octobre 2026 (17:22 UTC)
+- **Statut Opérationnel** : **Jalon 101 Validé — Résolution de la Course Écho Asynchrone / Fausse Prise de Main Humaine sur Médias & Reprise du Flux Client** :
+  1. **Cause Racine Identifiée** : Lorsqu'un média (vocal de procédure PTT, aperçu vidéo) est expédié par le bot, le webhook d'écho WhatsApp (`fromMe: true`) arrive souvent avant que l'appel HTTP sortant ne se termine et n'écrive `wa_message_key` en base. Comme un média ne possède pas de corps texte (`body_hash` est nul), la fonction SQL `agent_ingest_message` ne parvenait pas à relier l'écho à l'outbox et supposait à tort qu'un gérant humain avait envoyé un message depuis son téléphone, basculant la discussion en `control_mode = 'human'` (`pause_reason = 'merchant_reply'`) et réduisant l'IA au silence au message client suivant.
+  2. **Triple Bouclier Anti-Course dans l'Ingestion** :
+     - **Bouclier 1 (Liaison préemptive)** : Dans `process-event.ts`, à la réception d'un événement `fromMe`, recherche immédiate d'un message sortant en cours (`status in ('sending', 'unknown')`) et assignation préemptive de `wa_message_id` et `wa_message_key` avant l'appel SQL. `agent_ingest_message` trouve ainsi la clé et classe l'événement en `echo` sans pause.
+     - **Bouclier 2 (Traçabilité source API)** : Détection de `source = 'api'` dans `normalize.ts` pour identifier formellement les messages issus du serveur WAHA.
+     - **Bouclier 3 (Auto-correction)** : Si un événement portant `source = 'api'` est malgré tout retourné comme `merchant`, l'ingestion révoque immédiatement la pause et rétablit le contrôle `'ai'`.
+  3. **Déblocage & Reprise Validée en Direct** :
+     - Reclassement du message d'écho en `assistant`, conversation réactivée en mode IA.
+     - Le message client « Ça me convient » a été traité avec succès (`turn completed`, `replied`, envoi de la confirmation).
+  4. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests exécutée à 100% verte, conteneur `velaris-engine:latest` redéployé sur le VPS (`162.35.113.220`).
+- **Jalon 100 Validé — Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir** :
+  1. **Vocal de Procédure Natif WhatsApp (PTT 33s)** : Extraction du vocal officiel depuis `velaris-agent` (audio OGG Opus natif WhatsApp 33s), embarqué en base64 dans `engine/src/assets/procedure-voice.ts` et hébergé sur Supabase Storage `product-files/assets/procedure_voice.ogg`. Envoi direct via WAHA avec `mimetype: "audio/ogg; codecs=opus"` : le client reçoit une vraie bulle vocale WhatsApp PTT (waveform, micro vert).
   2. **Démo Vidéo Souvenir (Formule Prestige 3 000 F)** : Détection automatique dans `SalesBrain` (`video_sample: true`) dès que le client demande un exemple ou aperçu vidéo. Vidéo de démonstration (`pub_finale.mp4`, 2.3 MB) hébergée sur `product-files/assets/montage_sample.mp4`. Routage vers `/api/sendVideo` dédié.
-  3. **Résolution du Bug Médias WAHA & Codecs Chrome** :
-     - Cause racine 1 : Bug amont `Data passed to getter must include an id property` dans WAHA 2026.8.2 (résolu en migrant vers WAHA 2026.9.2).
-     - Cause racine 2 : WAHA WEBJS exige Google Chrome (`devlikeapro/waha:chrome`) pour encoder et envoyer les flux vidéo H.264/AAC.
-     - Cause racine 3 : Remplacement de l'appel générique `sendFile` par le point d'accès natif `POST /api/sendVideo` dans `WahaClient`.
-  4. **Validation Directe Réelle sur WhatsApp** :
-     - Vocal PTT (33s) envoyé avec succès et acquitté par WhatsApp (`type: "ptt"`, `duration: "33"`).
-     - Vidéo MP4 démo (36s) envoyée avec succès et acquittée par WhatsApp (`type: "video"`, `duration: "36"`).
-  5. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests passée à 161 tests 100% verts, image `velaris-engine` recompilée et déployée sur le VPS (`162.35.113.220`).
+  3. **Résolution du Bug Médias WAHA & Codecs Chrome** : Migration vers WAHA 2026.9.2 avec image Chrome dédiée (`devlikeapro/waha:chrome`).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
