@@ -19,8 +19,11 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Octobre 2026 (23:30 UTC)
-- **Statut Opérationnel** : **Jalon 96 Validé — Connexion Officielle & Opérationnelle de la Session WhatsApp `Test` sur WAHA Chromium (`WORKING`)** (Ligne `+226 56 24 05 33` ("Digital Starter") pleinement connectée et synchronisée en état `WORKING` avec chiffrement de bout en bout, patch d'extension du délai de synchronisation à 5 minutes (300 000 ms) validé et persisté dans Docker, ingestion des webhooks en temps réel sur `velaris-engine` opérationnelle, portail de gestion d'appairage multi-méthodes QR / Code 8 chiffres live).
+- **Dernière mise à jour** : 9 Octobre 2026 (09:20 UTC)
+- **Statut Opérationnel** : **Jalon 97 Validé — DeepSeek Flash via Kie.ai (`deepseek-v4-1-flash`), Résolution WhatsApp LID et Outil de Reset Client de Test Live** :
+  1. **Provider DeepSeek via Kie.ai** : Intégration de l'API Responses (`https://api.kie.ai/openai/v1/responses`) avec le modèle `deepseek-v4-1-flash`, format JSON strict, désactivation complète de la réflexion (`reasoning: { effort: 'none' }`), extraction du prompt cache natif (`cacheHitTokens`), testé et déployé sur le conteneur VPS `velaris-engine`.
+  2. **Trajet WAHA ➔ Agent Blindé & Multi-Device LID** : Résolution automatique des identifiants WhatsApp modernes `@lid` vers les JID canoniques `@c.us` avec détection automatique de l'indicatif téléphonique pays (+225 Côte d'Ivoire, +226 Burkina Faso), mise en cache mémoire et gestion des pauses/reprises.
+  3. **Outil Chirurgical de Reset de Test** : Script CLI (`npm run reset:client <identifiant>`) et endpoint HTTP (`/api/test/reset` & `/api/test/unpause`) purgeant instantanément en base Supabase contacts, conversations, messages, commandes, tours de file et événements dédupliqués pour tester l'agent à volonté à blanc avec n'importe quel vrai compte WhatsApp.
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.

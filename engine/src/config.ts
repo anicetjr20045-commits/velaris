@@ -35,7 +35,14 @@ export function assertNonReasoningModel(model: string): void {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
-  const model = env.DEEPSEEK_MODEL?.trim() || 'deepseek-flash';
+  const kieApiKey = env.KIE_API_KEY?.trim();
+  const dsApiKey = env.DEEPSEEK_API_KEY?.trim();
+  const baseUrl = (env.DEEPSEEK_BASE_URL?.trim() || (kieApiKey && !dsApiKey ? 'https://api.kie.ai' : 'https://api.deepseek.com/v1')).replace(/\/$/, '');
+  const isKie = baseUrl.includes('kie.ai');
+  const apiKey = (isKie && kieApiKey) ? kieApiKey : (dsApiKey || kieApiKey || '');
+  if (!apiKey) throw new ConfigError("variable d'environnement manquante : DEEPSEEK_API_KEY ou KIE_API_KEY");
+
+  const model = env.DEEPSEEK_MODEL?.trim() || (isKie ? 'deepseek-v4-1-flash' : 'deepseek-flash');
   assertNonReasoningModel(model);
   const hmac = required(env, 'WAHA_WEBHOOK_HMAC_KEY');
   if (hmac.length < 32) throw new ConfigError('WAHA_WEBHOOK_HMAC_KEY trop courte (32 caractères minimum)');
@@ -50,10 +57,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
     wahaWebhookHmacKey: hmac,
     protectedSessions: (env.WAHA_PROTECTED_SESSIONS ?? 'anicet2').split(',').map((s) => s.trim()).filter(Boolean),
     deepseek: {
-      apiKey: required(env, 'DEEPSEEK_API_KEY'),
-      baseUrl: (env.DEEPSEEK_BASE_URL?.trim() || 'https://api.deepseek.com/v1').replace(/\/$/, ''),
+      apiKey,
+      baseUrl,
       model,
-      timeoutMs: Number(env.DEEPSEEK_TIMEOUT_MS ?? 12_000),
+      timeoutMs: Number(env.DEEPSEEK_TIMEOUT_MS ?? 15_000),
     },
     spoolDir: env.SPOOL_DIR?.trim() || './spool',
     senderConcurrencyPerSession: Number(env.SENDER_CONCURRENCY_PER_SESSION ?? 2),

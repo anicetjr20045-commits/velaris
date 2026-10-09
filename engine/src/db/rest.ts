@@ -9,6 +9,7 @@ export interface Db {
   queryTable?<T>(table: string, queryParams?: string): Promise<T>;
   insertRow?<T>(table: string, row: Record<string, unknown>): Promise<T>;
   updateRows?<T>(table: string, matchQuery: string, data: Record<string, unknown>): Promise<T>;
+  deleteRows?<T>(table: string, matchQuery: string): Promise<T>;
 }
 
 export class DbError extends Error {
@@ -131,5 +132,28 @@ export class RestDb implements Db {
       throw new DbError(`update ${table} : HTTP ${res.status} ${text.slice(0, 300)}`, res.status, res.status >= 500);
     }
     return (text ? JSON.parse(text) : null) as T;
+  }
+
+  async deleteRows<T>(table: string, matchQuery: string): Promise<T> {
+    let res: Response;
+    try {
+      res = await this.fetchImpl(`${this.opts.url}/rest/v1/${table}?${matchQuery}`, {
+        method: 'DELETE',
+        headers: {
+          apikey: this.opts.secretKey,
+          Authorization: `Bearer ${this.opts.secretKey}`,
+          Prefer: 'return=representation',
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      throw new DbError(`delete ${table} : réseau (${(err as Error).name})`, null, true);
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      throw new DbError(`delete ${table} : HTTP ${res.status} ${text.slice(0, 300)}`, res.status, res.status >= 500);
+    }
+    return (text ? JSON.parse(text) : []) as T;
   }
 }

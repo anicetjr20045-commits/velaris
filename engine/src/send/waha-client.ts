@@ -222,6 +222,21 @@ export class WahaClient {
       return { ok: false, error: (err as Error).message };
     }
   }
+
+  async getContact(session: string, contactId: string): Promise<{ ok: boolean; id?: string | undefined; number?: string | undefined; pushname?: string | undefined } | null> {
+    try {
+      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/contacts?contactId=${encodeURIComponent(contactId)}&session=${encodeURIComponent(session)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json', 'X-Api-Key': this.opts.apiKey },
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { id?: string; number?: string; pushname?: string };
+      return { ok: true, id: data.id, number: data.number, pushname: data.pushname };
+    } catch {
+      return null;
+    }
+  }
 }
 
 export interface WahaSessionInfo {

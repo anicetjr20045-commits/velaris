@@ -22,6 +22,7 @@ export interface DeepSeekOptions {
   maxAttempts?: number;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  useKie?: boolean;
 }
 
 interface ChatResponse {
@@ -30,7 +31,35 @@ interface ChatResponse {
     finish_reason?: string | null;
     message?: { content?: string | null; reasoning_content?: string | null };
   }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number };
+  usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } };
+}
+
+interface KieResponsesPayload {
+  status?: string;
+  model?: string;
+  output?: Array<{
+    role?: string;
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
+  }>;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+    input_tokens_details?: {
+      cached_tokens?: number;
+    };
+    output_tokens_details?: {
+      reasoning_tokens?: number;
+    };
+  };
+  error?: {
+    message?: string;
+    msg?: string;
+    type?: string;
+  };
 }
 
 const JSON_WORD = /json/i;
@@ -43,13 +72,15 @@ export class DeepSeekProvider implements LlmProvider {
   private readonly maxAttempts: number;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
+  private readonly isKie: boolean;
 
   constructor(private readonly opts: DeepSeekOptions) {
     if (!opts.apiKey) throw new LlmError('config', 'clé DeepSeek absente', false);
     this.baseUrl = (opts.baseUrl ?? 'https://api.deepseek.com/v1').replace(/\/$/, '');
-    this.model = opts.model ?? 'deepseek-flash';
+    this.isKie = opts.useKie ?? this.baseUrl.includes('kie.ai');
+    this.model = opts.model ?? (this.isKie ? 'deepseek-v4-1-flash' : 'deepseek-flash');
     assertNonReasoningModel(this.model);
-    this.timeoutMs = opts.timeoutMs ?? 12_000;
+    this.timeoutMs = opts.timeoutMs ?? 15_000;
     this.maxAttempts = Math.max(1, Math.min(opts.maxAttempts ?? 2, 3));
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.now = opts.now ?? Date.now;
@@ -58,15 +89,46 @@ export class DeepSeekProvider implements LlmProvider {
   async completeJson(req: JsonCompletionRequest): Promise<JsonCompletion> {
     // Le mode JSON de DeepSeek exige que le mot « json » figure dans le prompt.
     const system = JSON_WORD.test(req.system) ? req.system : `${req.system}\n\nRéponds uniquement par un objet JSON.`;
-    const body = {
-      model: this.model,
-      messages: [{ role: 'system', content: system }, ...req.messages],
-      response_format: { type: 'json_object' },
-      thinking: { type: 'disabled' },
-      temperature: req.temperature ?? 0,
-      max_tokens: req.maxTokens,
-      stream: false,
-    };
+
+    let body: unknown;
+    if (this.isKie) {
+      // Format Responses API de Kie.ai avec DeepSeek V4.1 Flash sans raisonnement et cache natif
+      const input = [
+        {
+          type: 'message' as const,
+          role: 'system' as const,
+          content: [{ type: 'input_text' as const, text: system }],
+        },
+        ...req.messages.map((m) => ({
+          type: 'message' as const,
+          role: m.role,
+          content: [
+            {
+              type: (m.role === 'assistant' ? 'output_text' : 'input_text') as 'output_text' | 'input_text',
+              text: m.content,
+            },
+          ],
+        })),
+      ];
+      body = {
+        model: this.model,
+        stream: false,
+        reasoning: { effort: 'none' },
+        text: { format: { type: 'json_object' } },
+        input,
+      };
+    } else {
+      // Format standard OpenAI Chat Completions de DeepSeek
+      body = {
+        model: this.model,
+        messages: [{ role: 'system', content: system }, ...req.messages],
+        response_format: { type: 'json_object' },
+        thinking: { type: 'disabled' },
+        temperature: req.temperature ?? 0,
+        max_tokens: req.maxTokens,
+        stream: false,
+      };
+    }
 
     const started = this.now();
     let last: LlmError | null = null;
@@ -84,11 +146,19 @@ export class DeepSeekProvider implements LlmProvider {
   }
 
   private async once(body: unknown): Promise<Omit<JsonCompletion, 'latencyMs' | 'attempts'>> {
+    const endpoint = this.isKie
+      ? (this.baseUrl.includes('/openai/v1') ? `${this.baseUrl}/responses` : `${this.baseUrl}/openai/v1/responses`)
+      : `${this.baseUrl}/chat/completions`;
+
     let res: Response;
     try {
-      res = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
+      res = await this.fetchImpl(endpoint, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${this.opts.apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          Authorization: `Bearer ${this.opts.apiKey}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
@@ -99,11 +169,47 @@ export class DeepSeekProvider implements LlmProvider {
     }
 
     if (!res.ok) {
-      const detail = (await res.text().catch(() => '')).slice(0, 200);
+      const detail = (await res.text().catch(() => '')).slice(0, 300);
       if (res.status === 429) throw new LlmError('rate_limited', `HTTP 429 ${detail}`, true);
       if (res.status >= 500) throw new LlmError('server', `HTTP ${res.status} ${detail}`, true);
       // 401 clé invalide, 402 solde épuisé, 400 requête invalide : inutile de réessayer
       throw new LlmError('client', `HTTP ${res.status} ${detail}`, false);
+    }
+
+    if (this.isKie) {
+      let payload: KieResponsesPayload;
+      try {
+        payload = (await res.json()) as KieResponsesPayload;
+      } catch {
+        throw new LlmError('invalid_output', 'réponse HTTP non JSON', true);
+      }
+
+      const status = payload.status;
+      if (status === 'failed') {
+        const msg = payload.error?.message || payload.error?.msg || 'erreur Kie inconnue';
+        throw new LlmError('server', `Kie error: ${msg}`, true);
+      }
+
+      const outputItem = payload.output?.[0];
+      const text = outputItem?.content?.[0]?.text;
+      if (!text || typeof text !== 'string') {
+        throw new LlmError('invalid_output', 'aucun texte renvoyé par Kie', true);
+      }
+
+      const guarded = parseStrictJsonObject(text);
+      const usage = payload.usage;
+      const cached = usage?.input_tokens_details?.cached_tokens ?? 0;
+
+      return {
+        data: guarded.data,
+        model: payload.model ?? this.model,
+        usage: {
+          promptTokens: usage?.input_tokens ?? 0,
+          completionTokens: usage?.output_tokens ?? 0,
+          cacheHitTokens: cached,
+        },
+        reasoningDiscarded: false,
+      };
     }
 
     let payload: ChatResponse;

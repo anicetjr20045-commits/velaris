@@ -101,6 +101,47 @@ describe('DeepSeekProvider', () => {
     await assert.rejects(p2.completeJson(req), (e: LlmError) => e.kind === 'client');
     assert.equal(c2.length, 1);
   });
+
+  test('mode Kie.ai : endpoint /openai/v1/responses, format Responses API, deepseek-v4-1-flash, cache hit tokens', async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const kiePayload = {
+      status: 'completed',
+      model: 'deepseek-v4-1-flash',
+      output: [
+        {
+          role: 'assistant',
+          type: 'message',
+          content: [{ type: 'output_text', text: '{"intent":"ask_payment_method"}' }],
+          status: 'completed',
+        },
+      ],
+      usage: {
+        input_tokens: 150,
+        output_tokens: 30,
+        total_tokens: 180,
+        input_tokens_details: { cached_tokens: 128 },
+        output_tokens_details: { reasoning_tokens: 0 },
+      },
+    };
+
+    const p = new DeepSeekProvider({
+      apiKey: 'kie-secret-key',
+      baseUrl: 'https://api.kie.ai',
+      fetchImpl: fakeFetch([{ body: kiePayload }], calls),
+    });
+
+    const res = await p.completeJson(req);
+    assert.deepEqual(res.data, { intent: 'ask_payment_method' });
+    assert.equal(calls[0]!.url, 'https://api.kie.ai/openai/v1/responses');
+    assert.equal(calls[0]!.body.model, 'deepseek-v4-1-flash');
+    assert.deepEqual(calls[0]!.body.reasoning, { effort: 'none' });
+    assert.deepEqual(calls[0]!.body.text, { format: { type: 'json_object' } });
+    assert.ok(Array.isArray(calls[0]!.body.input));
+    assert.equal(res.usage.cacheHitTokens, 128);
+    assert.equal(res.usage.promptTokens, 150);
+    assert.equal(res.usage.completionTokens, 30);
+    assert.equal(res.reasoningDiscarded, false);
+  });
 });
 
 describe('configuration', () => {

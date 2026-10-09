@@ -17,6 +17,8 @@ import { normalizeWahaEvent, type NormalizedEvent } from './normalize.js';
 import { processEvent, type ProcessDeps } from './process-event.js';
 import { runCopilotBrain } from '../llm/copilot-brain.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
+import { resetTestClient } from '../services/reset-client.js';
+import type { RestDb } from '../db/rest.js';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -69,8 +71,29 @@ export async function recordAndProcess(body: unknown, source: 'webhook' | 'spool
   return 'accepted';
 }
 
+const lidToJidCache = new Map<string, string>();
+
+async function resolveLidIfNeeded(ev: NormalizedEvent, deps: IngestServerDeps): Promise<void> {
+  if ('chatId' in ev && typeof ev.chatId === 'string' && ev.chatId.endsWith('@lid') && deps.waha) {
+    const cached = lidToJidCache.get(ev.chatId);
+    if (cached) {
+      ev.chatId = cached;
+      return;
+    }
+    const c = await deps.waha.getContact(ev.session, ev.chatId);
+    if (c?.id && c.id.endsWith('@c.us')) {
+      lidToJidCache.set(ev.chatId, c.id);
+      ev.chatId = c.id;
+      if ('pushName' in ev && !ev.pushName && c.pushname) {
+        ev.pushName = c.pushname;
+      }
+    }
+  }
+}
+
 export async function runProcessing(id: number, ev: NormalizedEvent, deps: IngestServerDeps): Promise<void> {
   try {
+    await resolveLidIfNeeded(ev, deps);
     const r = await processEvent(ev, deps);
     await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: r.outcome });
     deps.log('event processed', { id, kind: ev.kind, outcome: r.outcome });
@@ -239,6 +262,56 @@ export function createIngestServer(deps: IngestServerDeps): Server {
           deps.log('api/copilot execution error', { error: err.message });
           return json(res, 500, { ok: false, error: err.message || 'copilot_brain_error' });
         }
+      }
+
+      // Endpoint de réinitialisation et purge d'un contact de test WhatsApp
+      if (parsedUrl.pathname === '/api/test/reset' && req.method === 'POST') {
+        let body: any;
+        try {
+          const raw = await readBody(req);
+          body = JSON.parse(raw.toString('utf8'));
+        } catch {
+          return json(res, 400, { ok: false, error: 'invalid_json_body' });
+        }
+
+        const target = String(body.identifier || body.phone || body.chatId || '');
+        if (!target) return json(res, 400, { ok: false, error: 'missing_identifier' });
+
+        const resetRes = await resetTestClient(deps.db as RestDb, target);
+        deps.log('test client reset executed', { target, result: resetRes });
+        return json(res, resetRes.ok ? 200 : 500, resetRes);
+      }
+
+      // Endpoint pour reprendre la main IA manuellement sur une discussion
+      if (parsedUrl.pathname === '/api/test/unpause' && req.method === 'POST') {
+        let body: any;
+        try {
+          const raw = await readBody(req);
+          body = JSON.parse(raw.toString('utf8'));
+        } catch {
+          return json(res, 400, { ok: false, error: 'invalid_json_body' });
+        }
+
+        const target = String(body.chatId || body.phone || body.identifier || '');
+        if (!target) return json(res, 400, { ok: false, error: 'missing_chat_id' });
+        const cleanPhone = target.replace(/\D/g, '');
+
+        let convs: Array<{ id: string }> = [];
+        if (deps.db.queryTable) {
+          convs = (await deps.db.queryTable<Array<{ id: string }>>('conversations', `chat_id.eq.${target}&select=id`).catch(() => [])) || [];
+          if (convs.length === 0 && cleanPhone) {
+            convs = (await deps.db.queryTable<Array<{ id: string }>>('conversations', `chat_id.like.*${cleanPhone}*&select=id`).catch(() => [])) || [];
+          }
+        }
+
+        if (convs.length > 0) {
+          for (const c of convs) {
+            await deps.db.rpc('agent_set_control', { p_conv: c.id, p_mode: 'ai', p_reason: 'manual_unpause', p_actor: 'merchant' });
+          }
+          deps.log('test client unpaused', { target, count: convs.length });
+          return json(res, 200, { ok: true, unpaused: convs.length });
+        }
+        return json(res, 404, { ok: false, error: 'conversation_not_found' });
       }
 
       const isWebhook = parsedUrl.pathname === '/webhooks/waha' || parsedUrl.pathname === '/webhook' || parsedUrl.pathname === '/api/public/waha-webhook';
