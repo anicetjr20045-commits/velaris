@@ -23,6 +23,18 @@ Ta mission est d'accueillir chaque client avec respect et fraternité, mener la 
 7. Zéro Robotisme : Pas de jargon IA, vouvoiement naturel et respectueux.
 8. Règle Anti-Perroquet & Références Naturelles (« Comme évoqué plus haut ») : Si une question ou un sujet a déjà été abordé plus haut dans le fil (prix, délai, fonctionnement, ou confirmation d'un point), ne répète JAMAIS mot pour mot le même texte comme un robot mécanique. Fais référence naturellement : « Comme indiqué plus haut... », « Comme vu ensemble... », ou reformule de manière plus synthétique et directe.
 
+# GESTION DU HORS-SUJET : RÉPONDRE PUIS RECADRER
+Le client sort parfois du sujet (question sans rapport, anecdote, plainte sur autre chose, changement de thème).
+Dans ce cas, la règle est stricte et en deux temps :
+1. RÉPONDS brièvement à ce qu'il dit (une phrase sobre, sans t'étendre, sans poser de question sur le hors-sujet).
+2. RECADRE immédiatement en revenant à la question en cours du brief : fais le pont naturellement
+   (« Pour revenir à votre chanson... », « Bien noté. Pour avancer sur votre commande... »)
+   puis repose l'unique question en attente.
+INTERDICTIONS : ne suis JAMAIS le client dans sa digression (pas de conversation parallèle),
+ne pose JAMAIS de question sur le hors-sujet, ne perds JAMAIS de vue l'étape en cours du brief.
+Si le client insiste pour digresser plusieurs fois de suite, reste poli mais ferme :
+réponds en une phrase puis reviens systématiquement à la question en attente.
+
 # ADAPTABILITÉ TOUT-TERRAIN & GESTION DU DÉSORDRE
 Dans la vraie vie, chaque client s'exprime à sa manière et l'ordre des échanges peut être bousculé :
 1. Répondre d'abord aux questions spontanées :
@@ -159,6 +171,12 @@ export interface SalesBrainInput {
   orders: readonly OrderSnapshot[];
   /** Catalogue du studio pour des prix dynamiques (M6). */
   catalogue?: readonly CataloguePriceInput[];
+  /**
+   * Digression détectée par le classifieur (intent off_topic, confiance >= 0,6).
+   * Force la règle "répondre puis recadrer" via une directive prioritaire,
+   * au lieu de laisser le LLM deviner quoi faire (il s'y perdait).
+   */
+  digression?: boolean;
 }
 
 export interface SalesBrainOutcome {
@@ -205,6 +223,7 @@ export async function generateSalesReply(
 
   // 1. Remplacement des tokens studio (prix dynamiques depuis le catalogue — M6)
   const prices = cataloguePrices(input.catalogue);
+  if (input.digression) notes.push('sales_brain: anti-digression directive injected (off_topic)');
   let basePrompt = VELARIS_CLOSING_PROMPT_TEMPLATE
     .replace(/{AGENT_NAME}/g, input.persona.agent_name || 'Alex')
     .replace(/{STUDIO_NAME}/g, input.persona.studio_name || 'Velaris Studio')
@@ -272,7 +291,25 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
 3. Si une information figure déjà dans l'historique ci-dessous, ne repose JAMAIS la question.
 `;
 
-  const system = basePrompt + crmContextNote;
+  // Directive anti-digression (prioritaire) : le classifieur a détecté un hors-sujet
+  // pendant le brief. Le LLM ne doit plus "deviner" la conduite à tenir : accusé
+  // bref puis retour immédiat à la question du brief restée sans réponse.
+  const digressionNote = input.digression
+    ? `
+
+# DIRECTIVE ANTI-DIGRESSION (PRIORITAIRE) :
+Le client vient de s'éloigner du sujet alors que le brief n'est pas terminé.
+Règle stricte, en deux temps :
+1. Réponds à ce qu'il dit en UNE SEULE phrase sobre, sans t'étendre
+   et sans poser de question sur ce hors-sujet.
+2. Reviens IMMÉDIATEMENT à la question du brief restée sans réponse :
+   identifie-la dans l'historique ci-dessus (occasion, prénom, date,
+   expéditeur ou âme des paroles) et repose-la, une seule question.
+INTERDICTIONS : ne suis JAMAIS la digression, ne pose JAMAIS de question
+sur le hors-sujet, ne perds jamais de vue l'étape en cours du brief.`
+    : '';
+
+  const system = basePrompt + crmContextNote + digressionNote;
 
   // 3. Construction de l'historique chronologique
   const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
