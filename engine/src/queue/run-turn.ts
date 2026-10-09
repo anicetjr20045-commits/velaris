@@ -329,7 +329,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
   const recentHistory = raw.recent.map((r) => ({
     who: (r.role === 'client' || r.role === 'user' ? 'client' : r.role === 'gérant' || r.role === 'human_agent' ? 'gérant' : 'studio') as 'client' | 'gérant' | 'studio',
-    text: r.text || '',
+    text: r.text || (r.media_kind === 'audio' ? '[Note vocale explicative de procédure transmise par le studio]' : r.media_kind === 'video' ? '[Vidéo souvenir démo transmise]' : r.media_kind === 'image' ? '[Photo reçue]' : ''),
   }));
 
   const understandInput: UnderstandInput = {
@@ -540,6 +540,10 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         name: contact.name,
         wa_jid: contact.wa_jid,
         deliveredOrders: raw.contact_facts?.delivered_orders ?? 0,
+        procedureVoiceReceived: Boolean(
+          raw.contact_facts?.procedure_voice_received ||
+          raw.recent.some((r) => r.media_kind === 'audio' || (r.role === 'assistant' && r.text === null))
+        ),
       },
       persona: {
         studio_name: persona.studio_name,
@@ -563,8 +567,13 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         });
       }
 
-      // 1. Si le brief est complet et que le vocal de procédure est dû
-      if (salesOutcome.procedureVoiceDue && persona.cap_procedure_voice !== false) {
+      // 1. Si le brief est complet et que le vocal de procédure est dû (strictement 1 fois par discussion)
+      const procedureVoiceAlreadySent = Boolean(
+        raw.contact_facts?.procedure_voice_received ||
+        raw.recent.some((r) => r.media_kind === 'audio' || (r.role === 'assistant' && r.text === null))
+      );
+
+      if (salesOutcome.procedureVoiceDue && persona.cap_procedure_voice !== false && !procedureVoiceAlreadySent) {
         const procedureAsset = raw.assets.find((a) => a.kind === 'voice' && a.purpose === 'procedure');
         renderedMessages.push({
           kind: 'voice',
@@ -574,6 +583,31 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
           isRelay: false,
         });
         trace.push('sales_brain: procedure voice note enqueued');
+      } else if (salesOutcome.procedureVoiceDue && procedureVoiceAlreadySent) {
+        trace.push('guard: procedure voice already sent in conversation, duplicate suppressed');
+      }
+
+      if (procedureVoiceAlreadySent) {
+        // Supprimer toute bulle résiduelle annonçant un renvoi de note vocale
+        for (let i = renderedMessages.length - 1; i >= 0; i--) {
+          const m = renderedMessages[i]!;
+          if (m.kind === 'text' && m.body && /je vous (envoie|transmets) (la note vocale|le vocal|notre note vocale)|pour vous présenter notre démarche/i.test(m.body)) {
+            renderedMessages.splice(i, 1);
+          }
+        }
+        // Si après accusé de réception du vocal le bot n'a pas présenté les offres, les présenter immédiatement
+        const hasOffersMention = renderedMessages.some((m) => m.kind === 'text' && (m.body?.includes('1 200') || m.body?.includes('Formule') || m.body?.includes('formule')));
+        const turnTextLower = turnText.toLowerCase();
+        const clientAcknowledgedVoice = turnTextLower.includes('convient') || turnTextLower.includes('d\'accord') || turnTextLower.includes('daccord') || turnTextLower.includes('c\'est bon') || turnTextLower.includes('ok') || turnTextLower.includes('bien reçu');
+        if (!hasOffersMention && clientAcknowledgedVoice) {
+          renderedMessages.push({
+            kind: 'text',
+            purpose: 'reply',
+            body: 'Voici nos deux formules : Découverte à 1 200 F CFA (chanson complète en 18 minutes) et Prestige à 3 000 F CFA (chanson + vidéo souvenir avec photos). Laquelle préférez-vous ?',
+            orderId: orders[0]?.id ?? null,
+            isRelay: false,
+          });
+        }
       }
 
       // 2. Si le client a demandé un extrait de la formule vidéo souvenir

@@ -102,14 +102,14 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
      • Dès qu'il répond (même par « juste pour lui rendre hommage » ou « carte blanche »), le brief est clos : transmets directement le vocal de procédure.
 
 ## 3. VOCAL DE PROCÉDURE
-- Dès que le brief est complet, envoie directement la note vocale explicative du studio qui résume la démarche.
+- Dès que le brief est complet (ou dès que le client choisit de conserver/adapter ses propres paroles fournies), envoie la note vocale explicative du studio qui résume la démarche (une seule fois dans toute la discussion).
 - Ne présente pas les offres dans ce message : attends simplement la réponse du client.
 
 ## 4. PRÉSENTATION DES OFFRES & CHOIX DE FORMULE
-- Dès que le client a répondu au vocal, présente les deux formules avec clarté :
+- Dès que le client a répondu au vocal (ex: « Ça me convient », « D'accord », « C'est bon », « J'ai écouté », « Ok »), NE RENVOIE JAMAIS LE VOCAL. Présente immédiatement les deux formules avec clarté :
   • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson personnalisée complète, prête en 18 minutes.
   • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
-- Demande-lui quelle formule il préfère.
+  « Quelle formule préférez-vous : la classique à {PRIX_DECOUVERTE} F CFA ou avec la vidéo souvenir à {PRIX_PRESTIGE} F CFA ? »
 - Dès que le client choisit son offre (ET que les 4 invariants du brief sont complets), confirme le passage à l'écriture et annonce fermement le délai :
   « C'est bien noté pour la Formule [Choisie] ! Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »
 - RÈGLE D'OR INVIOLABLE DU PAIEMENT : Le choix de formule (ex: « Oui oui », « 1 200 F », « Découverte », « C'est bon ») N'EST PAS une validation de texte. Il est STRICTEMENT INTERDIT d'envoyer les coordonnées de paiement (Wave, Orange Money, numéro de dépôt) ou de réclamer une capture à ce stade. Le client ne règle QU'APRÈS avoir reçu et validé ses paroles.
@@ -182,6 +182,7 @@ export interface SalesBrainInput {
     name: string | null;
     wa_jid: string;
     deliveredOrders?: number;
+    procedureVoiceReceived?: boolean;
   };
   persona: {
     studio_name: string;
@@ -220,6 +221,10 @@ export async function generateSalesReply(
     : 'International';
 
   const isReturning = (input.contact.deliveredOrders ?? 0) > 0;
+  const procedureVoiceAlreadySent = Boolean(
+    input.contact.procedureVoiceReceived ||
+    input.recent.some((m) => m.who !== 'client' && (m.text.includes('note vocale') || m.text.includes('vocal de procédure') || m.text.includes('[Note vocale')))
+  );
 
   const currentOrder = input.orders[0];
   const orderBrief = currentOrder
@@ -232,6 +237,7 @@ export async function generateSalesReply(
 - Numéro client : +${cleanPhone} (Région : ${country})
 - Prénom enregistré : ${input.contact.name || 'Non renseigné'}
 - Historique client : ${isReturning ? 'Client récurrent / fidèle (ne pas envoyer le vocal de procédure, demander directement la formule)' : 'Nouveau prospect (premier contact)'}
+- Statut Note Vocale : ${procedureVoiceAlreadySent ? 'DÉJÀ ENVOYÉE dans cette discussion (INTERDICTION FORMELLE de la renvoyer ou d\'en parler. Si le client a répondu, présenter directement les deux formules Découverte 1 200 F / Prestige 3 000 F)' : 'Non encore envoyée'}
 - État de la commande : ${orderBrief}
 
 # FORMAT DE SORTIE OBLIGATOIRE (JSON STRICT) :
@@ -243,7 +249,7 @@ Réponds impérativement avec un objet JSON :
 }
 
 DÉCLENCHEURS D'ACTIONS SYSTÈME (CRITIQUES) :
-- "procedure_voice": true si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ou si le client réclame le vocal / la démarche. La note vocale explicative sera envoyée automatiquement sous forme de vraie note vocale WhatsApp PTT.
+- "procedure_voice": true UNIQUEMENT si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ET que le Statut Note Vocale est "Non encore envoyée". Si la note vocale a déjà été envoyée ou si le client répond au vocal (ex: « Ça me convient », « D'accord », « C'est bon »), interdiction formelle de renvoyer le vocal : présente les deux formules (Découverte 1 200 F / Prestige 3 000 F) avec "procedure_voice": false.
 - "video_sample": true si le client demande à voir un exemple, un extrait ou un aperçu vidéo de la formule vidéo souvenir / montage. La vidéo de démonstration sera envoyée automatiquement sur WhatsApp.
 - Règle sur les médias : Ne génère JAMAIS de phrase disant « Je vais vous envoyer le vocal » si le vocal part. Accuse simplement réception avec sobriété ou fais le pont du brief, les fichiers multimédias sont livrés directement par le système.
 
@@ -305,17 +311,24 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
       notes.push('sales_brain: video_sample triggered via client request detection');
     }
 
-    // Détection déterministe pour le vocal de procédure
+    // Détection déterministe pour le vocal de procédure (strictement si pas encore envoyé)
     const voiceMentionRegex = /vocal de proc[ée]dure|note vocale|je vous envoie le vocal|voici notre vocal|notre note vocale/i;
-    if (!procedureVoiceDue && rawBubbles.some((b) => voiceMentionRegex.test(b))) {
+    if (!procedureVoiceDue && !procedureVoiceAlreadySent && rawBubbles.some((b) => voiceMentionRegex.test(b))) {
       procedureVoiceDue = true;
       notes.push('sales_brain: procedure_voice triggered via bubble text mention');
     }
 
+    if (procedureVoiceAlreadySent && procedureVoiceDue) {
+      procedureVoiceDue = false;
+      notes.push('sales_brain: procedure_voice suppressed because already sent');
+    }
+
     // Nettoyage des phrases fantômes / redondantes qui annoncent le vocal sans rien apporter
-    if (procedureVoiceDue) {
-      const isPlaceholderOnly = (s: string) =>
-        /^(je vous envoie (la note vocale|le vocal)|voici notre note vocale|voici le vocal|\[vocal de proc[ée]dure\])\.?$/i.test(s.trim());
+    const isPlaceholderOnly = (s: string) =>
+      /^(je vous (envoie|transmets) (la note vocale|le vocal|notre note vocale)|voici notre note vocale|voici le vocal|\[vocal de proc[ée]dure\])\.?$/i.test(s.trim()) ||
+      /pour vous présenter notre démarche, je vous transmets notre note vocale/i.test(s.trim());
+
+    if (procedureVoiceDue || procedureVoiceAlreadySent) {
       rawBubbles = rawBubbles.filter((b) => !isPlaceholderOnly(b));
     }
 

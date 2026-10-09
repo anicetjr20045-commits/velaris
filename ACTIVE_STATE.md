@@ -19,8 +19,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (18:25 UTC)
-- **Statut Opérationnel** : **Jalon 103 Validé — Bouclier Déterministe Anti-Paiement Prématuré & Verrouillage du Tunnel de Vente** :
+- **Dernière mise à jour** : 9 Octobre 2026 (18:40 UTC)
+- **Statut Opérationnel** : **Jalon 104 Validé — Bouclier Anti-Doublon du Vocal de Procédure & Enchaînement Immédiat des Offres** :
+  1. **Cause Racine Identifiée** :
+     - Les messages audio (notes vocales PTT) sont stockés sans corps texte (`body: null`). Dans `recentHistory`, ils étaient traduits en chaîne vide `""`, rendant le vocal invisible pour le modèle DeepSeek.
+     - Le contexte CRM n'indiquait pas si le vocal avait déjà été transmis.
+     - À la réponse client (« Ça me convient »), le LLM croyait que le brief venait d'être validé et renvoyait le vocal avec la phrase fantôme « Pour vous présenter notre démarche... ».
+  2. **Double Verrou Déterministe dans le Code (`run-turn.ts`)** :
+     - Traçabilité explicite dans `recentHistory` : les audios récents sont désormais étiquetés `[Note vocale explicative de procédure transmise par le studio]`.
+     - Injection de `procedureVoiceReceived` dans le contexte CRM du LLM (`DÉJÀ ENVOYÉE — INTERDICTION STRICTE de renvoyer le vocal`).
+     - Blocage physique dans le code : interdiction stricte de mettre en outbox le fichier vocal si `procedureVoiceAlreadySent` est vrai.
+     - Nettoyage automatique des phrases fantômes et injection automatique de la présentation des 2 offres (1 200 F / 3 000 F) dès que le client accuse réception du vocal.
+  3. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests exécutée à 100% verte (161/161 tests), conteneur `velaris-engine:latest` recompilé et actif en production sur le VPS (`162.35.113.220`).
+- **Jalon 103 Validé — Bouclier Déterministe Anti-Paiement Prématuré & Verrouillage du Tunnel de Vente** :
   1. **Bouclier Déterministe dans le Code (`run-turn.ts`)** :
      - Interception physique et stricte de toute coordonnée de paiement (Wave, Orange Money, numéro de compte/dépôt, demande de capture) tant que les paroles n'ont pas été effectivement envoyées et validées dans la discussion (`lyricsDeliveredOrValidated`).
      - Si une bulle contient du paiement au choix d'offre : remplacement automatique par l'annonce officielle des 15 minutes max de rédaction.
@@ -145,6 +156,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 104. Bouclier Anti-Doublon du Vocal de Procédure & Enchaînement Immédiat des Offres (9 Octobre 2026)
+- **Cause Racine Identifiée** :
+  - Les messages audio (notes vocales PTT) sont stockés sans corps texte (`body: null`). Dans `recentHistory`, ils étaient traduits en chaîne vide `""`, rendant le vocal invisible pour le modèle DeepSeek.
+  - Le contexte CRM n'indiquait pas si le vocal avait déjà été transmis.
+  - À la réponse client (« Ça me convient »), le LLM croyait que le brief venait d'être validé et renvoyait le vocal avec la phrase fantôme « Pour vous présenter notre démarche... ».
+- **Double Verrou Déterministe dans le Code (`run-turn.ts`)** :
+  - Traçabilité explicite dans `recentHistory` : les audios récents sont désormais étiquetés `[Note vocale explicative de procédure transmise par le studio]`.
+  - Injection de `procedureVoiceReceived` dans le contexte CRM du LLM (`DÉJÀ ENVOYÉE — INTERDICTION STRICTE de renvoyer le vocal`).
+  - Blocage physique dans le code : interdiction stricte de mettre en outbox le fichier vocal si `procedureVoiceAlreadySent` est vrai.
+  - Nettoyage automatique des phrases fantômes et injection automatique de la présentation des 2 offres (1 200 F / 3 000 F) dès que le client accuse réception du vocal.
+- **Validation Globale & Déploiement** :
+  - Suite de tests `engine` : 161/161 tests unitaires validés (100% vert).
+  - Déploiement VPS Contabo (`162.35.113.220`) : conteneur `velaris-engine:latest` recompilé et actif en production.
 
 ### 103. Bouclier Déterministe Anti-Paiement Prématuré & Verrouillage du Tunnel de Vente (9 Octobre 2026)
 - **Bouclier Déterministe dans le Code (`run-turn.ts`)** :
