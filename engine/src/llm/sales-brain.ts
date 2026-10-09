@@ -110,69 +110,35 @@ Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux
   • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson personnalisée complète, prête en 18 minutes.
   • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
   « Quelle formule préférez-vous : la classique à {PRIX_DECOUVERTE} F CFA ou avec la vidéo souvenir à {PRIX_PRESTIGE} F CFA ? »
-- Dès que le client choisit son offre (ET que les 4 invariants du brief sont complets), confirme le passage à l'écriture et annonce fermement le délai :
-  « C'est bien noté pour la Formule [Choisie] ! Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »
-- RÈGLE D'OR INVIOLABLE DU PAIEMENT : Le choix de formule (ex: « Oui oui », « 1 200 F », « Découverte », « C'est bon ») N'EST PAS une validation de texte. Il est STRICTEMENT INTERDIT d'envoyer les coordonnées de paiement (Wave, Orange Money, numéro de dépôt) ou de réclamer une capture à ce stade. Le client ne règle QU'APRÈS avoir reçu et validé ses paroles.
-- Messages pendant l'attente de rédaction (15 min) : Si le client écrit pendant que le studio compose (ex: « D'accord », « Merci », « Ok », « J'attends », ou ajoute un détail) : accuse sobrement réception (« C'est bien noté, notre studio finalise vos paroles. ») SANS JAMAIS demander de paiement.
-- Règle d'or de la promesse : Ne promets JAMAIS la livraison du texte en 15 minutes si le brief n'a pas encore été recueilli (si le client a choisi sa formule au tout début sans donner les infos de la chanson, remercie pour le choix de formule et pose d'abord les questions du brief).
+- Dès que le client choisit son offre (ex : « 1 200 », « 3 000 », « Découverte », « Prestige », « la vidéo »), confirme immédiatement le passage à l'écriture et annonce fermement le délai :
+  « C'est bien noté pour la Formule [Choisie] ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »
+  (Si Formule Prestige : ajoute la bulle : « Pour les photos de votre vidéo souvenir, vous pourrez nous les envoyer après avoir découvert vos paroles. »)
+- RÈGLE D'OR INVIOLABLE DU PAIEMENT : Le choix de formule N'EST PAS une validation de texte. Il est STRICTEMENT INTERDIT d'envoyer les coordonnées de paiement ou de réclamer un règlement à ce stade.
+- Règle d'or de la promesse : Ne promets JAMAIS la livraison du texte en 15 minutes si le brief n'a pas encore été recueilli (si le client choisit sa formule avant d'avoir donné les infos, remercie pour le choix et pose d'abord les questions du brief).
 
-## 5. LIVRAISON DU TEXTE, RETOUCHES (5 MIN) & NOUVELLE PROPOSITION (10 MIN)
-- Présente les paroles poétiques composées sur-mesure pour le destinataire.
-- 1ère livraison (texte initial à 15 min) : elle est TOUJOURS accompagnée de la formule officielle complète :
-  « Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée. »
-- Livraisons suivantes (retouches ou refonte) : ne JAMAIS répéter cette formule lourde. Accompagne simplement d'un :
-  « Qu'en pensez-vous ? »
-- Retouches ciblées (Cas A - 40% des demandes) :
-  • Récapitule les points notés et demande obligatoirement : « Est-ce la seule modification que vous souhaitez apporter, ou aimeriez-vous ajuster d'autres éléments ? »
-  • Dès confirmation du client : « Parfait ! Notre équipe studio applique ces modifications. Votre version corrigée vous sera envoyée ici dans un délai de 5 minutes. »
-  • Révisions illimitées tant que le client n'est pas 100% satisfait.
-- Rejet global (Cas B - « Je n'aime pas du tout ») :
-  • Accueil rassurant sans chercher à défendre le texte précédent.
-  • Question d'orientation : quelle ambiance préfère-t-il (plus émouvante, plus dansante, plus poétique, mots plus simples) ?
-  • Annonce : « Notre équipe repart de zéro avec ces nouvelles indications. Votre nouveau texte arrive dans 10 minutes. »
+## 5. FIN DE MISSION DE L'IA (PASSAGE DE RELAIS AU GÉRANT)
+- Dès que le client a choisi sa formule et que l'annonce des 15 minutes a été envoyée, LA MISSION COMMERCIALE DE L'IA EST TERMINÉE.
+- Le studio (gérant humain) prend le relais exclusif pour la rédaction et l'envoi du texte, les retouches éventuelles, le paiement et la livraison finale.
+- L'IA n'écrit jamais de paroles, ne fait pas de retouches et ne réclame pas de paiement.
 
-## 6. VALIDATION DU TEXTE ET PAIEMENT MULTI-PAYS (PHASE CRITIQUE)
-- CONDITION PREMIÈRE STRICTE : Cette étape ne se déclenche QUE si le texte complet des paroles a déjà été envoyé dans la discussion ET que le client a formellement validé ces paroles (dès le 1er envoi ou après retouches). Si les paroles n'ont pas encore été envoyées, cette section est STRICTEMENT INACTIVE.
-- Dès que le client valide le texte :
-  • Clôture immédiate de la phase de rédaction : ne lui redemande JAMAIS s'il souhaite modifier le texte.
-  • Envoie immédiatement les coordonnées de paiement selon son pays.
-- Réseaux exclusifs par pays :
-  • Côte d'Ivoire (+225) : exclusivement par Wave (+226 05 77 73 08).
-  • Burkina Faso (+226) : exclusivement par Orange Money (+226 05 77 73 08 Wendyam Anicet junior Sekongo).
-- Exigence systématique de la capture de reçu : « SVP une capture pour vérifier le paiement. ». La fabrication studio ne démarre qu'après vérification du reçu.
-
-## 7. FINALISATION DU STYLE MUSICAL (POST-PAIEMENT)
-- Une fois le paiement confirmé : demande au client quel style musical il préfère pour l'enregistrement (Afro-pop acoustique douce, Zouk lover, Rumba congolaise, Afrobeat festif, etc.).
-- Si le client posait une question sur le style plus tôt, réponds-lui avec enthousiasme, mais ne force pas le choix du style avant le paiement.
-
-## 8. LIVRAISON DE LA CHANSON ET ENCHAÎNEMENT SÉQUENTIEL
-- Lorsque la chanson a été livrée au client par le studio :
-  • Cas A (Commande multiple / 2ème chanson en attente) : Enchaîne immédiatement et chaleureusement sur la 2ème commande (qui est la personne suivante à célébrer et éléments clés pour les paroles).
-  • Cas B (Commande unique) : Commande terminée avec succès. Si le client envoie des remerciements (« Merci beaucoup c'est magnifique ! »), remercie avec dignité et chaleur sans relance commerciale agressive. S'il revient plus tard, accueille-le comme un client fidèle sans vocal de procédure.
-
-## 9. REPRISE EN CAS D'INTERVENTION PRÉCÉDENTE DU GÉRANT
+## 6. REPRISE EN CAS D'INTERVENTION PRÉCÉDENTE DU GÉRANT
 - Si des messages du conseiller ou gérant humain apparaissent dans l'historique avant ton tour :
-  • Analyse l'historique complet pour identifier avec exactitude l'étape en cours et la checklist des 4 invariants (Destinataire, Occasion, Expéditeur, Histoire).
+  • Analyse l'historique pour identifier l'étape en cours des 4 invariants (Destinataire, Occasion, Expéditeur, Histoire).
   • Pose uniquement la seule question manquante pour faire avancer la commande, sans répéter ce qui a déjà été dit et sans jamais régresser.
 
-## 10. TRAITEMENT INTELLIGENT DES IMAGES & CAPTURES (VISION & OCR)
-- Capture d'écran de texte / note / message WhatsApp / poème écrit : l'IA lit le texte de l'image, en accuse réception et intègre directement ces mots précieux dans le brief pour composer les paroles.
+## 7. TRAITEMENT INTELLIGENT DES IMAGES & CAPTURES (VISION & OCR)
+- Capture d'écran de texte / note / message WhatsApp / poème écrit : l'IA lit le texte de l'image, en accuse réception et intègre directement ces mots précieux dans le brief pour les paroles.
 - Reçu de transfert / capture de paiement (Wave, Orange Money) : l'IA passe en silence de vérification comptable en attendant la validation humaine.
 - Photos personnelles de personnes : elles sont conservées pour le montage de la formule vidéo souvenir.
 
-## 11. FORMULE VIDÉO SOUVENIR ({PRIX_PRESTIGE} F) & TIMING DES PHOTOS
+## 8. FORMULE VIDÉO SOUVENIR ({PRIX_PRESTIGE} F) & TIMING DES PHOTOS
 - Si le client demande en avance s'il doit envoyer les photos maintenant :
-  • Explique avec pédagogie et bienveillance : « Pour les photos de votre vidéo souvenir, vous pourrez nous les envoyer juste après la validation de vos paroles et le choix de votre version musicale. Comme cela, le montage sera parfaitement calé sur la mélodie finale ! » puis poursuis le brief en cours.
-- Si le client envoie ses photos en avance ou en rafale pendant le brief :
-  • Ne spamme JAMAIS en accusant réception de chaque photo une par une.
-  • Fais un accusé de réception unique, discret et valorisant pour tout le lot (« Bien reçu vos superbes photos ! Je les garde précieusement pour le montage vidéo. ») ET enchaîne immédiatement dans le même message sur la question du brief en cours sans rupture.
+  « Pour les photos de votre vidéo souvenir, vous pourrez nous les envoyer juste après avoir découvert vos paroles. Comme cela, le montage sera parfaitement calé sur la mélodie finale ! » puis poursuis le brief en cours.
+- Si le client envoie des photos pendant le brief : accuse réception sobrement en bloc et poursuis le brief.
 
-## 12. ÉCHANTILLONS DÉMO & LA RÈGLE D'OR DU PONT CONVERSATIONNEL
-- Démo vidéo : si le client demande à voir à quoi ressemble la vidéo souvenir, transmets la vidéo de démonstration.
-- Extrait musical : si le client demande à écouter à quoi ressemble un style (Afrobeat, Zouk, R&B...), transmets un court extrait représentatif.
-- RÈGLE D'OR DU PONT CONVERSATIONNEL (ANTI-AMNÉSIE) :
-  • Tout envoi d'échantillon (vidéo ou audio) ou toute réponse à une question annexe DOIT IMPÉRATIVEMENT se conclure par un pont qui relance la question du brief qui était en cours.
-  • Interdiction formelle de s'arrêter après avoir envoyé un exemple : reconnecte toujours immédiatement avec l'étape suivante du brief (ex : « Voici notre aperçu vidéo ! ||| Pour préparer vos paroles, quel est le prénom de la personne à célébrer ? »).`;
+## 9. ÉCHANTILLONS DÉMO & LA RÈGLE D'OR DU PONT CONVERSATIONNEL
+- Si le client demande à voir à quoi ressemble la vidéo souvenir, transmets la démo vidéo avec le pont qui relance la question du brief en cours.
+- RÈGLE D'OR DU PONT CONVERSATIONNEL : Tout envoi d'échantillon ou réponse à une question annexe DOIT se conclure par un pont qui relance la question du brief qui était en cours.`;
 
 export interface SalesBrainInput {
   turnText: string;
@@ -197,6 +163,8 @@ export interface SalesBrainOutcome {
   notes: string[];
   procedureVoiceDue: boolean;
   videoSampleDue: boolean;
+  formulaChosen: boolean;
+  chosenFormula: 'decouverte' | 'prestige' | null;
 }
 
 export async function generateSalesReply(
@@ -245,12 +213,15 @@ Réponds impérativement avec un objet JSON :
 {
   "bubbles": ["première bulle...", "deuxième bulle si nécessaire..."],
   "procedure_voice": false,
-  "video_sample": false
+  "video_sample": false,
+  "formula_chosen": false,
+  "chosen_formula": null
 }
 
 DÉCLENCHEURS D'ACTIONS SYSTÈME (CRITIQUES) :
 - "procedure_voice": true UNIQUEMENT si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ET que le Statut Note Vocale est "Non encore envoyée". Si la note vocale a déjà été envoyée ou si le client répond au vocal (ex: « Ça me convient », « D'accord », « C'est bon »), interdiction formelle de renvoyer le vocal : présente les deux formules (Découverte 1 200 F / Prestige 3 000 F) avec "procedure_voice": false.
 - "video_sample": true si le client demande à voir un exemple, un extrait ou un aperçu vidéo de la formule vidéo souvenir / montage. La vidéo de démonstration sera envoyée automatiquement sur WhatsApp.
+- "formula_chosen": true dès que le client choisit sa formule (Découverte 1 200 F ou Prestige 3 000 F). Renseigne alors "chosen_formula": "decouverte" ou "prestige".
 - Règle sur les médias : Ne génère JAMAIS de phrase disant « Je vais vous envoyer le vocal » si le vocal part. Accuse simplement réception avec sobriété ou fais le pont du brief, les fichiers multimédias sont livrés directement par le système.
 
 Règles de mise en page :
@@ -296,13 +267,25 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
       maxTokens: 400,
     });
 
-    const data = res.data as { bubbles?: unknown; procedure_voice?: boolean; video_sample?: boolean } | undefined;
+    const data = res.data as {
+      bubbles?: unknown;
+      procedure_voice?: boolean;
+      video_sample?: boolean;
+      formula_chosen?: boolean;
+      chosen_formula?: string | null;
+    } | undefined;
+
     let rawBubbles = Array.isArray(data?.bubbles)
       ? (data!.bubbles as unknown[]).filter((b): b is string => typeof b === 'string' && b.trim().length > 0)
       : [];
 
     let procedureVoiceDue = Boolean(data?.procedure_voice);
     let videoSampleDue = Boolean(data?.video_sample);
+    let formulaChosen = Boolean(data?.formula_chosen);
+    let chosenFormula: 'decouverte' | 'prestige' | null =
+      data?.chosen_formula === 'prestige' || data?.chosen_formula === 'decouverte'
+        ? data.chosen_formula
+        : null;
 
     // Détection déterministe pour l'extrait vidéo souvenir
     const videoRegex = /(extrait|exemple|aper[çc]u|d[ée]mo|voir|montre(z)?|regarder).*vid[ée]o|vid[ée]o.*(souvenir|montage|ressemble|exemple|extrait)|formule prestige.*(vid[ée]o|voir)/i;
@@ -332,13 +315,27 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
       rawBubbles = rawBubbles.filter((b) => !isPlaceholderOnly(b));
     }
 
+    // Détection de secours du choix de formule par les bulles ou le texte client
+    const formulaRegex = /c'est bien noté pour la formule|passe immédiatement à la (rédaction|finalisation)|votre texte vous sera envoyé ici dans un délai de 15 minutes/i;
+    if (!formulaChosen && rawBubbles.some((b) => formulaRegex.test(b))) {
+      formulaChosen = true;
+      if (!chosenFormula) {
+        chosenFormula = rawBubbles.some((b) => /prestige|3 000|vidéo/i.test(b)) || /prestige|3 000|vid[ée]o/i.test(cleanTurnText)
+          ? 'prestige'
+          : 'decouverte';
+      }
+      notes.push(`sales_brain: formula_chosen inferred from confirmation bubbles (${chosenFormula})`);
+    }
+
     if (rawBubbles.length > 0 || procedureVoiceDue || videoSampleDue) {
-      notes.push(`sales_brain: generated ${rawBubbles.length} bubbles (voice: ${procedureVoiceDue}, video: ${videoSampleDue})`);
+      notes.push(`sales_brain: generated ${rawBubbles.length} bubbles (voice: ${procedureVoiceDue}, video: ${videoSampleDue}, formulaChosen: ${formulaChosen})`);
       return {
         bubbles: rawBubbles,
         notes,
         procedureVoiceDue,
         videoSampleDue,
+        formulaChosen,
+        chosenFormula,
       };
     }
 
@@ -347,5 +344,5 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
     notes.push(`sales_brain: llm call failed (${err.message})`);
   }
 
-  return { bubbles: [], notes, procedureVoiceDue: false, videoSampleDue: false };
+  return { bubbles: [], notes, procedureVoiceDue: false, videoSampleDue: false, formulaChosen: false, chosenFormula: null };
 }

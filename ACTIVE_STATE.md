@@ -19,8 +19,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (19:10 UTC)
-- **Statut Opérationnel** : **Jalon 105 Validé — Neutralisation de la Fausse Détection de Boucle & Maintien Actif du Vendeur IA sur Paroles Fournies** :
+- **Dernière mise à jour** : 9 Octobre 2026 (19:55 UTC)
+- **Statut Opérationnel** : **Jalon 106 Validé — Épuration Radicale du Prompt Commercial & Alerte Gérant Enrichie au Choix de Formule** :
+  1. **Épuration Radicale du Prompt Commercial (`sales-brain.ts`)** :
+     - Élimination complète des sections complexes devenues inutiles : rédaction de paroles, rondes de retouches 5 min / 10 min, relances de paiement, coordonnées Wave / Orange Money, choix du style musical post-paiement, livraison.
+     - Focalisation exclusive du conseiller IA sur un closing digne, rapide et impeccable jusqu'au choix de formule (Découverte 1 200 F CFA ou Prestige 3 000 F CFA).
+     - Dès le choix de formule formulé, l'IA délivre l'annonce officielle des 15 minutes max de rédaction (+ photos pour la formule Prestige) et termine sa mission commerciale.
+     - Zéro génération de paroles par l'IA, zéro friction de paiement : le studio humain prend immédiatement la main pour rédiger et livrer le texte.
+  2. **Alerte Gérant Enrichie à la Sélection de Formule (`run-turn.ts`)** :
+     - Détection déterministe de la confirmation de formule dans `run-turn.ts` (`formulaChosen` ou bulle des 15 minutes).
+     - Garantit la livraison immédiate des bulles au client (`purpose: 'handoff_ack'`).
+     - Construction automatique d'une fiche brief complète et synthétique pour le gérant :
+       • Identité et téléphone WhatsApp du client
+       • Destinataire & Occasion
+       • Formule choisie (Prestige 3 000 F ou Découverte 1 200 F)
+       • Expéditeur
+       • Synthèse des détails, histoire et souvenirs transmis
+     - Expédition immédiate de l'alerte sur le WhatsApp du gérant (`alert_phone` : `+226 56 24 05 33`) via `queueOwnerAlert`.
+     - Basculement instantané de la discussion en mode humain (`control_mode = 'human'`, raison `brief_complete_handoff`) : l'IA se met en retrait complet, laissant le gérant échanger directement avec son prospect.
+  3. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests exécutée à 100% verte (161/161 tests, 28 suites), conteneur `velaris-engine:latest` recompilé et déployé sur le VPS Contabo (`162.35.113.220`).
+- **Jalon 105 Validé — Neutralisation de la Fausse Détection de Boucle & Maintien Actif du Vendeur IA sur Paroles Fournies** :
   1. **Cause Racine Identifiée** :
      - Lorsque le client fournit directement son propre texte/paroles (« JOYEUX ANNIVERSAIRE AUX NATIFS DU MOIS D'OCTOBRE »), SalesBrain prend le relais avec finesse pour proposer de le conserver intact ou de l'adapter, puis enchaîne sur le vocal et le choix de formule.
      - En parallèle, le moteur déterministe `decide.ts` continuait de considérer `recipient_name` comme manquant sur la commande, car `orders.ts` l'exigeait sans vérifier si les paroles étaient déjà fournies.

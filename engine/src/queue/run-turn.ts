@@ -639,6 +639,95 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         renderedMessages.push(videoMsg);
         trace.push('sales_brain: video sample demo enqueued');
       }
+
+      // 3. Détection de la confirmation de formule & Alerte gérant enrichie
+      const isFormulaConfirmed =
+        salesOutcome.formulaChosen ||
+        renderedMessages.some(
+          (m) =>
+            m.kind === 'text' &&
+            m.body &&
+            (/c'est bien noté pour la formule|passe immédiatement à la (rédaction|finalisation)|votre texte vous sera envoyé ici dans un délai de 15 minutes/i.test(m.body))
+        );
+
+      if (isFormulaConfirmed) {
+        // Garantir la délivrance des bulles d'annonce des 15 minutes au client
+        for (const m of renderedMessages) {
+          if (m.kind === 'text') m.purpose = 'handoff_ack';
+        }
+
+        const isPrestige =
+          salesOutcome.chosenFormula === 'prestige' ||
+          renderedMessages.some((m) => m.body && /prestige|3 000|vidéo souvenir/i.test(m.body)) ||
+          /prestige|3 000|vid[ée]o/i.test(turnText);
+
+        const chosenFormulaLabel = isPrestige
+          ? 'Formule Prestige (3 000 F CFA — Chanson + Vidéo Souvenir)'
+          : 'Formule Découverte (1 200 F CFA — Chanson personnalisée)';
+
+        const order = orders[0];
+        const clientDisplayName = contact.name ? `${contact.name}` : 'Nouveau prospect';
+        const clientPhoneFormatted = contact.phone ? `+${contact.phone.replace(/\D/g, '')}` : conversation.chat_id;
+        const recipientDisplayName = order?.recipientName || 'À préciser';
+        const occasionDisplayName = order?.occasion || 'À préciser';
+        const senderDisplayName = order?.senderName || 'Le client lui-même';
+
+        // Synthèse des détails et souvenirs
+        let detailsSummary = '';
+        if (order?.memories && order.memories.length > 0) {
+          detailsSummary = order.memories.map((m) => `- ${m}`).join('\n');
+        } else {
+          const clientNotes = recentHistory
+            .filter((m) => m.who === 'client' && m.text.length > 5)
+            .map((m) => `- "${m.text}"`)
+            .slice(-4);
+          detailsSummary = clientNotes.length > 0 ? clientNotes.join('\n') : 'Détails transmis dans la discussion';
+        }
+
+        const alertBody = `[Velaris Studio] Nouvelle commande prête pour rédaction !
+
+👤 Client : ${clientDisplayName} (${clientPhoneFormatted})
+🎯 Destinataire : ${recipientDisplayName}
+🎉 Occasion : ${occasionDisplayName}
+📦 Formule choisie : ${chosenFormulaLabel}
+✍️ Expéditeur : ${senderDisplayName}
+
+📝 Détails & Histoire :
+${detailsSummary}
+
+👉 Le client a validé sa formule et attend son texte sous 15 minutes. À vous de jouer pour la rédaction !`;
+
+        const actionCtx: ActionContext = {
+          db: deps.db,
+          conversationId: turnRef.conversationId,
+          turnId: turnRef.turnId,
+          orderVersionMap,
+          getCreatedOrderId: () => createdOrderId,
+          setCreatedOrderId: (id: string) => {
+            createdOrderId = id;
+            orderVersionMap.set(id, 0);
+          },
+          llmProvider: deps.llmProvider,
+          persona,
+          orders,
+          rawOrders: raw.orders,
+          userId: raw.conversation.user_id,
+          sessionName: conversation.session_name,
+          clientName: contact.name,
+          lockToken: turnRef.lockToken,
+        };
+
+        await queueOwnerAlert(actionCtx, order?.id ?? null, alertBody, 'formula_chosen');
+
+        // Passage de relais immédiat au gérant (l'IA se met en retrait)
+        await deps.db.rpc('agent_conversation_effect', {
+          p_conversation: turnRef.conversationId,
+          p_kind: 'handoff',
+          p_data: { reason: 'brief_complete_handoff', ack: true },
+        });
+
+        trace.push('formula_chosen: enriched owner alert sent, handoff to human merchant');
+      }
     }
   }
 
