@@ -19,12 +19,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (14:45 UTC)
-- **Statut Opérationnel** : **Jalon 100 Validé — Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir** :
-  1. **Vocal de Procédure Natif WhatsApp (PTT 33s)** : Extraction du vocal officiel depuis `velaris-agent` (audio OGG Opus natif WhatsApp 33s), embarqué en base64 dans `engine/src/assets/procedure-voice.ts` et hébergé sur Supabase Storage `product-files/assets/procedure_voice.ogg`. Envoi direct via WAHA avec `mimetype: "audio/ogg; codecs=opus"` et `convert: false` : le client reçoit une vraie bulle vocale WhatsApp (waveform, micro vert) et non plus une simple phrase textuelle.
-  2. **Démo Vidéo Souvenir (Formule Prestige 3 000 F)** : Détection automatique dans `SalesBrain` (`video_sample: true` + heuristique de rassurance) dès que le client demande à voir un aperçu ou extrait de la vidéo lyrics. Vidéo de démonstration (`pub_finale.mp4`, 2.3 MB) hébergée sur `product-files/assets/montage_sample.mp4` et envoyée automatiquement par WAHA.
-  3. **Peuplement BDD `studio_assets` & Fallbacks Robustes** : Enregistrement des assets pour l'ensemble des personas dans `studio_assets` et fallbacks intégrés dans `run-turn.ts` pour garantir la livraison même en cas de liste d'assets vide.
-  4. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests passée à 161 tests 100% verts, conteneur `velaris-engine` recompilé et redémarré sur le VPS (`162.35.113.220`).
+- **Dernière mise à jour** : 9 Octobre 2026 (15:10 UTC)
+- **Statut Opérationnel** : **Jalon 100 Validé — Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir (Livraison Réelle Résolue & Testée)** :
+  1. **Vocal de Procédure Natif WhatsApp (PTT 33s)** : Extraction du vocal officiel depuis `velaris-agent` (audio OGG Opus natif WhatsApp 33s), embarqué en base64 dans `engine/src/assets/procedure-voice.ts` et hébergé sur Supabase Storage `product-files/assets/procedure_voice.ogg`. Envoi direct via WAHA avec `mimetype: "audio/ogg; codecs=opus"` : le client reçoit une vraie bulle vocale WhatsApp PTT (waveform, micro vert) et non plus une phrase.
+  2. **Démo Vidéo Souvenir (Formule Prestige 3 000 F)** : Détection automatique dans `SalesBrain` (`video_sample: true`) dès que le client demande un exemple ou aperçu vidéo. Vidéo de démonstration (`pub_finale.mp4`, 2.3 MB) hébergée sur `product-files/assets/montage_sample.mp4`. Routage vers `/api/sendVideo` dédié.
+  3. **Résolution du Bug Médias WAHA & Codecs Chrome** :
+     - Cause racine 1 : Bug amont `Data passed to getter must include an id property` dans WAHA 2026.8.2 (résolu en migrant vers WAHA 2026.9.2).
+     - Cause racine 2 : WAHA WEBJS exige Google Chrome (`devlikeapro/waha:chrome`) pour encoder et envoyer les flux vidéo H.264/AAC.
+     - Cause racine 3 : Remplacement de l'appel générique `sendFile` par le point d'accès natif `POST /api/sendVideo` dans `WahaClient`.
+  4. **Validation Directe Réelle sur WhatsApp** :
+     - Vocal PTT (33s) envoyé avec succès et acquitté par WhatsApp (`type: "ptt"`, `duration: "33"`).
+     - Vidéo MP4 démo (36s) envoyée avec succès et acquittée par WhatsApp (`type: "video"`, `duration: "36"`).
+  5. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests passée à 161 tests 100% verts, image `velaris-engine` recompilée et déployée sur le VPS (`162.35.113.220`).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.

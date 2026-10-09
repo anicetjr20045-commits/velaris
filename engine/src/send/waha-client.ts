@@ -68,8 +68,23 @@ export class WahaClient {
         }
         return this.post('/api/sendImage', { session, chatId, file: fileObj, caption: content.caption });
       }
-      case 'file':
       case 'video': {
+        const fileObj: Record<string, string> = {
+          mimetype: content.mimetype || 'video/mp4',
+        };
+        if ('data' in content && content.data) {
+          fileObj.data = content.data;
+        } else if ('url' in content && content.url) {
+          fileObj.url = content.url;
+        }
+        return this.post('/api/sendVideo', {
+          session,
+          chatId,
+          file: fileObj,
+          caption: content.caption,
+        });
+      }
+      case 'file': {
         const fileObj: Record<string, string> = {
           mimetype: content.mimetype,
           filename: content.filename,
