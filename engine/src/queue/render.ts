@@ -276,7 +276,37 @@ export function mapStepToPurpose(step: Step): string {
   }
 }
 
+/**
+ * CORRECTIF (M12) : un gabarit mal configuré (variable manquante → TemplateError) ne doit
+ * jamais faire crasher le tour. En cas d'échec du rendu, on renvoie un message de repli sûr
+ * au lieu de laisser l'exception remonter (qui marquait le tour 'failed' et laissait le client
+ * sans réponse).
+ */
 export async function renderOutputItem(
+  item: OutputItem,
+  ctx: RenderContext,
+): Promise<RenderResult> {
+  try {
+    return await renderOutputItemInner(item, ctx);
+  } catch (err) {
+    const targetId = resolveTargetOrderId(item.utterance.order, ctx.orders);
+    return {
+      messages: [
+        {
+          kind: 'text',
+          purpose: mapStepToPurpose(item.utterance.step),
+          body: 'Merci pour votre message ! Un membre du studio va vous répondre dans un instant.',
+          orderId: targetId,
+          isRelay: item.utterance.relay,
+        },
+      ],
+      usedAiText: false,
+      notes: [`render failed (${(err as Error).message}) -> safe fallback`],
+    };
+  }
+}
+
+async function renderOutputItemInner(
   item: OutputItem,
   ctx: RenderContext,
 ): Promise<RenderResult> {

@@ -31,7 +31,7 @@ const log = (line: string, data: Record<string, unknown> = {}): void => {
 
 const db = new RestDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
 const spool = new Spool(config.spoolDir);
-const waha = new WahaClient({ baseUrl: config.wahaUrl, apiKey: config.wahaApiKey });
+const waha = new WahaClient({ baseUrl: config.wahaUrl, apiKey: config.wahaApiKey, webhookHmacKey: config.wahaWebhookHmacKey });
 
 const llmProvider = new DeepSeekProvider({
   apiKey: config.deepseek.apiKey,
@@ -40,19 +40,25 @@ const llmProvider = new DeepSeekProvider({
   timeoutMs: config.deepseek.timeoutMs,
 });
 
-const transcriber = new AudioTranscriber({
-  wahaUrl: config.wahaUrl,
-  wahaApiKey: config.wahaApiKey,
-  kieApiKey: config.deepseek.apiKey,
-  db,
-  log,
-});
+const transcriber = config.kieApiKey
+  ? new AudioTranscriber({
+      wahaUrl: config.wahaUrl,
+      wahaApiKey: config.wahaApiKey,
+      kieApiKey: config.kieApiKey,
+      db,
+      log,
+    })
+  : undefined;
+if (!transcriber) {
+  log('WARNING: KIE_API_KEY non configurée — transcription des notes vocales DÉSACTIVÉE');
+}
 
 const ingestDeps: IngestServerDeps = {
   db,
   spool,
   log,
   hmacKey: config.wahaWebhookHmacKey,
+  adminApiKey: config.adminApiKey,
   protectedSessions: config.protectedSessions,
   waha,
   llmProvider,
