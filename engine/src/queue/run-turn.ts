@@ -606,6 +606,49 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     }
   }
 
+  // 12.5. Bouclier Anti-Paiement Prématuré :
+  // Le client ne doit JAMAIS recevoir de coordonnées de paiement (Wave, Orange Money, etc.)
+  // tant que les paroles de la chanson n'ont pas été effectivement envoyées et validées.
+  const lyricsDeliveredOrValidated = orders.some(
+    (o) => (o.lyrics && o.lyrics.trim().length > 0) || o.stage === 'lyrics_sent' || o.stage === 'lyrics_validated' || o.stage === 'in_production' || o.stage === 'audio_delivered' || o.stage === 'delivered'
+  ) || recentHistory.some((m) => m.who !== 'client' && (m.text.toLowerCase().includes('refrain') || m.text.toLowerCase().includes('couplet 1') || (m.text.length > 350 && m.text.includes('\n\n'))));
+
+  if (!lyricsDeliveredOrValidated) {
+    const isPaymentInstruction = (text: string | null | undefined): boolean => {
+      if (!text) return false;
+      const t = text.toLowerCase();
+      const hasPaymentProvider = t.includes('orange money') || t.includes('wave') || t.includes('05 77 73 08') || t.includes('05777308') || t.includes('56 24 05 33') || t.includes('56240533');
+      const hasPaymentKeyword = t.includes('paiement') || t.includes('dépôt') || t.includes('depot') || t.includes('capture') || t.includes('réseau') || t.includes('reseau');
+      return (hasPaymentProvider && hasPaymentKeyword) || t.includes('capture pour vérifier') || t.includes('capture de votre paiement');
+    };
+
+    for (let i = 0; i < renderedMessages.length; i++) {
+      const msg = renderedMessages[i]!;
+      if (msg.kind === 'text' && isPaymentInstruction(msg.body)) {
+        trace.push('guard: premature payment instructions intercepted before lyrics delivered');
+        if (msg.purpose === 'payment') msg.purpose = 'reply';
+        const hasOfferMention = renderedMessages.some((m, idx) => idx !== i && m.kind === 'text' && (m.body?.toLowerCase().includes('formule') || m.body?.toLowerCase().includes('1 200') || m.body?.toLowerCase().includes('3 000')));
+        if (hasOfferMention) {
+          msg.body = 'Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.';
+        } else {
+          msg.body = 'Nous préférons que vous découvriez d\'abord vos paroles personnalisées et que vous les validiez avant de passer au paiement ! Notre équipe s\'occupe de préparer votre texte.';
+        }
+      }
+    }
+  }
+
+  // Déduplication de sécurité des bulles adjacentes identiques
+  const dedupedMessages: RenderedMessage[] = [];
+  for (const m of renderedMessages) {
+    const prev = dedupedMessages[dedupedMessages.length - 1];
+    if (prev && prev.kind === 'text' && m.kind === 'text' && prev.body?.trim() === m.body?.trim()) {
+      continue;
+    }
+    dedupedMessages.push(m);
+  }
+  renderedMessages.length = 0;
+  renderedMessages.push(...dedupedMessages);
+
   // 13. Mettre en boîte d'envoi (agent_enqueue_outbox)
   let itemIdx = 0;
   for (const m of renderedMessages) {

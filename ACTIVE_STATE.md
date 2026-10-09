@@ -19,8 +19,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (17:45 UTC)
-- **Statut Opérationnel** : **Jalon 102 Validé — Assainissement du Prompt Commercial & Suppression des Déclencheurs Emojis Techniques** :
+- **Dernière mise à jour** : 9 Octobre 2026 (18:25 UTC)
+- **Statut Opérationnel** : **Jalon 103 Validé — Bouclier Déterministe Anti-Paiement Prématuré & Verrouillage du Tunnel de Vente** :
+  1. **Bouclier Déterministe dans le Code (`run-turn.ts`)** :
+     - Interception physique et stricte de toute coordonnée de paiement (Wave, Orange Money, numéro de compte/dépôt, demande de capture) tant que les paroles n'ont pas été effectivement envoyées et validées dans la discussion (`lyricsDeliveredOrValidated`).
+     - Si une bulle contient du paiement au choix d'offre : remplacement automatique par l'annonce officielle des 15 minutes max de rédaction.
+     - Si le client réclame le paiement pendant le brief : rappel courtois qu'on découvre et valide d'abord les paroles avant tout paiement.
+     - Déduplication de sécurité éliminant tout doublon de bulle adjacente.
+  2. **Verrouillage dans le Prompt Commercial (`sales-brain.ts`)** :
+     - Question spontanée de paiement en amont : réassurance qu'on attend la validation des paroles avant de régler (« Ne vous inquiétez pas, nous préférons que vous découvriez d'abord vos paroles personnalisées et que vous les validiez avant tout règlement ! ») et poursuite immédiate de l'étape.
+     - Section 4 : Règle d'or inviolable spécifiant que le choix de formule n'est PAS une validation de texte, interdiction formelle d'envoyer le paiement, et gestion sobre des messages d'attente (15 min) sans relance de paiement.
+     - Section 6 : Condition première stricte rappelant que l'étape paiement est inactive tant que le texte n'a pas été envoyé et validé.
+  3. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests exécutée à 100% verte (161/161 tests), conteneur `velaris-engine:latest` recompilé et actif en production sur le VPS (`162.35.113.220`).
+- **Jalon 102 Validé — Assainissement du Prompt Commercial & Suppression des Déclencheurs Emojis Techniques** :
   1. **Suppression des Déclencheurs Emojis dans le Prompt Commercial** :
      - Élimination des mentions d'emojis de contrôle technique (`🎉`, `✨`) et des emojis informels (`🙏`) dans `VELARIS_CLOSING_PROMPT_TEMPLATE`.
      - Section 8 renommée en *« LIVRAISON DE LA CHANSON ET ENCHAÎNEMENT SÉQUENTIEL »* et Section 9 en *« REPRISE EN CAS D'INTERVENTION PRÉCÉDENTE DU GÉRANT »*.
@@ -134,6 +145,20 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 103. Bouclier Déterministe Anti-Paiement Prématuré & Verrouillage du Tunnel de Vente (9 Octobre 2026)
+- **Bouclier Déterministe dans le Code (`run-turn.ts`)** :
+  - Interception physique et stricte de toute coordonnée de paiement (Wave, Orange Money, numéro de compte/dépôt, demande de capture) tant que les paroles n'ont pas été effectivement envoyées et validées dans la discussion (`lyricsDeliveredOrValidated`).
+  - Si une bulle contient du paiement au choix d'offre : remplacement automatique par l'annonce officielle des 15 minutes max de rédaction.
+  - Si le client réclame le paiement pendant le brief : rappel courtois qu'on découvre et valide d'abord les paroles avant tout paiement.
+  - Déduplication de sécurité éliminant tout doublon de bulle adjacente.
+- **Verrouillage dans le Prompt Commercial (`sales-brain.ts`)** :
+  - Question spontanée de paiement en amont : réassurance qu'on attend la validation des paroles avant de régler (« Ne vous inquiétez pas, nous préférons que vous découvriez d'abord vos paroles personnalisées et que vous les validiez avant tout règlement ! ») et poursuite immédiate de l'étape.
+  - Section 4 : Règle d'or inviolable spécifiant que le choix de formule n'est PAS une validation de texte, interdiction formelle d'envoyer le paiement, et gestion sobre des messages d'attente (15 min) sans relance de paiement.
+  - Section 6 : Condition première stricte rappelant que l'étape paiement est inactive tant que le texte n'a pas été envoyé et validé.
+- **Validation Globale & Déploiement** :
+  - Suite de tests `engine` : 161/161 tests unitaires validés (100% vert).
+  - Déploiement VPS Contabo (`162.35.113.220`) : conteneur `velaris-engine:latest` recompilé et actif en production.
 
 ### 102. Assainissement du Prompt Commercial & Suppression des Déclencheurs Emojis Techniques (9 Octobre 2026)
 - **Suppression des Déclencheurs Emojis dans le Prompt Commercial** :
