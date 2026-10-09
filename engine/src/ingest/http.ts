@@ -95,7 +95,14 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
   try {
     await resolveLidIfNeeded(ev, deps);
 
-    // Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset)
+    // 1. Ignorer l'écho de confirmation de reset (fromMe) pour éviter toute prise de main humaine accidentelle
+    if (ev.kind === 'message' && ev.fromMe && typeof ev.body === 'string' && ev.body.includes('Discussion et mémoire réinitialisées')) {
+      await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: 'reset_echo_ignored' });
+      deps.log('reset confirmation echo ignored', { chatId: ev.chatId });
+      return;
+    }
+
+    // 2. Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset)
     if (ev.kind === 'message' && typeof ev.body === 'string') {
       const trimmed = ev.body.trim().toLowerCase();
       if (trimmed === '#reset' || trimmed === '!reset' || trimmed === '/reset') {
