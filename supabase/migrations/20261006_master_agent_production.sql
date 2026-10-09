@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.studio_personas (
   brief_field_order     TEXT[] NOT NULL DEFAULT ARRAY['occasion','recipient_name','offer'],
   lyrics_author         TEXT NOT NULL DEFAULT 'manager' CHECK (lyrics_author IN ('manager','ai_draft_approved')),
   payment_methods       JSONB NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(payment_methods) = 'array'),
-  reaction_commands     JSONB NOT NULL DEFAULT '{"🎵":"confirm_and_produce","✨":"resume_ai","📝":"mark_as_lyrics"}',
+  reaction_commands     JSONB NOT NULL DEFAULT '{"🎵":"confirm_and_produce","✨":"resume_ai","🎉":"mark_delivered","📝":"mark_as_lyrics"}',
   daily_llm_budget_xof  INT NOT NULL DEFAULT 1500 CHECK (daily_llm_budget_xof BETWEEN 0 AND 100000),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -509,6 +509,7 @@ INSERT INTO public.order_transitions (track, from_state, event, to_state, allowe
   ('creative','lyrics_validated',  'delivery_sent',        'delivered',          ARRAY['merchant','system']),
   ('creative','in_production',     'delivery_sent',        'delivered',          ARRAY['merchant','system']),
   ('creative','in_production',     'audio_delivered',      'audio_delivered',    ARRAY['merchant','system']),
+  ('creative','audio_delivered',   'delivery_sent',        'delivered',          ARRAY['merchant','system']),
   ('creative','in_production',     'production_failed',    'lyrics_validated',   ARRAY['system']),
   ('creative','audio_delivered',   'video_started',        'video_in_progress',  ARRAY['merchant','system']),
   ('creative','video_in_progress', 'delivery_sent',        'delivered',          ARRAY['merchant','system']),
