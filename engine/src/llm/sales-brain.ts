@@ -233,12 +233,17 @@ export async function generateSalesReply(
 
 # FORMAT DE SORTIE OBLIGATOIRE (JSON STRICT) :
 Réponds impérativement avec un objet JSON :
-{"bubbles": ["première bulle...", "deuxième bulle si nécessaire..."]}
+{"bubbles": ["première bulle...", "deuxième bulle si nécessaire..."], "procedure_voice": false}
 
 Règles de mise en page :
 - 1 ou 2 bulles courtes maximum (1 à 2 phrases par bulle, jamais de pavé indigeste).
 - Zéro emoji faux ou flatteur (zéro ✨, 🚀, 🎉 artificiels). Politesse sobre, respectueuse et directe.
 - Une seule question à la fin pour faire avancer le dossier.
+
+RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
+1. Si le client dit « c'est moi », « pour moi », « mon anniversaire » : le destinataire ET l'expéditeur sont le client lui-même. Ne redemande JAMAIS s'il s'agit de son propre anniversaire.
+2. Si le client donne son prénom puis ajoute son nom de famille plus tard (ex : « Alima » puis « Mon nom de famille c'est Zongo ») : retiens le nom complet (« Alima Zongo ») et enchaîne directement sur l'invariant suivant (la date) sans redemander confirmation.
+3. Si une information figure déjà dans l'historique ci-dessous, ne repose JAMAIS la question.
 `;
 
   const system = basePrompt + crmContextNote;

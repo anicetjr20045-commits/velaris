@@ -70,8 +70,8 @@ export function enqueueOutbox(db: Db, i: EnqueueInput): Promise<string> {
   });
 }
 
-/** Pause silencieuse de lecture avant le déclenchement de la frappe (totalisant 20s de délai humain). */
-export const READING_PAUSE_MS = 14_000;
+/** Pause silencieuse de lecture avant le déclenchement de la frappe. */
+export const READING_PAUSE_MS = 600;
 
 /** Délai « humain » de frappe avant un texte : 25 ms par caractère, entre 1,5 s et 6 s. */
 export function humanDelayMs(row: Pick<OutboxRow, 'kind' | 'body'>): number {

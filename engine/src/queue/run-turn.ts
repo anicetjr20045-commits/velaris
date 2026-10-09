@@ -328,7 +328,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     : null;
 
   const recentHistory = raw.recent.map((r) => ({
-    who: (r.role === 'client' ? 'client' : r.role === 'gérant' ? 'gérant' : 'studio') as 'client' | 'gérant' | 'studio',
+    who: (r.role === 'client' || r.role === 'user' ? 'client' : r.role === 'gérant' || r.role === 'human_agent' ? 'gérant' : 'studio') as 'client' | 'gérant' | 'studio',
     text: r.text || '',
   }));
 
@@ -442,6 +442,10 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   let createdOrderId: string | null = null;
 
   for (const action of decision.actions) {
+    if (action.type === 'handoff' && action.reason === 'rate_limit' && conversation.control_mode === 'ai') {
+      trace.push('rate_limit handoff bypassed: active sales conversation');
+      continue;
+    }
     await applyAction(action, {
       db: deps.db,
       conversationId: turnRef.conversationId,
