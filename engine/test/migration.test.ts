@@ -246,3 +246,32 @@ describe('commandes : deux pistes', () => {
     assert.equal(f.open_orders, 3);
   });
 });
+
+describe('migration 20261009_delivery_sent_audio (🎉 depuis audio_delivered)', () => {
+  const TADA_ORDER = '77777777-7777-7777-7777-777777777777';
+  const version = async (): Promise<number> =>
+    (await one<{ version: number }>('SELECT version FROM orders WHERE id = $1', [TADA_ORDER])).version;
+
+  test('migration rejouable : la transition existe une seule fois', async () => {
+    const mig = read('supabase/migrations/20261009_delivery_sent_audio.sql');
+    await db.exec(mig);
+    await db.exec(mig); // idempotence
+    const r = await one<{ n: number }>(
+      `SELECT count(*)::int AS n FROM order_transitions
+        WHERE track = 'creative' AND from_state = 'audio_delivered' AND event = 'delivery_sent'`);
+    assert.equal(r.n, 1);
+  });
+
+  test('🎉 du gérant sur la chanson audio livrée → commande delivered (cas Découverte)', async () => {
+    await db.query(
+      `INSERT INTO public.orders (id, user_id, contact_id, conversation_id, amount_cents, status, stage, deliverable)
+       VALUES ($1, $2, $3, $4, 120000, 'validated', 'audio_delivered', 'audio')`,
+      [TADA_ORDER, USER, CONTACT, CONV]);
+    const tr = await one<{ r: string }>(
+      'SELECT agent_transition_order($1, $2, $3, $4, $5) AS r',
+      [TADA_ORDER, await version(), 'creative', 'delivery_sent', 'merchant']);
+    assert.equal(tr.r, 'ok');
+    const o = await one<{ stage: string }>('SELECT stage FROM orders WHERE id = $1', [TADA_ORDER]);
+    assert.equal(o.stage, 'delivered');
+  });
+});
