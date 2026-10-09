@@ -1,0 +1,97 @@
+services:
+  waha:
+    image: devlikeapro/waha:chrome
+    container_name: waha
+    shm_size: "1gb"
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - WHATSAPP_API_KEY=${WAHA_API_KEY}
+      - WHATSAPP_DEFAULT_ENGINE=WEBJS
+      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME}
+      - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD}
+      - WAHA_LOCAL_STORE_BASE_DIR=/app/.sessions
+      - WHATSAPP_RESTART_ALL_SESSIONS=true
+      - WHATSAPP_FILES_LIFETIME=86400
+      - WAHA_WORKER_RESTART_SESSIONS=true
+      - WAHA_PRINT_QR=false
+      - WAHA_AUTO_START_DELAY_SECONDS=2
+    volumes:
+      - waha_data:/app/.waha
+      - waha_sessions:/app/.sessions
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  velaris-engine:
+    image: velaris-engine:latest
+    container_name: velaris-engine
+    restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      - PORT=3001
+      - WORKER_ID=vps-worker-1
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY}
+      - WAHA_URL=http://waha:3000
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      - WAHA_WEBHOOK_HMAC_KEY=${WAHA_WEBHOOK_HMAC_KEY}
+      - WAHA_PROTECTED_SESSIONS=anicet2
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=https://api.kie.ai
+      - DEEPSEEK_MODEL=deepseek-v4-1-flash
+      - KIE_API_KEY=${KIE_API_KEY}
+      - SUNO_MODEL=V6
+      - DEEPSEEK_TIMEOUT_MS=15000
+      - SPOOL_DIR=/app/data/spool
+      - SENDER_CONCURRENCY_PER_SESSION=2
+    volumes:
+      - velaris_engine_spool:/app/data/spool
+    networks:
+      default:
+        aliases:
+          - waha-bridge
+    depends_on:
+      - waha
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./qrserve:/srv/qr:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - waha
+      - velaris-engine
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  waha_data:
+  caddy_data:
+  caddy_config:
+  waha_sessions:
+  velaris_engine_spool:

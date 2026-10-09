@@ -1,0 +1,35 @@
+{$DOMAIN} {
+    redir /qr /qr/ permanent
+
+    handle /v1/* {
+        reverse_proxy 172.18.0.1:4041
+    }
+    handle /api/ai/* {
+        uri strip_prefix /api/ai
+        reverse_proxy 172.18.0.1:4041
+    }
+    handle /api/copilot* {
+        reverse_proxy velaris-engine:3001
+    }
+    handle /api/qr/* {
+        reverse_proxy velaris-engine:3001
+    }
+    handle /api/test/* {
+        reverse_proxy velaris-engine:3001
+    }
+    handle /api/chat-archive* {
+        reverse_proxy velaris-engine:3001
+    }
+    handle_path /qr/* {
+        root * /srv/qr
+        try_files {path} /index.html
+        file_server
+    }
+    handle {
+        reverse_proxy waha:3000
+    }
+}
+
+coach.162.35.113.220.sslip.io {
+    reverse_proxy 172.18.0.1:3002
+}
