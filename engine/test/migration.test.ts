@@ -70,9 +70,9 @@ before(async () => {
 });
 
 describe('migration 20261004_agent_core', () => {
-  test('appliquée deux fois sans erreur ; 36 transitions', async () => {
+  test('appliquée deux fois sans erreur ; 35 transitions (procedure_voice_sent supprimée, transition morte)', async () => {
     const r = await one<{ n: number }>('SELECT count(*)::int AS n FROM order_transitions');
-    assert.equal(r.n, 36);
+    assert.equal(r.n, 35);
   });
 
   test('reprise : la commande livrée historique reste livrée et payée', async () => {
