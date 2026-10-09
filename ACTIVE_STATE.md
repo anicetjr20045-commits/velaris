@@ -19,8 +19,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (17:22 UTC)
-- **Statut Opérationnel** : **Jalon 101 Validé — Résolution de la Course Écho Asynchrone / Fausse Prise de Main Humaine sur Médias & Reprise du Flux Client** :
+- **Dernière mise à jour** : 9 Octobre 2026 (17:45 UTC)
+- **Statut Opérationnel** : **Jalon 102 Validé — Assainissement du Prompt Commercial & Suppression des Déclencheurs Emojis Techniques** :
+  1. **Suppression des Déclencheurs Emojis dans le Prompt Commercial** :
+     - Élimination des mentions d'emojis de contrôle technique (`🎉`, `✨`) et des emojis informels (`🙏`) dans `VELARIS_CLOSING_PROMPT_TEMPLATE`.
+     - Section 8 renommée en *« LIVRAISON DE LA CHANSON ET ENCHAÎNEMENT SÉQUENTIEL »* et Section 9 en *« REPRISE EN CAS D'INTERVENTION PRÉCÉDENTE DU GÉRANT »*.
+     - Consigne stricte de sortie réaffirmée : *« Strictement aucun emoji dans tes réponses (aucun emoji décoratif ou flatteur). Ton sobre, respectueux, direct et digne. »*
+  2. **Séparation Étanchée Code/DB vs Prompt LLM** :
+     - Les réactions emojis WhatsApp (ex: `✨`, `🎉`, `🎵`) sont des événements techniques protocolaires (`message.reaction`) interceptés au niveau de la passerelle et de PostgreSQL (`agent_ingest_reaction`). Elles ne circulent jamais dans le flux textuel du LLM.
+     - L'éradication de ces directives techniques dans le prompt élimine la surcharge cognitive de l'IA et prévient tout risque de génération de slop ou d'emojis décoratifs auprès du prospect.
+  3. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests exécutée à 100% verte (161/161 tests, 28 suites), conteneur `velaris-engine:latest` recompilé et actif en production sur le VPS (`162.35.113.220`).
+- **Jalon 101 Validé — Résolution de la Course Écho Asynchrone / Fausse Prise de Main Humaine sur Médias & Reprise du Flux Client** :
   1. **Cause Racine Identifiée** : Lorsqu'un média (vocal de procédure PTT, aperçu vidéo) est expédié par le bot, le webhook d'écho WhatsApp (`fromMe: true`) arrive souvent avant que l'appel HTTP sortant ne se termine et n'écrive `wa_message_key` en base. Comme un média ne possède pas de corps texte (`body_hash` est nul), la fonction SQL `agent_ingest_message` ne parvenait pas à relier l'écho à l'outbox et supposait à tort qu'un gérant humain avait envoyé un message depuis son téléphone, basculant la discussion en `control_mode = 'human'` (`pause_reason = 'merchant_reply'`) et réduisant l'IA au silence au message client suivant.
   2. **Triple Bouclier Anti-Course dans l'Ingestion** :
      - **Bouclier 1 (Liaison préemptive)** : Dans `process-event.ts`, à la réception d'un événement `fromMe`, recherche immédiate d'un message sortant en cours (`status in ('sending', 'unknown')`) et assignation préemptive de `wa_message_id` et `wa_message_key` avant l'appel SQL. `agent_ingest_message` trouve ainsi la clé et classe l'événement en `echo` sans pause.
@@ -125,6 +134,25 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 102. Assainissement du Prompt Commercial & Suppression des Déclencheurs Emojis Techniques (9 Octobre 2026)
+- **Suppression des Déclencheurs Emojis dans le Prompt Commercial** :
+  - Élimination des mentions d'emojis de contrôle technique (`🎉`, `✨`) et des emojis informels (`🙏`) dans `VELARIS_CLOSING_PROMPT_TEMPLATE` (`engine/src/llm/sales-brain.ts`).
+  - Section 8 renommée en *« LIVRAISON DE LA CHANSON ET ENCHAÎNEMENT SÉQUENTIEL »* et Section 9 en *« REPRISE EN CAS D'INTERVENTION PRÉCÉDENTE DU GÉRANT »*.
+  - Consigne stricte de sortie réaffirmée : *« Strictement aucun emoji dans tes réponses (aucun emoji décoratif ou flatteur). Ton sobre, respectueux, direct et digne. »*
+- **Séparation Étanchée Code/DB vs Prompt LLM** :
+  - Les réactions emojis WhatsApp (ex: `✨`, `🎉`, `🎵`) sont des événements techniques protocolaires (`message.reaction`) interceptés au niveau de la passerelle et de PostgreSQL (`agent_ingest_reaction`). Elles ne circulent jamais dans le flux textuel du LLM.
+  - L'éradication de ces directives techniques dans le prompt élimine la surcharge cognitive de l'IA et prévient tout risque de génération de slop ou d'emojis décoratifs auprès du prospect.
+- **Validation Globale & Déploiement** :
+  - Suite de tests `engine` : 161/161 tests unitaires validés (100% vert).
+  - Déploiement VPS Contabo (`162.35.113.220`) : conteneur `velaris-engine:latest` recompilé et actif en production.
+
+### 101. Résolution de la Course Écho Asynchrone / Fausse Prise de Main Humaine sur Médias (9 Octobre 2026)
+- **Triple Bouclier Anti-Course dans l'Ingestion** :
+  - Résolution de la désynchronisation écho WhatsApp sur médias (absence de hash texte) provoquant une pause indésirable `control_mode = 'human'`.
+  - Liaison préemptive outbox, détection `source = 'api'` et auto-correction immédiate de pause.
+- **Validation & Déploiement** :
+  - Déblocage en direct, reprise du flux client et réponse automatique opérationnelle.
 
 ### 100. Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir (9 Octobre 2026)
 - **Vocal de Procédure WhatsApp Natif (Format PTT OGG/Opus 33s)** :
