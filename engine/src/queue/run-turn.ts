@@ -551,7 +551,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
     trace.push(...salesOutcome.notes);
 
-    if (salesOutcome.bubbles.length > 0) {
+    if (salesOutcome.bubbles.length > 0 || salesOutcome.procedureVoiceDue || salesOutcome.videoSampleDue) {
       usedSalesBrain = true;
       for (const b of salesOutcome.bubbles) {
         renderedMessages.push({
@@ -563,18 +563,36 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         });
       }
 
-      // Si le brief est complet et que le vocal de procédure est dû
-      if (salesOutcome.procedureVoiceDue && persona.cap_procedure_voice) {
+      // 1. Si le brief est complet et que le vocal de procédure est dû
+      if (salesOutcome.procedureVoiceDue && persona.cap_procedure_voice !== false) {
         const procedureAsset = raw.assets.find((a) => a.kind === 'voice' && a.purpose === 'procedure');
-        if (procedureAsset) {
-          renderedMessages.push({
-            kind: 'voice',
-            purpose: 'procedure_voice',
-            mediaPath: procedureAsset.storage_path,
-            orderId: orders[0]?.id ?? null,
-            isRelay: false,
-          });
+        renderedMessages.push({
+          kind: 'voice',
+          purpose: 'procedure_voice',
+          mediaPath: procedureAsset?.storage_path ?? 'assets/procedure_voice.ogg',
+          orderId: orders[0]?.id ?? null,
+          isRelay: false,
+        });
+        trace.push('sales_brain: procedure voice note enqueued');
+      }
+
+      // 2. Si le client a demandé un extrait de la formule vidéo souvenir
+      if (salesOutcome.videoSampleDue) {
+        const videoAsset = raw.assets.find(
+          (a) => a.kind === 'sample_video' && (a.purpose === 'sample_video' || a.purpose === 'video_sample' || a.purpose === 'video')
+        );
+        const videoMsg: RenderedMessage = {
+          kind: 'video',
+          purpose: 'video',
+          mediaPath: videoAsset?.storage_path ?? 'assets/montage_sample.mp4',
+          orderId: orders[0]?.id ?? null,
+          isRelay: false,
+        };
+        if (videoAsset?.caption) {
+          videoMsg.caption = videoAsset.caption;
         }
+        renderedMessages.push(videoMsg);
+        trace.push('sales_brain: video sample demo enqueued');
       }
     }
   }

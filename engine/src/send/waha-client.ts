@@ -23,9 +23,9 @@ export interface WahaClientOptions {
 
 export type OutgoingContent =
   | { kind: 'text'; text: string }
-  | { kind: 'voice'; url: string; mimetype: string }
-  | { kind: 'image'; url: string; mimetype: string; caption?: string }
-  | { kind: 'file' | 'video'; url: string; mimetype: string; filename: string; caption?: string };
+  | { kind: 'voice'; url?: string; data?: string; mimetype: string }
+  | { kind: 'image'; url?: string; data?: string; mimetype: string; caption?: string }
+  | { kind: 'file' | 'video'; url?: string; data?: string; mimetype: string; filename: string; caption?: string };
 
 export class WahaClient {
   private readonly fetchImpl: typeof fetch;
@@ -40,15 +40,52 @@ export class WahaClient {
     switch (content.kind) {
       case 'text':
         return this.post('/api/sendText', { session, chatId, text: content.text });
-      case 'voice':
-        return this.post('/api/sendVoice', { session, chatId, file: { mimetype: content.mimetype, url: content.url }, convert: !content.mimetype.includes('ogg') });
-      case 'image':
-        return this.post('/api/sendImage', { session, chatId, file: { mimetype: content.mimetype, url: content.url }, caption: content.caption });
-      case 'file':
-      case 'video':
-        return this.post('/api/sendFile', {
-          session, chatId, file: { mimetype: content.mimetype, url: content.url, filename: content.filename }, caption: content.caption,
+      case 'voice': {
+        const fileObj: Record<string, string> = {
+          mimetype: content.mimetype || 'audio/ogg; codecs=opus',
+          filename: 'voice.ogg',
+        };
+        if ('data' in content && content.data) {
+          fileObj.data = content.data;
+        } else if ('url' in content && content.url) {
+          fileObj.url = content.url;
+        }
+        return this.post('/api/sendVoice', {
+          session,
+          chatId,
+          file: fileObj,
+          convert: !content.mimetype.includes('ogg') && !content.mimetype.includes('opus'),
         });
+      }
+      case 'image': {
+        const fileObj: Record<string, string> = {
+          mimetype: content.mimetype,
+        };
+        if ('data' in content && content.data) {
+          fileObj.data = content.data;
+        } else if ('url' in content && content.url) {
+          fileObj.url = content.url;
+        }
+        return this.post('/api/sendImage', { session, chatId, file: fileObj, caption: content.caption });
+      }
+      case 'file':
+      case 'video': {
+        const fileObj: Record<string, string> = {
+          mimetype: content.mimetype,
+          filename: content.filename,
+        };
+        if ('data' in content && content.data) {
+          fileObj.data = content.data;
+        } else if ('url' in content && content.url) {
+          fileObj.url = content.url;
+        }
+        return this.post('/api/sendFile', {
+          session,
+          chatId,
+          file: fileObj,
+          caption: content.caption,
+        });
+      }
     }
   }
 

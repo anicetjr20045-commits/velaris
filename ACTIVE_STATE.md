@@ -19,12 +19,12 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (10:05 UTC)
-- **Statut Opérationnel** : **Jalon 99 Validé — Audit Live & Élimination des 3 Blocages Critiques (Latence Outbox, Rôles Inversés & Disjoncteur Horaire)** :
-  1. **Élimination du Freeze Artificiel de l'Outbox (Latence / Rafales)** : Découverte d'une pause silencieuse codée en dur de 14 secondes (`READING_PAUSE_MS = 14_000`) qui gelait chaque bulle pendant 16 à 34 secondes, faisant croire au client que l'IA était morte et déclenchant l'annulation automatique des bulles suivantes en `superseded`. Réduit à 600 ms : envoi réactif, fluide et immédiat en ~2 à 3 secondes.
-  2. **Correction Vitale des Rôles dans l'Historique (Pertinence des Questions)** : Correction du mapping dans `run-turn.ts` où `r.role === 'client'` évaluait à faux pour les messages clients réels stockés avec `role: 'user'`, étiquetant par erreur toutes les répliques précédentes du client comme provenant du `'studio'`. DeepSeek recevait donc un monologue et ne reconnaissait pas les réponses déjà données. Rétabli en `client : ...` / `user : ...`.
-  3. **Déverrouillage du Disjoncteur Horaire (Arrêt en Plein Chemin)** : Identification de la cause exacte de l'arrêt brutal après 3-4 échanges : un plafond hérité de 6 messages/heure (`max_agent_msgs_per_hour: 6`) qui déclenchait un disjoncteur `rate_limit` mettant la discussion en pause humaine. Plafond relevé à 20 en base Postgres, et bypass des handoffs `rate_limit` intempestifs tant que la vente est active.
-  4. **Build, Tests (159/159 Green) & Déploiement VPS** : Conteneur `velaris-engine` recompilé et redémarré avec succès sur le VPS (`162.35.113.220`). Conversation réactivée en mode IA direct.
+- **Dernière mise à jour** : 9 Octobre 2026 (14:45 UTC)
+- **Statut Opérationnel** : **Jalon 100 Validé — Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir** :
+  1. **Vocal de Procédure Natif WhatsApp (PTT 33s)** : Extraction du vocal officiel depuis `velaris-agent` (audio OGG Opus natif WhatsApp 33s), embarqué en base64 dans `engine/src/assets/procedure-voice.ts` et hébergé sur Supabase Storage `product-files/assets/procedure_voice.ogg`. Envoi direct via WAHA avec `mimetype: "audio/ogg; codecs=opus"` et `convert: false` : le client reçoit une vraie bulle vocale WhatsApp (waveform, micro vert) et non plus une simple phrase textuelle.
+  2. **Démo Vidéo Souvenir (Formule Prestige 3 000 F)** : Détection automatique dans `SalesBrain` (`video_sample: true` + heuristique de rassurance) dès que le client demande à voir un aperçu ou extrait de la vidéo lyrics. Vidéo de démonstration (`pub_finale.mp4`, 2.3 MB) hébergée sur `product-files/assets/montage_sample.mp4` et envoyée automatiquement par WAHA.
+  3. **Peuplement BDD `studio_assets` & Fallbacks Robustes** : Enregistrement des assets pour l'ensemble des personas dans `studio_assets` et fallbacks intégrés dans `run-turn.ts` pour garantir la livraison même en cas de liste d'assets vide.
+  4. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite de tests passée à 161 tests 100% verts, conteneur `velaris-engine` recompilé et redémarré sur le VPS (`162.35.113.220`).
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.
@@ -116,6 +116,23 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 ---
 
 ## ✅ Jalons Validés
+
+### 100. Intégration Native du Vocal de Procédure WhatsApp (PTT) & Démo Vidéo Souvenir (9 Octobre 2026)
+- **Vocal de Procédure WhatsApp Natif (Format PTT OGG/Opus 33s)** :
+  - Extraction du vocal officiel du gérant depuis `velaris-agent` (`procedure-voice.server.ts`, 77 KB binaire, 101 KB base64).
+  - Intégration dans `engine/src/assets/procedure-voice.ts` et téléversement dans le bucket Supabase `product-files/assets/procedure_voice.ogg`.
+  - Prise en charge native dans `WahaClient` et `OutboxSender` du transport direct en Base64 avec `convert: false` et `mimetype: "audio/ogg; codecs=opus"` : WAHA délivre une vraie note vocale Push-To-Talk avec micro vert et forme d'onde, sans dépendance réseau.
+  - Nettoyage des phrases fantômes (« Je vous envoie le vocal... ») pour ne pas polluer le fil.
+- **Démo Vidéo Souvenir (Formule Prestige 3 000 F)** :
+  - Vidéo de démonstration officielle (`pub_finale.mp4`, 2.3 MB) extraite du VPS et déployée sur Supabase Storage `product-files/assets/montage_sample.mp4`.
+  - Intégration du déclencheur `video_sample` dans `SalesBrain` (`sales-brain.ts`) et détection heuristique dès que le prospect demande à voir un aperçu ou extrait vidéo du montage.
+  - Envoi via WAHA `/api/sendFile` en MP4 avec URL signée du bucket Supabase.
+- **Peuplement BDD `studio_assets` & Fallbacks Automatiques** :
+  - Alimentation de `studio_assets` pour tous les comptes marchands (`voice`/`procedure` et `sample_video`/`sample_video`).
+  - Fallbacks codés en dur dans `run-turn.ts` (`assets/procedure_voice.ogg` et `assets/montage_sample.mp4`) garantissant zéro régression même si la base de données est vide.
+- **Validation Globale & Déploiement** :
+  - Suite de tests `engine` : 161/161 tests unitaires validés (100% vert).
+  - Déploiement sur le VPS (`162.35.113.220`) : conteneur `velaris-engine` recompilé et actif en production.
 
 ### 96. Connexion Officielle & Opérationnelle de la Session WhatsApp `Test` sur WAHA Chromium (8 Octobre 2026)
 - **Validation Finale de la Passerelle WhatsApp (`WORKING`)** :

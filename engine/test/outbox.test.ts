@@ -89,6 +89,20 @@ describe('OutboxSender', () => {
     assert.deepEqual(h.sends[0]!.content, { kind: 'voice', url: 'https://x/u/procedure.ogg', mimetype: 'audio/ogg' });
   });
 
+  test('vocal de procédure officiel : embarque le base64 natif WhatsApp', async () => {
+    const h = harness();
+    await h.sender.sendOne(row({ kind: 'voice', body: null, media_path: 'assets/procedure_voice.ogg', purpose: 'procedure_voice' }));
+    assert.equal(h.sends[0]!.content.kind, 'voice');
+    assert.ok('data' in h.sends[0]!.content && typeof h.sends[0]!.content.data === 'string' && h.sends[0]!.content.data.length > 1000);
+    assert.equal(h.sends[0]!.content.mimetype, 'audio/ogg; codecs=opus');
+  });
+
+  test('vidéo : URL signée et envoi avec filename', async () => {
+    const h = harness();
+    await h.sender.sendOne(row({ kind: 'video', body: null, media_path: 'assets/montage_sample.mp4', purpose: 'video' }));
+    assert.deepEqual(h.sends[0]!.content, { kind: 'video', url: 'https://x/assets/montage_sample.mp4', mimetype: 'audio/ogg', filename: 'v.ogg' });
+  });
+
   test('régulation : un seul envoi à la fois par discussion', async () => {
     const h = harness({ pending: [row({ id: 'a' }), row({ id: 'b' }), row({ id: 'c', chat_id: '227@c.us' })] });
     const started = await h.sender.tick();

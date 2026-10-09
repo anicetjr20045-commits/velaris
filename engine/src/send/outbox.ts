@@ -10,6 +10,7 @@
 import type { Db } from '../db/rest.js';
 import { bodyHash } from '../ingest/wa-ids.js';
 import type { OutgoingContent, SendResult, WahaClient } from './waha-client.js';
+import { PROCEDURE_VOICE_NOTE } from '../assets/procedure-voice.js';
 
 export interface OutboxRow {
   id: string;
@@ -168,12 +169,32 @@ export class OutboxSender {
       if (!row.body) throw new Error('empty_text');
       return { kind: 'text', text: row.body };
     }
+    if (row.kind === 'voice') {
+      // Priorité 1 : pour le vocal de procédure, utiliser le base64 OGG Opus natif WhatsApp
+      // (garantit la livraison instantanée sous forme de vrai PTT WhatsApp sans dépendance réseau)
+      if (row.media_path === 'embedded:procedure_voice') {
+        return {
+          kind: 'voice',
+          data: PROCEDURE_VOICE_NOTE.base64,
+          mimetype: PROCEDURE_VOICE_NOTE.mimeType,
+        };
+      }
+      if (!row.media_path) throw new Error('missing_media');
+      const m = await this.deps.signMedia(row.media_path);
+      if (row.media_path === 'assets/procedure_voice.ogg') {
+        return {
+          kind: 'voice',
+          url: m.url,
+          data: PROCEDURE_VOICE_NOTE.base64,
+          mimetype: PROCEDURE_VOICE_NOTE.mimeType,
+        };
+      }
+      return { kind: 'voice', url: m.url, mimetype: m.mimetype };
+    }
     if (!row.media_path) throw new Error('missing_media');
     const m = await this.deps.signMedia(row.media_path);
     const caption = row.caption ?? undefined;
     switch (row.kind) {
-      case 'voice':
-        return { kind: 'voice', url: m.url, mimetype: m.mimetype };
       case 'image':
         return caption === undefined ? { kind: 'image', url: m.url, mimetype: m.mimetype } : { kind: 'image', url: m.url, mimetype: m.mimetype, caption };
       case 'file':

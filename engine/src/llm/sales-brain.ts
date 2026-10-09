@@ -193,6 +193,7 @@ export interface SalesBrainOutcome {
   bubbles: string[];
   notes: string[];
   procedureVoiceDue: boolean;
+  videoSampleDue: boolean;
 }
 
 export async function generateSalesReply(
@@ -233,7 +234,16 @@ export async function generateSalesReply(
 
 # FORMAT DE SORTIE OBLIGATOIRE (JSON STRICT) :
 Réponds impérativement avec un objet JSON :
-{"bubbles": ["première bulle...", "deuxième bulle si nécessaire..."], "procedure_voice": false}
+{
+  "bubbles": ["première bulle...", "deuxième bulle si nécessaire..."],
+  "procedure_voice": false,
+  "video_sample": false
+}
+
+DÉCLENCHEURS D'ACTIONS SYSTÈME (CRITIQUES) :
+- "procedure_voice": true si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ou si le client réclame le vocal / la démarche. La note vocale explicative sera envoyée automatiquement sous forme de vraie note vocale WhatsApp PTT.
+- "video_sample": true si le client demande à voir un exemple, un extrait ou un aperçu vidéo de la formule vidéo souvenir / montage. La vidéo de démonstration sera envoyée automatiquement sur WhatsApp.
+- Règle sur les médias : Ne génère JAMAIS de phrase disant « Je vais vous envoyer le vocal » si le vocal part. Accuse simplement réception avec sobriété ou fais le pont du brief, les fichiers multimédias sont livrés directement par le système.
 
 Règles de mise en page :
 - 1 ou 2 bulles courtes maximum (1 à 2 phrases par bulle, jamais de pavé indigeste).
@@ -278,17 +288,42 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
       maxTokens: 400,
     });
 
-    const data = res.data as { bubbles?: unknown; procedure_voice?: boolean } | undefined;
-    const rawBubbles = Array.isArray(data?.bubbles)
+    const data = res.data as { bubbles?: unknown; procedure_voice?: boolean; video_sample?: boolean } | undefined;
+    let rawBubbles = Array.isArray(data?.bubbles)
       ? (data!.bubbles as unknown[]).filter((b): b is string => typeof b === 'string' && b.trim().length > 0)
       : [];
 
-    if (rawBubbles.length > 0) {
-      notes.push(`sales_brain: generated ${rawBubbles.length} bubbles via VELARIS_CLOSING_PROMPT_TEMPLATE`);
+    let procedureVoiceDue = Boolean(data?.procedure_voice);
+    let videoSampleDue = Boolean(data?.video_sample);
+
+    // Détection déterministe pour l'extrait vidéo souvenir
+    const videoRegex = /(extrait|exemple|aper[çc]u|d[ée]mo|voir|montre(z)?|regarder).*vid[ée]o|vid[ée]o.*(souvenir|montage|ressemble|exemple|extrait)|formule prestige.*(vid[ée]o|voir)/i;
+    if (!videoSampleDue && (videoRegex.test(cleanTurnText) || messages.slice(-2).some((m) => m.role === 'user' && videoRegex.test(m.content)))) {
+      videoSampleDue = true;
+      notes.push('sales_brain: video_sample triggered via client request detection');
+    }
+
+    // Détection déterministe pour le vocal de procédure
+    const voiceMentionRegex = /vocal de proc[ée]dure|note vocale|je vous envoie le vocal|voici notre vocal|notre note vocale/i;
+    if (!procedureVoiceDue && rawBubbles.some((b) => voiceMentionRegex.test(b))) {
+      procedureVoiceDue = true;
+      notes.push('sales_brain: procedure_voice triggered via bubble text mention');
+    }
+
+    // Nettoyage des phrases fantômes / redondantes qui annoncent le vocal sans rien apporter
+    if (procedureVoiceDue) {
+      const isPlaceholderOnly = (s: string) =>
+        /^(je vous envoie (la note vocale|le vocal)|voici notre note vocale|voici le vocal|\[vocal de proc[ée]dure\])\.?$/i.test(s.trim());
+      rawBubbles = rawBubbles.filter((b) => !isPlaceholderOnly(b));
+    }
+
+    if (rawBubbles.length > 0 || procedureVoiceDue || videoSampleDue) {
+      notes.push(`sales_brain: generated ${rawBubbles.length} bubbles (voice: ${procedureVoiceDue}, video: ${videoSampleDue})`);
       return {
         bubbles: rawBubbles,
         notes,
-        procedureVoiceDue: Boolean(res.data?.procedure_voice),
+        procedureVoiceDue,
+        videoSampleDue,
       };
     }
 
@@ -297,5 +332,5 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
     notes.push(`sales_brain: llm call failed (${err.message})`);
   }
 
-  return { bubbles: [], notes, procedureVoiceDue: false };
+  return { bubbles: [], notes, procedureVoiceDue: false, videoSampleDue: false };
 }
