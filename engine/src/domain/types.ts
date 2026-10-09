@@ -500,7 +500,8 @@ export type Action =
   | { type: 'alert_owner'; kind: OwnerAlertKind; order: OrderRef | null }
   | { type: 'mark_ack'; key: string }
   | { type: 'mark_relay'; key: string }
-  | { type: 'bump_counter'; counter: 'discount_requests' | 'repeat_question_count' };
+  | { type: 'bump_counter'; counter: 'discount_requests' | 'repeat_question_count' }
+  | { type: 'reset_repeat' };
 
 export interface Decision {
   actions: readonly Action[];

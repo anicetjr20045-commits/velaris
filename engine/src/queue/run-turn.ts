@@ -442,8 +442,12 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   let createdOrderId: string | null = null;
 
   for (const action of decision.actions) {
-    if (action.type === 'handoff' && action.reason === 'rate_limit' && conversation.control_mode === 'ai') {
-      trace.push('rate_limit handoff bypassed: active sales conversation');
+    if (
+      action.type === 'handoff' &&
+      (action.reason === 'rate_limit' || action.reason === 'loop' || action.reason === 'low_confidence') &&
+      conversation.control_mode === 'ai'
+    ) {
+      trace.push(`${action.reason} handoff bypassed: active sales conversation`);
       continue;
     }
     await applyAction(action, {
@@ -557,6 +561,13 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
     if (salesOutcome.bubbles.length > 0 || salesOutcome.procedureVoiceDue || salesOutcome.videoSampleDue) {
       usedSalesBrain = true;
+      if (conversation.repeat_question_count > 0) {
+        await deps.db.rpc('agent_conversation_effect', {
+          p_conversation: turnRef.conversationId,
+          p_kind: 'reset_repeat',
+          p_data: {},
+        }).catch(() => undefined);
+      }
       for (const b of salesOutcome.bubbles) {
         renderedMessages.push({
           kind: 'text',
@@ -1138,6 +1149,14 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
         p_conversation: ctx.conversationId,
         p_kind: 'bump_counter',
         p_data: { counter: action.counter },
+      });
+      break;
+    }
+    case 'reset_repeat': {
+      await ctx.db.rpc('agent_conversation_effect', {
+        p_conversation: ctx.conversationId,
+        p_kind: 'reset_repeat',
+        p_data: {},
       });
       break;
     }

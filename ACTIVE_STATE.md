@@ -19,8 +19,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (18:40 UTC)
-- **Statut Opérationnel** : **Jalon 104 Validé — Bouclier Anti-Doublon du Vocal de Procédure & Enchaînement Immédiat des Offres** :
+- **Dernière mise à jour** : 9 Octobre 2026 (19:10 UTC)
+- **Statut Opérationnel** : **Jalon 105 Validé — Neutralisation de la Fausse Détection de Boucle & Maintien Actif du Vendeur IA sur Paroles Fournies** :
+  1. **Cause Racine Identifiée** :
+     - Lorsque le client fournit directement son propre texte/paroles (« JOYEUX ANNIVERSAIRE AUX NATIFS DU MOIS D'OCTOBRE »), SalesBrain prend le relais avec finesse pour proposer de le conserver intact ou de l'adapter, puis enchaîne sur le vocal et le choix de formule.
+     - En parallèle, le moteur déterministe `decide.ts` continuait de considérer `recipient_name` comme manquant sur la commande, car `orders.ts` l'exigeait sans vérifier si les paroles étaient déjà fournies.
+     - À chaque réponse suivante du client (« Garder le intact », « Ça me convient », « Je veux la vidéo »), `decide.ts` considérait que la question du prénom était ignorée et incrémentait `repeat_question_count` sans jamais le réinitialiser.
+     - Dès le 3e tour, `repeat_question_count` atteignait 3 : `decide.ts` déclenchait un `handoff` (raison `loop`), passant la discussion en `control_mode = 'human'` (`pause_reason = 'handoff:loop'`).
+     - Lors de la demande du numéro de paiement (« Envoyez moi le numéro de payement »), SalesBrain a parfaitement rédigé le rappel courtois d'attendre les paroles, mais la boîte d'envoi a vu `gate: paused` et a annulé la livraison du message, réduisant l'IA au silence et alertant le commerçant à tort !
+  2. **Triple Bouclier Déterministe dans le Code & Résolution Définitive** :
+     - **Bouclier 1 (`orders.ts`)** : Si une commande dispose déjà de paroles (`order.lyrics`), l'absence de `recipient_name` n'est plus bloquante et ne bloque pas l'avancement du brief.
+     - **Bouclier 2 (`decide.ts`)** : Neutralisation de la bascule `loop` si le client exprime une intention commerciale active (demande de paiement `pay.askPay`, choix de formule, commande, validation). Réinitialisation de `repeat_question_count` (`reset_repeat`) dès qu'une étape progresse.
+     - **Bouclier 3 (`run-turn.ts`)** : Contournement strict des passations internes heuristiques (`loop`, `low_confidence`, `rate_limit`) tant que la conversation est en mode commercial actif (`control_mode === 'ai'`). Réinitialisation automatique du compteur de répétition en base dès que SalesBrain génère des réponses.
+     - **Reprise Instantanée** : Déblocage de la conversation de test en base (`control_mode = 'ai'`), libération et envoi immédiat de la bulle d'attente de validation des paroles sur WhatsApp.
+  3. **Build, Tests (161/161 Green) & Déploiement VPS** : Suite complète de tests validée à 100% verte (161/161 tests, 28 suites), conteneur `velaris-engine:latest` recompilé et actif en production sur le VPS (`162.35.113.220`).
+- **Jalon 104 Validé — Bouclier Anti-Doublon du Vocal de Procédure & Enchaînement Immédiat des Offres** :
   1. **Cause Racine Identifiée** :
      - Les messages audio (notes vocales PTT) sont stockés sans corps texte (`body: null`). Dans `recentHistory`, ils étaient traduits en chaîne vide `""`, rendant le vocal invisible pour le modèle DeepSeek.
      - Le contexte CRM n'indiquait pas si le vocal avait déjà été transmis.

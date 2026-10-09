@@ -246,6 +246,7 @@ export function missingSlots(order: OrderSnapshot, studio: StudioConfig): Missin
       continue;
     }
     if (!required.has(slot)) continue;
+    if (slot === 'recipient_name' && order.lyrics && order.lyrics.trim().length > 0) continue;
     if (!fieldPresent(order, slot)) {
       missing.push(slot);
     } else if (slot === 'recipient_name' && !order.recipientNameConfirmed) {

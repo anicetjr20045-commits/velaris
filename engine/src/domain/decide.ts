@@ -374,7 +374,22 @@ export function decide(input: DecisionInput): Decision {
     if (input.conversation.lowConfStreak >= 2) return handoff(b, 'low_confidence', true, 'P6 low_confidence x2');
     return forwardMove(input, b);
   }
-  if (input.conversation.repeatQuestionCount >= 3) return handoff(b, 'loop', true, 'P6 loop');
+  if (input.conversation.repeatQuestionCount >= 3) {
+    if (
+      pay.askPay ||
+      pay.claim ||
+      pay.defer ||
+      u.primaryIntent === 'choose_offer' ||
+      u.primaryIntent === 'order_song' ||
+      u.primaryIntent === 'validate_lyrics' ||
+      u.fields.offerCode !== undefined
+    ) {
+      b.note('P6 loop bypassed: active commercial intent or payment request');
+      b.act({ type: 'reset_repeat' });
+    } else {
+      return handoff(b, 'loop', true, 'P6 loop');
+    }
+  }
 
   const target = resolveTarget(input);
   b.note(`target=${target.kind}${target.kind === 'order' ? `:${target.order.stage}/${target.order.paymentStatus}` : ''}`);
@@ -840,7 +855,18 @@ function briefTurn(input: DecisionInput, b: DecisionBuilder, ref: OrderRef, snap
     ((slot === 'offer' && pq.key === 'choose_offer') ||
       (slot === 'confirm_recipient_name' && pq.key === 'confirm_recipient_name') ||
       (pq.key === 'ask_field' && pq.field === slot));
-  if (repeated) b.act({ type: 'bump_counter', counter: 'repeat_question_count' });
+  if (repeated) {
+    b.act({ type: 'bump_counter', counter: 'repeat_question_count' });
+  } else if (
+    (upd.learned ||
+      u.primaryIntent === 'choose_offer' ||
+      u.primaryIntent === 'ask_sample' ||
+      u.primaryIntent === 'acknowledgement' ||
+      u.primaryIntent === 'positive_feedback') &&
+    input.conversation.repeatQuestionCount > 0
+  ) {
+    b.act({ type: 'reset_repeat' });
+  }
 
   if (u.primaryIntent === 'needs_guidance') {
     b.say('brief_question', 'guide_brief', ref, [...orderFacts(after, input), { key: 'field', value: slot }], { asks: slot === 'confirm_recipient_name' ? 'confirm' : slot });
