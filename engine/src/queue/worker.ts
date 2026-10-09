@@ -8,6 +8,7 @@
 
 import type { Db } from '../db/rest.js';
 import type { LlmProvider } from '../llm/provider.js';
+import type { AudioTranscriber } from '../services/transcribe.js';
 import { runTurn, type RunTurnDeps, type TurnRef } from './run-turn.js';
 
 export interface TurnWorkerDeps {
@@ -15,6 +16,7 @@ export interface TurnWorkerDeps {
   llmProvider: LlmProvider;
   workerId: string;
   concurrency?: number;
+  transcriber?: AudioTranscriber | undefined;
   log: (line: string, data?: Record<string, unknown>) => void;
 }
 
@@ -86,6 +88,7 @@ export class TurnWorker {
       db: this.deps.db,
       llmProvider: this.deps.llmProvider,
       workerId: this.deps.workerId,
+      transcriber: this.deps.transcriber,
       log: this.deps.log,
     };
 

@@ -31,6 +31,8 @@ import { composeLyrics, reviseLyrics } from '../llm/lyrics-composer.js';
 import { generateSalesReply } from '../llm/sales-brain.js';
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
+import type { AudioTranscriber } from '../services/transcribe.js';
+
 export interface TurnRef {
   turnId: string;
   conversationId: string;
@@ -43,6 +45,7 @@ export interface RunTurnDeps {
   db: Db;
   llmProvider: LlmProvider;
   workerId: string;
+  transcriber?: AudioTranscriber | undefined;
   log: (line: string, data?: Record<string, unknown>) => void;
 }
 
@@ -274,9 +277,40 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     }
   }
 
-  // 4. Préparer les messages entrants du tour
+  // 4. Préparer les messages entrants du tour (avec transcription à la volée des vocaux si non encore transcrits)
+  const pendingAudios = raw.inbound.filter((m) => m.media_kind === 'audio' && !m.transcript);
+  if (pendingAudios.length > 0 && deps.transcriber) {
+    await Promise.all(
+      pendingAudios.map(async (m) => {
+        try {
+          const text = await deps.transcriber!.transcribeMessage(
+            m.id,
+            conversation.session_name,
+            m.media_path,
+            m.media_kind,
+            undefined,
+            conversation.chat_id
+          );
+          if (text) {
+            m.transcript = text;
+            m.transcript_status = 'done';
+          }
+        } catch {
+          // Si la transcription échoue, on continue pour ne pas bloquer le tour
+        }
+      })
+    );
+  }
+
   const inboundTexts = raw.inbound
-    .map((m) => m.transcript || m.body || '')
+    .map((m, idx) => {
+      if (m.transcript) {
+        return raw.inbound.length > 1
+          ? `[Message vocal ${idx + 1}] : ${m.transcript}`
+          : m.transcript;
+      }
+      return m.body || '';
+    })
     .filter(Boolean);
   const turnText = inboundTexts.join('\n').trim();
 

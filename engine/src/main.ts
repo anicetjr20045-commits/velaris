@@ -20,6 +20,7 @@ import { TurnWorker } from './queue/worker.js';
 import { OutboxSender } from './send/outbox.js';
 import { createMediaSigner } from './send/storage.js';
 import { WahaClient } from './send/waha-client.js';
+import { AudioTranscriber } from './services/transcribe.js';
 
 if (existsSync('.env.local')) process.loadEnvFile('.env.local');
 const config = loadConfig();
@@ -39,6 +40,14 @@ const llmProvider = new DeepSeekProvider({
   timeoutMs: config.deepseek.timeoutMs,
 });
 
+const transcriber = new AudioTranscriber({
+  wahaUrl: config.wahaUrl,
+  wahaApiKey: config.wahaApiKey,
+  kieApiKey: config.deepseek.apiKey,
+  db,
+  log,
+});
+
 const ingestDeps: IngestServerDeps = {
   db,
   spool,
@@ -47,6 +56,7 @@ const ingestDeps: IngestServerDeps = {
   protectedSessions: config.protectedSessions,
   waha,
   llmProvider,
+  transcriber,
 };
 
 const sender = new OutboxSender({
@@ -63,6 +73,7 @@ const turnWorker = new TurnWorker({
   llmProvider,
   workerId: config.workerId,
   concurrency: 2,
+  transcriber,
   log,
 });
 

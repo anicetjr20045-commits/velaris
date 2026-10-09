@@ -6,6 +6,7 @@
 
 import type { Db } from '../db/rest.js';
 import type { NormalizedEvent } from './normalize.js';
+import type { AudioTranscriber } from '../services/transcribe.js';
 
 export interface IngestOutcome {
   outcome: string;
@@ -23,6 +24,7 @@ export interface ProcessDeps {
   protectedSessions: readonly string[];
   /** Téléchargement et stockage des médias (étape suivante du plan) ; null = non stocké. */
   storeMedia?: (url: string, mime: string | null, session: string) => Promise<string | null>;
+  transcriber?: AudioTranscriber | undefined;
   onSessionDropped?: (session: string, previous: string | null, current: string) => Promise<void>;
 }
 
@@ -90,10 +92,22 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
         p_wa_timestamp: ev.waTimestamp,
         p_body: ev.body,
         p_media_kind: ev.mediaKind,
-        p_media_path: mediaPath,
+        p_media_path: ev.mediaUrl ?? mediaPath,
         p_push_name: ev.pushName,
         p_body_hash: ev.bodyHash,
       });
+
+      // Transcription asynchrone anticipée dès la réception pour être prête avant la fin du tampon de silence
+      if (!ev.fromMe && ev.mediaKind === 'audio' && res.message_id && deps.transcriber) {
+        void deps.transcriber.transcribeMessage(
+          res.message_id,
+          ev.session,
+          ev.mediaUrl ?? mediaPath,
+          ev.mediaKind,
+          ev.waMessageId,
+          ev.chatId
+        ).catch(() => undefined);
+      }
 
       // Bouclier de sécurité : si le message provient de l'API (source = 'api') mais a été classé 'merchant',
       // corriger immédiatement pour restituer le contrôle à l'IA

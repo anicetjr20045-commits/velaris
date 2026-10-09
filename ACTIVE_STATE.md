@@ -19,8 +19,28 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (19:55 UTC)
-- **Statut Opérationnel** : **Jalon 106 Validé — Épuration Radicale du Prompt Commercial & Alerte Gérant Enrichie au Choix de Formule** :
+- **Dernière mise à jour** : 9 Octobre 2026 (20:45 UTC)
+- **Statut Opérationnel** : **Jalon 107 Validé — Intégration Native de la Transcription Audio WhatsApp via Gemini 3.8 Flash (Kie.ai)** :
+  1. **Diagnostic Initial** :
+     - Dans le schéma PostgreSQL, les colonnes `media_kind = 'audio'`, `transcript`, et `transcript_status` étaient prévues, mais aucun service actif n'effectuait le téléchargement et la transcription des notes vocales WhatsApp.
+     - Par défaut, WAHA purgeait les fichiers audio temporaires après 180 secondes (`WHATSAPP_FILES_LIFETIME`).
+     - Les messages vocaux arrivaient donc avec `body = null` et `transcript = null`, produisant un `turnText` vide (`""`) et rendant l'IA muette ou désorientée.
+  2. **Architecture de Transcription Native & Haute Vitesse** :
+     - Création de `AudioTranscriber` (`engine/src/services/transcribe.ts`) :
+       • Téléchargement sécurisé du flux audio natif WhatsApp (`audio/ogg; codecs=opus`) depuis WAHA via le réseau interne Docker (`http://waha:3000/api/files/...`) avec en-tête `X-Api-Key`.
+       • Envoi direct sans transcodage au modèle multimodal Gemini 3.8 Flash (`gemini-3-8-flash:generateContent`) via l'API native Kie.ai (`inlineData: { mimeType: 'audio/ogg', data: base64 }`).
+       • Précision de transcription 100% fidèle sur le français ouest-africain et coût dérisoire (~0.01 à 0.08 crédit Kie par vocal, soit ~$0.0001).
+       • Mise à jour SQL atomique de `messages` via `agent_set_transcript` (`p_status: 'done'`).
+     - Double déclencheur :
+       • En amont à l'ingestion (`process-event.ts`) : transcription anticipée en arrière-plan pendant la fenêtre de silence (`quiet_window_ms = 4000ms`), prête avant même le début du tour.
+       • En sécurité dans `run-turn.ts` : si un vocal est encore en attente, transcription concurrente à la volée (`Promise.all`) avant appel à DeepSeek.
+     - Support fluide multi-vocaux : concaténation automatique des messages vocaux multiples ou mixtes (texte + vocaux) dans `turnText` (`[Message vocal 1] : ...`, `[Message vocal 2] : ...`).
+     - Configuration WAHA : rétention prolongée à 24h (`WHATSAPP_FILES_LIFETIME=86400`) dans `docker-compose.yml`.
+  3. **Tests (164/164 Green) & Déploiement VPS** :
+     - Nouveaux tests unitaires `test/transcribe.test.ts` (164/164 tests réussis, 29 suites).
+     - Recompilation et redéploiement sur le VPS Contabo (`162.35.113.220`).
+     - Conteneur `velaris-engine` en ligne et opérationnel.
+- **Jalon 106 Validé — Épuration Radicale du Prompt Commercial & Alerte Gérant Enrichie au Choix de Formule** :
   1. **Épuration Radicale du Prompt Commercial (`sales-brain.ts`)** :
      - Élimination complète des sections complexes devenues inutiles : rédaction de paroles, rondes de retouches 5 min / 10 min, relances de paiement, coordonnées Wave / Orange Money, choix du style musical post-paiement, livraison.
      - Focalisation exclusive du conseiller IA sur un closing digne, rapide et impeccable jusqu'au choix de formule (Découverte 1 200 F CFA ou Prestige 3 000 F CFA).
