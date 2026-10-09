@@ -94,6 +94,25 @@ async function resolveLidIfNeeded(ev: NormalizedEvent, deps: IngestServerDeps): 
 export async function runProcessing(id: number, ev: NormalizedEvent, deps: IngestServerDeps): Promise<void> {
   try {
     await resolveLidIfNeeded(ev, deps);
+
+    // Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset)
+    if (ev.kind === 'message' && typeof ev.body === 'string') {
+      const trimmed = ev.body.trim().toLowerCase();
+      if (trimmed === '#reset' || trimmed === '!reset' || trimmed === '/reset') {
+        const resetRes = await resetTestClient(deps.db as RestDb, ev.chatId);
+        if (deps.waha) {
+          await deps.waha.send(
+            ev.session,
+            ev.chatId,
+            { kind: 'text', text: '🔄 Discussion et mémoire réinitialisées avec succès. Tout l\'historique a été purgé. Vous pouvez relancer un test à blanc.' }
+          );
+        }
+        await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: 'magic_reset' });
+        deps.log('magic reset executed via whatsapp', { chatId: ev.chatId, result: resetRes });
+        return;
+      }
+    }
+
     const r = await processEvent(ev, deps);
     await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: r.outcome });
     deps.log('event processed', { id, kind: ev.kind, outcome: r.outcome });
@@ -265,17 +284,87 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       }
 
       // Endpoint de réinitialisation et purge d'un contact de test WhatsApp
-      if (parsedUrl.pathname === '/api/test/reset' && req.method === 'POST') {
-        let body: any;
-        try {
-          const raw = await readBody(req);
-          body = JSON.parse(raw.toString('utf8'));
-        } catch {
-          return json(res, 400, { ok: false, error: 'invalid_json_body' });
+      if (parsedUrl.pathname === '/api/test/reset' && (req.method === 'POST' || req.method === 'GET')) {
+        let target = parsedUrl.searchParams.get('identifier') || parsedUrl.searchParams.get('phone') || parsedUrl.searchParams.get('chatId') || '';
+        if (!target && req.method === 'POST') {
+          try {
+            const raw = await readBody(req);
+            const body = JSON.parse(raw.toString('utf8'));
+            target = String(body.identifier || body.phone || body.chatId || '');
+          } catch {
+            return json(res, 400, { ok: false, error: 'invalid_json_body' });
+          }
         }
 
-        const target = String(body.identifier || body.phone || body.chatId || '');
-        if (!target) return json(res, 400, { ok: false, error: 'missing_identifier' });
+        if (!target) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(`<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Velaris — Purge Client de Test</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #08090C; color: #E5E7EB; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .card { background: #0E1015; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 32px; width: 100%; max-width: 440px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+    h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 8px; color: #FFF; }
+    p { font-size: 0.875rem; color: #9CA3AF; margin: 0 0 20px; line-height: 1.5; }
+    input { width: 100%; padding: 12px 14px; background: #14171F; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #FFF; font-size: 0.95rem; box-sizing: border-box; margin-bottom: 16px; outline: none; }
+    input:focus { border-color: #6366F1; }
+    button { width: 100%; padding: 12px; background: #FFF; color: #000; border: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: opacity 0.2s; }
+    button:hover { opacity: 0.9; }
+    #result { margin-top: 16px; font-size: 0.875rem; display: none; padding: 12px; border-radius: 8px; line-height: 1.4; }
+    .success { background: rgba(16,185,129,0.1); border: 1px solid #10B981; color: #34D399; }
+    .error { background: rgba(239,68,68,0.1); border: 1px solid #EF4444; color: #F87171; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Réinitialiser un client de test</h1>
+    <p>Efface instantanément l'historique WhatsApp, les commandes, les messages et la mémoire de l'IA pour ce numéro.</p>
+    <form id="form">
+      <input type="text" id="target" placeholder="Numéro (+226... ou +225...)" required autofocus />
+      <button type="submit" id="btn">Purger la conversation</button>
+    </form>
+    <div id="result"></div>
+  </div>
+  <script>
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const val = document.getElementById('target').value.trim();
+      const btn = document.getElementById('btn');
+      const resDiv = document.getElementById('result');
+      btn.disabled = true;
+      btn.innerText = 'Purge en cours...';
+      try {
+        const res = await fetch('/api/test/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: val })
+        });
+        const data = await res.json();
+        resDiv.style.display = 'block';
+        if (data.ok) {
+          resDiv.className = 'success';
+          resDiv.innerText = 'Purge réussie. ' + (data.purgedConversations || 0) + ' conversation(s) effacée(s). Vous pouvez relancer un test.';
+        } else {
+          resDiv.className = 'error';
+          resDiv.innerText = 'Erreur : ' + (data.error || 'Échec');
+        }
+      } catch (err) {
+        resDiv.style.display = 'block';
+        resDiv.className = 'error';
+        resDiv.innerText = 'Erreur : ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Purger la conversation';
+      }
+    };
+  </script>
+</body>
+</html>`);
+          return;
+        }
 
         const resetRes = await resetTestClient(deps.db as RestDb, target);
         deps.log('test client reset executed', { target, result: resetRes });

@@ -19,11 +19,12 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (09:20 UTC)
-- **Statut Opérationnel** : **Jalon 97 Validé — DeepSeek Flash via Kie.ai (`deepseek-v4-1-flash`), Résolution WhatsApp LID et Outil de Reset Client de Test Live** :
-  1. **Provider DeepSeek via Kie.ai** : Intégration de l'API Responses (`https://api.kie.ai/openai/v1/responses`) avec le modèle `deepseek-v4-1-flash`, format JSON strict, désactivation complète de la réflexion (`reasoning: { effort: 'none' }`), extraction du prompt cache natif (`cacheHitTokens`), testé et déployé sur le conteneur VPS `velaris-engine`.
-  2. **Trajet WAHA ➔ Agent Blindé & Multi-Device LID** : Résolution automatique des identifiants WhatsApp modernes `@lid` vers les JID canoniques `@c.us` avec détection automatique de l'indicatif téléphonique pays (+225 Côte d'Ivoire, +226 Burkina Faso), mise en cache mémoire et gestion des pauses/reprises.
-  3. **Outil Chirurgical de Reset de Test** : Script CLI (`npm run reset:client <identifiant>`) et endpoint HTTP (`/api/test/reset` & `/api/test/unpause`) purgeant instantanément en base Supabase contacts, conversations, messages, commandes, tours de file et événements dédupliqués pour tester l'agent à volonté à blanc avec n'importe quel vrai compte WhatsApp.
+- **Dernière mise à jour** : 9 Octobre 2026 (10:05 UTC)
+- **Statut Opérationnel** : **Jalon 98 Validé — Branchement Intégral du Sales Brain (`VELARIS_CLOSING_PROMPT_TEMPLATE`), Fin des Gabarits Rigides & Réinitialisation Magique `#reset` en Direct** :
+  1. **Sales Brain Connecté en Production** : Remplacement des gabarits statiques d'accueil et des questions mécaniques par le moteur conversationnel adaptatif alimenté par `VELARIS_CLOSING_PROMPT_TEMPLATE` sur DeepSeek Flash via Kie.ai (`deepseek-v4-1-flash`). Fin du déversement prématuré des prix sur « Bonjour » : accueil sobre et direct, recueil séquentiel des 4 invariants (Occasion, Prénom, Date sans demander l'âge, Expéditeur, Âme des paroles), 1 à 2 bulles courtes WhatsApp, politesse et dignité ouest-africaine authentique.
+  2. **Commande Magique WhatsApp `#reset`** : Le testeur peut à tout instant envoyer `#reset` (ou `!reset`) dans la discussion WhatsApp pour purger instantanément 100% de la mémoire IA, commandes, messages et contact en base Supabase et relancer un test à blanc sans quitter son téléphone.
+  3. **Portail Web 1-Clic de Purge Live** : Interface web sombre luxueuse accessible sur `https://waha.velarisagent.life/api/test/reset` (ou appel API `GET/POST ?identifier=<numéro>`) permettant de vider n'importe quel numéro de test en 1 clic.
+  4. **Build & Test Green** : 159 tests unitaires validés (100% passants), image Docker déployée et conteneur `velaris-engine` opérationnel sur le VPS Contabo.
 - **Distinction Vitale des Projets (Zéro Confusion)** :
   - `velaris` (`/root/projets/velaris`) : **Projet Principal Vercel**, Studio OS & Académie refait de zéro, propre, moderne, sans Lovable.
   - `velaris-agent` (`/root/projets/velaris-agent`) : Ancien dépôt hérité de Lovable.

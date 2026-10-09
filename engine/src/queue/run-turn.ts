@@ -28,6 +28,7 @@ import { bodyHash } from '../ingest/wa-ids.js';
 import type { LlmProvider } from '../llm/provider.js';
 import { understand, type UnderstandInput } from '../llm/understand.js';
 import { composeLyrics, reviseLyrics } from '../llm/lyrics-composer.js';
+import { generateSalesReply } from '../llm/sales-brain.js';
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
 export interface TurnRef {
@@ -523,10 +524,64 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   };
 
   const renderedMessages: RenderedMessage[] = [];
-  for (const item of plan.items) {
-    const res = await renderOutputItem(item, renderCtx);
-    trace.push(...res.notes);
-    renderedMessages.push(...res.messages);
+
+  // Priorité absolue : Cerveau Commercial Adaptatif (VELARIS_CLOSING_PROMPT_TEMPLATE via DeepSeek Flash)
+  let usedSalesBrain = false;
+  if (conversation.control_mode === 'ai' && deps.llmProvider) {
+    const salesOutcome = await generateSalesReply(deps.llmProvider, {
+      turnText,
+      recent: recentHistory,
+      contact: {
+        phone: contact.phone,
+        name: contact.name,
+        wa_jid: contact.wa_jid,
+        deliveredOrders: raw.contact_facts?.delivered_orders ?? 0,
+      },
+      persona: {
+        studio_name: persona.studio_name,
+        agent_name: persona.agent_name,
+        manager_first_name: persona.manager_first_name,
+      },
+      orders,
+    });
+
+    trace.push(...salesOutcome.notes);
+
+    if (salesOutcome.bubbles.length > 0) {
+      usedSalesBrain = true;
+      for (const b of salesOutcome.bubbles) {
+        renderedMessages.push({
+          kind: 'text',
+          purpose: 'reply',
+          body: b,
+          orderId: orders[0]?.id ?? null,
+          isRelay: false,
+        });
+      }
+
+      // Si le brief est complet et que le vocal de procédure est dû
+      if (salesOutcome.procedureVoiceDue && persona.cap_procedure_voice) {
+        const procedureAsset = raw.assets.find((a) => a.kind === 'voice' && a.purpose === 'procedure');
+        if (procedureAsset) {
+          renderedMessages.push({
+            kind: 'voice',
+            purpose: 'procedure_voice',
+            mediaPath: procedureAsset.storage_path,
+            orderId: orders[0]?.id ?? null,
+            isRelay: false,
+          });
+        }
+      }
+    }
+  }
+
+  // Repli automatique sur les gabarits déterministes si le Sales Brain n'a rien émis ou en mode relais
+  if (!usedSalesBrain) {
+    for (const item of plan.items) {
+      const res = await renderOutputItem(item, renderCtx);
+      trace.push(...res.notes);
+      renderedMessages.push(...res.messages);
+    }
   }
 
   // 13. Mettre en boîte d'envoi (agent_enqueue_outbox)
