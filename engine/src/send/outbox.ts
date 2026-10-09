@@ -24,6 +24,7 @@ export interface OutboxRow {
   body: string | null;
   media_path: string | null;
   caption: string | null;
+  is_relay?: boolean;
 }
 
 export interface EnqueueInput {
@@ -145,6 +146,52 @@ export class OutboxSender {
       } else {
         await this.sleep(READING_PAUSE_MS);
       }
+
+      // Vérification immédiate après le délai humain de frappe :
+      // Si le gérant est intervenu sur son téléphone pendant les 1,5s à 6s d'attente,
+      // la discussion est passée sous contrôle humain ou le message a été annulé en base.
+      // Dans ce cas, nous DEVONS impérativement annuler l'envoi SANS contacter WAHA !
+      if (row.origin === 'agent') {
+        let isAborted = false;
+        let abortReason = '';
+
+        if (db.queryTable) {
+          // 1. Vérifier si le message lui-même a été annulé en base (par process-event ou agent_ingest_message)
+          const currentOutbox = await db.queryTable<Array<{ status: string }>>(
+            'outbound_messages',
+            `id=eq.${row.id}&select=status`
+          ).catch(() => []);
+          if (currentOutbox?.[0] && currentOutbox[0].status !== 'sending') {
+            isAborted = true;
+            abortReason = `outbox_status_${currentOutbox[0].status}`;
+          }
+
+          // 2. Vérifier si la conversation est sous contrôle humain (le gérant a parlé)
+          if (!isAborted && row.conversation_id) {
+            const currentConv = await db.queryTable<Array<{ control_mode: string; control_reason: string | null }>>(
+              'conversations',
+              `id=eq.${row.conversation_id}&select=control_mode,control_reason`
+            ).catch(() => []);
+            const c = currentConv?.[0];
+            if (c && c.control_mode === 'human' && !row.is_relay && !['handoff_ack', 'identity'].includes(row.purpose)) {
+              isAborted = true;
+              abortReason = 'human_control_merchant_took_over';
+            }
+          }
+        }
+
+        if (isAborted) {
+          if (content.kind === 'text') await waha.typing(row.session_name, row.chat_id, false).catch(() => undefined);
+          await db.rpc('agent_finish_send', {
+            p_outbox: row.id,
+            p_status: 'failed',
+            p_error: abortReason,
+          }).catch(() => undefined);
+          log('outbox aborted after typing delay (merchant silence protection)', { id: row.id, reason: abortReason });
+          return;
+        }
+      }
+
       result = await waha.send(row.session_name, row.chat_id, content);
       if (content.kind === 'text') await waha.typing(row.session_name, row.chat_id, false);
     } catch (err) {

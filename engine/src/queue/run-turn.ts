@@ -262,8 +262,8 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   if (conversation.control_mode === 'human') {
     const isRelayMode = persona.relay_mode === 'safe_templates';
     const reason = conversation.control_reason ?? '';
-    const forbiddenReasons = ['handoff:complaint', 'handoff:payment_dispute', 'handoff:very_negative'];
-    const isRelayAllowed = isRelayMode && !forbiddenReasons.includes(reason) && clientWroteAfterMerchant && !managerAvailable;
+    const forbiddenReasons = ['handoff:complaint', 'handoff:payment_dispute', 'handoff:very_negative', 'merchant_reply'];
+    const isRelayAllowed = isRelayMode && !forbiddenReasons.includes(reason) && clientWroteAfterMerchant && !managerAvailable && conversation.control_actor !== 'merchant';
 
     if (!isRelayAllowed) {
       await deps.db.rpc('agent_finish_turn', {
@@ -818,6 +818,26 @@ ${detailsSummary}
   renderedMessages.push(...dedupedMessages);
 
   // 13. Mettre en boîte d'envoi (agent_enqueue_outbox)
+  // Vérification de sécurité en direct : si le gérant est intervenu sur WhatsApp pendant le calcul du tour,
+  // la discussion est passée en mode humain. On annule immédiatement le tour sans rien insérer en outbox !
+  if (turnRef.conversationId && deps.db.queryTable) {
+    const liveConv = await deps.db.queryTable<Array<{ control_mode: string; control_actor: string | null }>>(
+      'conversations',
+      `id=eq.${turnRef.conversationId}&select=control_mode,control_actor`
+    ).catch(() => []);
+    const cm = liveConv?.[0]?.control_mode;
+    if (cm === 'human') {
+      await deps.db.rpc('agent_finish_turn', {
+        p_turn: turnRef.turnId,
+        p_conversation: turnRef.conversationId,
+        p_token: turnRef.lockToken,
+        p_status: 'done',
+        p_outcome: 'human_control_no_relay',
+      });
+      return { outcome: 'human_control_no_relay', trace, enqueuedIds, latencyMs: Date.now() - startedAt };
+    }
+  }
+
   let itemIdx = 0;
   for (const m of renderedMessages) {
     itemIdx++;

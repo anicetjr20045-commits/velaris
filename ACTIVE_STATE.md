@@ -19,8 +19,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (20:45 UTC)
-- **Statut Opérationnel** : **Jalon 107 Validé — Intégration Native de la Transcription Audio WhatsApp via Gemini 3.8 Flash (Kie.ai)** :
+- **Dernière mise à jour** : 9 Octobre 2026 (21:10 UTC)
+- **Statut Opérationnel** : **Jalon 108 Validé — Bouclier Absolu de Silence Human-in-the-Loop & Neutralisation des Messages In-Flight** :
+  1. **Diagnostic & Cause Racine Identifiée** :
+     - **Course d'envoi dans `outbox.ts`** : lorsqu'un tour se terminait, la boîte d'envoi engageait le message (`status = 'sending'`) puis simulait un délai humain réaliste de lecture et de frappe (1,5s à 6s via `waha.typing`).
+     - Pendant ce court intervalle de frappe, le commerçant répondait manuellement au client sur WhatsApp (« Belle ville »).
+     - Le message du commerçant passait bien la discussion en `control_mode = 'human'`, mais à son réveil après le `sleep`, `outbox.ts` n'effectuait aucune vérification et appelait aveuglément `waha.send()`, expédiant le message de l'IA 3 secondes après l'intervention du commerçant.
+     - **Pré-liaison erronée dans `process-event.ts`** : les événements sortants étaient pré-liés aux messages `sending`/`unknown` sans vérifier `ev.source === 'api'`, risquant d'assimiler un message tapé par le patron à un écho d'API.
+     - **Périmètre d'annulation SQL incomplet** : `agent_ingest_message` n'annulait que les statuts `pending` et `proposed`, laissant passer les messages déjà en `sending`.
+     - **Heuristique de relais** : `merchant_reply` n'était pas listé dans les raisons formellement interdites de relais.
+  2. **Quadruple Bouclier Déterministe Anti-Prise de Parole** :
+     - **Bouclier 1 (`outbox.ts`)** : Vérification immédiate après le délai de frappe et avant tout appel `waha.send`. Si le message a été annulé en base OU si la conversation est en `control_mode === 'human'`, arrêt immédiat de la frappe (`waha.typing(false)`), abandon sans contacter WAHA, et clôture de sécurité.
+     - **Bouclier 2 (`process-event.ts`)** : Restriction stricte de la pré-liaison aux seuls messages provenant de l'API WAHA (`source === 'api'`). Dès réception d'un message du gérant (`source !== 'api'`), annulation instantanée en base de tous les messages sortants de l'agent en `pending`, `proposed` et `sending`.
+     - **Bouclier 3 (`run-turn.ts`)** : Vérification en direct avant la mise en boîte d'envoi (étape 13). Si le gérant est intervenu pendant le calcul de DeepSeek, clôture immédiate en `human_control_no_relay` sans rien enqueuer. Exclusion absolue de `'merchant_reply'` et de `control_actor === 'merchant'` de tout relais automatique.
+     - **Bouclier 4 (SQL master)** : Extension de l'annulation atomique dans `agent_ingest_message` et `agent_set_control` aux messages en `sending` et aux tours en cours (`running`, `scheduled`).
+  3. **Tests (166/166 Green) & Déploiement VPS** :
+     - Nouveaux tests unitaires de silence post-délai dans `outbox.test.ts` (12/12 passés).
+     - Suite complète 100% verte (166/166 tests, 29 suites).
+     - Recompilation et redéploiement sur le VPS Contabo (`162.35.113.220`).
+     - Conteneur `velaris-engine` en ligne et opérationnel.
+- **Jalon 107 Validé — Intégration Native de la Transcription Audio WhatsApp via Gemini 3.8 Flash (Kie.ai)** :
   1. **Diagnostic Initial** :
      - Dans le schéma PostgreSQL, les colonnes `media_kind = 'audio'`, `transcript`, et `transcript_status` étaient prévues, mais aucun service actif n'effectuait le téléchargement et la transcription des notes vocales WhatsApp.
      - Par défaut, WAHA purgeait les fichiers audio temporaires après 180 secondes (`WHATSAPP_FILES_LIFETIME`).

@@ -50,7 +50,12 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
       // nous lions préemptivement wa_message_id et wa_message_key sur ce message sortant
       // afin que agent_ingest_message le reconnaisse immédiatement comme un écho
       // et ne prenne JAMAIS le contrôle humain par erreur.
-      if (ev.fromMe && deps.db.queryTable && deps.db.updateRows) {
+      // Résolution anti-course écho WhatsApp / envoi outbox :
+      // Seuls les messages sortants provenant de l'API WAHA (source = 'api')
+      // peuvent être des échos de nos envois outbox !
+      // Si ev.fromMe est vrai et ev.source !== 'api' (ex: 'app' ou absent),
+      // c'est INDISCUTABLEMENT le GÉRANT qui tape sur son téléphone !
+      if (ev.fromMe && ev.source === 'api' && deps.db.queryTable && deps.db.updateRows) {
         try {
           const inFlight = await deps.db.queryTable<Array<{ id: string }>>(
             'outbound_messages',
@@ -64,7 +69,7 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
               `id=eq.${firstFlight.id}`,
               { wa_message_id: ev.waMessageId, wa_message_key: ev.waKey }
             ).catch(() => undefined);
-          } else if (ev.source === 'api') {
+          } else {
             const recent = await deps.db.queryTable<Array<{ id: string }>>(
               'outbound_messages',
               `session_name=eq.${encodeURIComponent(ev.session)}&chat_id=eq.${encodeURIComponent(ev.chatId)}&order=created_at.desc&limit=1`
@@ -78,6 +83,18 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
               ).catch(() => undefined);
             }
           }
+        } catch {
+          // Ne bloque jamais l'ingestion
+        }
+      } else if (ev.fromMe && ev.source !== 'api' && deps.db.updateRows) {
+        // C'est le gérant qui écrit manuellement depuis son téléphone WhatsApp :
+        // Annuler immédiatement tout message sortant de l'agent en attente ou en cours d'envoi ('sending') !
+        try {
+          await deps.db.updateRows(
+            'outbound_messages',
+            `session_name=eq.${encodeURIComponent(ev.session)}&chat_id=eq.${encodeURIComponent(ev.chatId)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
+            { status: 'cancelled', error: 'merchant_took_over' }
+          ).catch(() => undefined);
         } catch {
           // Ne bloque jamais l'ingestion
         }
@@ -119,6 +136,14 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
           p_actor: 'merchant',
         }).catch(() => undefined);
         return { ...res, outcome: 'echo' };
+      }
+
+      if (ev.fromMe && ev.source !== 'api' && res.conversation_id && deps.db.updateRows) {
+        await deps.db.updateRows(
+          'outbound_messages',
+          `conversation_id=eq.${encodeURIComponent(res.conversation_id)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
+          { status: 'cancelled', error: 'merchant_took_over' }
+        ).catch(() => undefined);
       }
 
       return res;

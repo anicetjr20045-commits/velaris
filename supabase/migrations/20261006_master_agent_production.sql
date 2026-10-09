@@ -812,6 +812,11 @@ BEGIN
   IF p_mode = 'ai' THEN
     UPDATE handoffs SET status = 'returned', closed_at = now(), closed_by = p_actor
      WHERE conversation_id = p_conversation AND status = 'open';
+  ELSIF p_mode = 'human' THEN
+    UPDATE outbound_messages SET status = 'cancelled', error = 'merchant_took_over'
+     WHERE conversation_id = p_conversation AND origin = 'agent' AND status IN ('pending','proposed','sending');
+    UPDATE conversation_turns SET status = 'cancelled', error = 'merchant_took_over'
+     WHERE conversation_id = p_conversation AND status IN ('collecting','scheduled','running');
   END IF;
   RETURN 'ok';
 END $$;
@@ -1201,7 +1206,9 @@ BEGIN
     VALUES (v_user, v_conv, 'merchant', 'merchant_reply')
     ON CONFLICT (conversation_id) WHERE status = 'open' DO NOTHING;
     UPDATE outbound_messages SET status = 'cancelled', error = 'merchant_took_over'
-     WHERE conversation_id = v_conv AND origin = 'agent' AND status IN ('pending','proposed');
+     WHERE conversation_id = v_conv AND origin = 'agent' AND status IN ('pending','proposed','sending');
+    UPDATE conversation_turns SET status = 'cancelled', error = 'merchant_took_over'
+     WHERE conversation_id = v_conv AND status IN ('collecting','scheduled','running');
     -- Lecture du message du gérant (§ 15) : dans la même file que la conversation
     IF v_owner = 'velaris_engine' THEN
       INSERT INTO conversation_turns (user_id, conversation_id, trigger, status, inbound_message_ids, ready_at)

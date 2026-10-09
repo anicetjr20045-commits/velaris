@@ -14,7 +14,13 @@ function row(over: Partial<OutboxRow> = {}): OutboxRow {
   };
 }
 
-function harness(opts: { gate?: string; send?: SendResult; pending?: OutboxRow[] } = {}) {
+function harness(opts: {
+  gate?: string;
+  send?: SendResult;
+  pending?: OutboxRow[];
+  outboxStatus?: string;
+  controlMode?: string;
+} = {}) {
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const sends: Array<{ session: string; chatId: string; content: OutgoingContent }> = [];
   const db: Db = {
@@ -23,6 +29,15 @@ function harness(opts: { gate?: string; send?: SendResult; pending?: OutboxRow[]
       if (fn === 'agent_begin_send') return (opts.gate ?? 'ok') as T;
       if (fn === 'agent_pending_outbox') return (opts.pending ?? []) as T;
       return 'ok' as T;
+    },
+    async queryTable<T>(table: string): Promise<T> {
+      if (table === 'outbound_messages') {
+        return [{ status: opts.outboxStatus ?? 'sending' }] as T;
+      }
+      if (table === 'conversations') {
+        return [{ control_mode: opts.controlMode ?? 'ai', control_reason: null }] as T;
+      }
+      return [] as T;
     },
   };
   const sender = new OutboxSender({
@@ -113,5 +128,23 @@ describe('OutboxSender', () => {
   test('délai humain borné', () => {
     assert.equal(humanDelayMs({ kind: 'text', body: 'ok' }), 1_500);
     assert.equal(humanDelayMs({ kind: 'text', body: 'x'.repeat(1000) }), 6_000);
+  });
+
+  test('intervention gérant pendant le délai humain (statut annulé) → WAHA jamais appelé', async () => {
+    const h = harness({ outboxStatus: 'cancelled' });
+    await h.sender.sendOne(row());
+    assert.equal(h.sends.length, 0);
+    const fin = h.rpcCalls.find((c) => c.fn === 'agent_finish_send')!;
+    assert.equal(fin.args.p_status, 'failed');
+    assert.equal(fin.args.p_error, 'outbox_status_cancelled');
+  });
+
+  test('intervention gérant pendant le délai humain (contrôle humain) → WAHA jamais appelé', async () => {
+    const h = harness({ controlMode: 'human' });
+    await h.sender.sendOne(row());
+    assert.equal(h.sends.length, 0);
+    const fin = h.rpcCalls.find((c) => c.fn === 'agent_finish_send')!;
+    assert.equal(fin.args.p_status, 'failed');
+    assert.equal(fin.args.p_error, 'human_control_merchant_took_over');
   });
 });
