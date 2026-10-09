@@ -86,6 +86,27 @@ export async function runCopilotBrain(
     deps.log('copilot-brain: failed to fetch orders, using context fallback', { error: err.message });
   }
 
+  // CORRECTIF (M17) : les métriques "temps réel" étaient codées en dur (633, 637, 623, 40340).
+  // Elles sont désormais lues en base via copilot_studio_metrics ; en cas d'échec, null
+  // (jamais de faux chiffres présentés comme réels).
+  let liveMetrics: {
+    total_contacts?: number;
+    total_conversations?: number;
+    active_conversations?: number;
+    total_orders?: number;
+    total_inbound_messages?: number;
+    total_outbound_messages?: number;
+  } | null = null;
+  try {
+    const m = await deps.db.rpc?.<any>('copilot_studio_metrics', {});
+    if (m && typeof m === 'object') {
+      liveMetrics = m;
+      toolsExecuted.push('get_live_studio_metrics');
+    }
+  } catch (err: any) {
+    deps.log('copilot-brain: failed to fetch live metrics', { error: err.message });
+  }
+
   // 2. Recherche d'un client potentiel mentionné dans le message (numéro ou prénom)
   let matchedContact: any = null;
   let matchedConv: any = null;
@@ -210,15 +231,21 @@ export async function runCopilotBrain(
 
   if (deps.db.rpc && isExplicitBroadSearch) {
     try {
-      const ownerUserId = req.user?.id || '043a33b4-429c-4056-b333-ee61d4c0a515';
-      const rpcRes = await deps.db.rpc<any[]>('copilot_search', {
-        p_user_id: ownerUserId,
-        p_query: cleanPrompt,
-        p_mode: 'complaints',
-      });
-      if (Array.isArray(rpcRes) && rpcRes.length > 0) {
-        searchResults = rpcRes;
-        toolsExecuted.push('copilot_search_messages_and_convs');
+      // CORRECTIF (M18) : plus de repli vers un UUID en dur. Sans utilisateur identifié,
+      // la recherche large est désactivée au lieu de fouiller les données du fondateur.
+      const ownerUserId = req.user?.id;
+      if (!ownerUserId) {
+        deps.log('copilot-brain: broad search skipped (no authenticated user)');
+      } else {
+        const rpcRes = await deps.db.rpc<any[]>('copilot_search', {
+          p_user_id: ownerUserId,
+          p_query: cleanPrompt,
+          p_mode: 'complaints',
+        });
+        if (Array.isArray(rpcRes) && rpcRes.length > 0) {
+          searchResults = rpcRes;
+          toolsExecuted.push('copilot_search_messages_and_convs');
+        }
       }
     } catch (err: any) {
       deps.log('copilot-brain: failed copilot_search RPC', { error: err.message });
@@ -236,10 +263,14 @@ export async function runCopilotBrain(
       validatedOrdersCount,
       waveTotal,
       omTotal,
-      activeConversationsEstimate: 633,
-      totalContactsCount: 637,
-      totalOrdersCount: 623,
-      totalMessagesHistoryCount: 40340,
+      // CORRECTIF (M17) : vrais compteurs base, plus de chiffres en dur.
+      activeConversations: liveMetrics?.active_conversations ?? null,
+      totalContactsCount: liveMetrics?.total_contacts ?? null,
+      totalOrdersCount: liveMetrics?.total_orders ?? null,
+      totalMessagesCount:
+        liveMetrics != null
+          ? (liveMetrics.total_inbound_messages ?? 0) + (liveMetrics.total_outbound_messages ?? 0)
+          : null,
     },
     matchedClient: matchedContact ? {
       name: matchedContact.name,

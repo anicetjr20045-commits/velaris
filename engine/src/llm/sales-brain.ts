@@ -157,6 +157,8 @@ export interface SalesBrainInput {
     manager_first_name: string;
   };
   orders: readonly OrderSnapshot[];
+  /** Catalogue du studio pour des prix dynamiques (M6). */
+  catalogue?: readonly CataloguePriceInput[];
 }
 
 export interface SalesBrainOutcome {
@@ -168,18 +170,46 @@ export interface SalesBrainOutcome {
   chosenFormula: 'decouverte' | 'prestige' | null;
 }
 
+export interface CataloguePriceInput {
+  code: string;
+  label: string;
+  priceXof: number;
+}
+
+/**
+ * CORRECTIF (M6) : les prix ne sont plus codés en dur. Ils sont lus depuis le catalogue
+ * du studio (insensible aux accents/casse), avec repli sur les tarifs par défaut.
+ * Avant, un studio qui personnalisait son catalogue voyait le bot annoncer de faux prix.
+ */
+export function cataloguePrices(
+  catalogue: readonly CataloguePriceInput[] | undefined,
+): { decouverte: string; prestige: string } {
+  const norm = (s: string): string =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  const find = (kw: string): CataloguePriceInput | undefined =>
+    catalogue?.find((c) => norm(c.code).includes(kw) || norm(c.label).includes(kw));
+  const fmt = (n: number): string => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const d = find('decouverte');
+  const p = find('prestige');
+  return { decouverte: d ? fmt(d.priceXof) : '1 200', prestige: p ? fmt(p.priceXof) : '3 000' };
+}
+
 export async function generateSalesReply(
   llm: LlmProvider,
   input: SalesBrainInput
 ): Promise<SalesBrainOutcome> {
   const notes: string[] = [];
 
-  // 1. Remplacement des tokens studio
+  // 1. Remplacement des tokens studio (prix dynamiques depuis le catalogue — M6)
+  const prices = cataloguePrices(input.catalogue);
   let basePrompt = VELARIS_CLOSING_PROMPT_TEMPLATE
     .replace(/{AGENT_NAME}/g, input.persona.agent_name || 'Alex')
     .replace(/{STUDIO_NAME}/g, input.persona.studio_name || 'Velaris Studio')
-    .replace(/{PRIX_DECOUVERTE}/g, '1 200')
-    .replace(/{PRIX_PRESTIGE}/g, '3 000');
+    .replace(/{PRIX_DECOUVERTE}/g, prices.decouverte)
+    .replace(/{PRIX_PRESTIGE}/g, prices.prestige);
 
   // 2. Détection du contexte géographique et historique
   const cleanPhone = (input.contact.phone || '').replace(/\D/g, '');
@@ -211,7 +241,7 @@ export async function generateSalesReply(
 - Numéro client : +${cleanPhone} (Région : ${country})
 - Prénom enregistré : ${input.contact.name || 'Non renseigné'}
 - Historique client : ${isReturning ? 'Client récurrent / fidèle (ne pas envoyer le vocal de procédure, demander directement la formule)' : 'Nouveau prospect (premier contact)'}
-- Statut Note Vocale : ${procedureVoiceAlreadySent ? 'DÉJÀ ENVOYÉE dans cette discussion (INTERDICTION FORMELLE de la renvoyer ou d\'en parler. Si le client a répondu, présenter directement les deux formules Découverte 1 200 F / Prestige 3 000 F)' : 'Non encore envoyée'}
+- Statut Note Vocale : ${procedureVoiceAlreadySent ? `DÉJÀ ENVOYÉE dans cette discussion (INTERDICTION FORMELLE de la renvoyer ou d'en parler. Si le client a répondu, présenter directement les deux formules Découverte ${prices.decouverte} F / Prestige ${prices.prestige} F)` : 'Non encore envoyée'}
 - Statut Démo Vidéo Souvenir : ${videoSampleAlreadySent ? 'DÉJÀ ENVOYÉE dans cette discussion (INTERDICTION STRICTE de renvoyer la vidéo démo avec "video_sample": false)' : 'Non encore envoyée'}
 - État de la commande : ${orderBrief}
 
@@ -226,9 +256,9 @@ Réponds impérativement avec un objet JSON :
 }
 
 DÉCLENCHEURS D'ACTIONS SYSTÈME (CRITIQUES) :
-- "procedure_voice": true UNIQUEMENT si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ET que le Statut Note Vocale est "Non encore envoyée". Si la note vocale a déjà été envoyée ou si le client répond au vocal (ex: « Ça me convient », « D'accord », « C'est bon »), interdiction formelle de renvoyer le vocal : présente les deux formules (Découverte 1 200 F / Prestige 3 000 F) avec "procedure_voice": false.
-- "video_sample": true UNIQUEMENT si le client demande expressément à voir un exemple, un extrait ou un aperçu vidéo de notre formule vidéo souvenir (Prestige 3 000 F) ET que le Statut Démo Vidéo Souvenir est "Non encore envoyée". Si la vidéo démo a déjà été envoyée ou si le client partage son propre lien vidéo externe (TikTok, YouTube...), renvoie impérativement "video_sample": false.
-- "formula_chosen": true dès que le client choisit sa formule (Découverte 1 200 F ou Prestige 3 000 F). Renseigne alors "chosen_formula": "decouverte" ou "prestige".
+- "procedure_voice": true UNIQUEMENT si le brief des 4 repères est complet (l'âme des paroles a été donnée ou validée) ET que le Statut Note Vocale est "Non encore envoyée". Si la note vocale a déjà été envoyée ou si le client répond au vocal (ex: « Ça me convient », « D'accord », « C'est bon »), interdiction formelle de renvoyer le vocal : présente les deux formules (Découverte ${prices.decouverte} F / Prestige ${prices.prestige} F) avec "procedure_voice": false.
+- "video_sample": true UNIQUEMENT si le client demande expressément à voir un exemple, un extrait ou un aperçu vidéo de notre formule vidéo souvenir (Prestige ${prices.prestige} F) ET que le Statut Démo Vidéo Souvenir est "Non encore envoyée". Si la vidéo démo a déjà été envoyée ou si le client partage son propre lien vidéo externe (TikTok, YouTube...), renvoie impérativement "video_sample": false.
+- "formula_chosen": true dès que le client choisit sa formule (Découverte ${prices.decouverte} F ou Prestige ${prices.prestige} F). Renseigne alors "chosen_formula": "decouverte" ou "prestige".
 - Règle sur les médias : Ne génère JAMAIS de phrase disant « Je vais vous envoyer le vocal » si le vocal part. Accuse simplement réception avec sobriété ou fais le pont du brief, les fichiers multimédias sont livrés directement par le système.
 
 Règles de mise en page :
@@ -295,8 +325,10 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
         : null;
 
     // Détection déterministe pour l'extrait vidéo souvenir
+    // CORRECTIF (mineur) : "facebook" seul a été retiré — "je vous ai trouvé sur Facebook"
+    // n'est pas un partage de vidéo. Seuls les vrais liens vidéo sont détectés.
     const isClientSharingExternalVideo =
-      /tiktok|youtube|youtu\.be|facebook|vm\.tiktok|copier dessus|inspirer de cette vid[ée]o|voici la vid[ée]o|regarde(z)? cette vid[ée]o|ma vid[ée]o|ce mod[èe]le/i.test(
+      /tiktok|youtube|youtu\.be|vm\.tiktok|fb\.watch|facebook\.com\/(watch|reel)|copier dessus|inspirer de cette vid[ée]o|voici la vid[ée]o|regarde(z)? cette vid[ée]o|ma vid[ée]o|ce mod[èe]le/i.test(
         cleanTurnText
       );
 
@@ -344,7 +376,10 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
     if (!formulaChosen && rawBubbles.some((b) => formulaRegex.test(b))) {
       formulaChosen = true;
       if (!chosenFormula) {
-        chosenFormula = rawBubbles.some((b) => /prestige|3 000|vidéo/i.test(b)) || /prestige|3 000|vid[ée]o/i.test(cleanTurnText)
+        // CORRECTIF (M6) : détection basée sur le prix catalogue, pas sur '3 000' en dur.
+        const prestigePricePattern = prices.prestige.replace(/\s/g, '\\s');
+        const prestigeRe = new RegExp(`prestige|${prestigePricePattern}|vid[ée]o`, 'i');
+        chosenFormula = rawBubbles.some((b) => prestigeRe.test(b)) || prestigeRe.test(cleanTurnText)
           ? 'prestige'
           : 'decouverte';
       }
