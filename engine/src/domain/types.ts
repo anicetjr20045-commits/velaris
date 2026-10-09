@@ -31,7 +31,6 @@ export type PaymentState = (typeof PAYMENT_STATES)[number];
 
 export const CREATIVE_EVENTS = [
   'brief_completed',
-  'procedure_voice_sent',
   'lyrics_work_started',
   'lyrics_sent',
   'change_requested',

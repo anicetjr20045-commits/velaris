@@ -10,6 +10,7 @@
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import type { Spool } from '../db/spool.js';
 import type { WahaClient } from '../send/waha-client.js';
 import { verifyWahaHmac } from './hmac.js';
@@ -24,6 +25,8 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 export interface IngestServerDeps extends ProcessDeps {
   hmacKey: string;
+  /** Clé d'administration (ADMIN_API_KEY). Vide = endpoints sensibles désactivés. */
+  adminApiKey: string;
   spool: Spool;
   log: (line: string, data?: Record<string, unknown>) => void;
   waha?: WahaClient;
@@ -53,6 +56,33 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+/**
+ * Garde d'administration pour les endpoints sensibles (/api/test/*, /api/copilot, /api/qr/restart...).
+ * La clé est fournie via `Authorization: Bearer <ADMIN_API_KEY>` ou `X-Admin-Key`.
+ * Comparaison à temps constant. Sans ADMIN_API_KEY configurée, les endpoints sont désactivés (503).
+ * Retourne true si autorisé, sinon répond 401/503 et retourne false.
+ */
+function requireAdmin(req: IncomingMessage, res: ServerResponse, deps: IngestServerDeps): boolean {
+  const expected = deps.adminApiKey;
+  if (!expected) {
+    json(res, 503, { ok: false, error: 'admin_disabled' });
+    return false;
+  }
+  let provided: string | null = null;
+  const auth = req.headers['authorization'];
+  if (typeof auth === 'string' && auth.toLowerCase().startsWith('bearer ')) {
+    provided = auth.slice(7).trim();
+  } else {
+    const k = req.headers['x-admin-key'];
+    if (typeof k === 'string') provided = k.trim();
+  }
+  const a = Buffer.from(provided ?? '');
+  const b = Buffer.from(expected);
+  if (provided && a.length === b.length && timingSafeEqual(a, b)) return true;
+  json(res, 401, { ok: false, error: 'unauthorized' });
+  return false;
+}
+
 /** Enregistre puis traite un corps de webhook déjà authentifié. Utilisé aussi par le rejeu du journal. */
 export async function recordAndProcess(body: unknown, source: 'webhook' | 'spool_replay' | 'catch_up', deps: IngestServerDeps): Promise<string> {
   const norm = normalizeWahaEvent(body);
@@ -72,6 +102,16 @@ export async function recordAndProcess(body: unknown, source: 'webhook' | 'spool
 }
 
 const lidToJidCache = new Map<string, string>();
+const LID_CACHE_MAX = 5000;
+
+function lidCacheSet(lid: string, jid: string): void {
+  // CORRECTIF (mineur) : cache borné — sans ça, fuite mémoire lente sur longue durée de vie.
+  if (lidToJidCache.size >= LID_CACHE_MAX) {
+    const oldest = lidToJidCache.keys().next();
+    if (!oldest.done) lidToJidCache.delete(oldest.value);
+  }
+  lidToJidCache.set(lid, jid);
+}
 
 async function resolveLidIfNeeded(ev: NormalizedEvent, deps: IngestServerDeps): Promise<void> {
   if ('chatId' in ev && typeof ev.chatId === 'string' && ev.chatId.endsWith('@lid') && deps.waha) {
@@ -82,7 +122,7 @@ async function resolveLidIfNeeded(ev: NormalizedEvent, deps: IngestServerDeps): 
     }
     const c = await deps.waha.getContact(ev.session, ev.chatId);
     if (c?.id && c.id.endsWith('@c.us')) {
-      lidToJidCache.set(ev.chatId, c.id);
+      lidCacheSet(ev.chatId, c.id);
       ev.chatId = c.id;
       if ('pushName' in ev && !ev.pushName && c.pushname) {
         ev.pushName = c.pushname;
@@ -103,7 +143,10 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
     }
 
     // 2. Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset)
-    if (ev.kind === 'message' && typeof ev.body === 'string') {
+    // SÉCURITÉ (C2) : réservée au GÉRANT uniquement. Un message fromMe dont la source n'est pas
+    // 'api' est indiscutablement tapé à la main sur le téléphone du gérant (cf. process-event.ts).
+    // Sans cette garde, n'importe quel client pouvait purger son dossier de commande.
+    if (ev.kind === 'message' && typeof ev.body === 'string' && ev.fromMe === true && ev.source !== 'api') {
       const trimmed = ev.body.trim().toLowerCase();
       if (trimmed === '#reset' || trimmed === '!reset' || trimmed === '/reset') {
         const resetRes = await resetTestClient(deps.db as RestDb, ev.chatId);
@@ -164,6 +207,8 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       }
 
       if (parsedUrl.pathname === '/api/qr/restart' && (req.method === 'POST' || req.method === 'GET')) {
+        // SÉCURITÉ (M15) : redémarrage de session = action d'administration.
+        if (!requireAdmin(req, res, deps)) return;
         const session = parsedUrl.searchParams.get('session') || 'Test';
         if (deps.protectedSessions?.includes(session)) {
           return json(res, 403, { ok: false, error: `session_${session}_is_protected` });
@@ -203,6 +248,8 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       }
 
       if (parsedUrl.pathname === '/api/qr/pairing-code' && req.method === 'POST') {
+        // SÉCURITÉ (M16) : demande de code d'appairage = action d'administration.
+        if (!requireAdmin(req, res, deps)) return;
         const session = parsedUrl.searchParams.get('session') || 'Test';
         if (!deps.waha) return json(res, 503, { ok: false, error: 'waha_not_configured' });
         let body: any;
@@ -245,21 +292,28 @@ export function createIngestServer(deps: IngestServerDeps): Server {
         }
 
         // 2. Persistance dans Supabase (conversations.ack_log)
+        // CORRECTIF (M3) : la RPC agent_set_chat_archived existe désormais (migration 20261009).
+        // L'endpoint rapporte honnêtement le résultat au lieu de répondre ok:true en cas d'échec.
         const cleanPhone = chatId.replace(/\D/g, '');
+        let dbResult: string | null = null;
+        let dbError: string | null = null;
         try {
-          await deps.db.rpc('agent_set_chat_archived', {
+          dbResult = await deps.db.rpc<string>('agent_set_chat_archived', {
             p_phone: cleanPhone,
             p_archived: archived,
           });
         } catch (dbErr: any) {
+          dbError = dbErr.message;
           deps.log('db update error on chat-archive', { error: dbErr.message });
         }
 
-        return json(res, 200, { ok: true, session, chatId, archived, wahaSuccess: wahaOk });
+        return json(res, dbError ? 500 : 200, { ok: !dbError, session, chatId, archived, wahaSuccess: wahaOk, dbResult, dbError });
       }
 
       // Endpoint intelligent Copilot IA (DeepSeek V3)
+      // SÉCURITÉ (C4) : exposait la base clients et permettait d'injecter de fausses commandes.
       if (parsedUrl.pathname === '/api/copilot' && req.method === 'POST') {
+        if (!requireAdmin(req, res, deps)) return;
         if (!deps.llmProvider) return json(res, 503, { ok: false, error: 'llm_not_configured' });
         let body: any;
         try {
@@ -291,7 +345,9 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       }
 
       // Endpoint de réinitialisation et purge d'un contact de test WhatsApp
+      // SÉCURITÉ (C3) : purge de données clients = action d'administration.
       if (parsedUrl.pathname === '/api/test/reset' && (req.method === 'POST' || req.method === 'GET')) {
+        if (!requireAdmin(req, res, deps)) return;
         let target = parsedUrl.searchParams.get('identifier') || parsedUrl.searchParams.get('phone') || parsedUrl.searchParams.get('chatId') || '';
         if (!target && req.method === 'POST') {
           try {
@@ -380,6 +436,7 @@ export function createIngestServer(deps: IngestServerDeps): Server {
 
       // Endpoint pour reprendre la main IA manuellement sur une discussion
       if (parsedUrl.pathname === '/api/test/unpause' && req.method === 'POST') {
+        if (!requireAdmin(req, res, deps)) return;
         let body: any;
         try {
           const raw = await readBody(req);
@@ -402,7 +459,8 @@ export function createIngestServer(deps: IngestServerDeps): Server {
 
         if (convs.length > 0) {
           for (const c of convs) {
-            await deps.db.rpc('agent_set_control', { p_conv: c.id, p_mode: 'ai', p_reason: 'manual_unpause', p_actor: 'merchant' });
+            // CORRECTIF (M2) : la signature SQL est p_conversation (pas p_conv).
+            await deps.db.rpc('agent_set_control', { p_conversation: c.id, p_mode: 'ai', p_reason: 'manual_unpause', p_actor: 'merchant' });
           }
           deps.log('test client unpaused', { target, count: convs.length });
           return json(res, 200, { ok: true, unpaused: convs.length });

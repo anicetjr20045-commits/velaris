@@ -785,19 +785,24 @@ function welcomeTurn(input: DecisionInput, b: DecisionBuilder): Decision {
   }
 
   const asking = u.primaryIntent === 'ask_price' || u.primaryIntent === 'ask_how_it_works' || u.primaryIntent === 'ask_delay';
-  if (!asking && ackedWithin(input, 'welcome', WELCOME_REPEAT_MIN)) {
+  const welcomeRecentlySent = ackedWithin(input, 'welcome', WELCOME_REPEAT_MIN);
+  if (!asking && welcomeRecentlySent) {
     return b.note('welcome already sent → silence').build();
   }
 
   const returning = input.contact.deliveredOrders > 0;
-  b.say('welcome', returning ? 'welcome_returning' : 'welcome', null, [{ key: 'returning_client', value: returning }]);
+  // CORRECTIF (mineur) : si le client repose une question prix/fonctionnement/délai alors que
+  // l'accueil a déjà été envoyé, on ne renvoie pas tout le bloc d'accueil — juste la réponse ciblée.
+  if (!welcomeRecentlySent) {
+    b.say('welcome', returning ? 'welcome_returning' : 'welcome', null, [{ key: 'returning_client', value: returning }]);
+    b.act({ type: 'mark_ack', key: 'welcome' });
+  }
   const first = input.studio.briefFieldOrder[0] ?? 'occasion';
   b.say('offers', u.primaryIntent === 'ask_how_it_works' ? 'explain_process' : 'present_offers', null,
     [...offerFacts(activeOffers(input.studio)), { key: 'field', value: first }], { asks: first });
   b.ask(first === 'offer'
     ? { key: 'choose_offer', orderId: null, asker: 'agent' }
     : { key: 'ask_field', orderId: null, field: first, asker: 'agent' });
-  b.act({ type: 'mark_ack', key: 'welcome' });
   return b.note(`welcome (${returning ? 'returning' : 'new'} client)`).build();
 }
 
