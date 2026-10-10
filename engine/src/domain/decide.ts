@@ -153,6 +153,7 @@ function emptyOrder(): OrderSnapshot {
     voice: null,
     language: null,
     memoriesCount: 0,
+    hasOwnLyrics: false,
     photosCount: 0,
     revisionCount: 0,
     paymentInstructionsCount: 0,

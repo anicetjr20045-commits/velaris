@@ -248,11 +248,16 @@ export function missingSlots(order: OrderSnapshot, studio: StudioConfig): Missin
   if (!ordered.includes('offer')) ordered.push('offer');
 
   const missing: MissingSlot[] = [];
+  // Le client a fourni directement son texte : il contient déjà tout
+  // (occasion, prénom, expéditeur, message). Aucune question de brief,
+  // seul le choix d'offre reste.
+  const skipBriefFields = order.hasOwnLyrics;
   for (const slot of ordered) {
     if (slot === 'offer') {
       if (!isPriced(order)) missing.push('offer');
       continue;
     }
+    if (skipBriefFields) continue;
     if (!required.has(slot)) continue;
     if (slot === 'recipient_name' && order.lyrics && order.lyrics.trim().length > 0) continue;
     if (!fieldPresent(order, slot)) {

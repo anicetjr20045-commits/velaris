@@ -111,6 +111,8 @@ export interface OrderSnapshot {
   memoriesCount: number;
   memories?: readonly string[];
   lyrics?: string | null;
+  /** Le client a fourni directement son texte : le brief ne repose aucune question. */
+  hasOwnLyrics: boolean;
   photosCount: number;
   revisionCount: number;
   paymentInstructionsCount: number;
