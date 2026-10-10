@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS public.outbound_messages (
   kind             TEXT NOT NULL CHECK (kind IN ('text','voice','file','image','video')),
   purpose          TEXT NOT NULL CHECK (purpose IN ('reply','handoff_ack','stop_ack','identity','payment_instructions',
                      'payment_claim_ack','procedure_voice','offers_voice','sample','lyrics','song','video','status_eta',
-                     'owner_alert','followup','merchant')),
+                     'owner_alert','followup','merchant','reaction_confirm')),
   is_relay         BOOLEAN NOT NULL DEFAULT FALSE,
   session_name     TEXT NOT NULL,
   chat_id          TEXT NOT NULL,
@@ -323,6 +323,11 @@ CREATE TABLE IF NOT EXISTS public.outbound_messages (
   CONSTRAINT chk_agent_token CHECK (origin <> 'agent' OR lock_token IS NOT NULL),
   CONSTRAINT chk_content CHECK (body IS NOT NULL OR media_path IS NOT NULL)
 );
+-- La table peut déjà exister (20261004) : forcer la liste des purposes à jour.
+ALTER TABLE public.outbound_messages DROP CONSTRAINT IF EXISTS outbound_messages_purpose_check;
+ALTER TABLE public.outbound_messages ADD CONSTRAINT outbound_messages_purpose_check CHECK (purpose IN
+  ('reply','handoff_ack','stop_ack','identity','payment_instructions','payment_claim_ack','procedure_voice',
+   'offers_voice','sample','lyrics','song','video','status_eta','owner_alert','followup','merchant','reaction_confirm'));
 CREATE INDEX IF NOT EXISTS idx_outbox_pending ON public.outbound_messages (not_before) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_outbox_echo ON public.outbound_messages (session_name, chat_id, created_at DESC)
   WHERE status IN ('sending','sent','unknown');
@@ -416,7 +421,7 @@ ALTER TABLE public.orders ADD CONSTRAINT chk_payment_confirmed_by
   CHECK (payment_confirmed_by IS NULL OR payment_confirmed_by IN ('merchant','saspay'));
 ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS chk_lyrics_source;
 ALTER TABLE public.orders ADD CONSTRAINT chk_lyrics_source CHECK (lyrics_source IS NULL OR lyrics_source IN
-  ('merchant_whatsapp','merchant_studio','ai_draft_approved'));
+  ('merchant_whatsapp','merchant_studio','ai_draft_approved','merchant_reaction','merchant_reaction_mark'));
 CREATE INDEX IF NOT EXISTS idx_orders_conversation_open ON public.orders (conversation_id)
   WHERE stage NOT IN ('delivered','closed','cancelled');
 CREATE INDEX IF NOT EXISTS idx_orders_contact ON public.orders (contact_id, stage);
