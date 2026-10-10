@@ -25,8 +25,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 10 Octobre 2026 (13:50 UTC)
-- **Statut Opérationnel** : **Jalon 114 Validé — Résolution Définitive de l'Invariant Anti-Redondance sur le Message Particulier (Cas 11) & Validation 100% sur les 12 Cas Limites Réels (12/12 Parfaits)** :
+- **Dernière mise à jour** : 10 Octobre 2026 (14:15 UTC)
+- **Statut Opérationnel** : **Jalon 115 Validé — Audit et Validation des 3 Automatisations par Réaction WhatsApp (✨, 🎉, 🎵) & Zéro Redondance** :
+  1. **Audit & Exécution Réelle du Banc (`engine/scripts/test-merchant-automations.ts`)** :
+     - **Automatisation ✨ (`resume_ai`)** : L'ingestion de la réaction sur un message bascule immédiatement `control_mode` de `human` à `ai`. L'IA reprend la main sans régression via `resumeNote` et enchaîne le brief de façon fluide.
+     - **Automatisation 🎉 (`mark_delivered`)** : La réaction sur le message de livraison passe la commande en `stage = 'delivered'`. La fonction SQL `agent_contact_facts` incrémente instantanément `delivered_orders >= 1`. Dès le message suivant du client, le contexte CRM le qualifie de client récurrent/fidèle : le vocal de procédure est sauté et l'accueil d'habitué est activé.
+     - **Automatisation 🎵 (`confirm_and_produce`)** : La réaction sur un message de paroles extrait le texte exact sans le confondre avec d'autres commandes (`wa_message_key` et `focus_order_id`). Le LLM (DeepSeek Flash) extrait la voix et le style (ex: *Féminine douce* / *Afro-pop acoustique*). Les paroles sont enregistrées sous `lyrics_source = 'merchant_reaction'` et une bulle de confirmation officielle est envoyée. Test multi-commandes validé avec isolation étanche (zéro contamination).
+  2. **Audit d'Intégrité & Élimination de Toute Redondance** :
+     - Déclencheurs autorisés : `client_message` (prospect), `merchant_message` (prise en main humaine), `merchant_reaction` (✨, 🎉, 🎵, 📝), `followup` (report explicite), `retry` (panne LLM).
+     - Découverte de la 4e réaction `📝` (`mark_as_lyrics`) : variante silencieuse de `🎵` (enregistre le texte sans confirmation outbox ni extraction LLM).
+     - Aucune automatisation cachée, aucun cron intempestif, aucune table fantôme active.
+- **Jalon 114 Validé — Résolution Définitive de l'Invariant Anti-Redondance sur le Message Particulier (Cas 11) & Validation 100% sur les 12 Cas Limites Réels (12/12 Parfaits)** :
   1. **Analyse Médico-Légale de l'Erreur Identifiée par le Superviseur** :
      - *Pourquoi le banc automatique avait manqué le défaut* : Le script vérifiait des seuils de conformité négative (zéro émoji, zéro fuite Wave/OM, une seule question). L'IA avait posé 1 question, sans émoji, sans fuite, donc le script l'avait qualifiée de "Parfaite".
      - *Le vice d'expérience client réel* : Le client Drissa avait déversé 300 mots poignants sur les sacrifices de son frère aîné Ousmane à Ouahigouya et le financement de ses études d'ingénieur. Demander ensuite mécaniquement « Y a-t-il un message particulier ou des anecdotes ? » constituait une surdité bureaucratique blessante pour le client.
