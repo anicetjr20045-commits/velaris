@@ -252,6 +252,60 @@ describe('sales-brain: vidéo démo déduplication et garde liens externes', () 
   });
 });
 
+describe('sales-brain: directive anti-digression (off_topic)', () => {
+  function capturingMockLlm(returnData: Record<string, unknown>): { llm: LlmProvider; systems: string[] } {
+    const systems: string[] = [];
+    const llm: LlmProvider = {
+      name: 'mock',
+      async completeJson(req) {
+        systems.push(req.system ?? '');
+        return {
+          data: returnData,
+          model: 'mock',
+          usage: { promptTokens: 10, completionTokens: 10, cacheHitTokens: 0 },
+          latencyMs: 1,
+          attempts: 1,
+          reasoningDiscarded: false,
+        };
+      },
+    };
+    return { llm, systems };
+  }
+
+  const baseInput: SalesBrainInput = {
+    turnText: 'Au fait, vous regardez le match ce soir ?',
+    recent: [{ who: 'studio', text: 'C\'est bien noté pour Awa. C\'est prévu pour quelle date ?' }],
+    contact: {
+      phone: '22501020304',
+      name: 'Ibrahim',
+      wa_jid: '22501020304@s.whatsapp.net',
+    },
+    persona: {
+      studio_name: 'Velaris Studio',
+      agent_name: 'Alex',
+      manager_first_name: 'Jean',
+    },
+    orders: [],
+  };
+
+  test('digression=true injecte la directive prioritaire "répondre puis recadrer"', async () => {
+    const { llm, systems } = capturingMockLlm({ bubbles: ['Bien noté.'], procedure_voice: false });
+    const outcome = await generateSalesReply(llm, { ...baseInput, digression: true });
+    assert.equal(systems.length, 1);
+    assert.ok(systems[0]!.includes('DIRECTIVE ANTI-DIGRESSION (PRIORITAIRE)'));
+    assert.ok(systems[0]!.includes('UNE SEULE phrase sobre'));
+    assert.ok(systems[0]!.includes('ne pose JAMAIS de question'));
+    assert.ok(outcome.notes.some((n) => n.includes('anti-digression directive injected')));
+  });
+
+  test('sans digression, aucune directive anti-digression dans le prompt', async () => {
+    const { llm, systems } = capturingMockLlm({ bubbles: ['Bien noté.'], procedure_voice: false });
+    await generateSalesReply(llm, { ...baseInput });
+    assert.equal(systems.length, 1);
+    assert.ok(!systems[0]!.includes('DIRECTIVE ANTI-DIGRESSION'));
+  });
+});
+
 
 
 describe('cataloguePrices (M6) : prix dynamiques depuis le catalogue', () => {
