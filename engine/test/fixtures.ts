@@ -47,6 +47,7 @@ export function studio(over: Partial<StudioConfig> = {}): StudioConfig {
     hasProcedureVoice: true,
     hasSamples: true,
     catalogue: [OFFER_TEXT, OFFER_STANDARD],
+    paymentMethodCount: 2,
     ...over,
   };
 }
