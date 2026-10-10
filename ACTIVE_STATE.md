@@ -5,14 +5,20 @@
 
 ---
 
-## 🛡️ RÈGLE D'OR INVIOLABLE : ZÉRO EMPILEMENT, ZÉRO SLOP, AUDIT PERMANENT DU PROMPT
-1. **Zéro Empilement de Règles** : Ne jamais ajouter une règle sur une règle. Tout ajout doit être une simplification ou un ajustement chirurgical du prompt existant.
-2. **Audit Permanent à Chaque Étape** : À chaque modification, relire l'intégralité de `VELARIS_CLOSING_PROMPT_TEMPLATE` pour garantir :
-   - Strictement zéro règle redondante ou contradictoire.
-   - Strictement zéro regex / filtre TypeScript venant polluer le prompt ou le comportement.
-   - Structure chronologique linéaire pure (Occasion ➔ Brief 3 Piliers ➔ Vocal & Offres ➔ Paroles ➔ Paiement ➔ Style).
-   - Concision absolue (< 70 lignes).
-3. **Zéro Émoji & Zéro Façon Slop** : Dignité, respect ouest-africain authentique, ton direct et humain.
+## 🛡️ LE CONTRAT D'INGÉNIERIE IA INVIOLABLE : LES 4 PILIERS DU MOTEUR VELARIS
+
+1. **Zéro Empilement de Règles dans le Prompt (Concision Absolue < 60 lignes)** :
+   - Interdiction absolue d'ajouter une règle sur une règle pour traiter un cas particulier. Tout correctif doit être une simplification chirurgicale.
+   - Le prompt `VELARIS_CLOSING_PROMPT_TEMPLATE` ne gère pas la logique d'état : il fournit uniquement le ton (dignité ouest-africaine, concision, 1-2 phrases par bulle, 1 question max, zéro émoji).
+2. **Machine à États Déterministe en Base (FSM)** :
+   - L'avancement (`ACCEUIL` ➔ `COLLECTE_4_REPERES` ➔ `VOCAL_ENVOYE` ➔ `CHOIX_FORMULE` ➔ `RELAIS_GERANT_15MIN`) est piloté par PostgreSQL et TypeScript.
+   - Le LLM ne devine rien : on ne lui injecte que la mission précise de l'étape courante.
+3. **Zéro Regex Fragile Commerciale & Gardes Déterministes d'Unicité** :
+   - Aucune action commerciale (offres, vocal, vidéo démo, paiement) ne repose sur des regex de fortune (`.includes('ok')`, `/voir.*vidéo/`).
+   - Verrous d'unicité stricts en base (`procedure_voice_sent`, `video_sample_sent`) empêchant physiquement tout renvoi ou spam. Liens externes (TikTok, YouTube) neutralisés d'office.
+4. **Validation Obligatoire sur Banc d'Essai Réel (Zéro Mock Complaisant)** :
+   - Tout changement sur le cerveau ou la boucle d'exécution est obligatoirement testé contre le banc d'essai des 50 conversations réelles de production (`scripts/benchmark-real-50.ts`) avec de vrais appels LLM.
+   - Tout patch qui dégrade le score sous 90% ou réintroduit un faux positif est rejeté sans appel.
 
 ---
 
