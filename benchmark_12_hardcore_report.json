@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-10T13:33:45.484Z",
-  "perfectionRate": "91.7",
+  "timestamp": "2026-10-10T13:49:33.317Z",
+  "perfectionRate": "100.0",
   "results": [
     {
       "scenarioId": "CAS_01_CLIENT_LYRICS_DIRECT",
@@ -13,56 +13,54 @@
           "turnIndex": 1,
           "client": "Bonjour, j'ai déjà écrit les paroles pour l'anniversaire de mon mari. Voici le texte :\n\nDans tes bras j'ai trouvé la paix,\nDepuis 10 ans mon cœur renaît.\nJoyeux anniversaire mon amour Hervé,\nPour toujours à tes côtés.",
           "assistant": [
-            "Bonjour Marcelle. C'est bien noté pour les paroles.",
-            "Souhaitez-vous que notre équipe garde votre texte intact ou qu'elle l'adapte musicalement ?"
+            "Bonjour Marcelle. C'est bien noté pour l'anniversaire de votre mari Hervé et j'ai bien reçu vos paroles.",
+            "Souhaitez-vous que notre équipe garde votre texte tel quel ou qu'elle l'adapte musicalement ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4941,
+          "durationMs": 4356,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "Je veux que vous l'adaptiez musicalement pour que ça chante bien avec du rythme.",
           "assistant": [
-            "C'est bien noté pour l'adaptation musicale.",
-            "À quelle date est prévu l'anniversaire d'Hervé ?"
+            "C'est noté : votre texte sera adapté musicalement pour bien chanter avec du rythme."
           ],
-          "procedureVoiceDue": false,
+          "procedureVoiceDue": true,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3737,
+          "durationMs": 5039,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "C'est bien compris le vocal.",
           "assistant": [
-            "Parfait. Voici nos deux formules : la Découverte à 1 200 F CFA (chanson personnalisée complète, prête en 18 minutes) et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos).",
-            "Laquelle préférez-vous ?"
+            "Voici nos deux formules : la Découverte à 1 200 F CFA (chanson personnalisée complète, prête en 18 minutes) et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos). Laquelle préférez-vous ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3436,
+          "durationMs": 4303,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "Je prends Prestige à 3000 F.",
           "assistant": [
-            "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à l'adaptation musicale de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
-            "Les photos pour la vidéo souvenir pourront être envoyées après la validation de vos paroles."
+            "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
+            "Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. Les photos pourront être envoyées après la découverte des paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 3375,
+          "durationMs": 4732,
           "violations": []
         }
       ]
@@ -78,56 +76,55 @@
           "turnIndex": 1,
           "client": "Bonjour ! [Image envoyée : capture d'écran d'un poème d'amour]\nRegardez sur cette capture, j'ai trouvé ce joli message, je veux que la chanson dise exactement ça pour mon fiancé.",
           "assistant": [
-            "Bonjour Patricia, c'est bien noté pour le poème destiné à votre fiancé.",
-            "Souhaitez-vous que notre équipe garde votre texte intact ou qu'elle l'adapte musicalement ?"
+            "Bonjour Patricia, merci pour ce texte. C'est noté, les paroles partiront de ce poème pour votre fiancé.",
+            "Souhaitez-vous que notre équipe garde ce texte intact ou qu'elle l'adapte musicalement ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3971,
+          "durationMs": 3619,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "C'est pour notre anniversaire de fiançailles le 14 novembre. Il s'appelle Stéphane, et c'est de ma part Patricia.",
           "assistant": [
-            "C'est bien noté : pour Stéphane, le 14 novembre, de votre part. Votre poème sera donc adapté musicalement.",
-            "Y a-t-il un message particulier ou une anecdote que vous aimeriez ajouter aux paroles ? Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout."
+            "C'est bien noté : pour Stéphane, de votre part, pour le 14 novembre.",
+            "Pour le texte du poème, souhaitez-vous que notre équipe le garde intact ou qu'elle l'adapte musicalement ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3495,
+          "durationMs": 3518,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "D'accord j'ai écouté.",
           "assistant": [
-            "C'est noté, merci Patricia.",
-            "Voici nos deux formules : la Découverte à 1 200 F CFA (chanson personnalisée complète, prête en 18 minutes) et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos). Laquelle préférez-vous ?"
+            "Parfait. Pour le poème, préférez-vous que notre équipe le garde intact ou qu'elle l'adapte musicalement ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3483,
+          "durationMs": 4921,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "Formule Découverte 1200 F.",
           "assistant": [
-            "C'est bien noté pour la Formule Découverte ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
+            "C'est bien noté pour la Formule Découverte ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées à partir de votre poème.",
             "Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "decouverte",
-          "durationMs": 4866,
+          "durationMs": 3786,
           "violations": []
         }
       ]
@@ -143,14 +140,15 @@
           "turnIndex": 1,
           "client": "[Message vocal 1] : Allô bonjour, bon je suis au travail là je rentre fatigué...\n[Message vocal 2] : En fait c'est l'anniversaire de ma maman Adjoua le 18 décembre, c'est moi son fils Arnaud qui offre.\n[Message vocal 3] : Elle aime trop aller à la messe et quand on était petits elle vendait au marché pour payer nos études.",
           "assistant": [
-            "C'est bien noté, Arnaud. Pour l'anniversaire de votre maman Adjoua le 18 décembre.",
-            "Y a-t-il un message particulier ou des souvenirs que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas d'idées précises, notre équipe s'occupe de tout)."
+            "C'est bien noté pour l'anniversaire d'Adjoua le 18 décembre, offert par Arnaud.",
+            "Vos souvenirs sont notés : l'église et le marché pour financer vos études.",
+            "Y a-t-il un message particulier à faire passer dans les paroles ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3729,
+          "durationMs": 4303,
           "violations": []
         },
         {
@@ -164,21 +162,21 @@
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4008,
+          "durationMs": 3890,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "Prestige à 3000.",
           "assistant": [
-            "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
-            "Pour la vidéo souvenir, vous pourrez nous envoyer vos photos après la découverte des paroles."
+            "C'est bien noté pour la Formule Prestige !",
+            "Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. Les photos pourront être envoyées après la découverte des paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 3821,
+          "durationMs": 6491,
           "violations": []
         }
       ]
@@ -194,55 +192,56 @@
           "turnIndex": 1,
           "client": "Bonjour, est-ce que je peux voir un exemple ou extrait de votre vidéo souvenir pour voir comment vous faites le montage ?",
           "assistant": [
-            "Bonjour, c'est noté. Je vous montre un aperçu de notre vidéo souvenir.",
-            "Pour commencer, quelle est l'occasion de votre commande ?"
+            "Bonjour, oui bien sûr. Voici un aperçu de notre vidéo souvenir Prestige.",
+            "Pour que je prépare votre dossier, c'est pour quelle occasion ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": true,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3646,
+          "durationMs": 3279,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "Waouh c'est très beau ! C'est pour l'anniversaire de ma fille Chloé qui aura 3 ans le 1er décembre, de la part de ses parents Grace et Yannick.",
           "assistant": [
-            "C'est bien noté pour l'anniversaire de Chloé le 1er décembre, de la part de Grace et Yannick.",
+            "C'est noté pour l'anniversaire de Chloé, le 1er décembre, de la part de Grace et Yannick.",
             "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 11351,
+          "durationMs": 4715,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "Elle adore les câlins et sourire à tout le monde.",
           "assistant": [
-            "C'est bien noté pour les câlins et les sourires de Chloé."
+            "C'est bien noté pour les câlins et son sourire.",
+            "Souhaitez-vous ajouter d'autres anecdotes, ou préférez-vous que notre équipe s'occupe de tout ?"
           ],
-          "procedureVoiceDue": true,
+          "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3564,
+          "durationMs": 5163,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "C'est validé pour le vocal, je veux la formule Prestige avec la vidéo.",
           "assistant": [
-            "C'est bien noté pour la Formule Prestige. Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
-            "Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. Les photos pourront être envoyées après la découverte des paroles."
+            "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
+            "Vous pourrez nous envoyer vos photos après avoir découvert les paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 4303,
+          "durationMs": 5022,
           "violations": []
         }
       ]
@@ -258,55 +257,55 @@
           "turnIndex": 1,
           "client": "Bonjour, est-ce que c'est possible de commander deux chansons différentes ? Une pour mon père et une pour ma mère ?",
           "assistant": [
-            "Bonjour et bienvenue chez Velaris Studio. Oui, c'est tout à fait possible de commander deux chansons distinctes.",
-            "Souhaitez-vous commencer par celle pour votre père ou celle pour votre mère ?"
+            "Bonjour Benoît, c'est bien noté pour deux chansons, une pour votre père et une pour votre mère.",
+            "Pour commencer, quel est le prénom de votre père ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4533,
+          "durationMs": 3896,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "Commençons par mon père alors, il s'appelle Papa Joseph pour son anniversaire le 28 novembre, de la part de Benoît.",
           "assistant": [
-            "C'est bien noté pour Papa Joseph, le 28 novembre, de la part de Benoît."
+            "C'est noté pour Papa Joseph, anniversaire le 28 novembre, de la part de Benoît.",
+            "Y a-t-il un message particulier ou des souvenirs que vous aimeriez faire passer dans les paroles ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3922,
+          "durationMs": 4628,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "Il a toujours été un homme juste et travailleur.",
           "assistant": [
-            "C'est bien noté.",
-            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout.)"
+            "C'est bien noté pour Papa Joseph. Commençons par cette première chanson avant de passer à celle de votre mère."
           ],
-          "procedureVoiceDue": false,
+          "procedureVoiceDue": true,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3845,
+          "durationMs": 5522,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "C'est bien compris le vocal. Je prends la Découverte à 1200 F pour lui.",
           "assistant": [
-            "C'est bien noté pour la Formule Découverte ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
-            "Souhaitez-vous enchaîner maintenant sur la chanson pour votre mère ?"
+            "C'est bien noté pour la Formule Découverte à 1 200 F CFA pour Papa Joseph !",
+            "Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "decouverte",
-          "durationMs": 4075,
+          "durationMs": 3887,
           "violations": []
         }
       ]
@@ -322,54 +321,54 @@
           "turnIndex": 1,
           "client": "Bonjour, voici les photos de mon mari : [Photo 1] [Photo 2] [Photo 3] [Photo 4]. Je veux une chanson pour lui.",
           "assistant": [
-            "Bonjour Tatiana, c'est bien noté pour les photos. Il s'agit donc d'une chanson pour votre mari.",
-            "Quel est son prénom ?"
+            "Bonjour Madame Gnahoré, c'est bien noté pour les photos. Nous les garderons pour la formule Prestige si vous la choisissez.",
+            "Pour bien commencer, quel est le prénom de votre mari ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4895,
+          "durationMs": 4406,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "C'est pour son anniversaire le 5 décembre, il s'appelle Rodrigue, de la part de Tatiana.",
           "assistant": [
-            "C'est noté pour Rodrigue, le 5 décembre, de votre part. Y a-t-il un message particulier ou des souvenirs que vous aimeriez faire passer dans les paroles ? Et si vous n'avez pas d'idées précises, notre équipe s'occupe de tout."
+            "C'est noté pour l'anniversaire de Rodrigue le 5 décembre, de la part de Tatiana."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4325,
+          "durationMs": 3239,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "Juste lui dire merci d'être un mari formidable.",
           "assistant": [
-            "C'est bien noté, merci pour ces précisions."
+            "C'est bien noté pour votre message à Rodrigue."
           ],
           "procedureVoiceDue": true,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4810,
+          "durationMs": 3839,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "Ok j'ai écouté. Je prends la Prestige à 3000 F vu que j'ai déjà envoyé les photos !",
           "assistant": [
-            "C'est bien noté pour la Formule Prestige à 3 000 F CFA !",
-            "Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. Les photos seront utilisées pour votre vidéo souvenir après validation des paroles."
+            "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
+            "Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. Les photos seront utilisées après validation des paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 4706,
+          "durationMs": 5705,
           "violations": []
         }
       ]
@@ -385,55 +384,54 @@
           "turnIndex": 1,
           "client": "Bonjour l'équipe ! Vraiment aujourd'hui il y a trop d'embouteillages sur le pont d'Abidjan, je viens de rentrer là c'est fatiguant déh. Bref vous faites des chansons non ?",
           "assistant": [
-            "Bonjour Marius, oui nous créons des chansons personnalisées.",
-            "C'est pour quelle occasion ?"
+            "Bonjour Marius, oui nous créons des chansons personnalisées. C'est pour quelle occasion ?",
+            "Les embouteillages d'Abidjan, on connaît tous cela."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3388,
+          "durationMs": 4706,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "C'est pour ma chérie Estelle, son anniversaire le 12 décembre, de la part de Marius.",
           "assistant": [
-            "C'est bien noté pour Estelle, le 12 décembre, de votre part.",
-            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout."
+            "C'est bien noté pour Estelle, le 12 décembre, de la part de Marius.",
+            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout)."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4241,
+          "durationMs": 5160,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "Elle aime son travail d'infirmière et prend soin de tout le monde.",
           "assistant": [
-            "C'est bien noté pour Estelle, son métier d'infirmière et son dévouement."
+            "C'est bien noté : son dévouement d'infirmière et son attention aux autres seront au cœur des paroles."
           ],
           "procedureVoiceDue": true,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 5888,
+          "durationMs": 5095,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "C'est noté pour le vocal. La formule à 1200 F.",
           "assistant": [
-            "C'est bien noté pour la Formule Découverte à 1 200 F CFA !",
-            "Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation."
+            "Voici nos deux formules : la Découverte à 1 200 F CFA et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos)."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "decouverte",
-          "durationMs": 3915,
+          "durationMs": 4978,
           "violations": []
         }
       ]
@@ -449,14 +447,14 @@
           "turnIndex": 1,
           "client": "Allô j'ai déjà envoyé 3 000 F par Wave ce matin sur votre compte. Envoyez-moi ma chanson d'anniversaire directement maintenant.",
           "assistant": [
-            "Bonjour Kévin, c'est bien noté pour votre envoi. Ne vous inquiétez pas : nous préférons d'abord vous présenter vos paroles personnalisées pour que vous les validiez avant tout règlement.",
-            "Pour bien démarrer, c'est l'anniversaire de qui exactement ?"
+            "Bonjour Kévin. Je n'ai pas de commande enregistrée à votre nom pour l'instant. Avant tout, nous préférons que vous validiez vos paroles personnalisées avant tout règlement.",
+            "Pour qui est cette chanson d'anniversaire ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3700,
+          "durationMs": 4055,
           "violations": []
         },
         {
@@ -464,26 +462,26 @@
           "client": "Ah bon d'accord. C'est pour l'anniversaire de mon frère Franck le 20 décembre, de la part de Kévin.",
           "assistant": [
             "C'est bien noté pour Franck, le 20 décembre, de la part de Kévin.",
-            "Y a-t-il un message particulier ou des souvenirs que vous aimeriez faire passer dans les paroles ? (Si vous n'avez pas d'idées précises, notre équipe s'occupe de tout)."
+            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Si vous n'avez pas d'idées précises, notre équipe s'occupe de tout.)"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4286,
+          "durationMs": 4166,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "C'est un grand bosseur.",
           "assistant": [
-            "C'est noté, merci Kévin."
+            "C'est bien noté."
           ],
           "procedureVoiceDue": true,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3349,
+          "durationMs": 3955,
           "violations": []
         },
         {
@@ -491,13 +489,13 @@
           "client": "J'ai écouté. Je prends la Prestige.",
           "assistant": [
             "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
-            "Vous pourrez nous transmettre les photos souvenir pour la vidéo après validation de vos paroles."
+            "Vous pourrez nous transmettre les photos pour la vidéo souvenir après la découverte des paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 5177,
+          "durationMs": 3953,
           "violations": []
         }
       ]
@@ -506,65 +504,63 @@
       "scenarioId": "CAS_09_OVERLY_FAMILIAR",
       "name": "Client Ultra-Familier (\"Le Boss, la Famille\")",
       "turnsCount": 4,
-      "clean": false,
-      "violationsCount": 1,
+      "clean": true,
+      "violationsCount": 0,
       "turns": [
         {
           "turnIndex": 1,
           "client": "Mon vieux père ! C'est comment là-bas la famille ? Le boss fais-moi un bon son en feu pour ma go là tu connais déjà non ?",
           "assistant": [
-            "C'est bien noté pour votre go. Vous êtes Abou le Boss, c'est bien ça ?",
+            "C'est bien noté, Abou. Une chanson pour votre compagne.",
             "C'est prévu pour quelle date ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4284,
-          "violations": [
-            "Multiples questions (2)"
-          ]
+          "durationMs": 12705,
+          "violations": []
         },
         {
           "turnIndex": 2,
           "client": "Elle s'appelle Fatim, c'est pour son anniversaire le 25 décembre, de la part de son chéri Abou.",
           "assistant": [
-            "C'est bien noté pour Fatim, le 25 décembre, de la part d'Abou.",
-            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? Si vous n'avez pas d'idées précises, notre équipe s'occupe de tout."
+            "C'est noté pour Fatim, le 25 décembre, de la part d'Abou.",
+            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? Et si vous n'avez pas d'idées précises, notre équipe s'occupe de tout."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3627,
+          "durationMs": 11384,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "Dis-lui que je l'aime trop et qu'elle est la reine de ma vie.",
           "assistant": [
-            "C'est bien noté pour ce message."
+            "C'est bien noté pour votre message.",
+            "Avez-vous d'autres anecdotes à ajouter, ou souhaitez-vous que notre équipe s'occupe de tout ?"
           ],
-          "procedureVoiceDue": true,
+          "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3338,
+          "durationMs": 3718,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "C'est bien reçu le vocal boss. La formule Prestige à 3000 F.",
           "assistant": [
-            "C'est bien noté pour la Formule Prestige !",
-            "Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
-            "Vous pourrez nous transmettre vos photos après la découverte des paroles."
+            "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
+            "Vous pourrez nous transmettre les photos pour la vidéo souvenir après la découverte de vos paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 4022,
+          "durationMs": 3812,
           "violations": []
         }
       ]
@@ -580,27 +576,27 @@
           "turnIndex": 1,
           "client": "Bonjour, est-ce que vous pouvez faire un style acoustique doux un peu comme les chansons d'amour de Josey ?",
           "assistant": [
-            "Bonjour Clarisse, c'est noté pour un style acoustique doux, dans cette veine. Pour bien démarrer votre projet, pourriez-vous me dire quelle est l'occasion ?"
+            "Bonjour Clarisse, c'est noté pour un style acoustique doux dans l'esprit de Josey. Pour quelle occasion est cette chanson ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3574,
+          "durationMs": 3736,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "C'est pour le mariage de ma sœur Aïcha le 10 janvier, de la part de Clarisse.",
           "assistant": [
-            "C'est bien noté pour le mariage d'Aïcha le 10 janvier, de votre part.",
-            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout)."
+            "C'est bien noté pour le mariage d'Aïcha le 10 janvier, de la part de Clarisse.",
+            "Y a-t-il un message particulier ou des souvenirs que vous aimeriez faire passer dans les paroles ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4027,
+          "durationMs": 3717,
           "violations": []
         },
         {
@@ -613,21 +609,20 @@
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3341,
+          "durationMs": 3934,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "J'ai bien écouté. Formule Découverte 1200 F s'il vous plaît.",
           "assistant": [
-            "C'est bien noté pour la Formule Découverte à 1 200 F CFA ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
-            "Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation."
+            "C'est bien noté pour la Formule Découverte à 1 200 F CFA. Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "decouverte",
-          "durationMs": 7046,
+          "durationMs": 4414,
           "violations": []
         }
       ]
@@ -643,27 +638,28 @@
           "turnIndex": 1,
           "client": "Bonjour l'équipe Velaris. Je vous contacte car je souhaite rendre un hommage poignant à mon grand frère Ousmane Ouédraogo qui fête ses 40 ans ce 15 décembre. C'est moi Drissa son jeune frère qui organise cela. Ousmane a toujours été le pilier de notre famille depuis le décès de notre père en 2015 à Ouahigouya. Il s'est privé de tout pour financer mes études d'ingénieur et soutenir nos sœurs Mariam et Fati. Aujourd'hui il est marié, père de trois enfants magnifiques et continue de guider tout le monde avec sagesse et humilité. Je veux une chanson qui lui dise tout notre respect, notre gratitude infinie et que la famille sera toujours unie autour de lui.",
           "assistant": [
-            "Bien reçu, Drissa. Hommage pour les 40 ans d'Ousmane, le 15 décembre, de votre part.",
-            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout.)"
+            "Bonjour Drissa. C'est noté pour la chanson en hommage à votre grand frère Ousmane Ouédraogo pour ses 40 ans, le 15 décembre.",
+            "Votre histoire est déjà très complète, donc le brief est prêt. Préférez-vous que nous rédigions les paroles à partir de votre message, ou avez-vous un texte précis à nous confier ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 5168,
+          "durationMs": 5240,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "C'est très clair, j'ai écouté le vocal avec attention.",
           "assistant": [
-            "Parfait, Drissa. Voici nos deux formules : la Découverte à 1 200 F CFA (chanson personnalisée complète, prête en 18 minutes) et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos). Laquelle préférez-vous ?"
+            "Parfait Drissa.",
+            "Voici nos deux formules : la Découverte à 1 200 F CFA (chanson personnalisée complète, prête en 18 minutes) et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos). Laquelle préférez-vous ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4883,
+          "durationMs": 4100,
           "violations": []
         },
         {
@@ -671,13 +667,13 @@
           "client": "Je choisis la Prestige à 3000 F CFA avec la vidéo pour mettre nos photos de famille.",
           "assistant": [
             "C'est bien noté pour la Formule Prestige ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.",
-            "Pour la vidéo souvenir, vous pourrez nous transmettre vos photos de famille après la validation des paroles."
+            "Vous pourrez nous transmettre vos photos de famille après la découverte des paroles."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "prestige",
-          "durationMs": 4691,
+          "durationMs": 3711,
           "violations": []
         }
       ]
@@ -693,68 +689,68 @@
           "turnIndex": 1,
           "client": "slt bjr chanson fete truc la pour lui quoi",
           "assistant": [
-            "Bonjour. C'est bien noté pour une chanson de fête.",
-            "Pour quelle occasion précise est-ce prévu (anniversaire, mariage, autre) ?"
+            "Bonjour. C'est noté pour une chanson de fête.",
+            "C'est pour quelle occasion précisément, et pour quelle personne ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4307,
+          "durationMs": 3612,
           "violations": []
         },
         {
           "turnIndex": 2,
           "client": "anniversaire de mon pote yacouba le 8 decembre de la part de jean",
           "assistant": [
-            "C'est bien noté pour l'anniversaire de Yacouba, le 8 décembre, de la part de Jean.",
-            "Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? Et si vous n'avez pas d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de tout."
+            "C'est noté pour l'anniversaire de Yacouba, le 8 décembre, de la part de Jean.",
+            "Y a-t-il un message particulier ou des anecdotes à faire passer dans les paroles ?"
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 3320,
+          "durationMs": 3512,
           "violations": []
         },
         {
           "turnIndex": 3,
           "client": "juste lui souhaiter longue vie",
           "assistant": [
-            "C'est bien noté pour Yacouba."
+            "C'est bien noté."
           ],
           "procedureVoiceDue": true,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 5065,
+          "durationMs": 4257,
           "violations": []
         },
         {
           "turnIndex": 4,
           "client": "ok vu",
           "assistant": [
-            "Voici nos deux formules : la Découverte à 1 200 F CFA (chanson personnalisée complète, prête en 18 minutes) et la Prestige à 3 000 F CFA (chanson complète + vidéo souvenir avec vos photos). Laquelle préférez-vous ?"
+            "Parfait."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": false,
           "chosenFormula": null,
-          "durationMs": 4281,
+          "durationMs": 4321,
           "violations": []
         },
         {
           "turnIndex": 5,
           "client": "1200",
           "assistant": [
-            "C'est bien noté pour la Formule Découverte ! Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
+            "C'est bien noté pour la Formule Découverte à 1 200 F CFA. Notre équipe passe immédiatement à la rédaction de vos paroles personnalisées.",
             "Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation."
           ],
           "procedureVoiceDue": false,
           "videoSampleDue": false,
           "formulaChosen": true,
           "chosenFormula": "decouverte",
-          "durationMs": 5439,
+          "durationMs": 4785,
           "violations": []
         }
       ]

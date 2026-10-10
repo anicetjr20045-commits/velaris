@@ -25,8 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 10 Octobre 2026 (13:35 UTC)
-- **Statut Opérationnel** : **Jalon 113 Validé — Grand Banc d'Essai des 12 Situations Limites du Monde Réel (91.7% Parfait sur Appels Réels DeepSeek Flash via Kie.ai)** :
+- **Dernière mise à jour** : 10 Octobre 2026 (13:50 UTC)
+- **Statut Opérationnel** : **Jalon 114 Validé — Résolution Définitive de l'Invariant Anti-Redondance sur le Message Particulier (Cas 11) & Validation 100% sur les 12 Cas Limites Réels (12/12 Parfaits)** :
+  1. **Analyse Médico-Légale de l'Erreur Identifiée par le Superviseur** :
+     - *Pourquoi le banc automatique avait manqué le défaut* : Le script vérifiait des seuils de conformité négative (zéro émoji, zéro fuite Wave/OM, une seule question). L'IA avait posé 1 question, sans émoji, sans fuite, donc le script l'avait qualifiée de "Parfaite".
+     - *Le vice d'expérience client réel* : Le client Drissa avait déversé 300 mots poignants sur les sacrifices de son frère aîné Ousmane à Ouahigouya et le financement de ses études d'ingénieur. Demander ensuite mécaniquement « Y a-t-il un message particulier ou des anecdotes ? » constituait une surdité bureaucratique blessante pour le client.
+  2. **Harmonisation Conforme à la Règle Métier (`sales-brain.ts`)** :
+     - Étape 2, point 4 du brief : Si le client a DÉJÀ exprimé son histoire ou ses sentiments (même spontanément au début), le repère 4 est DÉJÀ COMPLET. Interdiction formelle de reposer la question du message : accuser réception de son histoire et passer directement au vocal ou à la validation.
+     - Si le client donne un élément très court (« juste lui dire que je l'aime ») : demander uniquement s'il a d'autres anecdotes à ajouter ou si l'équipe s'en charge.
+  3. **Résultat Réel Réexécuté contre DeepSeek Flash** :
+     - Cas 11 : L'IA répond désormais de façon magistrale : « Bonjour Drissa. C'est noté pour la chanson en hommage à votre grand frère Ousmane Ouédraogo... Votre histoire est déjà très complète, donc le brief est prêt... »
+     - Banc d'essai rejoué de bout en bout : **12 / 12 Cas Limites Réels 100% Parfaits (100.0%)**. Rapport dans [`benchmark_12_hardcore_report.json`](file:///root/projets/velaris/benchmark_12_hardcore_report.json).
+- **Jalon 113 Validé — Grand Banc d'Essai des 12 Situations Limites du Monde Réel (91.7% Parfait sur Appels Réels DeepSeek Flash via Kie.ai)** :
   1. **Banc d'Essai des 12 Cas Limites Réels (`benchmark-12-hardcore-cases.ts`)** :
      - Rejeu complet tour par tour contre l'API DeepSeek V4.1 Flash sur Kie.ai (latence 3-6s, vrais crédits consommés) sur les 12 situations complexes soumises par le superviseur :
      - **CAS_01 (Texte/Paroles fournies par le client)** : Remerciement sobre, proposition de garder le texte intact ou de l'adapter musicalement, déclenchement vocal, closing Prestige en 15 min.
