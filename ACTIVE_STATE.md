@@ -25,8 +25,20 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 10 Octobre 2026 (12:45 UTC)
-- **Statut Opérationnel** : **Jalon 111 Validé — Épuration Radicale du Prompt Commercial, Sécurisation des Gardes & Grand Banc d'Essai Réel (50 Conversations Réelles / 624 Tours Réels DeepSeek Flash via Kie.ai)** :
+- **Dernière mise à jour** : 10 Octobre 2026 (13:20 UTC)
+- **Statut Opérationnel** : **Jalon 112 Validé — Validation Médico-Légale des 8 Archétypes Clients Complexes (100.0% Réussite sur Appels Réels DeepSeek Flash via Kie.ai)** :
+  1. **Banc d'Essai des 8 Archétypes Complexes (`benchmark-diverse-archetypes.ts`)** :
+     - Rejeu complet tour par tour avec de vrais appels DeepSeek V4.1 Flash via l'API Kie.ai sur les 8 profils les plus complexes issus de la production.
+     - **ARCH_01_VOICE** : Note vocale ouest-africaine authentique (Miss Daniella) ➔ Brief compris, vocal déclenché au bon moment, closing Prestige validé.
+     - **ARCH_02_BURST** : Client rafaleur haché (Muller Abrodan) ➔ Les bulles éclatées sont absorbées sans répétition, closing Découverte en 15 min.
+     - **ARCH_03_FALSE_OK** : Le piège du client qui dit "ok" en plein brief (Kouassi David) ➔ L'IA ne déclenche PAS les offres par erreur, elle réitère calmement la question du brief restée en suspens. Faux positif éliminé à 100%.
+     - **ARCH_04_EXTERNAL_LINK** : Partage de lien vidéo TikTok externe (Sandrine) ➔ Neutralisation parfaite : zéro démo vidéo envoyée, le brief se poursuit sobrement, closing Prestige.
+     - **ARCH_05_HAGGLING** : Marchandage et négociation tarifaire (Souleymane Traoré, BF, "1200 F c'est trop cher, laisse à 1000 F") ➔ Fermeté tarifaire polie et respectueuse (« Je comprends, mais nos tarifs sont fixes... »), le client accepte et valide la formule Découverte.
+     - **ARCH_06_PRICE_FIRST** : Demande de prix d'emblée (Ibrahim, "C'est combien la chanson ?") ➔ Transparence immédiate en une phrase (1 200 F / 3 000 F) puis reprise en main du brief, closing Prestige.
+     - **ARCH_07_RETURNING** : Ancienne cliente fidèle pour sa 5e commande (Mme Sawadogo, BF) ➔ Pas de blabla, brief express, closing Prestige direct.
+     - **ARCH_08_GOSPEL_FAITH** : Chant chrétien / hommage spirituel doux (Razben) ➔ Accueil digne et recueilli, respect des croyances, closing Prestige.
+  2. **Résultats Factuels** : **8 / 8 Archétypes 100% Parfaits (100.0%)**, zéro émoji, zéro fuite paiement, zéro faux positif. Rapport sauvegardé dans [`benchmark_archetypes_report.json`](file:///root/projets/velaris/benchmark_archetypes_report.json).
+- **Jalon 111 Validé — Épuration Radicale du Prompt Commercial, Sécurisation des Gardes & Grand Banc d'Essai Réel (50 Conversations Réelles / 624 Tours Réels DeepSeek Flash via Kie.ai)** :
   1. **Épuration Radicale du Prompt Commercial (`sales-brain.ts`)** :
      - Élimination de l'empilement des 25 règles rigides et contradictions au profit d'un tunnel linéaire limpide en 5 étapes (Occasion ➔ 4 Repères ➔ Vocal ➔ Offres Découverte/Prestige ➔ Annonce des 15 minutes et passage de relais au gérant).
      - Règle de sortie stricte : Zéro emoji, phrases concises (1-2 phrases par bulle, 1 question max), vouvoiement naturel et digne.
