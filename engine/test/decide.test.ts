@@ -238,6 +238,45 @@ describe('Piste paiement : le numéro de dépôt n\'est jamais refusé (I21)', (
     assert.equal(hasTransition(d, 'payment_claimed'), false);
   });
 
+  test('« Chez nous ya pas Wave » (CONV_18), 2+ moyens configurés → liste des alternatives, pas de renvoi des numéros', () => {
+    const o = standardOrder({ stage: 'lyrics_validated', paymentStatus: 'instructions_sent', recipientNameConfirmed: true });
+    const d = run(input({
+      orders: [o],
+      studio: studio({ paymentMethodCount: 2 }),
+      understanding: understanding({ primaryIntent: 'no_payment_method' }),
+    }));
+    assert.deepEqual(goals(d), ['payment_no_method_alternatives']);
+    assert.deepEqual(steps(d), ['payment']);
+    assert.equal(hasTransition(d, 'instructions_sent'), false, 'pas de renvoi des instructions');
+  });
+
+  test('« Je n\'ai pas Wave » (CONV_18), un seul moyen configuré → alerte + vrai relais au gérant', () => {
+    const o = standardOrder({ stage: 'lyrics_validated', paymentStatus: 'instructions_sent', recipientNameConfirmed: true });
+    const d = run(input({
+      orders: [o],
+      studio: studio({ paymentMethodCount: 1 }),
+      understanding: understanding({ primaryIntent: 'no_payment_method' }),
+    }));
+    assert.deepEqual(goals(d), ['payment_no_method_handoff']);
+    assert.equal(acts(d, 'alert_owner').length, 1);
+    assert.equal((acts(d, 'alert_owner')[0] as { kind: string }).kind, 'no_payment_method');
+    assert.equal(acts(d, 'handoff').length, 1);
+    assert.equal((acts(d, 'handoff')[0] as { reason: string }).reason, 'no_payment_method');
+  });
+
+  test('« Combien d\'avance ? » (CONV_23) → politique 100 % avant production, avec le total', () => {
+    const o = standardOrder({ stage: 'lyrics_validated', paymentStatus: 'instructions_sent', recipientNameConfirmed: true });
+    const d = run(input({ orders: [o], understanding: understanding({ primaryIntent: 'ask_deposit' }) }));
+    assert.deepEqual(goals(d), ['deposit_policy_full']);
+    const total = d.utterances[0]!.facts.find((f) => f.key === 'total_xof');
+    assert.equal(total?.value, 3000);
+  });
+
+  test('« Je peux payer moitié-moitié ? » sans commande → politique générique, sans montant', () => {
+    const d = run(input({ understanding: understanding({ primaryIntent: 'ask_deposit' }) }));
+    assert.deepEqual(goals(d), ['deposit_policy_generic']);
+  });
+
   test('capacité paiement désactivée → passation, jamais de silence sur une question de paiement', () => {
     const d = run(input({
       studio: studio({ caps: { ...studio().caps, payment: false } }),

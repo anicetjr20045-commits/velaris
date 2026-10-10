@@ -35,6 +35,10 @@ export const DEFAULT_TEMPLATES: Readonly<Record<string, string>> = {
   payment_instructions:
     'Avec plaisir. Pour {orders_list}, le total est de {total} F CFA.\n{payment_lines}\nDès que c\'est fait, envoyez-moi simplement la capture ou le message de confirmation.',
   payment_claim_ack: 'Merci beaucoup. {manager} vérifie la réception et lance la suite tout de suite.',
+  payment_no_method_alternatives: 'Pas de souci. Voici nos moyens de paiement :\n{payment_lines}\nLequel vous arrange ?',
+  payment_no_method_handoff: 'Je comprends. Je transmets à {manager}, qui vous proposera une solution adaptée très vite.',
+  deposit_policy_full: 'Bonne question. Chez nous, le règlement se fait en une fois, avant le lancement de la production : {total} F CFA. Dès réception, on démarre aussitôt.',
+  deposit_policy_generic: 'Bonne question. Chez nous, le règlement se fait en une fois, avant le lancement de la production. Dès réception, on démarre aussitôt.',
   'payment_claim_ack.offhours': 'Merci beaucoup. {manager} vérifie la réception {manager_back_phrase} et lance la suite aussitôt.',
   'payment_claim_ack.confirmed': 'Votre paiement est bien confirmé, merci.',
   disambiguate_order: 'C\'est pour la chanson de {candidates} ?',

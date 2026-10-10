@@ -32,6 +32,10 @@ export const CORPUS: readonly CorpusCase[] = [
   { id: 'pay-07', context: { stage: 'lyrics_validated', paymentStatus: 'instructions_sent' }, text: 'Je n’ai pas encore payé, je fais ça ce soir', expect: { primary_intent: 'payment_deferral', payment_kind: 'defers', negated: true }, fewShot: true },
   { id: 'pay-08', context: { stage: 'lyrics_validated', paymentStatus: 'instructions_sent' }, text: 'Transfert effectué', expect: { primary_intent: 'payment_claim', payment_kind: 'claims_paid' }, fewShot: false },
   { id: 'pay-09', context: { stage: 'lyrics_validated', paymentStatus: 'instructions_sent' }, text: 'Je suis pas encore à la maison, je dépose en rentrant', expect: { primary_intent: 'payment_deferral', payment_kind: 'defers' }, fewShot: false },
+  { id: 'pay-10', context: { stage: 'lyrics_validated', paymentStatus: 'instructions_sent' }, text: "Chez nous ici ya pas Wave", expect: { primary_intent: 'no_payment_method' }, fewShot: true },
+  { id: 'pay-11', context: { stage: 'collecting_brief', paymentStatus: 'unpaid' }, text: "Je n'ai pas Wave, comment je fais ?", expect: { primary_intent: 'no_payment_method' }, fewShot: true },
+  { id: 'pay-12', context: { stage: 'lyrics_validated', paymentStatus: 'instructions_sent' }, text: "Combien d'avance ?", expect: { primary_intent: 'ask_deposit' }, fewShot: true },
+  { id: 'pay-13', context: { stage: 'offers', paymentStatus: 'unpaid' }, text: "Je peux payer moitié-moitié ?", expect: { primary_intent: 'ask_deposit' }, fewShot: false },
 
   // Accusés et attente : jamais un paiement, jamais un refus (cas Djalilou, Adeline)
   { id: 'ack-01', context: { stage: 'lyrics_in_progress', paymentStatus: 'unpaid' }, text: 'Bien reçu', expect: { primary_intent: 'acknowledgement', payment_kind: 'none' }, fewShot: true },

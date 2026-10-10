@@ -143,6 +143,8 @@ export const INTENTS = [
   'ask_payment_method',
   'payment_claim',
   'payment_deferral',
+  'no_payment_method',
+  'ask_deposit',
   'ask_status',
   'trust_concern',
   'asks_if_bot',
@@ -294,6 +296,8 @@ export interface StudioConfig {
   hasProcedureVoice: boolean;
   hasSamples: boolean;
   catalogue: readonly CatalogueItem[];
+  /** Nombre de moyens de paiement configurés (persona.payment_methods). */
+  paymentMethodCount: number;
 }
 
 /** Horloge déjà évaluée dans le fuseau du studio (§ 16) : decide() ne lit jamais l'heure. */
@@ -399,6 +403,10 @@ export const REPLY_GOALS = [
   'ack_deferral',
   'payment_instructions',
   'payment_claim_ack',
+  'payment_no_method_alternatives',
+  'payment_no_method_handoff',
+  'deposit_policy_full',
+  'deposit_policy_generic',
   'disambiguate_order',
   'confirm_cancel',
   'identity',
@@ -461,6 +469,7 @@ export type HandoffReason =
   | 'too_many_orders'
   | 'rate_limit'
   | 'capability_off'
+  | 'no_payment_method'
   | 'payment_lock';
 
 export type OwnerAlertKind =
@@ -474,6 +483,7 @@ export type OwnerAlertKind =
   | 'unclassified_image'
   | 'missing_price'
   | 'unmapped'
+  | 'no_payment_method'
   | 'production_ready';
 
 export type FollowupKind = 'brief_incomplete' | 'lyrics_unanswered' | 'payment_pending' | 'payment_after_deferral';
