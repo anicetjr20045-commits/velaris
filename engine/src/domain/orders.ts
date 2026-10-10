@@ -232,17 +232,32 @@ export type MissingSlot = BriefSlot | 'confirm_recipient_name';
  */
 export function missingSlots(order: OrderSnapshot, studio: StudioConfig): MissingSlot[] {
   const offer = catalogueItemFor(order, studio);
-  const required = new Set<BriefField>(offer ? offer.requiredFields : ['occasion', 'recipient_name']);
+  // Sans offre choisie (brief avant le choix), on exige l'union des champs requis
+  // des offres actives : le brief collecte tout, quelle que soit la formule finale.
+  const required = new Set<BriefField>(
+    offer
+      ? offer.requiredFields
+      : studio.catalogue.filter((c) => c.isActive).flatMap((c) => c.requiredFields),
+  );
+  if (required.size === 0) {
+    required.add('occasion');
+    required.add('recipient_name');
+  }
   const ordered: BriefSlot[] = [...studio.briefFieldOrder];
   for (const f of required) if (!ordered.includes(f)) ordered.push(f);
   if (!ordered.includes('offer')) ordered.push('offer');
 
   const missing: MissingSlot[] = [];
+  // Le client a fourni directement son texte : il contient déjà tout
+  // (occasion, prénom, expéditeur, message). Aucune question de brief,
+  // seul le choix d'offre reste.
+  const skipBriefFields = order.hasOwnLyrics;
   for (const slot of ordered) {
     if (slot === 'offer') {
       if (!isPriced(order)) missing.push('offer');
       continue;
     }
+    if (skipBriefFields) continue;
     if (!required.has(slot)) continue;
     if (slot === 'recipient_name' && order.lyrics && order.lyrics.trim().length > 0) continue;
     if (!fieldPresent(order, slot)) {
