@@ -114,6 +114,7 @@ interface RawTurnContext {
     language: string | null;
     memories?: string[];
     lyrics?: string | null;
+    client_own_lyrics?: string | null;
     memories_count: number;
     revision_count: number;
     payment_instructions_count: number;
@@ -674,6 +675,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     memoriesCount: o.memories_count,
     memories: Array.isArray(o.memories) ? o.memories : [],
     lyrics: o.lyrics ?? null,
+    hasOwnLyrics: !!o.client_own_lyrics && o.client_own_lyrics.trim().length > 0,
     photosCount: o.photos_count,
     revisionCount: o.revision_count,
     paymentInstructionsCount: o.payment_instructions_count,
