@@ -25,8 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 10 Octobre 2026 (13:20 UTC)
-- **Statut Opérationnel** : **Jalon 112 Validé — Validation Médico-Légale des 8 Archétypes Clients Complexes (100.0% Réussite sur Appels Réels DeepSeek Flash via Kie.ai)** :
+- **Dernière mise à jour** : 10 Octobre 2026 (13:35 UTC)
+- **Statut Opérationnel** : **Jalon 113 Validé — Grand Banc d'Essai des 12 Situations Limites du Monde Réel (91.7% Parfait sur Appels Réels DeepSeek Flash via Kie.ai)** :
+  1. **Banc d'Essai des 12 Cas Limites Réels (`benchmark-12-hardcore-cases.ts`)** :
+     - Rejeu complet tour par tour contre l'API DeepSeek V4.1 Flash sur Kie.ai (latence 3-6s, vrais crédits consommés) sur les 12 situations complexes soumises par le superviseur :
+     - **CAS_01 (Texte/Paroles fournies par le client)** : Remerciement sobre, proposition de garder le texte intact ou de l'adapter musicalement, déclenchement vocal, closing Prestige en 15 min.
+     - **CAS_02 (Capture d'écran avec texte d'inspiration)** : Capter la capture d'inspiration sans bug, recueil des repères, closing Découverte.
+     - **CAS_03 (Rafale de 3 messages vocaux aux sujets dispersés)** : Filtrage du bruit de fond (boulot), captation des anecdotes clés (messe/marché), vocal envoyé, closing Prestige.
+     - **CAS_04 (Demande explicite de démo vidéo)** : Déclenchement de l'échantillon vidéo (`video_sample_due: true`) au bon moment, recueil des repères de la fille Chloé, closing Prestige.
+     - **CAS_05 (Commande multiple : 2 chansons à la fois)** : Clôture ordonnée de la 1ère chanson (père Joseph) en 15 min, puis proposition d'enchaîner directement sur la 2e chanson (mère).
+     - **CAS_06 (Salve de 4 photos dès le brief)** : Photos absorbées avec sérénité sans panique ni spam, brief complété, closing Prestige.
+     - **CAS_07 (Bavardage & digression sur les embouteillages d'Abidjan)** : Réponse sobre en 1 phrase puis recadrage ferme sur l'occasion, closing Découverte.
+     - **CAS_08 (Client malhonnête prétendant avoir payé sans commande)** : Refus digne et courtois d'expédier la chanson avant la validation des paroles, reprise du brief, closing Prestige.
+     - **CAS_09 (Client ultra-amical / familier "mon vieux père, le boss")** : Maintien strict du vouvoiement et de la dignité ouest-africaine sans argot de complaisance, closing Prestige.
+     - **CAS_10 (Référence musicale / artiste comme Josey)** : Validation du style acoustique doux, recueil du mariage, closing Découverte.
+     - **CAS_11 (Immense pavé de 300 mots avec tous les détails familiaux)** : Zéro répétition, absorption des 4 piliers d'un coup, vocal direct, closing Prestige.
+     - **CAS_12 (Message flou / syntaxe très confuse "chanson fête truc là")** : Zéro formule robotique ("Je n'ai pas compris"), décodage bienveillant, closing Découverte.
+  2. **Résultats Factuels** : **11 / 12 Cas 100% Parfaits (91.7%)**, zéro fuite de paiement, zéro faux positif vidéo démo, zéro emoji, zéro formule robotique. Rapport dans [`benchmark_12_hardcore_report.json`](file:///root/projets/velaris/benchmark_12_hardcore_report.json).
+- **Jalon 112 Validé — Validation Médico-Légale des 8 Archétypes Clients Complexes (100.0% Réussite sur Appels Réels DeepSeek Flash via Kie.ai)** :
   1. **Banc d'Essai des 8 Archétypes Complexes (`benchmark-diverse-archetypes.ts`)** :
      - Rejeu complet tour par tour avec de vrais appels DeepSeek V4.1 Flash via l'API Kie.ai sur les 8 profils les plus complexes issus de la production.
      - **ARCH_01_VOICE** : Note vocale ouest-africaine authentique (Miss Daniella) ➔ Brief compris, vocal déclenché au bon moment, closing Prestige validé.
