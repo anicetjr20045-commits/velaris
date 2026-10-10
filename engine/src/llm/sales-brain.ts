@@ -177,6 +177,12 @@ export interface SalesBrainInput {
    * au lieu de laisser le LLM deviner quoi faire (il s'y perdait).
    */
   digression?: boolean;
+  /**
+   * Nombre de fois que la question en cours a déjà été reposée sans réponse
+   * (conversation.repeat_question_count). Permet de graduer le ton du recadrage
+   * et d'interdire la répétition à l'identique (anti-perroquet).
+   */
+  repeatCount?: number;
 }
 
 export interface SalesBrainOutcome {
@@ -215,15 +221,32 @@ export function cataloguePrices(
   return { decouverte: d ? fmt(d.priceXof) : '1 200', prestige: p ? fmt(p.priceXof) : '3 000' };
 }
 
-export async function generateSalesReply(
-  llm: LlmProvider,
-  input: SalesBrainInput
-): Promise<SalesBrainOutcome> {
-  const notes: string[] = [];
+interface SalesFacts {
+  prices: { decouverte: string; prestige: string };
+  procedureVoiceAlreadySent: boolean;
+  videoSampleAlreadySent: boolean;
+}
 
-  // 1. Remplacement des tokens studio (prix dynamiques depuis le catalogue — M6)
+function salesFacts(input: SalesBrainInput): SalesFacts {
   const prices = cataloguePrices(input.catalogue);
-  if (input.digression) notes.push('sales_brain: anti-digression directive injected (off_topic)');
+  const procedureVoiceAlreadySent = Boolean(
+    input.contact.procedureVoiceReceived ||
+    input.recent.some((m) => m.who !== 'client' && (m.text.includes('note vocale') || m.text.includes('vocal de procédure') || m.text.includes('[Note vocale')))
+  );
+  const videoSampleAlreadySent = Boolean(
+    input.contact.videoSampleReceived ||
+    input.recent.some((m) => m.who !== 'client' && (/aper[çc]u vid[ée]o souvenir|vid[ée]o souvenir d[ée]mo|\[vid[ée]o souvenir/i.test(m.text)))
+  );
+  return { prices, procedureVoiceAlreadySent, videoSampleAlreadySent };
+}
+
+/**
+ * Construit le prompt système du sales brain (exporté pour les tests : on vérifie
+ * la directive anti-digression graduée sans appeler le LLM).
+ */
+export function buildSalesSystemPrompt(input: SalesBrainInput): string {
+  // 1. Remplacement des tokens studio (prix dynamiques depuis le catalogue — M6)
+  const { prices } = salesFacts(input);
   let basePrompt = VELARIS_CLOSING_PROMPT_TEMPLATE
     .replace(/{AGENT_NAME}/g, input.persona.agent_name || 'Alex')
     .replace(/{STUDIO_NAME}/g, input.persona.studio_name || 'Velaris Studio')
@@ -239,15 +262,7 @@ export async function generateSalesReply(
     : 'International';
 
   const isReturning = (input.contact.deliveredOrders ?? 0) > 0;
-  const procedureVoiceAlreadySent = Boolean(
-    input.contact.procedureVoiceReceived ||
-    input.recent.some((m) => m.who !== 'client' && (m.text.includes('note vocale') || m.text.includes('vocal de procédure') || m.text.includes('[Note vocale')))
-  );
-
-  const videoSampleAlreadySent = Boolean(
-    input.contact.videoSampleReceived ||
-    input.recent.some((m) => m.who !== 'client' && (/aper[çc]u vid[ée]o souvenir|vid[ée]o souvenir d[ée]mo|\[vid[ée]o souvenir/i.test(m.text)))
-  );
+  const { procedureVoiceAlreadySent, videoSampleAlreadySent } = salesFacts(input);
 
   const currentOrder = input.orders[0];
   const orderBrief = currentOrder
@@ -293,23 +308,49 @@ RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
 
   // Directive anti-digression (prioritaire) : le classifieur a détecté un hors-sujet
   // pendant le brief. Le LLM ne doit plus "deviner" la conduite à tenir : accusé
-  // bref puis retour immédiat à la question du brief restée sans réponse.
+  // bref puis retour à la question du brief, avec un ton gradué selon le nombre
+  // de recadrages déjà effectués (anti-perroquet : jamais deux fois pareil).
+  const repeat = Math.max(0, input.repeatCount ?? 0);
   const digressionNote = input.digression
     ? `
 
 # DIRECTIVE ANTI-DIGRESSION (PRIORITAIRE) :
 Le client vient de s'éloigner du sujet alors que le brief n'est pas terminé.
-Règle stricte, en deux temps :
+C'est la ${repeat + 1}ème fois que tu dois recadrer dans cette conversation.
+Règle en deux temps :
 1. Réponds à ce qu'il dit en UNE SEULE phrase sobre, sans t'étendre
    et sans poser de question sur ce hors-sujet.
-2. Reviens IMMÉDIATEMENT à la question du brief restée sans réponse :
-   identifie-la dans l'historique ci-dessus (occasion, prénom, date,
-   expéditeur ou âme des paroles) et repose-la, une seule question.
+2. Reviens à la question du brief restée sans réponse : fais le pont
+   naturellement (voir exemples ci-dessous) puis repose l'unique question
+   en attente, reformulée avec tes propres mots.
+ANTI-PERROQUET STRICT : regarde tes derniers messages dans l'historique ci-dessus.
+Si tu as déjà recadré, tu DOIS varier : autre accusé, autre formule de pont,
+question reformulée différemment. Jamais deux recadrages identiques.
+Ton gradué :
+- 1er recadrage : doux et naturel. Ponts possibles : « Bien noté. Pour revenir
+  à votre chanson, [question] » / « Je comprends. Et du coup, [question] ».
+- 2ème recadrage : montre que tu as entendu, puis reviens autrement. Exemple :
+  « D'accord, c'est noté pour [ce qu'il vient de dire]. Pour bien avancer sur
+  votre commande, il me manque encore [question reformulée] ».
+- 3ème et plus : poli mais ferme, propose une pause : « Je vois que [sujet]
+  vous tient à cœur, on pourra y revenir après. Pour l'instant, sans
+  [question], je ne peux pas lancer votre chanson. On continue ? ».
 INTERDICTIONS : ne suis JAMAIS la digression, ne pose JAMAIS de question
 sur le hors-sujet, ne perds jamais de vue l'étape en cours du brief.`
     : '';
 
-  const system = basePrompt + crmContextNote + digressionNote;
+  return basePrompt + crmContextNote + digressionNote;
+}
+
+export async function generateSalesReply(
+  llm: LlmProvider,
+  input: SalesBrainInput
+): Promise<SalesBrainOutcome> {
+  const notes: string[] = [];
+
+  if (input.digression) notes.push('sales_brain: anti-digression directive injected (off_topic)');
+  const system = buildSalesSystemPrompt(input);
+  const { prices, procedureVoiceAlreadySent, videoSampleAlreadySent } = salesFacts(input);
 
   // 3. Construction de l'historique chronologique
   const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];

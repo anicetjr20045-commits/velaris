@@ -7,7 +7,7 @@ import { ConfigError, loadConfig } from '../src/config.js';
 import { DeepSeekProvider } from '../src/llm/deepseek.js';
 import { parseStrictJsonObject } from '../src/llm/json-guard.js';
 import { LlmError, type LlmProvider } from '../src/llm/provider.js';
-import { generateSalesReply, cataloguePrices, type SalesBrainInput } from '../src/llm/sales-brain.js';
+import { generateSalesReply, cataloguePrices, buildSalesSystemPrompt, type SalesBrainInput } from '../src/llm/sales-brain.js';
 
 type Reply = { status?: number; body: unknown };
 
@@ -377,5 +377,44 @@ describe('sales-brain : "trouvé sur Facebook" ne bloque plus la vidéo démo (m
     const outcome = await generateSalesReply(mockLlm2({ bubbles: ['Noté.'], video_sample: true }), input);
     assert.equal(outcome.videoSampleDue, false);
     assert.ok(outcome.notes.some((n) => n.includes('client is sharing external reference')));
+  });
+});
+
+describe('sales-brain: directive anti-digression graduée (anti-perroquet)', () => {
+  const base: SalesBrainInput = {
+    turnText: 'Au fait vous faites aussi des vidéos ?',
+    recent: [{ who: 'client', text: 'Au fait vous faites aussi des vidéos ?' }],
+    contact: { phone: '22501020304', name: null, wa_jid: '22501020304@s.whatsapp.net' },
+    persona: { studio_name: 'Velaris Studio', agent_name: 'Alex', manager_first_name: 'Jean' },
+    orders: [],
+  };
+
+  test('sans digression → aucune directive anti-digression', () => {
+    const p = buildSalesSystemPrompt(base);
+    assert.ok(!p.includes('ANTI-DIGRESSION'));
+  });
+
+  test('digression, 1er recadrage → ton doux, compteur à 1', () => {
+    const p = buildSalesSystemPrompt({ ...base, digression: true, repeatCount: 0 });
+    assert.ok(p.includes('ANTI-DIGRESSION'));
+    assert.ok(p.includes('1ème fois'));
+    assert.ok(p.includes('ANTI-PERROQUET STRICT'));
+  });
+
+  test('digression, 2ème recadrage → ton adapté, pas la même consigne', () => {
+    const p = buildSalesSystemPrompt({ ...base, digression: true, repeatCount: 1 });
+    assert.ok(p.includes('2ème fois'));
+    assert.ok(p.includes('montre que tu as entendu'));
+  });
+
+  test('digression, 4ème recadrage → ton ferme, proposition de pause', () => {
+    const p = buildSalesSystemPrompt({ ...base, digression: true, repeatCount: 3 });
+    assert.ok(p.includes('4ème fois'));
+    assert.ok(p.includes('poli mais ferme'));
+  });
+
+  test('le prompt contient des exemples de ponts naturels', () => {
+    const p = buildSalesSystemPrompt({ ...base, digression: true, repeatCount: 0 });
+    assert.ok(p.includes('Pour revenir à votre chanson'));
   });
 });
