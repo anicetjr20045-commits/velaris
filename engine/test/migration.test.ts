@@ -275,3 +275,52 @@ describe('migration 20261009_delivery_sent_audio (🎉 depuis audio_delivered)',
     assert.equal(o.stage, 'delivered');
   });
 });
+
+describe('migrations 20261009 (réactions 🎵/📝 : lyrics_source + purpose)', () => {
+  test('rejouables : contraintes mises à jour', async () => {
+    const m1 = read('supabase/migrations/20261009_lyrics_source_reaction.sql');
+    const m2 = read('supabase/migrations/20261009_outbox_purpose_reaction.sql');
+    await db.exec(m1); await db.exec(m1);
+    await db.exec(m2); await db.exec(m2);
+    const c1 = await one<{ n: number }>(
+      `SELECT count(*)::int AS n FROM pg_constraint WHERE conname = 'chk_lyrics_source'`);
+    const c2 = await one<{ n: number }>(
+      `SELECT count(*)::int AS n FROM pg_constraint WHERE conname = 'outbound_messages_purpose_check'`);
+    assert.equal(c1.n, 1);
+    assert.equal(c2.n, 1);
+  });
+
+  test("🎵 écrit lyrics_source='merchant_reaction' sans violation", async () => {
+    const id = '88888888-8888-8888-8888-888888888888';
+    await db.query(
+      `INSERT INTO public.orders (id, user_id, contact_id, conversation_id, amount_cents, status, stage)
+       VALUES ($1, $2, $3, $4, 120000, 'validated', 'lyrics_validated')`,
+      [id, USER, CONTACT, CONV]);
+    await db.query(
+      `UPDATE public.orders SET lyrics = 'test', lyrics_source = 'merchant_reaction' WHERE id = $1`, [id]);
+    const o = await one<{ s: string | null }>('SELECT lyrics_source AS s FROM orders WHERE id = $1', [id]);
+    assert.equal(o.s, 'merchant_reaction');
+  });
+
+  test("📝 écrit lyrics_source='merchant_reaction_mark' sans violation", async () => {
+    const id = '99999999-9999-9999-9999-999999999999';
+    await db.query(
+      `INSERT INTO public.orders (id, user_id, contact_id, conversation_id, amount_cents, status, stage)
+       VALUES ($1, $2, $3, $4, 120000, 'validated', 'lyrics_validated')`,
+      [id, USER, CONTACT, CONV]);
+    await db.query(
+      `UPDATE public.orders SET lyrics = 'test', lyrics_source = 'merchant_reaction_mark' WHERE id = $1`, [id]);
+    const o = await one<{ s: string | null }>('SELECT lyrics_source AS s FROM orders WHERE id = $1', [id]);
+    assert.equal(o.s, 'merchant_reaction_mark');
+  });
+
+  test("purpose='reaction_confirm' accepté en outbox", async () => {
+    const r = await db.query(
+      `INSERT INTO public.outbound_messages
+         (user_id, conversation_id, origin, kind, purpose, session_name, chat_id, body, idempotency_key, lock_token)
+       VALUES ($1, $2, 'agent', 'text', 'reaction_confirm', 's', 'c', 'b', 'idem_react_1', 1)
+       RETURNING id`,
+      [USER, CONV]);
+    assert.equal(r.rows.length, 1);
+  });
+});

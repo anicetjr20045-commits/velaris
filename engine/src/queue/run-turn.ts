@@ -339,7 +339,7 @@ async function handleMerchantReaction(
     await rdeps.db.rpc('agent_finish_turn', {
       p_turn: rturnRef.turnId,
       p_conversation: rturnRef.conversationId,
-      p_lock_token: rturnRef.lockToken,
+      p_token: rturnRef.lockToken,
       p_status: 'done',
       p_outcome: outcome,
     });
@@ -1242,13 +1242,16 @@ ${detailsSummary}
   // 13. Mettre en boîte d'envoi (agent_enqueue_outbox)
   // Vérification de sécurité en direct : si le gérant est intervenu sur WhatsApp pendant le calcul du tour,
   // la discussion est passée en mode humain. On annule immédiatement le tour sans rien insérer en outbox !
+  // CORRECTIF : ne pas annuler quand c'est l'IA elle-même qui a passé le relais pendant ce tour
+  // (ex : choix de formule → l'annonce des 15 minutes doit quand même partir au client).
   if (turnRef.conversationId && deps.db.queryTable) {
     const liveConv = await deps.db.queryTable<Array<{ control_mode: string; control_actor: string | null }>>(
       'conversations',
       `id=eq.${turnRef.conversationId}&select=control_mode,control_actor`
     ).catch(() => []);
     const cm = liveConv?.[0]?.control_mode;
-    if (cm === 'human') {
+    const actor = liveConv?.[0]?.control_actor;
+    if (cm === 'human' && actor === 'merchant') {
       await deps.db.rpc('agent_finish_turn', {
         p_turn: turnRef.turnId,
         p_conversation: turnRef.conversationId,

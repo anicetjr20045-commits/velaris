@@ -11,7 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsc -p tsconfig.json && node --test dist/test/parity.test.js dist/test/decide.test.js dist/test/step-policy.test.js dist/test/migration.test.js dist/test/ingest.test.js dist/test/llm.test.js dist/test/lyrics-composer.test.js dist/test/outbox.test.js dist/test/ingest-sql.test.js dist/test/turn-sql.test.js dist/test/transcribe.test.js",
-    "start": "node dist/src/main.js"
+    "start": "node dist/src/main.js",
+    "test:scenarios": "tsc -p tsconfig.json && node --test dist/test/scenarios/index.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
