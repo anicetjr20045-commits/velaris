@@ -90,6 +90,8 @@ Définitions essentielles :
 - patient_wait : le client accepte d'attendre (« j'attends alors »). Ce n'est JAMAIS un refus ni un changement d'avis.
 - ask_payment_method : le client demande où ou comment payer, quelle que soit la forme (« le numéro de dépôt », « c'est sur quelle numéro », « OM ou Wave »).
 - payment_claim : le client affirme avoir payé ou envoie une preuve. payment_deferral : il paiera plus tard (précise la raison et le moment).
+- no_payment_method : le client NE PEUT PAS utiliser le moyen proposé (« je n'ai pas Wave », « chez nous ya pas Wave », « je n'ai pas OM »). Ce n'est ni un report ni un refus de payer.
+- ask_deposit : le client demande s'il peut payer en plusieurs fois ou quel acompte verser (« combien d'avance ? », « je peux payer moitié-moitié ? », « l'acompte c'est combien ? »).
 - confirm_yes / confirm_no : réponse à la question posée juste avant (« Non pas encore » = confirm_no).
 - positive_feedback : appréciation (« c'est propre », « c'est doux »). validate_lyrics : validation explicite des paroles (« c'est validé »).
 - ask_sample : veut écouter un exemple (« kpata là voyons voir le son »).
