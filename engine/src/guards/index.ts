@@ -1,6 +1,14 @@
 /**
- * Garde-fous de sortie (§ 13) pour tout texte RÉDIGÉ par le modèle.
- * Fonctions pures. Un texte qui échoue n'est jamais envoyé (I17).
+ * Garde-fous de sortie pour tout texte RÉDIGÉ par le modèle. Fonctions pures.
+ *
+ * MODE ACTUEL — « libre et unifié » (décision produit délibérée) :
+ * seule la présence de balisage technique résiduel (crochets, JSON, identifiants WhatsApp...)
+ * bloque un texte. Il n'y a volontairement AUCUNE censure de ton, de politesse, de montants
+ * ou de numéros : le cerveau commercial a besoin de cette liberté pour vendre.
+ *
+ * La justesse des prix est assurée en amont, pas ici : les tarifs sont injectés dans le prompt
+ * depuis le catalogue du studio (tokens {PRIX_DECOUVERTE}/{PRIX_PRESTIGE}, cf. M6) au lieu
+ * d'être codés en dur. Ne pas réactiver de censure stricte ici sans décision produit explicite.
  */
 
 export interface GuardContext {

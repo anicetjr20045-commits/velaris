@@ -497,7 +497,6 @@ DELETE FROM public.order_transitions;
 INSERT INTO public.order_transitions (track, from_state, event, to_state, allowed_actors) VALUES
   -- Piste créative
   ('creative','collecting_brief',  'brief_completed',      'brief_complete',     ARRAY['agent','merchant']),
-  ('creative','brief_complete',    'procedure_voice_sent', 'lyrics_in_progress', ARRAY['agent','system']),
   ('creative','brief_complete',    'lyrics_work_started',  'lyrics_in_progress', ARRAY['agent','merchant','system']),
   ('creative','collecting_brief',  'lyrics_sent',          'lyrics_sent',        ARRAY['merchant']),
   ('creative','brief_complete',    'lyrics_sent',          'lyrics_sent',        ARRAY['merchant']),

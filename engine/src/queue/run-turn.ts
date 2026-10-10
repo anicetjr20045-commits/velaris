@@ -28,7 +28,7 @@ import { bodyHash } from '../ingest/wa-ids.js';
 import type { LlmProvider } from '../llm/provider.js';
 import { understand, type UnderstandInput } from '../llm/understand.js';
 import { composeLyrics, reviseLyrics } from '../llm/lyrics-composer.js';
-import { generateSalesReply } from '../llm/sales-brain.js';
+import { generateSalesReply, cataloguePrices } from '../llm/sales-brain.js';
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
 import type { AudioTranscriber } from '../services/transcribe.js';
@@ -90,7 +90,9 @@ interface RawTurnContext {
   };
   contact_facts: {
     delivered_orders: number;
-    procedure_voice_received: boolean;
+    /** CORRECTIF (M1) : le SQL (agent_contact_facts) retourne procedure_voice_received_at (timestamptz),
+     *  pas un booléen procedure_voice_received. L'ancienne clé valait toujours undefined. */
+    procedure_voice_received_at: string | null;
   };
   session_owner: string | null;
   orders: Array<{
@@ -147,6 +149,7 @@ interface RawTurnContext {
     max_agent_msgs_per_hour: number;
     max_free_revisions: number;
     payment_methods: Array<{ provider: string; number: string; holder: string; country?: string }>;
+    alert_phone: string | null;
   };
   catalogue: Array<{
     code: string;
@@ -198,6 +201,118 @@ interface RawTurnContext {
   agent_msgs_last_hour: number;
   recent_agent_bodies: string[];
   now: string;
+}
+
+/**
+ * CORRECTIF (M1) : le SQL (agent_contact_facts) retourne procedure_voice_received_at (timestamptz),
+ * pas un booléen. Cette sonde couvre TOUT l'historique du contact (toutes conversations),
+ * pas seulement les 10 derniers messages.
+ */
+function contactReceivedProcedureVoice(facts: { procedure_voice_received_at?: string | null } | undefined): boolean {
+  return facts?.procedure_voice_received_at != null;
+}
+
+/**
+ * CORRECTIF (C6) : un vocal ENTRANT du client (role='user', media_kind='audio') ne doit JAMAIS
+ * être compté comme "vocal de procédure déjà envoyé". Seuls les vocaux émis par l'assistant
+ * (role='assistant') comptent — sinon les clients qui communiquent par notes vocales
+ * (cas très fréquent) ne reçoivent jamais le vocal de procédure et le funnel est cassé.
+ */
+function assistantSentVoiceInRecent(recent: Array<{ role: string; text: string | null; media_kind: string | null }>): boolean {
+  return recent.some((r) => r.role === 'assistant' && (r.media_kind === 'audio' || r.text === null));
+}
+
+/**
+ * CORRECTIF (C5) : panne du fournisseur LLM (DeepSeek/Kie.ai).
+ * Le tour est RETENU et replanifié avec backoff exponentiel — jamais traité comme "incompris".
+ * Avant ce correctif, le bot envoyait une réponse incohérente ("pas en avant") au client.
+ * Après épuisement des tentatives, le gérant est alerté et le tour est clos proprement.
+ */
+const PROVIDER_RETRY_DELAYS_MS = [60_000, 120_000, 300_000, 600_000, 900_000];
+
+async function getProviderRetryCount(db: Db, turnId: string): Promise<number> {
+  try {
+    const rows = await db.queryTable?.<Array<{ trigger_data: { retry_count?: number } }>>(
+      'conversation_turns',
+      `id=eq.${turnId}&select=trigger_data&limit=1`,
+    );
+    const n = rows?.[0]?.trigger_data?.retry_count;
+    return typeof n === 'number' && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function holdTurnForProviderRetry(
+  deps: RunTurnDeps,
+  turnRef: TurnRef,
+  raw: RawTurnContext,
+  trace: string[],
+  startedAt: number,
+): Promise<RunTurnOutcome> {
+  const retryCount = await getProviderRetryCount(deps.db, turnRef.turnId);
+  const maxRetries = PROVIDER_RETRY_DELAYS_MS.length;
+
+  if (retryCount < maxRetries && deps.db.insertRow) {
+    const delayMs = PROVIDER_RETRY_DELAYS_MS[retryCount]!;
+    const readyAt = new Date(Date.now() + delayMs).toISOString();
+    try {
+      await deps.db.insertRow('conversation_turns', {
+        user_id: turnRef.userId,
+        conversation_id: turnRef.conversationId,
+        trigger: 'retry',
+        status: 'scheduled',
+        inbound_message_ids: raw.turn.inbound_message_ids,
+        trigger_data: { reason: 'provider_down', retry_of: turnRef.turnId, retry_count: retryCount + 1 },
+        ready_at: readyAt,
+      });
+      trace.push(`provider down: turn held, retry #${retryCount + 1}/${maxRetries} scheduled in ${delayMs / 1000}s`);
+      deps.log('turn held for provider retry', { turnId: turnRef.turnId, retry: retryCount + 1, readyAt });
+    } catch (err) {
+      trace.push(`provider down: retry scheduling failed (${(err as Error).message}), turn held without retry`);
+      deps.log('provider retry scheduling failed', { turnId: turnRef.turnId, error: (err as Error).message });
+    }
+  } else {
+    trace.push(`provider down: ${maxRetries} retries exhausted, alerting manager`);
+    deps.log('provider down: retries exhausted, alerting manager', { turnId: turnRef.turnId });
+    // Alerte gérant via l'outbox (indépendante du LLM en panne).
+    // SÉCURITÉ : sans alert_phone configuré, on n'alerte pas plutôt que d'alerter le client.
+    const alertPhone = raw.persona?.alert_phone?.replace(/\D/g, '');
+    if (alertPhone) {
+      try {
+        await deps.db.rpc('agent_enqueue_outbox', {
+          p_user: turnRef.userId,
+          p_conversation: turnRef.conversationId,
+          p_order: null,
+          p_turn: turnRef.turnId,
+          p_origin: 'system_alert',
+          p_kind: 'text',
+          p_purpose: 'owner_alert',
+          p_is_relay: false,
+          p_session: raw.conversation.session_name,
+          p_chat_id: `${alertPhone}@c.us`,
+          p_body: `⚠️ [Velaris] Le fournisseur IA est en panne depuis plusieurs minutes. Les réponses automatiques sont en pause sur cette discussion — prenez la main manuellement si besoin.`,
+          p_media_path: null,
+          p_caption: null,
+          p_body_hash: null,
+          p_idempotency_key: `alert_${turnRef.turnId}_provider_down`,
+        });
+      } catch (err) {
+        deps.log('provider down: manager alert failed', { error: (err as Error).message });
+      }
+    } else {
+      deps.log('provider down: no alert_phone configured, manager not alerted', { turnId: turnRef.turnId });
+    }
+  }
+
+  await deps.db.rpc('agent_finish_turn', {
+    p_turn: turnRef.turnId,
+    p_conversation: turnRef.conversationId,
+    p_token: turnRef.lockToken,
+    p_status: 'done',
+    p_outcome: 'held_provider_down',
+  });
+  return { outcome: 'held_provider_down', trace, enqueuedIds: [], latencyMs: Date.now() - startedAt };
 }
 
 export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunTurnOutcome> {
@@ -279,6 +394,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
   // 4. Préparer les messages entrants du tour (avec transcription à la volée des vocaux si non encore transcrits)
   const pendingAudios = raw.inbound.filter((m) => m.media_kind === 'audio' && !m.transcript);
+  const failedAudios: string[] = [];
   if (pendingAudios.length > 0 && deps.transcriber) {
     await Promise.all(
       pendingAudios.map(async (m) => {
@@ -294,9 +410,12 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
           if (text) {
             m.transcript = text;
             m.transcript_status = 'done';
+          } else {
+            failedAudios.push(m.id);
           }
         } catch {
           // Si la transcription échoue, on continue pour ne pas bloquer le tour
+          failedAudios.push(m.id);
         }
       })
     );
@@ -313,6 +432,39 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     })
     .filter(Boolean);
   const turnText = inboundTexts.join('\n').trim();
+
+  // CORRECTIF (M9) : avant, un échec de transcription (2 tentatives déjà épuisées : ingestion + tour)
+  // entraînait une perte silencieuse du contenu du vocal. Désormais le gérant est alerté
+  // quand il n'y a aucun texte exploitable — il peut écouter le vocal manuellement.
+  if (failedAudios.length > 0) {
+    if (!turnText) {
+      trace.push(`transcription failed for ${failedAudios.length} voice note(s), no usable text — alerting manager`);
+      const alertPhone = raw.persona.alert_phone?.replace(/\D/g, '');
+      if (alertPhone) {
+        await deps.db
+          .rpc('agent_enqueue_outbox', {
+            p_user: turnRef.userId,
+            p_conversation: turnRef.conversationId,
+            p_order: null,
+            p_turn: turnRef.turnId,
+            p_origin: 'system_alert',
+            p_kind: 'text',
+            p_purpose: 'owner_alert',
+            p_is_relay: false,
+            p_session: conversation.session_name,
+            p_chat_id: `${alertPhone}@c.us`,
+            p_body: `⚠️ [Velaris] Impossible de transcrire ${failedAudios.length > 1 ? 'des notes vocales' : 'une note vocale'} de ${contact.name ?? conversation.chat_id}. Écoutez-la manuellement sur WhatsApp.`,
+            p_media_path: null,
+            p_caption: null,
+            p_body_hash: null,
+            p_idempotency_key: `alert_${turnRef.turnId}_transcribe_failed`,
+          })
+          .catch(() => undefined);
+      }
+    } else {
+      trace.push(`transcription failed for ${failedAudios.length} voice note(s), continuing with other text`);
+    }
+  }
 
   // 5. Convertir les commandes en OrderSnapshot
   const orders: OrderSnapshot[] = raw.orders.map((o) => ({
@@ -354,6 +506,8 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
   // 6. Compréhension (Understand)
   const offersList = catalogue.map((c) => ({ code: c.code, label: c.label }));
+  // CORRECTIF (M6) : prix dynamiques depuis le catalogue du studio (jamais en dur).
+  const studioPrices = cataloguePrices(catalogue);
   const openOrdersContext = orders.map((o) => ({ recipient: o.recipientName, occasion: o.occasion }));
   const currentStage = orders[0]?.stage ?? 'collecting_brief';
   const currentPaymentStatus = orders[0]?.paymentStatus ?? 'unpaid';
@@ -379,6 +533,12 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   const understandResult = await understand(deps.llmProvider, understandInput);
   const understanding: Understanding = understandResult.understanding;
   trace.push(`understand: ${understanding.primaryIntent} (conf=${understanding.confidence.toFixed(2)})`);
+
+  // CORRECTIF (C5) : fournisseur LLM en panne → le tour est retenu et replanifié,
+  // jamais traité comme "incompris". Aucun message n'est envoyé au client.
+  if (understandResult.providerFailed) {
+    return holdTurnForProviderRetry(deps, turnRef, raw, trace, startedAt);
+  }
 
   // 7. Calculer les délais annonçables
   const etaMap: Record<string, { lyrics?: string; production?: string; video?: string }> = {};
@@ -436,7 +596,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     orders,
     contact: {
       deliveredOrders: raw.contact_facts?.delivered_orders ?? 0,
-      procedureVoiceReceived: raw.contact_facts?.procedure_voice_received ?? false,
+      procedureVoiceReceived: contactReceivedProcedureVoice(raw.contact_facts),
     },
     conversation: {
       pendingQuestion: conversation.pending_question as any,
@@ -481,7 +641,34 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       (action.reason === 'rate_limit' || action.reason === 'loop' || action.reason === 'low_confidence') &&
       conversation.control_mode === 'ai'
     ) {
-      trace.push(`${action.reason} handoff bypassed: active sales conversation`);
+      // CORRECTIF (M5) : la passation est contournée pour ne pas casser une vente en cours,
+      // mais le gérant DOIT être prévenu — avant, le client n'avait rien et personne n'était au courant.
+      trace.push(`${action.reason} handoff bypassed: active sales conversation — alerting manager`);
+      await queueOwnerAlert(
+        {
+          db: deps.db,
+          conversationId: turnRef.conversationId,
+          turnId: turnRef.turnId,
+          orderVersionMap,
+          getCreatedOrderId: () => createdOrderId,
+          setCreatedOrderId: (id: string) => {
+            createdOrderId = id;
+            orderVersionMap.set(id, 0);
+          },
+          llmProvider: deps.llmProvider,
+          persona,
+          orders,
+          rawOrders: raw.orders,
+          userId: raw.conversation.user_id,
+          sessionName: conversation.session_name,
+          clientName: contact.name,
+          lockToken: turnRef.lockToken,
+          trace,
+        },
+        orders[0]?.id ?? null,
+        `⚠️ [Velaris] Passation automatique ignorée (${action.reason}) sur la discussion avec ${contact.name ?? conversation.chat_id}. Le client attend une réponse — prenez la main si besoin.`,
+        `handoff_bypass_${action.reason}`,
+      ).catch(() => undefined);
       continue;
     }
     await applyAction(action, {
@@ -502,6 +689,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       sessionName: conversation.session_name,
       clientName: contact.name,
       lockToken: turnRef.lockToken,
+      trace,
     });
   }
 
@@ -579,8 +767,8 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         wa_jid: contact.wa_jid,
         deliveredOrders: raw.contact_facts?.delivered_orders ?? 0,
         procedureVoiceReceived: Boolean(
-          raw.contact_facts?.procedure_voice_received ||
-          raw.recent.some((r) => r.media_kind === 'audio' || (r.role === 'assistant' && r.text === null))
+          contactReceivedProcedureVoice(raw.contact_facts) ||
+          assistantSentVoiceInRecent(raw.recent)
         ),
         videoSampleReceived: Boolean(
           raw.recent.some((r) => r.media_kind === 'video' || (r.text && /aper[çc]u vid[ée]o souvenir|vid[ée]o souvenir d[ée]mo/i.test(r.text)))
@@ -592,6 +780,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         manager_first_name: persona.manager_first_name,
       },
       orders,
+      catalogue,
     });
 
     trace.push(...salesOutcome.notes);
@@ -617,11 +806,20 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
       // 1. Si le brief est complet et que le vocal de procédure est dû (strictement 1 fois par discussion)
       const procedureVoiceAlreadySent = Boolean(
-        raw.contact_facts?.procedure_voice_received ||
-        raw.recent.some((r) => r.media_kind === 'audio' || (r.role === 'assistant' && r.text === null))
+        contactReceivedProcedureVoice(raw.contact_facts) ||
+        assistantSentVoiceInRecent(raw.recent)
       );
 
-      if (salesOutcome.procedureVoiceDue && persona.cap_procedure_voice !== false && !procedureVoiceAlreadySent) {
+      // CORRECTIF (M14) : la décision déterministe est souveraine. decide() émet send_procedure_voice
+      // quand le brief est complet (I13) ; avant, seul le LLM (procedureVoiceDue) pilotait l'envoi et
+      // les deux pouvaient diverger (vocal jamais envoyé, ou brief complet sans vocal).
+      const decidedProcedureVoiceDue = decision.actions.some((a) => a.type === 'send_procedure_voice');
+      const procedureVoiceDue = salesOutcome.procedureVoiceDue || decidedProcedureVoiceDue;
+      if (decidedProcedureVoiceDue && !salesOutcome.procedureVoiceDue) {
+        trace.push('deterministic: procedure voice due by decide(), LLM did not flag it — enforcing');
+      }
+
+      if (procedureVoiceDue && persona.cap_procedure_voice !== false && !procedureVoiceAlreadySent) {
         const procedureAsset = raw.assets.find((a) => a.kind === 'voice' && a.purpose === 'procedure');
         renderedMessages.push({
           kind: 'voice',
@@ -631,7 +829,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
           isRelay: false,
         });
         trace.push('sales_brain: procedure voice note enqueued');
-      } else if (salesOutcome.procedureVoiceDue && procedureVoiceAlreadySent) {
+      } else if (procedureVoiceDue && procedureVoiceAlreadySent) {
         trace.push('guard: procedure voice already sent in conversation, duplicate suppressed');
       }
 
@@ -644,14 +842,15 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
           }
         }
         // Si après accusé de réception du vocal le bot n'a pas présenté les offres, les présenter immédiatement
-        const hasOffersMention = renderedMessages.some((m) => m.kind === 'text' && (m.body?.includes('1 200') || m.body?.includes('Formule') || m.body?.includes('formule')));
+        // CORRECTIF (M6) : détection basée sur les prix catalogue dynamiques, pas '1 200' en dur.
+        const hasOffersMention = renderedMessages.some((m) => m.kind === 'text' && (m.body?.includes(studioPrices.decouverte) || m.body?.includes(studioPrices.prestige) || m.body?.includes('Formule') || m.body?.includes('formule')));
         const turnTextLower = turnText.toLowerCase();
         const clientAcknowledgedVoice = turnTextLower.includes('convient') || turnTextLower.includes('d\'accord') || turnTextLower.includes('daccord') || turnTextLower.includes('c\'est bon') || turnTextLower.includes('ok') || turnTextLower.includes('bien reçu');
         if (!hasOffersMention && clientAcknowledgedVoice) {
           renderedMessages.push({
             kind: 'text',
             purpose: 'reply',
-            body: 'Voici nos deux formules : Découverte à 1 200 F CFA (chanson complète en 18 minutes) et Prestige à 3 000 F CFA (chanson + vidéo souvenir avec photos). Laquelle préférez-vous ?',
+            body: `Voici nos deux formules : Découverte à ${studioPrices.decouverte} F CFA (chanson complète en 18 minutes) et Prestige à ${studioPrices.prestige} F CFA (chanson + vidéo souvenir avec photos). Laquelle préférez-vous ?`,
             orderId: orders[0]?.id ?? null,
             isRelay: false,
           });
@@ -699,14 +898,17 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
           if (m.kind === 'text') m.purpose = 'handoff_ack';
         }
 
+        // CORRECTIF (M6) : détection et libellés basés sur le prix catalogue, pas sur '3 000' en dur.
+        const prestigePricePattern = studioPrices.prestige.replace(/\s/g, '\\s');
+        const prestigeDetectRe = new RegExp(`prestige|${prestigePricePattern}|vid[ée]o`, 'i');
         const isPrestige =
           salesOutcome.chosenFormula === 'prestige' ||
-          renderedMessages.some((m) => m.body && /prestige|3 000|vidéo souvenir/i.test(m.body)) ||
-          /prestige|3 000|vid[ée]o/i.test(turnText);
+          renderedMessages.some((m) => m.body && (prestigeDetectRe.test(m.body) || /vidéo souvenir/i.test(m.body))) ||
+          prestigeDetectRe.test(turnText);
 
         const chosenFormulaLabel = isPrestige
-          ? 'Formule Prestige (3 000 F CFA — Chanson + Vidéo Souvenir)'
-          : 'Formule Découverte (1 200 F CFA — Chanson personnalisée)';
+          ? `Formule Prestige (${studioPrices.prestige} F CFA — Chanson + Vidéo Souvenir)`
+          : `Formule Découverte (${studioPrices.decouverte} F CFA — Chanson personnalisée)`;
 
         const order = orders[0];
         const clientDisplayName = contact.name ? `${contact.name}` : 'Nouveau prospect';
@@ -791,10 +993,21 @@ ${detailsSummary}
   ) || recentHistory.some((m) => m.who !== 'client' && (m.text.toLowerCase().includes('refrain') || m.text.toLowerCase().includes('couplet 1') || (m.text.length > 350 && m.text.includes('\n\n'))));
 
   if (!lyricsDeliveredOrValidated) {
+    // CORRECTIF (mineur) : les numéros détectés viennent des moyens de paiement du studio,
+    // pas de numéros en dur (inopérant si le studio change de numéros).
+    const studioPaymentNumbers: string[] = (persona.payment_methods || [])
+      .flatMap((pm: { number?: string }) => {
+        const digits = String(pm?.number ?? '').replace(/\D/g, '');
+        if (!digits) return [];
+        // variantes avec/sans espaces tous les 2 chiffres (format local)
+        const spaced = digits.replace(/(\d{2})(?=\d)/g, '$1 ');
+        return [digits, spaced, `+${digits}`];
+      });
     const isPaymentInstruction = (text: string | null | undefined): boolean => {
       if (!text) return false;
       const t = text.toLowerCase();
-      const hasPaymentProvider = t.includes('orange money') || t.includes('wave') || t.includes('05 77 73 08') || t.includes('05777308') || t.includes('56 24 05 33') || t.includes('56240533');
+      const hasKnownNumber = studioPaymentNumbers.some((n) => n && t.includes(n.toLowerCase()));
+      const hasPaymentProvider = t.includes('orange money') || t.includes('wave') || hasKnownNumber;
       const hasPaymentKeyword = t.includes('paiement') || t.includes('dépôt') || t.includes('depot') || t.includes('capture') || t.includes('réseau') || t.includes('reseau');
       return (hasPaymentProvider && hasPaymentKeyword) || t.includes('capture pour vérifier') || t.includes('capture de votre paiement');
     };
@@ -804,7 +1017,8 @@ ${detailsSummary}
       if (msg.kind === 'text' && isPaymentInstruction(msg.body)) {
         trace.push('guard: premature payment instructions intercepted before lyrics delivered');
         if (msg.purpose === 'payment') msg.purpose = 'reply';
-        const hasOfferMention = renderedMessages.some((m, idx) => idx !== i && m.kind === 'text' && (m.body?.toLowerCase().includes('formule') || m.body?.toLowerCase().includes('1 200') || m.body?.toLowerCase().includes('3 000')));
+        // CORRECTIF (M6) : détection basée sur les prix catalogue dynamiques.
+        const hasOfferMention = renderedMessages.some((m, idx) => idx !== i && m.kind === 'text' && (m.body?.toLowerCase().includes('formule') || m.body?.includes(studioPrices.decouverte) || m.body?.includes(studioPrices.prestige)));
         if (hasOfferMention) {
           msg.body = 'Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation.';
         } else {
@@ -931,6 +1145,21 @@ interface ActionContext {
   sessionName: string;
   clientName: string | null;
   lockToken: number;
+  /** Journal de trace du tour (optionnel) pour signaler les refus RPC. */
+  trace?: string[];
+}
+
+/**
+ * CORRECTIF (M4) : les RPC métier retournent un statut TEXT
+ * ('ok', 'version_conflict', 'payment_lock', 'transition_forbidden'...).
+ * Avant, la valeur était ignorée et la version locale incrémentée même en cas de refus,
+ * ce qui faisait dériver l'état et échouer silencieusement les actions suivantes du tour.
+ * La version locale n'est désormais incrémentée qu'en cas de succès explicite.
+ */
+function rpcOk(result: unknown, what: string, trace?: string[]): boolean {
+  if (result === 'ok') return true;
+  trace?.push(`rpc refused: ${what} → ${String(result)} (local version not bumped)`);
+  return false;
 }
 
 async function queueOwnerAlert(
@@ -984,28 +1213,28 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
     case 'choose_offer': {
       const { id, version } = resolveOrderForAction(action.order, ctx);
       if (id) {
-        await ctx.db.rpc('agent_choose_offer', { p_order: id, p_expected_version: version, p_code: action.code });
-        ctx.orderVersionMap.set(id, version + 1);
+        const r = await ctx.db.rpc('agent_choose_offer', { p_order: id, p_expected_version: version, p_code: action.code });
+        if (rpcOk(r, `choose_offer(${action.code})`, ctx.trace)) ctx.orderVersionMap.set(id, version + 1);
       }
       break;
     }
     case 'save_brief_fields': {
       const { id, version } = resolveOrderForAction(action.order, ctx);
       if (id) {
-        await ctx.db.rpc('agent_patch_order_fields', {
+        const r = await ctx.db.rpc('agent_patch_order_fields', {
           p_order: id,
           p_expected_version: version,
           p_patch: action.patch,
           p_allow_clear: action.allowClear.length > 0,
         });
-        ctx.orderVersionMap.set(id, version + 1);
+        if (rpcOk(r, 'save_brief_fields', ctx.trace)) ctx.orderVersionMap.set(id, version + 1);
       }
       break;
     }
     case 'transition': {
       const { id, version } = resolveOrderForAction(action.order, ctx);
       if (id) {
-        await ctx.db.rpc('agent_transition_order', {
+        const r = await ctx.db.rpc('agent_transition_order', {
           p_order: id,
           p_expected_version: version,
           p_track: action.track,
@@ -1013,7 +1242,7 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
           p_actor: 'agent',
           p_turn: ctx.turnId,
         });
-        ctx.orderVersionMap.set(id, version + 1);
+        if (rpcOk(r, `transition(${action.track}:${action.event})`, ctx.trace)) ctx.orderVersionMap.set(id, version + 1);
       }
       break;
     }
@@ -1036,14 +1265,16 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
               memories: targetOrder.memories ?? rawOrder?.memories ?? [],
               studioName: ctx.persona.studio_name,
             });
-            await ctx.db.rpc('agent_order_effect', {
+            const r1 = await ctx.db.rpc('agent_order_effect', {
               p_order: id,
               p_expected_version: version,
               p_kind: 'lyrics',
               p_data: { text: composed.lyrics, title: composed.title, source: 'ai_draft_approved' },
             });
+            // CORRECTIF (M4) : si l'effet est refusé (version_conflict...), on ne tente pas la transition.
+            if (!rpcOk(r1, 'lyrics_effect', ctx.trace)) break;
             ctx.orderVersionMap.set(id, version + 1);
-            await ctx.db.rpc('agent_transition_order', {
+            const r2 = await ctx.db.rpc('agent_transition_order', {
               p_order: id,
               p_expected_version: version + 1,
               p_track: 'creative',
@@ -1051,7 +1282,7 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
               p_actor: 'agent',
               p_turn: ctx.turnId,
             });
-            ctx.orderVersionMap.set(id, version + 2);
+            if (rpcOk(r2, 'transition(creative:lyrics_sent)', ctx.trace)) ctx.orderVersionMap.set(id, version + 2);
             targetOrder.lyrics = composed.lyrics;
             targetOrder.stage = 'lyrics_sent';
           } catch (err) {
@@ -1173,13 +1404,13 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
       for (const ref of action.orders) {
         const { id, version } = resolveOrderForAction(ref, ctx);
         if (id) {
-          await ctx.db.rpc('agent_order_effect', {
+          const r = await ctx.db.rpc('agent_order_effect', {
             p_order: id,
             p_expected_version: version,
             p_kind: 'payment_claim',
             p_data: { with_image: action.withImage },
           });
-          ctx.orderVersionMap.set(id, version + 1);
+          if (rpcOk(r, 'payment_claim', ctx.trace)) ctx.orderVersionMap.set(id, version + 1);
         }
       }
       break;
@@ -1267,6 +1498,8 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
       break;
     }
     case 'send_procedure_voice': {
+      // L'envoi effectif a lieu dans la phase de rendu (décision déterministe souveraine, cf. M14) :
+      // rien à persister ici, l'action sert de signal vérifié par les invariants I13.
       break;
     }
     case 'store_images': {

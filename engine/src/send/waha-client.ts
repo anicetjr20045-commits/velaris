@@ -17,6 +17,8 @@ export type SendResult =
 export interface WahaClientOptions {
   baseUrl: string;
   apiKey: string;
+  /** Clé HMAC de signature des webhooks (jamais en dur : fournie via la config). */
+  webhookHmacKey?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 }
@@ -191,6 +193,10 @@ export class WahaClient {
       }
 
       // Si la session n'existe pas encore sur WAHA, auto-création avec configuration haute stabilité
+      const hmacKey = this.opts.webhookHmacKey;
+      if (!hmacKey) {
+        return { ok: false, error: 'webhook_hmac_key_not_configured' };
+      }
       const createRes = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
@@ -203,7 +209,7 @@ export class WahaClient {
               {
                 url: 'http://waha-bridge:3001/webhook',
                 events: ['message', 'message.any', 'session.status', 'message.reaction', 'message.ack', 'chat.archive'],
-                hmac: { key: 'f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066' },
+                hmac: { key: hmacKey },
               },
             ],
           },

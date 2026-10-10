@@ -33,7 +33,6 @@ export interface TransitionRow {
 
 const M = ['merchant'] as const;
 const AM = ['agent', 'merchant'] as const;
-const AS = ['agent', 'system'] as const;
 const MS = ['merchant', 'system'] as const;
 const AMS = ['agent', 'merchant', 'system'] as const;
 const MP = ['merchant', 'saspay'] as const;
@@ -42,7 +41,6 @@ const S = ['system'] as const;
 export const TRANSITIONS: readonly TransitionRow[] = [
   // Piste créative
   { track: 'creative', from: 'collecting_brief',   event: 'brief_completed',      to: 'brief_complete',     actors: AM },
-  { track: 'creative', from: 'brief_complete',     event: 'procedure_voice_sent', to: 'lyrics_in_progress', actors: AS },
   { track: 'creative', from: 'brief_complete',     event: 'lyrics_work_started',  to: 'lyrics_in_progress', actors: AMS },
   { track: 'creative', from: 'collecting_brief',   event: 'lyrics_sent',          to: 'lyrics_sent',        actors: M },
   { track: 'creative', from: 'brief_complete',     event: 'lyrics_sent',          to: 'lyrics_sent',        actors: M },

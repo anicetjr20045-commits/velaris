@@ -100,6 +100,9 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
         }
       }
 
+      // CORRECTIF (M11) : si un stockage durable est branché (storeMedia), le chemin stocké
+      // est prioritaire sur l'URL WAHA éphémère (purgée après ~180 s). Avant, l'URL éphémère
+      // gagnait toujours, rendant le stockage durable inutile même une fois câblé.
       const res = await deps.db.rpc<IngestOutcome>('agent_ingest_message', {
         p_session: ev.session,
         p_chat_id: ev.chatId,
@@ -109,7 +112,7 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
         p_wa_timestamp: ev.waTimestamp,
         p_body: ev.body,
         p_media_kind: ev.mediaKind,
-        p_media_path: ev.mediaUrl ?? mediaPath,
+        p_media_path: mediaPath ?? ev.mediaUrl,
         p_push_name: ev.pushName,
         p_body_hash: ev.bodyHash,
       });

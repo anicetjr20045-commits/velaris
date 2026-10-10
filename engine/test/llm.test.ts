@@ -7,7 +7,7 @@ import { ConfigError, loadConfig } from '../src/config.js';
 import { DeepSeekProvider } from '../src/llm/deepseek.js';
 import { parseStrictJsonObject } from '../src/llm/json-guard.js';
 import { LlmError, type LlmProvider } from '../src/llm/provider.js';
-import { generateSalesReply, type SalesBrainInput } from '../src/llm/sales-brain.js';
+import { generateSalesReply, cataloguePrices, type SalesBrainInput } from '../src/llm/sales-brain.js';
 
 type Reply = { status?: number; body: unknown };
 
@@ -252,3 +252,76 @@ describe('sales-brain: vidéo démo déduplication et garde liens externes', () 
   });
 });
 
+
+
+describe('cataloguePrices (M6) : prix dynamiques depuis le catalogue', () => {
+  test('retourne les prix du catalogue quand présents', () => {
+    const p = cataloguePrices([
+      { code: 'decouverte', label: 'Découverte', priceXof: 1500 },
+      { code: 'prestige', label: 'Prestige', priceXof: 3500 },
+    ]);
+    assert.equal(p.decouverte, '1 500');
+    assert.equal(p.prestige, '3 500');
+  });
+
+  test('repli sur les valeurs par défaut quand le catalogue est vide', () => {
+    const p = cataloguePrices([]);
+    assert.equal(p.decouverte, '1 200');
+    assert.equal(p.prestige, '3 000');
+  });
+
+  test('insensible à la casse et aux accents', () => {
+    const p = cataloguePrices([
+      { code: 'DECOUVERTE', label: 'Formule Découverte', priceXof: 2000 },
+      { code: 'PRESTIGE', label: 'Prestige Vidéo', priceXof: 5000 },
+    ]);
+    assert.equal(p.decouverte, '2 000');
+    assert.equal(p.prestige, '5 000');
+  });
+});
+
+describe('sales-brain : "trouvé sur Facebook" ne bloque plus la vidéo démo (mineur)', () => {
+  function mockLlm2(returnData: Record<string, unknown>): LlmProvider {
+    return {
+      name: 'mock',
+      async completeJson() {
+        return {
+          data: returnData,
+          model: 'mock',
+          usage: { promptTokens: 10, completionTokens: 10, cacheHitTokens: 0 },
+          latencyMs: 1,
+          attempts: 1,
+          reasoningDiscarded: false,
+        };
+      },
+    };
+  }
+
+  const base2: SalesBrainInput = {
+    turnText: '',
+    recent: [],
+    contact: { phone: '22501020304', name: 'Awa', wa_jid: '22501020304@s.whatsapp.net' },
+    persona: { studio_name: 'Velaris Studio', agent_name: 'Alex', manager_first_name: 'Jean' },
+    orders: [],
+  };
+
+  test('mention de Facebook sans lien vidéo ne supprime pas la démo', async () => {
+    const input: SalesBrainInput = {
+      ...base2,
+      turnText: "Je vous ai trouvé sur Facebook, montrez-moi une vidéo démo",
+    };
+    const outcome = await generateSalesReply(mockLlm2({ bubbles: ['Voici la démo.'], video_sample: true }), input);
+    assert.ok(!outcome.notes.some((n) => n.includes('client is sharing external reference')));
+  });
+
+  test('un vrai lien fb.watch bloque toujours la démo', async () => {
+    const input: SalesBrainInput = {
+      ...base2,
+      recent: [{ who: 'client', text: 'Regardez https://fb.watch/xyz123' }],
+      turnText: 'voici ma vidéo',
+    };
+    const outcome = await generateSalesReply(mockLlm2({ bubbles: ['Noté.'], video_sample: true }), input);
+    assert.equal(outcome.videoSampleDue, false);
+    assert.ok(outcome.notes.some((n) => n.includes('client is sharing external reference')));
+  });
+});

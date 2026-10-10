@@ -8,7 +8,6 @@
  */
 
 import type { Db } from '../db/rest.js';
-import { bodyHash } from '../ingest/wa-ids.js';
 import type { OutgoingContent, SendResult, WahaClient } from './waha-client.js';
 import { PROCEDURE_VOICE_NOTE } from '../assets/procedure-voice.js';
 
@@ -25,51 +24,6 @@ export interface OutboxRow {
   media_path: string | null;
   caption: string | null;
   is_relay?: boolean;
-}
-
-export interface EnqueueInput {
-  userId: string;
-  conversationId: string | null;
-  orderId?: string | null;
-  turnId?: string | null;
-  origin: OutboxRow['origin'];
-  kind: OutboxRow['kind'];
-  purpose: string;
-  isRelay?: boolean;
-  session: string;
-  chatId: string;
-  body?: string | null;
-  mediaPath?: string | null;
-  caption?: string | null;
-  idempotencyKey: string;
-  lockToken?: number | null;
-  status?: 'pending' | 'proposed';
-  notBefore?: string | null;
-  expiresAt?: string | null;
-}
-
-export function enqueueOutbox(db: Db, i: EnqueueInput): Promise<string> {
-  return db.rpc<string>('agent_enqueue_outbox', {
-    p_user: i.userId,
-    p_conversation: i.conversationId,
-    p_order: i.orderId ?? null,
-    p_turn: i.turnId ?? null,
-    p_origin: i.origin,
-    p_kind: i.kind,
-    p_purpose: i.purpose,
-    p_is_relay: i.isRelay ?? false,
-    p_session: i.session,
-    p_chat_id: i.chatId,
-    p_body: i.body ?? null,
-    p_media_path: i.mediaPath ?? null,
-    p_caption: i.caption ?? null,
-    p_body_hash: bodyHash(i.body ?? i.caption ?? null),
-    p_idempotency_key: i.idempotencyKey,
-    p_lock_token: i.lockToken ?? null,
-    p_status: i.status ?? 'pending',
-    p_not_before: i.notBefore ?? null,
-    p_expires_at: i.expiresAt ?? null,
-  });
 }
 
 /** Pause silencieuse de lecture avant le déclenchement de la frappe. */
@@ -218,8 +172,11 @@ export class OutboxSender {
     }
     if (row.kind === 'voice') {
       // Priorité 1 : pour le vocal de procédure, utiliser le base64 OGG Opus natif WhatsApp
-      // (garantit la livraison instantanée sous forme de vrai PTT WhatsApp sans dépendance réseau)
-      if (row.media_path === 'embedded:procedure_voice') {
+      // (garantit la livraison instantanée sous forme de vrai PTT WhatsApp sans dépendance réseau).
+      // CORRECTIF (M7) : le repli embarqué est vérifié AVANT tout appel réseau. Avant, signMedia()
+      // était appelé en premier pour 'assets/procedure_voice.ogg' : un simple souci storage/réseau
+      // faisait échouer une étape critique du funnel alors que les données étaient déjà embarquées.
+      if (row.media_path === 'embedded:procedure_voice' || row.media_path === 'assets/procedure_voice.ogg') {
         return {
           kind: 'voice',
           data: PROCEDURE_VOICE_NOTE.base64,
@@ -228,14 +185,6 @@ export class OutboxSender {
       }
       if (!row.media_path) throw new Error('missing_media');
       const m = await this.deps.signMedia(row.media_path);
-      if (row.media_path === 'assets/procedure_voice.ogg') {
-        return {
-          kind: 'voice',
-          url: m.url,
-          data: PROCEDURE_VOICE_NOTE.base64,
-          mimetype: PROCEDURE_VOICE_NOTE.mimeType,
-        };
-      }
       return { kind: 'voice', url: m.url, mimetype: m.mimetype };
     }
     if (!row.media_path) throw new Error('missing_media');
