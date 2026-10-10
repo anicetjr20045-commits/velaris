@@ -633,3 +633,23 @@ describe('Preneur de brief : les 4 champs de la vraie procédure', () => {
     assert.deepEqual(slots, ['memories', 'offer']);
   });
 });
+
+describe('Paroles propres du client : aucune question de brief', () => {
+  const studio4 = () =>
+    studio({
+      briefFieldOrder: ['occasion', 'recipient_name', 'sender_name', 'memories', 'offer'],
+      catalogue: [
+        { ...OFFER_STANDARD, requiredFields: ['occasion', 'recipient_name', 'sender_name', 'memories'] },
+      ],
+    });
+
+  test('avec son propre texte, seuls l\u2019offre reste à demander', () => {
+    const slots = missingSlots(order({ hasOwnLyrics: true }), studio4());
+    assert.deepEqual(slots, ['offer']);
+  });
+
+  test('sans texte propre, les 4 champs sont exigés', () => {
+    const slots = missingSlots(order({ hasOwnLyrics: false }), studio4());
+    assert.deepEqual(slots, ['occasion', 'recipient_name', 'sender_name', 'memories', 'offer']);
+  });
+});

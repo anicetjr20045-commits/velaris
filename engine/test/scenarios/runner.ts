@@ -119,6 +119,7 @@ export async function setupScenarioDb(
   await db.exec(read('supabase/migrations/20261009_lyrics_source_reaction.sql'));
   await db.exec(read('supabase/migrations/20261009_outbox_purpose_reaction.sql'));
   await db.exec(read('supabase/migrations/20261010_brief_champs_reels.sql'));
+  await db.exec(read('supabase/migrations/20261010_own_lyrics_brief.sql'));
   await db.exec(`
     INSERT INTO auth.users (id) VALUES ('${USER}');
     INSERT INTO wa_sessions (user_id, session_name, status, engine_owner)
