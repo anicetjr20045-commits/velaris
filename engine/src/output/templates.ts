@@ -60,7 +60,7 @@ export const FIELD_QUESTIONS: Readonly<Record<string, string>> = {
   style: 'Quel style de musique aimeriez-vous ?',
   voice: 'Préférez-vous une voix d\'homme, de femme, ou un duo ?',
   language: 'Dans quelle langue souhaitez-vous la chanson ?',
-  memories: 'Racontez-moi une qualité ou un souvenir de cette personne.',
+  memories: 'Y a-t-il un message particulier que vous aimeriez transmettre à travers la chanson ?',
   photos: 'Pouvez-vous m\'envoyer quelques photos pour le montage ?',
   offer: 'Quelle formule vous intéresse ?',
 };
