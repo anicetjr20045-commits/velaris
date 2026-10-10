@@ -980,6 +980,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       orders,
       catalogue,
       digression: digressionDetected,
+      repeatCount: conversation.repeat_question_count ?? 0,
     });
 
     trace.push(...salesOutcome.notes);
