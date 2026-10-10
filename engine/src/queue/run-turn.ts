@@ -1043,8 +1043,8 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         // Si après accusé de réception du vocal le bot n'a pas présenté les offres, les présenter immédiatement
         // CORRECTIF (M6) : détection basée sur les prix catalogue dynamiques, pas '1 200' en dur.
         const hasOffersMention = renderedMessages.some((m) => m.kind === 'text' && (m.body?.includes(studioPrices.decouverte) || m.body?.includes(studioPrices.prestige) || m.body?.includes('Formule') || m.body?.includes('formule')));
-        const turnTextLower = turnText.toLowerCase();
-        const clientAcknowledgedVoice = turnTextLower.includes('convient') || turnTextLower.includes('d\'accord') || turnTextLower.includes('daccord') || turnTextLower.includes('c\'est bon') || turnTextLower.includes('ok') || turnTextLower.includes('bien reçu');
+        const turnTextLower = turnText.toLowerCase().trim();
+        const clientAcknowledgedVoice = /^(d['\s]?accord|convient|c['\s]?est bon|ok|bien re[çc]u|j['\s]?ai [ée]cout[ée]|parfait|dacc?)\b/i.test(turnTextLower) && turnTextLower.length < 40;
         if (!hasOffersMention && clientAcknowledgedVoice) {
           renderedMessages.push({
             kind: 'text',

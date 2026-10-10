@@ -19,8 +19,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 10 Octobre 2026 (00:45 UTC)
-- **Statut Opérationnel** : **Jalon 110 Validé — Fusion PR #1 & #2, Rotation des Secrets HMAC/ADMIN, Déploiement VPS & Banc de 12 Scénarios Validé** :
+- **Dernière mise à jour** : 10 Octobre 2026 (12:45 UTC)
+- **Statut Opérationnel** : **Jalon 111 Validé — Épuration Radicale du Prompt Commercial, Sécurisation des Gardes & Grand Banc d'Essai Réel (50 Conversations Réelles / 624 Tours Réels DeepSeek Flash via Kie.ai)** :
+  1. **Épuration Radicale du Prompt Commercial (`sales-brain.ts`)** :
+     - Élimination de l'empilement des 25 règles rigides et contradictions au profit d'un tunnel linéaire limpide en 5 étapes (Occasion ➔ 4 Repères ➔ Vocal ➔ Offres Découverte/Prestige ➔ Annonce des 15 minutes et passage de relais au gérant).
+     - Règle de sortie stricte : Zéro emoji, phrases concises (1-2 phrases par bulle, 1 question max), vouvoiement naturel et digne.
+  2. **Sécurisation Déterministe des Gardes & Élimination des Faux Positifs (`run-turn.ts` & `sales-brain.ts`)** :
+     - Sécurisation de la regex d'échantillon vidéo (`explicitVideoRequest`) pour éviter qu'un client disant « voir ma vidéo » ou partageant un lien TikTok ne déclenche une vidéo démo non sollicitée.
+     - Sécurisation du repli de présentation des offres (`clientAcknowledgedVoice`) : uniquement sur un court acquittement réel (< 40 caractères) quand le vocal a déjà été envoyé, évitant d'interrompre un brief en cours.
+  3. **Grand Banc d'Essai Réel : 50 Conversations Réelles Rejouées en Conditions WhatsApp (`benchmark-real-50.ts`)** :
+     - 50 vraies discussions clients complètes de production (Côte d'Ivoire, Burkina Faso, Bénin) rejouées avec coalescence des rafales (< 6s).
+     - **624 tours réels exécutés** contre l'API DeepSeek Flash sur Kie.ai (durée totale : 597s, latence moyenne : 4 034 ms).
+     - **Taux de respect Zéro Émoji : 100.0% (0 émoji détecté sur 624 tours)**.
+     - **Faux positifs paiement prématuré : 0** (aucune coordonnée Wave/OM fuitée).
+     - **Taux de closing jusqu'au choix de formule : 38.0% (19/50 clients)** avec passage de relais gérant immédiat.
+     - **Taux de déclenchement du vocal : 66.0% (33/50 clients)**.
+     - **Conversations 100% parfaites (zéro violation) : 45/50 (90.0%)**.
+     - Rapport d'audit complet sauvegardé dans [`benchmark_report_50_reelles.json`](file:///root/projets/velaris/benchmark_report_50_reelles.json).
+  4. **Compilation & Suites de Tests 100% Vertes** :
+     - 183 tests unitaires (35 suites) + 12 scénarios passés avec succès (0 échec).
+     - Compilation TypeScript `tsc` (engine) et `npm run build` (Vite SPA) validées à 0 erreur.
   1. **Merges GitHub & Dépôt Consolidé** :
      - PR #1 (`fix/audit-corrections-2026-10-09`) et PR #2 (`feat/digression-recadrage-tada`) fusionnées dans `main` et poussées sur `origin/main` (`93d465f`).
      - Ajout du bac à sable de simulation (`engine/test/scenarios/`) rejouant 12 scénarios conversationnels complets de bout en bout contre le moteur réel.
