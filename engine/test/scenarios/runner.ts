@@ -118,6 +118,7 @@ export async function setupScenarioDb(
   await db.exec(read('supabase/migrations/20261009_delivery_sent_audio.sql'));
   await db.exec(read('supabase/migrations/20261009_lyrics_source_reaction.sql'));
   await db.exec(read('supabase/migrations/20261009_outbox_purpose_reaction.sql'));
+  await db.exec(read('supabase/migrations/20261010_brief_champs_reels.sql'));
   await db.exec(`
     INSERT INTO auth.users (id) VALUES ('${USER}');
     INSERT INTO wa_sessions (user_id, session_name, status, engine_owner)
@@ -133,6 +134,8 @@ export async function setupScenarioDb(
       VALUES
         ('${USER}', 'decouverte', 'Découverte', 'Chanson personnalisée complète', 1200, 'audio', 'after_lyrics_validation'),
         ('${USER}', 'prestige', 'Prestige', 'Chanson + vidéo souvenir', 3000, 'audio_video', 'after_lyrics_validation');
+    INSERT INTO studio_assets (user_id, kind, purpose, storage_path, duration_s)
+      VALUES ('${USER}', 'voice', 'procedure', 'assets/procedure_voice.ogg', 60);
   `);
 }
 

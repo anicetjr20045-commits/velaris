@@ -24,13 +24,15 @@ import { scenario as s09 } from './s09.js';
 import { scenario as s10 } from './s10.js';
 import { scenario as s11 } from './s11.js';
 import { scenario as s12 } from './s12.js';
+import { scenario as s16 } from './s16.js';
+import { scenario as s17 } from './s17.js';
 
 // NOTE : les tests tournent compilés depuis dist/test/scenarios/ → racine = ../../../..
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
 const read = (p: string): string => readFileSync(resolve(root, p), 'utf8');
 
 const db = new PGlite();
-const scenarios: Scenario[] = [s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12];
+const scenarios: Scenario[] = [s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s16, s17];
 
 before(async () => {
   await setupScenarioDb(db, read);

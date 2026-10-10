@@ -120,9 +120,9 @@ BEGIN
   INSERT INTO public.studio_catalogues (
     user_id, code, label, description, price_xof, deliverable, lyrics_lead_minutes, production_lead_minutes, payment_policy, required_fields, is_active, sort_order
   ) VALUES
-    (p_user_id, 'essentiel', 'Essentiel', 'Chanson personnalisée 1 couplet 1 refrain, livrée en audio haute qualité.', 1200, 'audio', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 1),
-    (p_user_id, 'signature', 'Signature', 'Chanson personnalisée complète 2 couplets 1 refrain, arrangements riches.', 3000, 'audio', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 2),
-    (p_user_id, 'prestige', 'Prestige', 'Chanson complète personnalisée + clip vidéo diaporama photos souvenir.', 5000, 'audio_video', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 3)
+    (p_user_id, 'essentiel', 'Essentiel', 'Chanson personnalisée 1 couplet 1 refrain, livrée en audio haute qualité.', 1200, 'audio', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name','sender_name','memories'], true, 1),
+    (p_user_id, 'signature', 'Signature', 'Chanson personnalisée complète 2 couplets 1 refrain, arrangements riches.', 3000, 'audio', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name','sender_name','memories'], true, 2),
+    (p_user_id, 'prestige', 'Prestige', 'Chanson complète personnalisée + clip vidéo diaporama photos souvenir.', 5000, 'audio_video', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name','sender_name','memories'], true, 3)
   ON CONFLICT (user_id, code) DO NOTHING;
 
 END;

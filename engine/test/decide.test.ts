@@ -5,6 +5,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assertDecisionInvariants, decide, decideSafely } from '../src/domain/decide.js';
+import { missingSlots, isBriefComplete } from '../src/domain/orders.js';
 import type { Action, Decision, DecisionInput } from '../src/domain/types.js';
 import { input, minutesAgo, order, standardOrder, studio, understanding, OFFER_STANDARD } from './fixtures.js';
 
@@ -593,5 +594,42 @@ describe('decideSafely', () => {
     const d = run(input({ conversation: { ...input().conversation, agentMsgsLastHour: 6 }, understanding: understanding({ primaryIntent: 'greeting' }) }));
     assert.deepEqual(d.utterances, []);
     assert.equal(acts(d, 'handoff').length, 1);
+  });
+});
+
+describe('Preneur de brief : les 4 champs de la vraie procédure', () => {
+  const studio4 = () =>
+    studio({
+      briefFieldOrder: ['occasion', 'recipient_name', 'sender_name', 'memories', 'offer'],
+      catalogue: [
+        { ...OFFER_STANDARD, requiredFields: ['occasion', 'recipient_name', 'sender_name', 'memories'] },
+      ],
+    });
+
+  test('sans offre choisie : expéditeur + message sont exigés (union du catalogue)', () => {
+    const slots = missingSlots(order({ occasion: 'anniversaire', recipientName: 'Awa', recipientNameConfirmed: true }), studio4());
+    assert.deepEqual(slots, ['sender_name', 'memories', 'offer']);
+  });
+
+  test('le brief n\u2019est complet qu\u2019avec les 4 champs + l\u2019offre', () => {
+    const o = order({
+      occasion: 'anniversaire',
+      recipientName: 'Awa',
+      recipientNameConfirmed: true,
+      senderName: 'Ibrahim',
+      memoriesCount: 1,
+      catalogueCode: 'standard',
+      priceXof: 3000,
+    });
+    assert.deepEqual(missingSlots(o, studio4()), []);
+    assert.equal(isBriefComplete(o, studio4()), true);
+  });
+
+  test('un champ donné en vrac n\u2019est jamais redemandé', () => {
+    const slots = missingSlots(
+      order({ occasion: 'anniversaire', recipientName: 'Awa', recipientNameConfirmed: true, senderName: 'Ibrahim' }),
+      studio4(),
+    );
+    assert.deepEqual(slots, ['memories', 'offer']);
   });
 });
