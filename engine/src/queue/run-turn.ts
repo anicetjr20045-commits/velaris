@@ -776,6 +776,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     hasProcedureVoice: raw.assets.some((a) => a.kind === 'voice' && a.purpose === 'procedure'),
     hasSamples: raw.assets.some((a) => a.kind === 'sample_audio'),
     catalogue,
+    paymentMethodCount: (persona.payment_methods as unknown[] | null)?.length ?? 0,
   };
 
   // 9. Construire l'entrée de décision
@@ -1191,7 +1192,15 @@ ${detailsSummary}
     (o) => (o.lyrics && o.lyrics.trim().length > 0) || o.stage === 'lyrics_sent' || o.stage === 'lyrics_validated' || o.stage === 'in_production' || o.stage === 'audio_delivered' || o.stage === 'delivered'
   ) || recentHistory.some((m) => m.who !== 'client' && (m.text.toLowerCase().includes('refrain') || m.text.toLowerCase().includes('couplet 1') || (m.text.length > 350 && m.text.includes('\n\n'))));
 
-  if (!lyricsDeliveredOrValidated) {
+  // CORRECTIF : les réponses explicites à « pas de moyen de paiement » (CONV_18) et à
+  // « combien d'avance ? » (CONV_23) ne sont jamais des instructions prématurées : ces tours
+  // n'émettent aucun payment_instructions (retour anticipé dans paymentRail). Les censurer
+  // recréerait le cul-de-sac CONV_18.
+  const explicitPaymentHelp = decision.utterances.some((u) =>
+    u.goal === 'payment_no_method_alternatives' || u.goal === 'payment_no_method_handoff' ||
+    u.goal === 'deposit_policy_full' || u.goal === 'deposit_policy_generic',
+  );
+  if (!lyricsDeliveredOrValidated && !explicitPaymentHelp) {
     // CORRECTIF (mineur) : les numéros détectés viennent des moyens de paiement du studio,
     // pas de numéros en dur (inopérant si le studio change de numéros).
     const studioPaymentNumbers: string[] = (persona.payment_methods || [])
