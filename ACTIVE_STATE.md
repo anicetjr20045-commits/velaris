@@ -19,8 +19,25 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Octobre 2026 (22:05 UTC)
-- **Statut Opérationnel** : **Jalon 109 Validé — Résolution Définitive du Spam Vidéo Démo & Garde Anti-Doublon Multi-Niveaux** :
+- **Dernière mise à jour** : 10 Octobre 2026 (00:45 UTC)
+- **Statut Opérationnel** : **Jalon 110 Validé — Fusion PR #1 & #2, Rotation des Secrets HMAC/ADMIN, Déploiement VPS & Banc de 12 Scénarios Validé** :
+  1. **Merges GitHub & Dépôt Consolidé** :
+     - PR #1 (`fix/audit-corrections-2026-10-09`) et PR #2 (`feat/digression-recadrage-tada`) fusionnées dans `main` et poussées sur `origin/main` (`93d465f`).
+     - Ajout du bac à sable de simulation (`engine/test/scenarios/`) rejouant 12 scénarios conversationnels complets de bout en bout contre le moteur réel.
+     - 183 tests unitaires (35 suites) + 12/12 scénarios passés avec succès (0 échec).
+  2. **Génération & Rotation des Secrets de Sécurité** :
+     - Secret n°1 (`WAHA_WEBHOOK_HMAC_KEY`) généré via openssl (64 car. hex) : `5a883800d77cd375559c3bdb8f99d71000b3c177a0affa9907b1cfe0535e824f`.
+     - Secret n°2 (`ADMIN_API_KEY`) généré via openssl (64 car. hex) : `62e11f9349b40fd4cdf5daeeee9c02f7b52113231625ca4bbe6a314cd6d5e0aa`.
+     - Configuration WAHA mise à jour via API `PUT /api/sessions/Test` avec le nouveau secret HMAC (statut session : `WORKING`, `CONNECTED`).
+     - Fichier `/root/waha-vps-setup/.env` et `docker-compose.yml` mis à jour sur le VPS avec `WAHA_WEBHOOK_HMAC_KEY` et `ADMIN_API_KEY`.
+  3. **Migrations Supabase Consolidées** :
+     - Les 11 migrations idempotentes sont disponibles et concaténées dans [`supabase/migrations/ALL_11_MIGRATIONS_COMBINED.sql`](file:///root/projets/velaris/supabase/migrations/ALL_11_MIGRATIONS_COMBINED.sql) pour exécution directe dans le SQL Editor.
+  4. **Redéploiement Production (VPS 162.35.113.220)** :
+     - Recompilation TypeScript (`npm run build`).
+     - Transfert SCP de `dist/*` vers `/root/waha-vps-setup/velaris-engine/dist/`.
+     - Rebuild de l'image Docker `velaris-engine:latest` et redémarrage sans erreur (`docker compose up -d velaris-engine`).
+     - Logs VPS vérifiés : `{"msg":"ingest listening","port":3001}` sans aucune `ConfigError`.
+- **Jalon 109 Validé — Résolution Définitive du Spam Vidéo Démo & Garde Anti-Doublon Multi-Niveaux** :
   1. **Diagnostic & Causes Racines Identifiées (Conversation cliente `22548380131@c.us`)** :
      - **Faux positif regex sur partage de lien externe** : La cliente a partagé son propre lien TikTok en disant dans un vocal : « Essaye de voir la vidéo et puis on va un peu copier dessus ». L'ancienne regex `voir.*vidéo` a pris cette phrase pour une demande de démo Velaris, alors que la cliente partageait sa propre référence.
      - **Fuite d'historique (`messages.slice(-2)`)** : Au tour suivant (Tour 2), lorsque la cliente répondait simplement « Mariage il s'appelle Claude », le code inspectait les deux derniers messages et retrouvait le texte du Tour 1, déclenchant un 2ème envoi vidéo.
