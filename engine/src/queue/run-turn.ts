@@ -315,6 +315,179 @@ async function holdTurnForProviderRetry(
   return { outcome: 'held_provider_down', trace, enqueuedIds: [], latencyMs: Date.now() - startedAt };
 }
 
+
+/**
+ * Traite les reactions-emoji du gerant (commandes explicites).
+ *
+ * sparkles resume_ai : le gerant rend la main - l'IA reprend le controle et evalue la suite.
+ * musical_note confirm_and_produce : le texte reagi doit devenir une chanson (voix/style extraits).
+ * tada mark_delivered : la livraison de la chanson est effectuee (commande -> delivered).
+ * memo mark_as_lyrics : le message reagi est enregistre comme paroles de la commande.
+ *
+ * Retourne 'continue' pour resume_ai (le flux normal evalue ensuite l'etat et reprend),
+ * ou un RunTurnOutcome final pour les autres commandes.
+ */
+async function handleMerchantReaction(
+  rdeps: RunTurnDeps,
+  rturnRef: TurnRef,
+  rraw: RawTurnContext,
+  rtrace: string[],
+  renqueuedIds: string[],
+  rstartedAt: number,
+): Promise<'continue' | RunTurnOutcome> {
+  const finish = async (outcome: string): Promise<RunTurnOutcome> => {
+    await rdeps.db.rpc('agent_finish_turn', {
+      p_turn: rturnRef.turnId,
+      p_conversation: rturnRef.conversationId,
+      p_token: rturnRef.lockToken,
+      p_status: 'done',
+      p_outcome: outcome,
+    });
+    return { outcome, trace: rtrace, enqueuedIds: renqueuedIds, latencyMs: Date.now() - rstartedAt };
+  };
+
+  const rtd = rraw.turn.trigger_data || {};
+  const rcommand = String(rtd.command || '');
+  const remoji = String(rtd.emoji || '');
+  const rreactedKey = String(rtd.reacted_key || '');
+  rtrace.push(`merchant_reaction: ${remoji} -> ${rcommand}`);
+
+  let reactedBody: string | null = null;
+  let reactedId: string | null = null;
+  if (rreactedKey) {
+    try {
+      const rows = await rdeps.db.queryTable?.<Array<{ id: string; body: string | null }>>(
+        'messages',
+        `user_id=eq.${rturnRef.userId}&wa_message_key=eq.${encodeURIComponent(rreactedKey)}&select=id,body&limit=1`,
+      );
+      reactedBody = rows?.[0]?.body ?? null;
+      reactedId = rows?.[0]?.id ?? null;
+    } catch (e) {
+      rdeps.log('merchant_reaction: failed to fetch reacted message', { error: (e as Error).message });
+    }
+  }
+
+  const rfocusOrderId: string | null = rraw.conversation.focus_order_id ?? null;
+
+  switch (rcommand) {
+    case 'resume_ai': {
+      await rdeps.db.rpc('agent_set_control', {
+        p_conversation: rturnRef.conversationId,
+        p_mode: 'ai',
+        p_reason: 'merchant_reaction_resume',
+        p_actor: 'merchant',
+      });
+      rtrace.push('merchant_reaction: control returned to AI, continuing with normal flow');
+      return 'continue';
+    }
+
+    case 'confirm_and_produce': {
+      if (!rfocusOrderId) {
+        rtrace.push('merchant_reaction: confirm_and_produce without focused order');
+        return finish('reaction_no_order');
+      }
+      if (!reactedBody) {
+        rtrace.push('merchant_reaction: confirm_and_produce without reacted text');
+        return finish('reaction_no_text');
+      }
+      let voiceStyle = '';
+      try {
+        const res = await rdeps.llmProvider.completeJson({
+          system: 'Tu analyses un texte de chanson. Reponds en JSON strict : {"voice": "<voix suggeree>", "style": "<style musical>"}. Base-toi uniquement sur le ton et le contenu du texte.',
+          messages: [{ role: 'user', content: reactedBody.slice(0, 2000) }],
+          temperature: 0.2,
+          maxTokens: 150,
+        });
+        const d = res.data as { voice?: string; style?: string } | undefined;
+        const voice = String(d?.voice || '').trim();
+        const style = String(d?.style || '').trim();
+        if (voice || style) voiceStyle = `\n\nVoix : ${voice}\nStyle : ${style}`;
+      } catch (e) {
+        rdeps.log('merchant_reaction: voice/style extraction failed', { error: (e as Error).message });
+      }
+      await rdeps.db.updateRows?.(
+        'orders',
+        `id=eq.${rfocusOrderId}`,
+        { lyrics: reactedBody, lyrics_source: 'merchant_reaction', lyrics_message_id: reactedId },
+      );
+      const confirmBody =
+        `C'est note ! Ce texte part en production chanson.${voiceStyle}` +
+        `\nNotre equipe lance la creation avec ces caracteristiques mises en avant.`;
+      const outId = await rdeps.db.rpc<string>('agent_enqueue_outbox', {
+        p_user: rturnRef.userId,
+        p_conversation: rturnRef.conversationId,
+        p_order: rfocusOrderId,
+        p_turn: rturnRef.turnId,
+        p_origin: 'agent',
+        p_kind: 'text',
+        p_purpose: 'reaction_confirm',
+        p_is_relay: false,
+        p_session: rraw.conversation.session_name,
+        p_chat_id: rraw.conversation.chat_id,
+        p_body: confirmBody,
+        p_media_path: null,
+        p_caption: null,
+        p_body_hash: null,
+        p_idempotency_key: `reaction_confirm_${rturnRef.turnId}`,
+        p_lock_token: rturnRef.lockToken,
+        p_status: 'pending',
+        p_not_before: null,
+        p_expires_at: null,
+      });
+      renqueuedIds.push(outId);
+      rtrace.push('merchant_reaction: lyrics confirmed for production with voice/style');
+      return finish('reaction_confirm_and_produce');
+    }
+
+    case 'mark_delivered': {
+      if (!rfocusOrderId) {
+        rtrace.push('merchant_reaction: mark_delivered without focused order');
+        return finish('reaction_no_order');
+      }
+      const orderRows = await rdeps.db.queryTable?.<Array<{ version: number; stage: string }>>(
+        'orders',
+        `id=eq.${rfocusOrderId}&select=version,stage&limit=1`,
+      );
+      const rorder = orderRows?.[0];
+      if (!rorder) {
+        rtrace.push('merchant_reaction: mark_delivered order not found');
+        return finish('reaction_no_order');
+      }
+      const tr = await rdeps.db.rpc<string>('agent_transition_order', {
+        p_order: rfocusOrderId,
+        p_expected_version: rorder.version,
+        p_track: 'creative',
+        p_event: 'delivery_sent',
+        p_actor: 'merchant',
+        p_turn: rturnRef.turnId,
+        p_data: { via: 'merchant_reaction', emoji: remoji },
+        p_inferred: false,
+      });
+      rtrace.push(`merchant_reaction: delivery transition -> ${tr}`);
+      return finish(tr === 'ok' ? 'reaction_mark_delivered' : `reaction_transition_${tr}`);
+    }
+
+    case 'mark_as_lyrics': {
+      if (!rfocusOrderId || !reactedBody) {
+        rtrace.push('merchant_reaction: mark_as_lyrics missing order or text');
+        return finish('reaction_no_order_or_text');
+      }
+      await rdeps.db.updateRows?.(
+        'orders',
+        `id=eq.${rfocusOrderId}`,
+        { lyrics: reactedBody, lyrics_source: 'merchant_reaction_mark', lyrics_message_id: reactedId },
+      );
+      rtrace.push('merchant_reaction: text marked as lyrics');
+      return finish('reaction_mark_as_lyrics');
+    }
+
+    default: {
+      rtrace.push(`merchant_reaction: unknown command ${rcommand}`);
+      return finish('reaction_unknown_command');
+    }
+  }
+}
+
 export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunTurnOutcome> {
   const startedAt = Date.now();
   const trace: string[] = [];
@@ -336,6 +509,20 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
   const { conversation, persona, contact } = raw;
   const nowMs = new Date(raw.now).getTime();
+
+  // 1b. Réactions-emoji du gérant (commandes explicites ✨/🎵/🎉/📝) : traitées en priorité.
+  // Pour resume_ai (✨), le handler rend la main à l'IA et retourne 'continue'
+  // pour que le flux normal évalue l'état de la conversation et reprenne la suite.
+  // On mémorise la reprise pour informer le sales brain.
+  let resumeNote: string | null = null;
+  if (raw.turn.trigger === 'merchant_reaction') {
+    const reactionResult = await handleMerchantReaction(deps, turnRef, raw, trace, enqueuedIds, startedAt);
+    if (reactionResult !== 'continue') return reactionResult;
+    resumeNote = 'Le gérant vient de vous rendre la main (réaction ✨). Évaluez l’état actuel de la conversation et continuez naturellement la suite, sans redemander ce qui est déjà acquis.';
+    // Le contrôle est repassé à 'ai' par le handler ; on met à jour l'objet local
+    // pour que les vérifications suivantes voient le bon mode.
+    conversation.control_mode = 'ai';
+  }
 
   // 2. Vérifier le contrôle de conversation
   if (conversation.control_mode === 'closed') {
@@ -533,6 +720,17 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   const understandResult = await understand(deps.llmProvider, understandInput);
   const understanding: Understanding = understandResult.understanding;
   trace.push(`understand: ${understanding.primaryIntent} (conf=${understanding.confidence.toFixed(2)})`);
+
+  // CORRECTIF : le classifieur détecte le hors-sujet (off_topic) mais rien ne l'exploitait :
+  // l'IA se perdait dès que le client digressait pendant le brief. On force désormais la règle
+  // "répondre puis recadrer" via une directive prioritaire injectée au sales brain.
+  // Exclu après une reprise ✨ (la note de reprise guide déjà l'IA).
+  const digressionDetected =
+    !resumeNote &&
+    understanding.primaryIntent === 'off_topic' &&
+    understanding.confidence >= 0.6 &&
+    (currentStage === 'collecting_brief' || currentStage === 'brief_complete');
+  if (digressionDetected) trace.push('digression: off_topic detected, anti-digression directive injected');
 
   // CORRECTIF (C5) : fournisseur LLM en panne → le tour est retenu et replanifié,
   // jamais traité comme "incompris". Aucun message n'est envoyé au client.
@@ -759,7 +957,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   let usedSalesBrain = false;
   if (conversation.control_mode === 'ai' && deps.llmProvider) {
     const salesOutcome = await generateSalesReply(deps.llmProvider, {
-      turnText,
+      turnText: resumeNote ? `${resumeNote}\n${turnText}` : turnText,
       recent: recentHistory,
       contact: {
         phone: contact.phone,
@@ -781,6 +979,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       },
       orders,
       catalogue,
+      digression: digressionDetected,
     });
 
     trace.push(...salesOutcome.notes);
@@ -1043,13 +1242,16 @@ ${detailsSummary}
   // 13. Mettre en boîte d'envoi (agent_enqueue_outbox)
   // Vérification de sécurité en direct : si le gérant est intervenu sur WhatsApp pendant le calcul du tour,
   // la discussion est passée en mode humain. On annule immédiatement le tour sans rien insérer en outbox !
+  // CORRECTIF : ne pas annuler quand c'est l'IA elle-même qui a passé le relais pendant ce tour
+  // (ex : choix de formule → l'annonce des 15 minutes doit quand même partir au client).
   if (turnRef.conversationId && deps.db.queryTable) {
     const liveConv = await deps.db.queryTable<Array<{ control_mode: string; control_actor: string | null }>>(
       'conversations',
       `id=eq.${turnRef.conversationId}&select=control_mode,control_actor`
     ).catch(() => []);
     const cm = liveConv?.[0]?.control_mode;
-    if (cm === 'human') {
+    const actor = liveConv?.[0]?.control_actor;
+    if (cm === 'human' && actor === 'merchant') {
       await deps.db.rpc('agent_finish_turn', {
         p_turn: turnRef.turnId,
         p_conversation: turnRef.conversationId,

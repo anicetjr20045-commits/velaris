@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS public.studio_personas (
   cap_video             BOOLEAN NOT NULL DEFAULT FALSE,
   delivery_mode         TEXT NOT NULL DEFAULT 'shadow' CHECK (delivery_mode IN ('shadow','live')),
   relay_mode            TEXT NOT NULL DEFAULT 'safe_templates' CHECK (relay_mode IN ('off','safe_templates')),
-  quiet_window_ms       INT NOT NULL DEFAULT 4000  CHECK (quiet_window_ms BETWEEN 1500 AND 15000),
-  max_batch_wait_ms     INT NOT NULL DEFAULT 12000 CHECK (max_batch_wait_ms BETWEEN 3000 AND 30000),
+  quiet_window_ms       INT NOT NULL DEFAULT 20000 CHECK (quiet_window_ms BETWEEN 1500 AND 60000),
+  max_batch_wait_ms     INT NOT NULL DEFAULT 60000 CHECK (max_batch_wait_ms BETWEEN 3000 AND 120000),
   handoff_sla_minutes   SMALLINT NOT NULL DEFAULT 15 CHECK (handoff_sla_minutes BETWEEN 5 AND 240),
   max_agent_msgs_per_hour SMALLINT NOT NULL DEFAULT 6 CHECK (max_agent_msgs_per_hour BETWEEN 2 AND 20),
   max_open_orders       SMALLINT NOT NULL DEFAULT 3 CHECK (max_open_orders BETWEEN 1 AND 5),
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.studio_personas (
   brief_field_order     TEXT[] NOT NULL DEFAULT ARRAY['occasion','recipient_name','offer'],
   lyrics_author         TEXT NOT NULL DEFAULT 'manager' CHECK (lyrics_author IN ('manager','ai_draft_approved')),
   payment_methods       JSONB NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(payment_methods) = 'array'),
-  reaction_commands     JSONB NOT NULL DEFAULT '{"🎵":"confirm_and_produce","✨":"resume_ai","📝":"mark_as_lyrics"}',
+  reaction_commands     JSONB NOT NULL DEFAULT '{"🎵":"confirm_and_produce","✨":"resume_ai","🎉":"mark_delivered","📝":"mark_as_lyrics"}',
   daily_llm_budget_xof  INT NOT NULL DEFAULT 1500 CHECK (daily_llm_budget_xof BETWEEN 0 AND 100000),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
