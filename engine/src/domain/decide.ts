@@ -197,6 +197,8 @@ interface PaymentSignals {
   proofImage: boolean;
   defer: boolean;
   dispute: boolean;
+  noPay: boolean;
+  askDeposit: boolean;
 }
 
 function paymentSignals(input: DecisionInput): PaymentSignals {
@@ -210,6 +212,8 @@ function paymentSignals(input: DecisionInput): PaymentSignals {
     proofImage,
     defer: has(input, 'payment_deferral') || u.paymentSignal.kind === 'defers',
     dispute: u.paymentSignal.kind === 'disputes_payment',
+    noPay: has(input, 'no_payment_method'),
+    askDeposit: has(input, 'ask_deposit'),
   };
 }
 
@@ -379,6 +383,8 @@ export function decide(input: DecisionInput): Decision {
       pay.askPay ||
       pay.claim ||
       pay.defer ||
+      pay.noPay ||
+      pay.askDeposit ||
       u.primaryIntent === 'choose_offer' ||
       u.primaryIntent === 'order_song' ||
       u.primaryIntent === 'validate_lyrics' ||
@@ -398,7 +404,7 @@ export function decide(input: DecisionInput): Decision {
   routeImages(input, b, target);
 
   // P8 — piste paiement, à toute étape (cas Fargo, Djalilou). Peut suivre un accueil émotionnel.
-  if (pay.askPay || pay.claim || pay.defer) {
+  if (pay.askPay || pay.claim || pay.defer || pay.noPay || pay.askDeposit) {
     if (!input.studio.caps.payment) return handoff(b, 'capability_off', true, 'P8 payment capability off');
     if (u.emotionalWeight === 'high') b.say('story_ack', 'acknowledge_story', null, storyFacts(input));
     paymentRail(input, pay, b);
@@ -630,6 +636,38 @@ function paymentRail(input: DecisionInput, pay: PaymentSignals, b: DecisionBuild
     }
     b.say('payment_ack', 'payment_claim_ack', null, [{ key: 'manager_available', value: input.clock.managerAvailable }]);
     b.note('P8 payment claim');
+    return;
+  }
+
+  // Client sans moyen de paiement utilisable (« ya pas Wave », CONV_18) : ni report ni refus.
+  // 2+ moyens configurés → on les liste et on demande lequel l'arrange ; sinon vrai relais
+  // au gérant (alerte + transfert de contrôle). Toujours avant askPay : inutile de renvoyer
+  // les numéros.
+  if (pay.noPay) {
+    if (input.studio.paymentMethodCount >= 2) {
+      b.say('payment', 'payment_no_method_alternatives', null, []);
+      b.ask(null);
+      b.note('P8 no_payment_method → alternatives');
+      return;
+    }
+    b.act({ type: 'alert_owner', kind: 'no_payment_method', order: null });
+    b.act({ type: 'handoff', reason: 'no_payment_method', ack: false });
+    b.say('payment', 'payment_no_method_handoff', null, []);
+    b.ask(null);
+    b.note('P8 no_payment_method → owner handoff');
+    return;
+  }
+
+  // Acompte (« combien d'avance ? », CONV_23) : politique déterministe, jamais négociée.
+  // Règle Velaris : 100 % avant production, aucun acompte.
+  if (pay.askDeposit) {
+    if (unpaid.length > 0) {
+      b.say('payment', 'deposit_policy_full', null, paymentFacts(unpaid, input));
+    } else {
+      b.say('payment', 'deposit_policy_generic', null, []);
+    }
+    b.ask(null);
+    b.note('P8 ask_deposit → full upfront policy');
     return;
   }
 
@@ -1186,7 +1224,7 @@ export function assertDecisionInvariants(d: Decision, input: DecisionInput): str
   if (steps.includes('payment')) {
     if (!input.studio.caps.payment) v.push('I10: payment instructions without payment capability');
     const priced = (x: Utterance): boolean => x.facts.some((f) => f.key === 'total_xof' && typeof f.value === 'number' && f.value > 0);
-    for (const x of d.utterances) if (x.step === 'payment' && !priced(x)) v.push('I9: payment instructions without a fixed price');
+    for (const x of d.utterances) if (x.goal === 'payment_instructions' && !priced(x)) v.push('I9: payment instructions without a fixed price');
   }
 
   for (const a of d.actions) {
