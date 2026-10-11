@@ -48,6 +48,11 @@
      - *Cause racine* : La commande `#reset` avait été restreinte aux seuls messages `fromMe = true` (téléphone du studio). Le message `#reset` envoyé par le testeur depuis son téléphone (`fromMe = false`) tombait dans le classifieur d'intentions qui l'assimilait à un `stop_request`, passant la discussion en `control_mode = 'closed'`. Tous les messages suivants (« Bonjour », « Salut ») étaient alors ignorés déterministement.
      - *Correctif chirurgical* : Dans `engine/src/ingest/http.ts`, `#reset`, `!reset`, `/reset` sont interceptés pour tout message entrant (`!ev.fromMe || ev.source !== 'api'`). Purge instantanée exécutée via `resetTestClient` et confirmation WhatsApp envoyée.
      - *Déblocage* : Purge complète de la discussion bloquée pour `+226 05 77 73 08` en base Supabase, rebuild Docker et redéploiement VPS validés. Le numéro peut désormais tester et se réinitialiser à volonté.
+  6. **Harmonisation des Tarifs Officiels (1 200 F CFA Découverte / 3 000 F CFA Prestige avec Vidéo)** :
+     - *Catalogue BDD Supabase* : Mise à jour immédiate de tous les studios dans `studio_catalogues` pour fixer `prestige` à 3 000 F CFA (`deliverable: 'audio_video'`) et `essentiel` à 1 200 F CFA.
+     - *Migrations de provisioning* : `20261007_auto_provision_studios.sql` et `ALL_11_MIGRATIONS_COMBINED.sql` mis à jour pour fixer 3 000 F CFA sur Prestige.
+     - *Moteur commercial* : `cataloguePrices` dans `sales-brain.ts` mappe désormais `find('decouverte') || find('essentiel')` garantissant la détection fidèle des 1 200 F et 3 000 F CFA.
+     - *Déploiement VPS* : Image Docker reconstruite et redéployée en production sur le VPS Contabo (`162.35.113.220`).
 - **Jalon 115 Validé — Audit et Validation des 3 Automatisations par Réaction WhatsApp (✨, 🎉, 🎵) & Zéro Redondance** :
   1. **Audit & Exécution Réelle du Banc (`engine/scripts/test-merchant-automations.ts`)** :
      - **Automatisation ✨ (`resume_ai`)** : L'ingestion de la réaction sur un message bascule immédiatement `control_mode` de `human` à `ai`. L'IA reprend la main sans régression via `resumeNote` et enchaîne le brief de façon fluide.

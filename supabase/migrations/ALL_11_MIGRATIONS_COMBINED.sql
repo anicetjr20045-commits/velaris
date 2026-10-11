@@ -122,7 +122,7 @@ BEGIN
   ) VALUES
     (p_user_id, 'essentiel', 'Essentiel', 'Chanson personnalisée 1 couplet 1 refrain, livrée en audio haute qualité.', 1200, 'audio', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 1),
     (p_user_id, 'signature', 'Signature', 'Chanson personnalisée complète 2 couplets 1 refrain, arrangements riches.', 3000, 'audio', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 2),
-    (p_user_id, 'prestige', 'Prestige', 'Chanson complète personnalisée + clip vidéo diaporama photos souvenir.', 5000, 'audio_video', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 3)
+    (p_user_id, 'prestige', 'Prestige', 'Chanson complète personnalisée + clip vidéo diaporama photos souvenir.', 3000, 'audio_video', 8, 18, 'after_lyrics_validation', ARRAY['occasion','recipient_name'], true, 3)
   ON CONFLICT (user_id, code) DO NOTHING;
 
 END;

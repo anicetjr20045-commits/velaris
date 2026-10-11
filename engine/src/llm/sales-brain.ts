@@ -121,7 +121,7 @@ export function cataloguePrices(
   const find = (kw: string): CataloguePriceInput | undefined =>
     catalogue?.find((c) => norm(c.code).includes(kw) || norm(c.label).includes(kw));
   const fmt = (n: number): string => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  const d = find('decouverte');
+  const d = find('decouverte') || find('essentiel');
   const p = find('prestige');
   return { decouverte: d ? fmt(d.priceXof) : '1 200', prestige: p ? fmt(p.priceXof) : '3 000' };
 }
