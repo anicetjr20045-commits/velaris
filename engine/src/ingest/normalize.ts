@@ -28,6 +28,7 @@ export interface MessageEvent {
   mediaUrl: string | null;
   mediaMime: string | null;
   pushName: string | null;
+  quotedText?: string | null;
 }
 
 export interface ReactionEvent {
@@ -85,6 +86,37 @@ function epochToIso(ts: unknown): string | null {
   if (typeof ts !== 'number' || !Number.isFinite(ts) || ts <= 0) return null;
   const ms = ts < 1e12 ? ts * 1000 : ts;
   return new Date(ms).toISOString();
+}
+
+/**
+ * Extrait le texte d'un message cité/répondu (swipe-reply WhatsApp)
+ * depuis la structure WAHA standard (replyTo) ou le payload brut (_data.quotedMsg).
+ */
+export function extractQuotedText(payload: Obj): string | null {
+  if (isObj(payload.replyTo)) {
+    const qb = str(payload.replyTo.body) ?? str(payload.replyTo.text) ?? str(payload.replyTo.caption);
+    if (qb) return qb;
+  }
+  if (isObj(payload._data) && isObj(payload._data.quotedMsg)) {
+    const qm = payload._data.quotedMsg as Obj;
+    const qb = str(qm.body) ?? str(qm.caption) ?? str(qm.text);
+    if (qb) return qb;
+  }
+  return null;
+}
+
+/**
+ * Préfixe de manière sobre et déterministe le texte d'origine cité pour
+ * fournir le contexte exact à l'IA sans aucune modification de prompt ni surcharge.
+ */
+export function formatMessageBody(rawText: string | null, quotedText: string | null): string | null {
+  if (!quotedText) return rawText;
+  const singleLine = quotedText.replace(/\s+/g, ' ').trim();
+  if (!singleLine) return rawText;
+  const truncated = singleLine.length > 120 ? singleLine.slice(0, 120) + '…' : singleLine;
+  const prefix = `[En réponse à : "${truncated}"]`;
+  if (rawText && rawText.startsWith('[En réponse à :')) return rawText;
+  return rawText ? `${prefix}\n${rawText}` : prefix;
 }
 
 export function normalizeWahaEvent(body: unknown): NormalizeResult {
@@ -160,7 +192,9 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
   const mime = (media ? str(media.mimetype) : null) ?? (data ? str(data.mimetype) : null);
   const hasMedia = payload.hasMedia === true;
   const mediaKind = mediaKindOf(mime, hasMedia);
-  const text = str(payload.body);
+  const rawText = str(payload.body);
+  const quotedText = extractQuotedText(payload);
+  const text = formatMessageBody(rawText, quotedText);
   if (!text && !mediaKind) return { ok: false, reason: 'empty_message' };
 
   const source = str(payload.source);
@@ -183,6 +217,7 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
       mediaUrl: media ? str(media.url) : null,
       mediaMime: mime,
       pushName: (data ? (str(data.pushName) ?? str(data.notifyName)) : null) ?? str(payload.pushName),
+      quotedText,
     },
   };
 }

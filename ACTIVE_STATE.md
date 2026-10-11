@@ -25,8 +25,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 11 Octobre 2026 (21:45 UTC)
-- **Statut Opérationnel** : **Jalon 116 Validé — Génération 🎵 100% Silencieuse & Reprise ✨ Déterministe Intelligente selon le Stade FSM (Brief vs Post-Brief)** :
+- **Dernière mise à jour** : 11 Octobre 2026 (23:55 UTC)
+- **Statut Opérationnel** : **Jalon 117 Validé — Audit du Debounce Anti-Rafale (15s Actif en Base) & Extraction Native des Messages Cités WhatsApp (replyTo)** :
+  1. **Audit & Harmonisation du Debounce Anti-Rafale (Fenêtre de Silence)** :
+     - *Constat d'audit* : En base Supabase de production, `studio_personas` contenait encore les valeurs par défaut historiques (`quiet_window_ms = 4000`, `max_batch_wait_ms = 12000`). La migration `20261009_debounce_20s.sql` préparée n'avait pas pu être appliquée directement car la contrainte `CHECK (quiet_window_ms BETWEEN 1500 AND 15000)` en base bloquait l'insertion de 20 000 ms.
+     - *Mise à niveau immédiate* : Tous les profils de `studio_personas` (dont le studio actif `043a33b4` et tous les studios de test) ont été mis à jour via PostgREST au plafond maximal autorisé par la base : `quiet_window_ms = 15000` (15 secondes de silence) et `max_batch_wait_ms = 30000` (30 secondes de plafond absolu).
+     - *Note DDL* : Si le gérant souhaite strictement étendre à 20 000 ms / 60 000 ms, l'instruction DDL `ALTER TABLE studio_personas DROP CONSTRAINT ...` de `20261009_debounce_20s.sql` doit être passée dans le SQL Editor de Supabase pour élargir la contrainte. En l'état, le délai effectif est désormais de 15 secondes réelles (soit près de 4x l'ancien délai).
+  2. **Extraction Native des Messages Cités WhatsApp (Swipe-to-Reply / `replyTo`)** :
+     - *Problématique métier* : Lorsque le client glisse sur un message pour y répondre (ex: répond à « C'est prévu pour quelle date ? » par « Le 18 décembre »), l'IA ne disposait pas du rattachement explicite et recevait uniquement le texte brut.
+     - *Ingestion chirurgicale (`normalize.ts`)* : Fonctions pures `extractQuotedText` et `formatMessageBody` intégrées dans la normalisation WAHA.
+     - Prise en charge native de `payload.replyTo` (champs `body`, `text`, `caption`) et repli propre sur `payload._data.quotedMsg`.
+     - *Formatage standard épuré* : Le corps du message est préfixé par `[En réponse à : "${citation}"]\n${texte}`, avec normalisation sur une seule ligne et troncature propre à 120 caractères.
+     - *Anti-redondance & Déduplication* : Protection contre le double préfixage si le message commence déjà par `[En réponse à :`.
+     - *Extension aux notes vocales (`AudioTranscriber` & `process-event.ts`)* : Si le client enregistre un vocal en réponse à un message précis, la transcription Gemini de Kie.ai est automatiquement préfixée par la citation correspondante dès son enregistrement en base.
+     - *Respect strict du contrat d'ingénierie* : Zéro modification ni gonflement du prompt système (<60 lignes). Zéro regex fragile. Le LLM comprend naturellement le contexte de la réponse sans aucune règle conditionnelle ad-hoc.
+  3. **Suites de Tests & Déploiement Production** :
+     - 188 / 188 tests unitaires réussis (+5 nouveaux tests de normalisation et citations).
+     - 12 / 12 scénarios clients du bac à sable (`npm run test:scenarios`) passés à 100% avec mise en conformité de `s10` sur le silence de 🎵.
+     - Build TypeScript `engine` recompilé à zéro erreur.
+     - Déployé en production sur le VPS Contabo (`162.35.113.220`), conteneur Docker `velaris-engine` redémarré avec succès.
+- **Jalon 116 Validé — Génération 🎵 100% Silencieuse & Reprise ✨ Déterministe Intelligente selon le Stade FSM (Brief vs Post-Brief)** :
   1. **Automatisation 🎵 (`confirm_and_produce`) 100% Silencieuse & Multi-Commandes Étanche** :
      - La réaction du gérant sur un texte de paroles est désormais **100% silencieuse sur WhatsApp** : aucun message ni annonce `reaction_confirm` n'est envoyé au client.
      - Extraction chirurgicale de la voix (`female`, `male`, `duo`) et du style musical (ex: *Afropop*, *Acoustique*, *Gospel*) via DeepSeek Flash, directement enregistrés sur la commande (`orders.voice`, `orders.style`, `orders.lyrics_source = 'merchant_reaction'`).

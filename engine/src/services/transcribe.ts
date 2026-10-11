@@ -192,7 +192,8 @@ export class AudioTranscriber {
     mediaUrl: string | null,
     mediaKind: string | null,
     waMessageId?: string,
-    chatId?: string
+    chatId?: string,
+    quotedText?: string | null
   ): Promise<string | null> {
     if (mediaKind !== 'audio' || !mediaUrl) return null;
 
@@ -211,8 +212,15 @@ export class AudioTranscriber {
         return null;
       }
 
-      const transcript = await this.transcribeBuffer(buffer);
+      let transcript = await this.transcribeBuffer(buffer);
       if (transcript) {
+        if (quotedText) {
+          const singleLine = quotedText.replace(/\s+/g, ' ').trim();
+          if (singleLine) {
+            const truncated = singleLine.length > 120 ? singleLine.slice(0, 120) + '…' : singleLine;
+            transcript = `[En réponse à : "${truncated}"]\n${transcript}`;
+          }
+        }
         if (this.db) {
           await this.db.rpc('agent_set_transcript', {
             p_message: messageId,

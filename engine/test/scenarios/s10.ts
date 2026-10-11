@@ -32,7 +32,8 @@ export const scenario: Scenario = {
     {
       expect: [
         { lyricsHave: 'au clair de la lune' },
-        { aiSaid: ['production', 'Voix :'] },
+        { aiSilent: true },
+        { orderStage: 'lyrics_sent' },
       ],
     },
   ],

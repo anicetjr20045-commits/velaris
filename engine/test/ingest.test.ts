@@ -77,6 +77,62 @@ describe('normalisation WAHA', () => {
     assert.ok(r.ok && r.event.kind === 'session_status');
     assert.equal(r.event.phone, '22656240533');
   });
+
+  test('message avec réponse citée (replyTo)', () => {
+    const r = normalizeWahaEvent(inbound({
+      body: 'Le 18 décembre',
+      replyTo: {
+        id: 'true_22656240533@c.us_MSG1',
+        body: "C'est prévu pour quelle date ?",
+        participant: '22656240533@c.us',
+      },
+    }));
+    assert.ok(r.ok && r.event.kind === 'message');
+    assert.equal(r.event.quotedText, "C'est prévu pour quelle date ?");
+    assert.equal(r.event.body, '[En réponse à : "C\'est prévu pour quelle date ?"]\nLe 18 décembre');
+  });
+
+  test('message avec réponse citée (fallback _data.quotedMsg)', () => {
+    const r = normalizeWahaEvent(inbound({
+      body: 'Prestige svp',
+      _data: {
+        quotedMsg: {
+          type: 'chat',
+          body: 'Quelle formule préférez-vous ?',
+        },
+      },
+    }));
+    assert.ok(r.ok && r.event.kind === 'message');
+    assert.equal(r.event.quotedText, 'Quelle formule préférez-vous ?');
+    assert.equal(r.event.body, '[En réponse à : "Quelle formule préférez-vous ?"]\nPrestige svp');
+  });
+
+  test('citation longue tronquée et multilignes aplaties', () => {
+    const longText = 'Voici une très longue question posée par le studio avec des détails\net des retours à la ligne '.repeat(3);
+    const r = normalizeWahaEvent(inbound({
+      body: "D'accord",
+      replyTo: { body: longText },
+    }));
+    assert.ok(r.ok && r.event.kind === 'message');
+    assert.ok(r.event.body?.startsWith('[En réponse à : "'));
+    assert.ok(r.event.body?.includes('…"]\nD\'accord'));
+  });
+
+  test('message sans citation : corps intact sans préfixe', () => {
+    const r = normalizeWahaEvent(inbound({ body: 'Bonjour' }));
+    assert.ok(r.ok && r.event.kind === 'message');
+    assert.equal(r.event.quotedText, null);
+    assert.equal(r.event.body, 'Bonjour');
+  });
+
+  test('message déjà préfixé : pas de double citation', () => {
+    const r = normalizeWahaEvent(inbound({
+      body: '[En réponse à : "Bonjour"]\nSalut',
+      replyTo: { body: 'Bonjour' },
+    }));
+    assert.ok(r.ok && r.event.kind === 'message');
+    assert.equal(r.event.body, '[En réponse à : "Bonjour"]\nSalut');
+  });
 });
 
 describe('outils', () => {

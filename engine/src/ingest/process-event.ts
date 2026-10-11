@@ -125,7 +125,8 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
           ev.mediaUrl ?? mediaPath,
           ev.mediaKind,
           ev.waMessageId,
-          ev.chatId
+          ev.chatId,
+          ev.quotedText
         ).catch(() => undefined);
       }
 
