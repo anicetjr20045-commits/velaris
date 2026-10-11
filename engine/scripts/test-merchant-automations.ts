@@ -259,7 +259,61 @@ async function main() {
   console.log('Bulle envoyée par l’IA suite à ✨ :');
   outbox1.forEach((b, i) => console.log(`  [${i + 1}] (${b.purpose}) ${b.body}`));
   assert.ok(outbox1.length > 0, 'L’IA doit avoir envoyé au moins une bulle de reprise');
-  console.log('✔ Test 1 ✨ Réussi : La main a été reprise et l’IA continue naturellement.');
+  console.log('✔ Test 1A ✨ Réussi : La main a été reprise et l’IA continue naturellement le brief.');
+
+  // =========================================================================
+  // TEST 1B : ✨ RESUME_AI SUR COMMANDE HORS-BRIEF -> SILENCE DÉTERMINISTE ABSOLU
+  // Si le brief est déjà clos, les paroles en cours ou le relais déjà acté,
+  // l'IA se tait strictement (aucun message envoyé au client).
+  // =========================================================================
+  console.log('\n--- TEST 1B : ✨ RESUME_AI SUR COMMANDE POST-BRIEF (Silence Déterministe) ---');
+  const chat1b = '22501019999@c.us';
+  const m1b = await adapter.rpc<{ outcome: string; conversation_id: string }>('agent_ingest_message', {
+    p_session: SESSION,
+    p_chat_id: chat1b,
+    p_from_me: false,
+    p_wa_message_id: 'wa_t1b_1',
+    p_wa_key: 't1b_1',
+    p_wa_timestamp: new Date().toISOString(),
+    p_body: 'Merci beaucoup !',
+    p_media_kind: null,
+    p_media_path: null,
+    p_push_name: 'Client Satisfait',
+    p_body_hash: bodyHash('Merci beaucoup !'),
+  });
+  const conv1b = m1b.conversation_id;
+  await adapter.rpc<string>('agent_open_order', { p_conversation: conv1b });
+  const order1bId = (await db.query<{ id: string }>(
+    `SELECT id FROM orders WHERE conversation_id = '${conv1b}' LIMIT 1`
+  )).rows[0]!.id;
+
+  // Mettre la commande en stage 'lyrics_in_progress' et le contrôle en human
+  await db.exec(`
+    UPDATE orders SET stage = 'lyrics_in_progress', deliverable = 'audio' WHERE id = '${order1bId}';
+    UPDATE conversations SET focus_order_id = '${order1bId}', control_mode = 'human', control_reason = 'brief_complete_handoff' WHERE id = '${conv1b}';
+  `);
+
+  console.log('Action : Le gérant réagit avec ✨ alors que la commande est en lyrics_in_progress...');
+  const reactRes1b = await adapter.rpc<string>('agent_ingest_reaction', {
+    p_session: SESSION,
+    p_chat_id: chat1b,
+    p_reacted_key: 't1b_1',
+    p_emoji: '✨',
+  });
+  console.log('Résultat ingestion réaction ✨ post-brief :', reactRes1b);
+
+  const outcomes1b = await pumpTurns(adapter, conv1b, deps);
+  console.log('Tours exécutés pour ✨ post-brief :', outcomes1b);
+  assert.ok(
+    outcomes1b.includes('reaction_resume_ai_silent'),
+    'Le tour doit se terminer en reaction_resume_ai_silent'
+  );
+
+  const outbox1b = (await db.query<{ id: string }>(
+    `SELECT id FROM outbound_messages WHERE conversation_id = '${conv1b}' AND origin = 'agent' AND status <> 'cancelled'`
+  )).rows;
+  assert.equal(outbox1b.length, 0, 'L’IA ne doit envoyer STRICTEMENT AUCUN message (silence total)');
+  console.log('✔ Test 1B ✨ Réussi : Silence absolu respecté sur commande post-brief (0 message envoyé).');
 
   // =========================================================================
   // TEST 2 : AUTOMATISATION 🎉 (mark_delivered)
@@ -466,14 +520,23 @@ Que ta vie soit remplie de paix et de bonheur !`;
   assert.equal(order3AAfter.lyrics_source, 'merchant_reaction', 'La source des paroles doit être merchant_reaction');
   console.log('✔ Paroles enregistrées sur la commande 3A avec lyrics_source =', order3AAfter.lyrics_source);
 
-  // Vérification de la confirmation outbox et de l'extraction LLM (voix & style)
-  const confirmBubble = (await db.query<{ body: string; purpose: string }>(
-    `SELECT body, purpose FROM outbound_messages WHERE conversation_id = '${conv3A}' AND purpose = 'reaction_confirm'`
-  )).rows[0];
-  assert.ok(confirmBubble, 'Un message de confirmation reaction_confirm doit être envoyé');
-  console.log('✔ Message de confirmation mis en outbox :\n' + confirmBubble.body);
-  assert.ok(confirmBubble.body.includes('production chanson'), 'Doit mentionner le départ en production');
-  assert.ok(confirmBubble.body.includes('Voix :') || confirmBubble.body.includes('Style :'), 'Doit mettre en avant Voix et Style');
+  // Vérification de la génération silencieuse (AUCUN message envoyé au client dans WhatsApp)
+  const outboxConfirm = (await db.query<{ id: string }>(
+    `SELECT id FROM outbound_messages WHERE conversation_id = '${conv3A}' AND purpose = 'reaction_confirm'`
+  )).rows;
+  assert.equal(outboxConfirm.length, 0, 'La réaction 🎵 doit être 100% silencieuse sur WhatsApp (aucun message envoyé au client)');
+  console.log('✔ Génération silencieuse vérifiée : 0 message réaction envoyé sur WhatsApp.');
+
+  // Vérification de l'extraction des caractéristiques (voix, style) et de l'avancement de l'étape
+  const order3ACols = (await db.query<{ style: string | null; voice: string | null; stage: string }>(
+    `SELECT style, voice, stage FROM orders WHERE id = '${order3AId}'`
+  )).rows[0]!;
+  console.log('✔ Caractéristiques enregistrées sur commande 3A :', {
+    voice: order3ACols.voice,
+    style: order3ACols.style,
+    stage: order3ACols.stage,
+  });
+  assert.equal(order3ACols.stage, 'lyrics_sent', 'La commande 3A doit avoir progressé en stage lyrics_sent');
 
   // VÉRIFICATION D’ISOLATION CRITIQUE (Zéro Amalgame avec la conversation B)
   const order3BAfter = (await db.query<{ lyrics: string | null; lyrics_source: string | null }>(

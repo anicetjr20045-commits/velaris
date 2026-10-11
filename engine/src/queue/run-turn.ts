@@ -371,71 +371,170 @@ async function handleMerchantReaction(
 
   switch (rcommand) {
     case 'resume_ai': {
+      rtrace.push('merchant_reaction: resume_ai received');
+
+      // 1. Déterminer si l'IA a encore quelque chose à accomplir ou si sa mission est terminée :
+      // - Si la commande est au-delà du brief (paroles en cours, validées, en production, livrée, clôturée, annulée)
+      // - Si le relais gérant (brief_complete_handoff) a déjà eu lieu ou si une formule a déjà été choisie (promesse 15 min envoyée)
+      // Dans ces cas : l'IA DOIT SE TAIRE STRICTEMENT (silence complet, aucun message envoyé au client, contrôle humain préservé).
+      const activeOrder = rraw.orders.find((o) => o.id === rfocusOrderId) || rraw.orders[0];
+      const isPastBrief = Boolean(activeOrder && [
+        'lyrics_in_progress',
+        'lyrics_sent',
+        'lyrics_validated',
+        'in_production',
+        'audio_delivered',
+        'video_in_progress',
+        'delivered',
+        'closed',
+        'cancelled',
+      ].includes(activeOrder.stage));
+
+      const isBriefHandoffDone = Boolean(
+        rraw.handoff?.reason === 'brief_complete_handoff' ||
+        rraw.handoff?.reason === 'handoff:brief_complete' ||
+        rraw.conversation.control_reason === 'brief_complete_handoff' ||
+        rraw.conversation.control_reason === 'handoff:brief_complete'
+      );
+
+      const hasChosenFormula = Boolean(
+        rraw.recent.some(
+          (r) =>
+            (r.role === 'assistant' || r.role === 'agent') &&
+            /délai de 15 minutes|formule (découverte|prestige)/i.test(r.text || ''),
+        )
+      );
+
+      if (isPastBrief || isBriefHandoffDone || hasChosenFormula) {
+        rtrace.push('merchant_reaction: resume_ai on completed brief / post-brief stage -> staying silent (zero message, human control preserved)');
+        return finish('reaction_resume_ai_silent');
+      }
+
+      // Si le brief est encore en cours : rendre effectivement la main à l'IA
       await rdeps.db.rpc('agent_set_control', {
         p_conversation: rturnRef.conversationId,
         p_mode: 'ai',
         p_reason: 'merchant_reaction_resume',
         p_actor: 'merchant',
       });
-      rtrace.push('merchant_reaction: control returned to AI, continuing with normal flow');
+      rtrace.push('merchant_reaction: control returned to AI during brief -> continuing to collect remaining brief pillars');
       return 'continue';
     }
 
     case 'confirm_and_produce': {
-      if (!rfocusOrderId) {
-        rtrace.push('merchant_reaction: confirm_and_produce without focused order');
-        return finish('reaction_no_order');
-      }
       if (!reactedBody) {
         rtrace.push('merchant_reaction: confirm_and_produce without reacted text');
         return finish('reaction_no_text');
       }
-      let voiceStyle = '';
+
+      // 1. Ciblage intelligent de la commande (support multi-textes & multi-générations étanche)
+      let targetOrderId: string | null = null;
+      const alreadyLinked = rraw.orders.find((o) => (o as any).lyrics_message_id === reactedId);
+      if (alreadyLinked) {
+        targetOrderId = alreadyLinked.id;
+      } else if (rfocusOrderId) {
+        const focusOrder = rraw.orders.find((o) => o.id === rfocusOrderId);
+        // Si la commande courante n'a pas encore de paroles distinctes ou a déjà ce texte
+        if (focusOrder && (!focusOrder.lyrics || focusOrder.lyrics === reactedBody)) {
+          targetOrderId = focusOrder.id;
+        } else {
+          // La commande courante a déjà d'autres paroles : chercher une autre commande ouverte sans paroles
+          const orderWithoutLyrics = rraw.orders.find(
+            (o) => o.id !== rfocusOrderId && !o.lyrics && !['delivered', 'closed', 'cancelled'].includes(o.stage),
+          );
+          if (orderWithoutLyrics) {
+            targetOrderId = orderWithoutLyrics.id;
+          } else {
+            // Ouvrir une nouvelle commande pour isoler ce nouveau texte et ne rien mélanger
+            try {
+              const newId = await rdeps.db.rpc<string>('agent_open_order', { p_conversation: rturnRef.conversationId });
+              if (newId) targetOrderId = newId;
+            } catch {
+              targetOrderId = rfocusOrderId;
+            }
+          }
+        }
+      } else if (rraw.orders.length > 0) {
+        targetOrderId = rraw.orders[0]!.id;
+      } else {
+        try {
+          const newId = await rdeps.db.rpc<string>('agent_open_order', { p_conversation: rturnRef.conversationId });
+          if (newId) targetOrderId = newId;
+        } catch {
+          targetOrderId = null;
+        }
+      }
+
+      if (!targetOrderId) {
+        rtrace.push('merchant_reaction: confirm_and_produce without target order');
+        return finish('reaction_no_order');
+      }
+
+      // 2. Extraction parfaite et isolée de la voix et du style depuis le texte ciblé uniquement
+      let extractedVoice: string | null = null;
+      let extractedStyle: string | null = null;
+      let normalizedVoice: 'male' | 'female' | 'duo' | null = null;
+
       try {
         const res = await rdeps.llmProvider.completeJson({
-          system: 'Tu analyses un texte de chanson. Reponds en JSON strict : {"voice": "<voix suggeree>", "style": "<style musical>"}. Base-toi uniquement sur le ton et le contenu du texte.',
-          messages: [{ role: 'user', content: reactedBody.slice(0, 2000) }],
-          temperature: 0.2,
+          system:
+            'Tu analyses EXCLUSIVEMENT le texte de chanson fourni. Ne prends en compte AUCUNE information extérieure ni ancienne commande.\n' +
+            'Le créateur indique clairement la voix et le style en haut du texte ou dans les annotations (ex: "Voix : Homme / Femme / Masculine / Féminine", "Style : Afropop / Doux / Acoustique / Mandingue / Gospel / Zouk").\n' +
+            'Extrais fidèlement :\n' +
+            '- "voice": la voix exacte mentionnée ("masculine", "féminine", "homme", "femme", "duo") ou le timbre déduit du texte.\n' +
+            '- "style": le style musical exact indiqué (ex: "Afropop", "Afropop doux", "Acoustique mandingue", "Gospel", etc.) ou déduit du texte.\n' +
+            'Réponds en JSON strict : {"voice": "<voix>", "style": "<style>"}.',
+          messages: [{ role: 'user', content: reactedBody.slice(0, 2500) }],
+          temperature: 0.1,
           maxTokens: 150,
         });
         const d = res.data as { voice?: string; style?: string } | undefined;
-        const voice = String(d?.voice || '').trim();
-        const style = String(d?.style || '').trim();
-        if (voice || style) voiceStyle = `\n\nVoix : ${voice}\nStyle : ${style}`;
+        if (d?.voice) {
+          extractedVoice = String(d.voice).trim();
+          const vLower = extractedVoice.toLowerCase();
+          if (vLower.includes('fem') || vLower.includes('femme')) normalizedVoice = 'female';
+          else if (vLower.includes('masc') || vLower.includes('homme')) normalizedVoice = 'male';
+          else if (vLower.includes('duo')) normalizedVoice = 'duo';
+        }
+        if (d?.style) {
+          extractedStyle = String(d.style).trim();
+        }
       } catch (e) {
         rdeps.log('merchant_reaction: voice/style extraction failed', { error: (e as Error).message });
       }
+
+      // 3. Enregistrement des paroles et caractéristiques musicales sur la commande
+      const patch: Record<string, unknown> = {
+        lyrics: reactedBody,
+        lyrics_source: 'merchant_reaction',
+        lyrics_message_id: reactedId,
+      };
+      if (extractedStyle) patch.style = extractedStyle;
+      if (normalizedVoice) patch.voice = normalizedVoice;
+
       await rdeps.db.updateRows?.(
         'orders',
-        `id=eq.${rfocusOrderId}`,
-        { lyrics: reactedBody, lyrics_source: 'merchant_reaction', lyrics_message_id: reactedId },
+        `id=eq.${targetOrderId}`,
+        patch,
       );
-      const confirmBody =
-        `C'est note ! Ce texte part en production chanson.${voiceStyle}` +
-        `\nNotre equipe lance la creation avec ces caracteristiques mises en avant.`;
-      const outId = await rdeps.db.rpc<string>('agent_enqueue_outbox', {
-        p_user: rturnRef.userId,
-        p_conversation: rturnRef.conversationId,
-        p_order: rfocusOrderId,
-        p_turn: rturnRef.turnId,
-        p_origin: 'agent',
-        p_kind: 'text',
-        p_purpose: 'reaction_confirm',
-        p_is_relay: false,
-        p_session: rraw.conversation.session_name,
-        p_chat_id: rraw.conversation.chat_id,
-        p_body: confirmBody,
-        p_media_path: null,
-        p_caption: null,
-        p_body_hash: null,
-        p_idempotency_key: `reaction_confirm_${rturnRef.turnId}`,
-        p_lock_token: rturnRef.lockToken,
-        p_status: 'pending',
-        p_not_before: null,
-        p_expires_at: null,
-      });
-      renqueuedIds.push(outId);
-      rtrace.push('merchant_reaction: lyrics confirmed for production with voice/style');
+
+      // 4. Avancement créatif de la commande vers les paroles envoyées si encore en brief
+      const targetOrderObj = rraw.orders.find((o) => o.id === targetOrderId);
+      if (targetOrderObj && ['collecting_brief', 'brief_complete', 'lyrics_in_progress'].includes(targetOrderObj.stage)) {
+        await rdeps.db.rpc('agent_transition_order', {
+          p_order: targetOrderId,
+          p_expected_version: targetOrderObj.version,
+          p_track: 'creative',
+          p_event: 'lyrics_sent',
+          p_actor: 'merchant',
+          p_turn: rturnRef.turnId,
+          p_data: { via: 'merchant_reaction_produce', emoji: remoji },
+          p_inferred: false,
+        }).catch(() => undefined);
+      }
+
+      // 5. La génération est 100% silencieuse : AUCUN message envoyé au client dans WhatsApp !
+      rtrace.push(`merchant_reaction: lyrics saved silently for production - Voice: ${extractedVoice ?? 'auto'}, Style: ${extractedStyle ?? 'auto'}, Order: ${targetOrderId}`);
       return finish('reaction_confirm_and_produce');
     }
 

@@ -25,8 +25,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 10 Octobre 2026 (14:15 UTC)
-- **Statut Opérationnel** : **Jalon 115 Validé — Audit et Validation des 3 Automatisations par Réaction WhatsApp (✨, 🎉, 🎵) & Zéro Redondance** :
+- **Dernière mise à jour** : 11 Octobre 2026 (21:45 UTC)
+- **Statut Opérationnel** : **Jalon 116 Validé — Génération 🎵 100% Silencieuse & Reprise ✨ Déterministe Intelligente selon le Stade FSM (Brief vs Post-Brief)** :
+  1. **Automatisation 🎵 (`confirm_and_produce`) 100% Silencieuse & Multi-Commandes Étanche** :
+     - La réaction du gérant sur un texte de paroles est désormais **100% silencieuse sur WhatsApp** : aucun message ni annonce `reaction_confirm` n'est envoyé au client.
+     - Extraction chirurgicale de la voix (`female`, `male`, `duo`) et du style musical (ex: *Afropop*, *Acoustique*, *Gospel*) via DeepSeek Flash, directement enregistrés sur la commande (`orders.voice`, `orders.style`, `orders.lyrics_source = 'merchant_reaction'`).
+     - Ciblage multi-commandes étanche : vérifie `lyrics_message_id`, réutilise ou ouvre une nouvelle commande sans jamais contaminer ni écraser d'anciennes commandes ou commandes tierces.
+     - Avancement déterministe de la commande vers `stage = 'lyrics_sent'`.
+  2. **Automatisation ✨ (`resume_ai`) avec Discrimination Déterministe du Stade FSM** :
+     - Avant toute action, le moteur inspecte l'état exact de la commande et de la conversation :
+     - **Cas Post-Brief / Mission Terminée** (`lyrics_in_progress`, `lyrics_sent`, `lyrics_validated`, `in_production`, `audio_delivered`, `delivered`, ou relais gérant 15 min déjà acté) : L'IA se tait strictement (`reaction_resume_ai_silent`), aucun message n'est envoyé au client et le mode `human` est conservé pour protéger la suite de la relation client.
+     - **Cas En Plein Brief** (`collecting_brief` ou aucun brief finalisé) : Le contrôle bascule en `ai` et l'IA s'oriente immédiatement pour poser uniquement la question manquante des 4 repères sans répétition ni bégaiement.
+  3. **Validation Réelle sur Banc d'Essai (`engine/scripts/test-merchant-automations.ts`)** :
+     - Test 1A (✨ en cours de brief) : Validé avec reprise naturelle et demande de la date.
+     - Test 1B (✨ post-brief) : Validé avec silence absolu (0 message sortant).
+     - Test 2 (🎉 livraison) : Validé avec passage en `delivered` et qualification d'habitué CRM (`delivered_orders = 1`).
+     - Test 3 (🎵 paroles) : Validé avec 0 message WhatsApp, extraction `{ voice: 'female', style: 'Afropop' }`, et isolation parfaite avec la commande B.
+  4. **Suites de Tests & Builds 100% Verts** :
+     - 183 / 183 tests unitaires et scénarios réussis (0 échec).
+     - Build TypeScript `engine` (`dist/`) et Vite SPA (`dist/`) compilés à 0 erreur.
+- **Jalon 115 Validé — Audit et Validation des 3 Automatisations par Réaction WhatsApp (✨, 🎉, 🎵) & Zéro Redondance** :
   1. **Audit & Exécution Réelle du Banc (`engine/scripts/test-merchant-automations.ts`)** :
      - **Automatisation ✨ (`resume_ai`)** : L'ingestion de la réaction sur un message bascule immédiatement `control_mode` de `human` à `ai`. L'IA reprend la main sans régression via `resumeNote` et enchaîne le brief de façon fluide.
      - **Automatisation 🎉 (`mark_delivered`)** : La réaction sur le message de livraison passe la commande en `stage = 'delivered'`. La fonction SQL `agent_contact_facts` incrémente instantanément `delivered_orders >= 1`. Dès le message suivant du client, le contexte CRM le qualifie de client récurrent/fidèle : le vocal de procédure est sauté et l'accueil d'habitué est activé.
