@@ -143,10 +143,9 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
     }
 
     // 2. Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset)
-    // SÉCURITÉ (C2) : réservée au GÉRANT uniquement. Un message fromMe dont la source n'est pas
-    // 'api' est indiscutablement tapé à la main sur le téléphone du gérant (cf. process-event.ts).
-    // Sans cette garde, n'importe quel client pouvait purger son dossier de commande.
-    if (ev.kind === 'message' && typeof ev.body === 'string' && ev.fromMe === true && ev.source !== 'api') {
+    // Permet au testeur (depuis son téléphone WhatsApp, fromMe = false) ou au gérant (fromMe = true)
+    // de purger instantanément la discussion et recommencer un test à blanc.
+    if (ev.kind === 'message' && typeof ev.body === 'string' && (!ev.fromMe || ev.source !== 'api')) {
       const trimmed = ev.body.trim().toLowerCase();
       if (trimmed === '#reset' || trimmed === '!reset' || trimmed === '/reset') {
         const resetRes = await resetTestClient(deps.db as RestDb, ev.chatId);

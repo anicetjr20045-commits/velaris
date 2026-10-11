@@ -44,6 +44,10 @@
   4. **Suites de Tests & Builds 100% Verts** :
      - 183 / 183 tests unitaires et scénarios réussis (0 échec).
      - Build TypeScript `engine` (`dist/`) et Vite SPA (`dist/`) compilés à 0 erreur.
+  5. **Rétablissement de la Commande Magique `#reset` & Déblocage Numéro Test (+226 05 77 73 08)** :
+     - *Cause racine* : La commande `#reset` avait été restreinte aux seuls messages `fromMe = true` (téléphone du studio). Le message `#reset` envoyé par le testeur depuis son téléphone (`fromMe = false`) tombait dans le classifieur d'intentions qui l'assimilait à un `stop_request`, passant la discussion en `control_mode = 'closed'`. Tous les messages suivants (« Bonjour », « Salut ») étaient alors ignorés déterministement.
+     - *Correctif chirurgical* : Dans `engine/src/ingest/http.ts`, `#reset`, `!reset`, `/reset` sont interceptés pour tout message entrant (`!ev.fromMe || ev.source !== 'api'`). Purge instantanée exécutée via `resetTestClient` et confirmation WhatsApp envoyée.
+     - *Déblocage* : Purge complète de la discussion bloquée pour `+226 05 77 73 08` en base Supabase, rebuild Docker et redéploiement VPS validés. Le numéro peut désormais tester et se réinitialiser à volonté.
 - **Jalon 115 Validé — Audit et Validation des 3 Automatisations par Réaction WhatsApp (✨, 🎉, 🎵) & Zéro Redondance** :
   1. **Audit & Exécution Réelle du Banc (`engine/scripts/test-merchant-automations.ts`)** :
      - **Automatisation ✨ (`resume_ai`)** : L'ingestion de la réaction sur un message bascule immédiatement `control_mode` de `human` à `ai`. L'IA reprend la main sans régression via `resumeNote` et enchaîne le brief de façon fluide.
