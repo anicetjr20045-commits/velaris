@@ -36,9 +36,13 @@
      - Index sur `messages (user_id, wa_message_key)` et `messages (conversation_id, created_at DESC)`.
   3. **Procédure de Réinitialisation Atomique (`agent_reset_test_client`)** :
      - Procédure stockée SQL pour purger instantanément en 1 transaction les contacts, conversations, commandes, tours, handoffs, outbox et déverrouiller la table d'ingestion brute pour les tests `#reset`.
-  4. **Validation Technique & Synchronisation GitHub** :
+  4. **Validation Technique & Application Production Supabase (100% Appliqué)** :
      - 188 / 188 tests unitaires PGlite validés à 100% verts (`npm test`).
-     - Fichier sauvegardé dans [`supabase/migrations/20261012_performance_and_cleanliness.sql`](file:///root/projets/velaris/supabase/migrations/20261012_performance_and_cleanliness.sql) et pushé sur `origin/main` (`ed00caf`).
+     - Connexion PostgreSQL directe établie depuis le VPS vers `db.dnwlqgsftauqsyjwhoza.supabase.co:5432`.
+     - Les 7 index haute charge et déduplication créés en base de production.
+     - `agent_cleanup_stale_events()` exécutée et validée en direct : 213 événements obsolètes de plus de 7 jours immédiatement purgés.
+     - `agent_reset_test_client()` installée avec permissions `service_role`.
+     - Migration enregistrée dans [`supabase/migrations/20261012_performance_and_cleanliness.sql`](file:///root/projets/velaris/supabase/migrations/20261012_performance_and_cleanliness.sql) et synchronisée sur GitHub `main`.
 - **Jalon 119 Validé — Synchronisation Complète & Guide de Reprise Développeur (Handover, Dépôt GitHub à Jour & Consolidation des Accès Infrastructure)** :
   1. **Documentation de Reprise exhaustive** :
      - [`HANDOVER_DEVELOPER.md`](file:///root/projets/velaris/HANDOVER_DEVELOPER.md) consolidé : topologie, architecture FSM déterministe, 188 tests unitaires, 12 scénarios clients, procédures de build et déploiement VPS en 3 commandes.
