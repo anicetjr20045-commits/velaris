@@ -25,8 +25,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Octobre 2026 (00:25 UTC)
-- **Statut Opérationnel** : **Jalon 118 Validé — Épuration du Cerveau Commercial (Humanisation des Transitions, Offres en Valeur Réelle, Clôture Fluide du 4e Repère & Température 0.55)** :
+- **Dernière mise à jour** : 12 Octobre 2026 (11:45 UTC)
+- **Statut Opérationnel** : **Jalon 119 Validé — Synchronisation Complète & Guide de Reprise Développeur (Handover, Dépôt GitHub à Jour & Consolidation des Accès Infrastructure)** :
+  1. **Documentation de Reprise exhaustive** :
+     - [`HANDOVER_DEVELOPER.md`](file:///root/projets/velaris/HANDOVER_DEVELOPER.md) consolidé : topologie, architecture FSM déterministe, 188 tests unitaires, 12 scénarios clients, procédures de build et déploiement VPS en 3 commandes.
+  2. **Synchronisation GitHub Totale** :
+     - Dépôt `https://github.com/anicetjr20045-commits/velaris.git` propre et à jour sur `main`.
+     - Zéro fuite de secrets (.gitignore strict), environnement modèle `vps/env.example`.
+  3. **Vérification Intégrale de la Stack** :
+     - Moteur `velaris-engine` en conteneur Docker actif sur le VPS (`162.35.113.220`).
+     - Session WhatsApp active (`Test`) et protégée (`anicet2`).
+- **Jalon 118 Validé — Épuration du Cerveau Commercial (Humanisation des Transitions, Offres en Valeur Réelle, Clôture Fluide du 4e Repère & Température 0.55)** :
   1. **Suppression du Tic Robotique (« C'est noté pour X ») & Variété Humaine** :
      - *Cause racine* : La règle 2 du prompt système dictait deux exemples uniques (« C'est bien noté pour Moussa », « C'est noté pour le 15 novembre ») qui, à température 0.3, figeaient la syntaxe sur un algorithme rigide à deux temps.
      - *Correction sobre* : Remplacement par une directive de ton vivante : varier sobrement les transitions (« Très bien », « D'accord », « Entendu ») ou poser directement la question suivante sans préfixe lourd lorsque l'intention est limpide.
