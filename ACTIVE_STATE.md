@@ -25,8 +25,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Octobre 2026 (11:45 UTC)
-- **Statut Opérationnel** : **Jalon 119 Validé — Synchronisation Complète & Guide de Reprise Développeur (Handover, Dépôt GitHub à Jour & Consolidation des Accès Infrastructure)** :
+- **Dernière mise à jour** : 12 Octobre 2026 (19:55 UTC)
+- **Statut Opérationnel** : **Jalon 120 Validé — Intégration & Sécurisation de la Migration Performance & Cleanliness (`20261012_performance_and_cleanliness.sql`)** :
+  1. **Audit & Correction du Piège de Schéma Supabase (`inbound_events`)** :
+     - *Cause racine évitée* : Le script proposé par Lovable utilisait `created_at < now() - interval '7 days'` sur la table `public.inbound_events`. Or, dans le schéma de production, l'horodatage d'arrivée est strictement nommé `received_at`. L'exécution brute aurait provoqué une erreur fatale `column created_at does not exist` et l'avortement complet de la transaction.
+     - *Correction chirurgicale* : Correction de la fonction `agent_cleanup_stale_events()` pour cibler `received_at`.
+  2. **Indexation Stratégique Haute Charge & Déduplication** :
+     - Index composites ajoutés sur `contacts (user_id, wa_jid)`, `contacts (user_id, phone)`.
+     - Index sur `conversations (user_id, contact_id)`, `conversations (user_id, chat_id)`, `conversations (session_name, chat_id)`.
+     - Index sur `messages (user_id, wa_message_key)` et `messages (conversation_id, created_at DESC)`.
+  3. **Procédure de Réinitialisation Atomique (`agent_reset_test_client`)** :
+     - Procédure stockée SQL pour purger instantanément en 1 transaction les contacts, conversations, commandes, tours, handoffs, outbox et déverrouiller la table d'ingestion brute pour les tests `#reset`.
+  4. **Validation Technique & Synchronisation GitHub** :
+     - 188 / 188 tests unitaires PGlite validés à 100% verts (`npm test`).
+     - Fichier sauvegardé dans [`supabase/migrations/20261012_performance_and_cleanliness.sql`](file:///root/projets/velaris/supabase/migrations/20261012_performance_and_cleanliness.sql) et pushé sur `origin/main` (`ed00caf`).
+- **Jalon 119 Validé — Synchronisation Complète & Guide de Reprise Développeur (Handover, Dépôt GitHub à Jour & Consolidation des Accès Infrastructure)** :
   1. **Documentation de Reprise exhaustive** :
      - [`HANDOVER_DEVELOPER.md`](file:///root/projets/velaris/HANDOVER_DEVELOPER.md) consolidé : topologie, architecture FSM déterministe, 188 tests unitaires, 12 scénarios clients, procédures de build et déploiement VPS en 3 commandes.
   2. **Synchronisation GitHub Totale** :
