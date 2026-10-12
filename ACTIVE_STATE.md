@@ -25,8 +25,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Octobre 2026 (19:55 UTC)
-- **Statut Opérationnel** : **Jalon 120 Validé — Intégration & Sécurisation de la Migration Performance & Cleanliness (`20261012_performance_and_cleanliness.sql`)** :
+- **Dernière mise à jour** : 12 Octobre 2026 (22:40 UTC)
+- **Statut Opérationnel** : **Jalon 121 Validé — Extraction Complète de Production (649 Conversations, 40 572 Messages, 403 Chansons Livrées) & Résolution Multi-Tenant des Anciens Clients** :
+  1. **Révélation Fondamentale : Aucun Client Perdu, Tous Présents en Base de Production** :
+     - L'intégralité des 663 contacts historiques, 657 conversations et 674 commandes (dont 487 livrées) est déjà physiquement stockée dans la base Supabase de production active (`dnwlqgsftauqsyjwhoza`). Aucune donnée n'a été perdue ou verrouillée sur Lovable Cloud.
+     - *Cause racine de l'amnésie de l'agent WhatsApp* : Dans la table `wa_sessions`, la session `"Test"` (+226 56 24 05 33) est affectée au `user_id = '043a33b4-429c-4056-b333-ee61d4c0a515'` (`paypalanicet33@gmail.com`, qui ne détient que 25 contacts récents). Les 636 clients historiques et les 487 chansons livrées appartiennent quant à eux au compte `149fb40a-3500-4c3c-b935-194ead0b2e46` (`anicetjr20045@gmail.com`). L'isolation multi-tenant stricte de la fonction `agent_ingest_message` empêchait de retrouver les anciens clients.
+     - *Action de réconciliation proposée* : Rattacher la session `"Test"` au compte principal `149fb40a...` pour que `agent_contact_facts` détecte instantanément l'historique complet et salue les anciens clients sans renvoyer la note vocale de 33s.
+  2. **Extraction Massive du Jeu de Données Réel** :
+     - Script automatisé : [`scripts/export-all-real-conversations.ts`](file:///root/projets/velaris/scripts/export-all-real-conversations.ts).
+     - Fichiers créés :
+       - [`dataset_toutes_conversations_reelles.json`](file:///root/projets/velaris/dataset_toutes_conversations_reelles.json) (16 Mo, 649 conversations structurées, 40 572 messages).
+       - [`dataset_toutes_conversations_reelles.jsonl`](file:///root/projets/velaris/dataset_toutes_conversations_reelles.jsonl) (14 Mo, standard JSONL pour rejeu et benchmarks LLM).
+     - Métriques factuelles : 649 conversations, 21 066 inputs clients exploitables, 79 notes vocales, 496 conversations Côte d'Ivoire (+225), 137 Burkina Faso (+226).
+- **Jalon 120 Validé — Intégration & Sécurisation de la Migration Performance & Cleanliness (`20261012_performance_and_cleanliness.sql`)** :
   1. **Audit & Correction du Piège de Schéma Supabase (`inbound_events`)** :
      - *Cause racine évitée* : Le script proposé par Lovable utilisait `created_at < now() - interval '7 days'` sur la table `public.inbound_events`. Or, dans le schéma de production, l'horodatage d'arrivée est strictement nommé `received_at`. L'exécution brute aurait provoqué une erreur fatale `column created_at does not exist` et l'avortement complet de la transaction.
      - *Correction chirurgicale* : Correction de la fonction `agent_cleanup_stale_events()` pour cibler `received_at`.
