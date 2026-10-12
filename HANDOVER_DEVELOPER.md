@@ -70,19 +70,20 @@ velaris/
 │   │   │   └── occasions.ts      # Détection et invariants par occasion
 │   │   └── services/
 │   │       └── transcribe.ts     # AudioTranscriber : téléchargement WAHA et transcription Gemini
-│   ├── test/                     # 170 tests unitaires complets (PGlite in-memory + Mocks)
+│   ├── test/                     # 188 tests unitaires complets (PGlite in-memory + Mocks) + 12 scénarios
 │   ├── Dockerfile                # Image conteneur de production
 │   └── tsconfig.json             # TypeScript strict avec verbatimModuleSyntax
 ├── supabase/                     # Migrations SQL Supabase
 │   ├── migrations/
 │   │   ├── 20261004_agent_core.sql               # Tables fondamentales, transitions commandes
 │   │   ├── 20261006_agent_turn.sql               # Moteur de tours, contextes atomiques, locks
-│   │   └── 20261008_transcribe_and_outbox.sql   # Support transcripts et outbox avancée
+│   │   ├── 20261008_transcribe_and_outbox.sql   # Support transcripts et outbox avancée
+│   │   └── ALL_11_MIGRATIONS_COMBINED.sql        # Les 11 migrations consolidées idempotentes
 ├── vps/                          # Fichiers de déploiement serveur
 │   ├── docker-compose.yml        # Orchestration Docker (WAHA, velaris-engine, Caddy)
 │   ├── Caddyfile                 # Configuration du proxy Caddy
 │   └── env.example               # Modèle des variables d'environnement
-├── ACTIVE_STATE.md               # Historique exhaustif de tous les jalons (1 à 109)
+├── ACTIVE_STATE.md               # Historique exhaustif de tous les jalons (1 à 118)
 └── package.json                  # Scripts racine
 ```
 
@@ -127,8 +128,11 @@ velaris/
 cd /root/projets/velaris/engine
 npm install
 
-# Exécuter l'intégralité de la suite de tests (170 tests, 30 suites)
+# Exécuter l'intégralité de la suite de tests unitaires (188 tests, 35 suites)
 npm test
+
+# Exécuter les 12 scénarios clients de bout en bout
+npm run test:scenarios
 
 # Compiler TypeScript vers dist/
 npm run build
@@ -200,4 +204,4 @@ Toutes les modifications du projet sont synchronisées sur GitHub :
 
 ## 9. FICHIER D'ÉTAT DÉTAILLÉ (`ACTIVE_STATE.md`)
 
-Pour comprendre l'historique complet des 109 étapes et les décisions prises à chaque bug résolu, consultez [`ACTIVE_STATE.md`](file:///root/projets/velaris/ACTIVE_STATE.md). Il détaille chaque jalon, les corrections apportées, les RPC PostgreSQL créées, et les audits de code réalisés.
+Pour comprendre l'historique complet des 118 étapes et les décisions prises à chaque bug résolu, consultez [`ACTIVE_STATE.md`](file:///root/projets/velaris/ACTIVE_STATE.md). Il détaille chaque jalon, les corrections apportées, les RPC PostgreSQL créées, et les audits de code réalisés.
