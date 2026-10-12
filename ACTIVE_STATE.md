@@ -25,8 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 11 Octobre 2026 (23:55 UTC)
-- **Statut Opérationnel** : **Jalon 117 Validé — Audit du Debounce Anti-Rafale (15s Actif en Base) & Extraction Native des Messages Cités WhatsApp (replyTo)** :
+- **Dernière mise à jour** : 12 Octobre 2026 (00:25 UTC)
+- **Statut Opérationnel** : **Jalon 118 Validé — Épuration du Cerveau Commercial (Humanisation des Transitions, Offres en Valeur Réelle, Clôture Fluide du 4e Repère & Température 0.55)** :
+  1. **Suppression du Tic Robotique (« C'est noté pour X ») & Variété Humaine** :
+     - *Cause racine* : La règle 2 du prompt système dictait deux exemples uniques (« C'est bien noté pour Moussa », « C'est noté pour le 15 novembre ») qui, à température 0.3, figeaient la syntaxe sur un algorithme rigide à deux temps.
+     - *Correction sobre* : Remplacement par une directive de ton vivante : varier sobrement les transitions (« Très bien », « D'accord », « Entendu ») ou poser directement la question suivante sans préfixe lourd lorsque l'intention est limpide.
+  2. **Présentation des Offres selon la Valeur Réelle (Chanson Seule 1 200 F / Chanson + Vidéo Souvenir Photos 3 000 F)** :
+     - *Cause racine* : Le prompt imposait au client les noms marketing abstraits de la base de données (« la Découverte » et « la Prestige »).
+     - *Correction sobre* : Annonce directe de la valeur concrète : *« Nous avons deux formules : la chanson personnalisée seule à 1 200 F CFA (prête en 18 minutes) et la formule avec chanson + vidéo souvenir photos à 3 000 F CFA. Laquelle préférez-vous ? »*. Les codes internes (`decouverte` / `prestige`) restent intacts pour le JSON système.
+  3. **Fin du Blocage Perroquet sur le 4e Repère (Message Particulier / Souvenirs)** :
+     - *Cause racine* : Le prompt contenait une réplique mot à mot entre guillemets et la directive anti-digression ordonnait de reposer la question du brief restée sans réponse. Comme le 4e repère n'était jamais rempli lors d'une déviation du client, l'agent répétait la même question verbatim à l'infini.
+     - *Correction chirurgicale* : Le 4e repère est explicitement clarifié comme optionnel. Si le client n'a pas d'anecdote, répond court ou dévie à nouveau, l'agent ne s'acharne pas : il conclut avec dignité que l'équipe du studio prend en charge toute la rédaction et déclenche directement le vocal de procédure (`procedure_voice: true`).
+  4. **Température Rédactionnelle Ajustée (0.3 ➔ 0.55)** :
+     - Libération du vocabulaire et de l'authenticité ouest-africaine sans aucun risque d'hallucination (les invariants FSM et gardes déterministes verrouillant les sorties).
+  5. **Validation & Déploiement** :
+     - 188 / 188 tests unitaires 100% verts.
+     - 12 / 12 scénarios clients passés à 100%.
+     - Build `dist/` déployé sur le VPS Contabo (`162.35.113.220`) et conteneur Docker `velaris-engine` redémarré en production.
+- **Jalon 117 Validé — Audit du Debounce Anti-Rafale (15s Actif en Base) & Extraction Native des Messages Cités WhatsApp (replyTo)** :
   1. **Audit & Harmonisation du Debounce Anti-Rafale (Fenêtre de Silence)** :
      - *Constat d'audit* : En base Supabase de production, `studio_personas` contenait encore les valeurs par défaut historiques (`quiet_window_ms = 4000`, `max_batch_wait_ms = 12000`). La migration `20261009_debounce_20s.sql` préparée n'avait pas pu être appliquée directement car la contrainte `CHECK (quiet_window_ms BETWEEN 1500 AND 15000)` en base bloquait l'insertion de 20 000 ms.
      - *Mise à niveau immédiate* : Tous les profils de `studio_personas` (dont le studio actif `043a33b4` et tous les studios de test) ont été mis à jour via PostgREST au plafond maximal autorisé par la base : `quiet_window_ms = 15000` (15 secondes de silence) et `max_batch_wait_ms = 30000` (30 secondes de plafond absolu).
