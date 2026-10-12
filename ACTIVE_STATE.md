@@ -25,8 +25,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Octobre 2026 (22:40 UTC)
-- **Statut Opérationnel** : **Jalon 121 Validé — Extraction Complète de Production (649 Conversations, 40 572 Messages, 403 Chansons Livrées) & Résolution Multi-Tenant des Anciens Clients** :
+- **Dernière mise à jour** : 12 Octobre 2026 (23:00 UTC)
+- **Statut Opérationnel** : **Jalon 122 Validé — Réconciliation Multi-Tenant Appliquée en Production Supabase (Session "Test" Rattachée, 656 Contacts Unifiés & Reconnaissance Fidélité Active)** :
+  1. **Application Atomique de la Migration (`20261012_reconcile_studio_accounts.sql`)** :
+     - Session WhatsApp `"Test"` (+226 56 24 05 33) réassignée avec succès au compte principal `anicetjr20045@gmail.com` (`149fb40a...`).
+     - Les 5 contacts doublons créés ces 3 derniers jours (Camara Aby, Diane Ouédraogo, Néné Hervé, Dieu Est Fidèle, Digital Starter) ont été fusionnés dans leurs fiches historiques respectives avec transfert de leurs conversations, messages, commandes, tours et outbox, puis purge des fiches temporaires.
+     - Les 20 nouveaux contacts créés pendant cette période, leurs 20 conversations, 564 messages, 14 commandes, 410 tours et 1 803 événements entrants ont été transférés sous le compte principal.
+  2. **Vérification Factuelle en Base de Production** :
+     - Table `contacts` : **656 contacts** tous réunis sous `149fb40a-3500-4c3c-b935-194ead0b2e46` (0 contact orphelin restant sous le compte secondaire).
+     - Session `Test` : `status = connected`, `user_id = 149fb40a-3500-4c3c-b935-194ead0b2e46`.
+     - Test de la fonction `agent_contact_facts('da020f10...')` (Camara Aby) : retourne `delivered_orders = 1`, `last_delivered_at = 2026-08-01`.
+     - Résultat : L'agent WhatsApp reconnaît désormais instantanément les 487 clients fidèles, supprime le vocal de 33s et adopte l'accueil personnalisé.
+  3. **Suite de Tests** : 188 / 188 tests unitaires PGlite 100% verts (`npm test`).
+- **Jalon 121 Validé — Extraction Complète de Production (649 Conversations, 40 572 Messages, 403 Chansons Livrées) & Résolution Multi-Tenant des Anciens Clients** :
   1. **Révélation Fondamentale : Aucun Client Perdu, Tous Présents en Base de Production** :
      - L'intégralité des 663 contacts historiques, 657 conversations et 674 commandes (dont 487 livrées) est déjà physiquement stockée dans la base Supabase de production active (`dnwlqgsftauqsyjwhoza`). Aucune donnée n'a été perdue ou verrouillée sur Lovable Cloud.
      - *Cause racine de l'amnésie de l'agent WhatsApp* : Dans la table `wa_sessions`, la session `"Test"` (+226 56 24 05 33) est affectée au `user_id = '043a33b4-429c-4056-b333-ee61d4c0a515'` (`paypalanicet33@gmail.com`, qui ne détient que 25 contacts récents). Les 636 clients historiques et les 487 chansons livrées appartiennent quant à eux au compte `149fb40a-3500-4c3c-b935-194ead0b2e46` (`anicetjr20045@gmail.com`). L'isolation multi-tenant stricte de la fonction `agent_ingest_message` empêchait de retrouver les anciens clients.
