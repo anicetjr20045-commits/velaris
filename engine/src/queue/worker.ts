@@ -17,6 +17,8 @@ export interface TurnWorkerDeps {
   workerId: string;
   concurrency?: number;
   transcriber?: AudioTranscriber | undefined;
+  kieApiKey?: string | null | undefined;
+  protectedSessions?: readonly string[] | undefined;
   log: (line: string, data?: Record<string, unknown>) => void;
 }
 
@@ -89,6 +91,8 @@ export class TurnWorker {
       llmProvider: this.deps.llmProvider,
       workerId: this.deps.workerId,
       transcriber: this.deps.transcriber,
+      kieApiKey: this.deps.kieApiKey,
+      protectedSessions: this.deps.protectedSessions,
       log: this.deps.log,
     };
 

@@ -81,6 +81,8 @@ const turnWorker = new TurnWorker({
   workerId: config.workerId,
   concurrency: 2,
   transcriber,
+  kieApiKey: config.kieApiKey ?? undefined,
+  protectedSessions: config.protectedSessions,
   log,
 });
 

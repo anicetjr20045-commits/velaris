@@ -32,6 +32,7 @@ import { generateSalesReply, cataloguePrices, type SalesBrainOutcome } from '../
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
 import type { AudioTranscriber } from '../services/transcribe.js';
+import { startBackgroundProduction } from '../services/music.js';
 
 export interface TurnRef {
   turnId: string;
@@ -46,6 +47,8 @@ export interface RunTurnDeps {
   llmProvider: LlmProvider;
   workerId: string;
   transcriber?: AudioTranscriber | undefined;
+  kieApiKey?: string | null | undefined;
+  protectedSessions?: readonly string[] | undefined;
   log: (line: string, data?: Record<string, unknown>) => void;
 }
 
@@ -328,6 +331,10 @@ async function holdTurnForProviderRetry(
  * Retourne 'continue' pour resume_ai (le flux normal evalue ensuite l'etat et reprend),
  * ou un RunTurnOutcome final pour les autres commandes.
  */
+type MerchantReactionResult =
+  | { action: 'continue'; reactedBody: string | null; reactedId: string | null }
+  | { action: 'finish'; outcome: RunTurnOutcome };
+
 async function handleMerchantReaction(
   rdeps: RunTurnDeps,
   rturnRef: TurnRef,
@@ -335,8 +342,8 @@ async function handleMerchantReaction(
   rtrace: string[],
   renqueuedIds: string[],
   rstartedAt: number,
-): Promise<'continue' | RunTurnOutcome> {
-  const finish = async (outcome: string): Promise<RunTurnOutcome> => {
+): Promise<MerchantReactionResult> {
+  const finish = async (outcome: string): Promise<MerchantReactionResult> => {
     await rdeps.db.rpc('agent_finish_turn', {
       p_turn: rturnRef.turnId,
       p_conversation: rturnRef.conversationId,
@@ -344,7 +351,7 @@ async function handleMerchantReaction(
       p_status: 'done',
       p_outcome: outcome,
     });
-    return { outcome, trace: rtrace, enqueuedIds: renqueuedIds, latencyMs: Date.now() - rstartedAt };
+    return { action: 'finish', outcome: { outcome, trace: rtrace, enqueuedIds: renqueuedIds, latencyMs: Date.now() - rstartedAt } };
   };
 
   const rtd = rraw.turn.trigger_data || {};
@@ -357,11 +364,11 @@ async function handleMerchantReaction(
   let reactedId: string | null = null;
   if (rreactedKey) {
     try {
-      const rows = await rdeps.db.queryTable?.<Array<{ id: string; body: string | null }>>(
+      const rows = await rdeps.db.queryTable?.<Array<{ id: string; body: string | null; transcript: string | null }>>(
         'messages',
-        `user_id=eq.${rturnRef.userId}&wa_message_key=eq.${encodeURIComponent(rreactedKey)}&select=id,body&limit=1`,
+        `user_id=eq.${rturnRef.userId}&wa_message_key=eq.${encodeURIComponent(rreactedKey)}&select=id,body,transcript&limit=1`,
       );
-      reactedBody = rows?.[0]?.body ?? null;
+      reactedBody = rows?.[0]?.transcript || rows?.[0]?.body || null;
       reactedId = rows?.[0]?.id ?? null;
     } catch (e) {
       rdeps.log('merchant_reaction: failed to fetch reacted message', { error: (e as Error).message });
@@ -419,11 +426,22 @@ async function handleMerchantReaction(
         p_actor: 'merchant',
       });
       rtrace.push('merchant_reaction: control returned to AI during brief -> continuing to collect remaining brief pillars');
-      return 'continue';
+      return { action: 'continue', reactedBody, reactedId };
     }
 
     case 'confirm_and_produce': {
-      if (!reactedBody) {
+      let lyrics = reactedBody?.trim() || null;
+      if (!lyrics) {
+        const candidate = rraw.recent.find(
+          (m) =>
+            m.text &&
+            m.text.length > 50 &&
+            (/couplet|refrain|verse|chorus/i.test(m.text) || m.text.split('\n').length >= 3),
+        );
+        if (candidate?.text) lyrics = candidate.text.trim();
+      }
+
+      if (!lyrics) {
         rtrace.push('merchant_reaction: confirm_and_produce without reacted text');
         return finish('reaction_no_text');
       }
@@ -436,7 +454,7 @@ async function handleMerchantReaction(
       } else if (rfocusOrderId) {
         const focusOrder = rraw.orders.find((o) => o.id === rfocusOrderId);
         // Si la commande courante n'a pas encore de paroles distinctes ou a déjà ce texte
-        if (focusOrder && (!focusOrder.lyrics || focusOrder.lyrics === reactedBody)) {
+        if (focusOrder && (!focusOrder.lyrics || focusOrder.lyrics === lyrics)) {
           targetOrderId = focusOrder.id;
         } else {
           // La commande courante a déjà d'autres paroles : chercher une autre commande ouverte sans paroles
@@ -485,7 +503,7 @@ async function handleMerchantReaction(
             '- "voice": la voix exacte mentionnée ("masculine", "féminine", "homme", "femme", "duo") ou le timbre déduit du texte.\n' +
             '- "style": le style musical exact indiqué (ex: "Afropop", "Afropop doux", "Acoustique mandingue", "Gospel", etc.) ou déduit du texte.\n' +
             'Réponds en JSON strict : {"voice": "<voix>", "style": "<style>"}.',
-          messages: [{ role: 'user', content: reactedBody.slice(0, 2500) }],
+          messages: [{ role: 'user', content: lyrics.slice(0, 2500) }],
           temperature: 0.1,
           maxTokens: 150,
         });
@@ -506,18 +524,26 @@ async function handleMerchantReaction(
 
       // 3. Enregistrement des paroles et caractéristiques musicales sur la commande
       const patch: Record<string, unknown> = {
-        lyrics: reactedBody,
-        lyrics_source: 'merchant_reaction',
+        lyrics,
         lyrics_message_id: reactedId,
       };
       if (extractedStyle) patch.style = extractedStyle;
       if (normalizedVoice) patch.voice = normalizedVoice;
 
-      await rdeps.db.updateRows?.(
-        'orders',
-        `id=eq.${targetOrderId}`,
-        patch,
-      );
+      try {
+        await rdeps.db.updateRows?.(
+          'orders',
+          `id=eq.${targetOrderId}`,
+          { ...patch, lyrics_source: 'merchant_reaction' },
+        );
+      } catch {
+        // Repli transparent pour respecter chk_lyrics_source si la base n'a pas encore la migration
+        await rdeps.db.updateRows?.(
+          'orders',
+          `id=eq.${targetOrderId}`,
+          { ...patch, lyrics_source: 'merchant_whatsapp' },
+        );
+      }
 
       // 4. Avancement créatif de la commande vers les paroles envoyées si encore en brief
       const targetOrderObj = rraw.orders.find((o) => o.id === targetOrderId);
@@ -534,8 +560,30 @@ async function handleMerchantReaction(
         }).catch(() => undefined);
       }
 
-      // 5. La génération est 100% silencieuse : AUCUN message envoyé au client dans WhatsApp !
-      rtrace.push(`merchant_reaction: lyrics saved silently for production - Voice: ${extractedVoice ?? 'auto'}, Style: ${extractedStyle ?? 'auto'}, Order: ${targetOrderId}`);
+      // 5. Lancement de la production musicale Suno V6 via Kie.ai et livraison automatique
+      if (rdeps.kieApiKey) {
+        rtrace.push(`merchant_reaction: launching Kie.ai Suno V6 production for order ${targetOrderId}`);
+        void startBackgroundProduction({
+          apiKey: rdeps.kieApiKey,
+          db: rdeps.db,
+          orderId: targetOrderId,
+          userId: rturnRef.userId,
+          conversationId: rturnRef.conversationId,
+          sessionName: rraw.conversation.session_name,
+          chatId: rraw.conversation.chat_id,
+          title: 'Chanson personnalisée',
+          style: extractedStyle || targetOrderObj?.style || 'Afropop doux',
+          voice: normalizedVoice || targetOrderObj?.voice || 'male',
+          lyrics,
+          protectedSessions: rdeps.protectedSessions ?? ['anicet2'],
+          log: rdeps.log,
+        });
+      } else {
+        rtrace.push('merchant_reaction: kieApiKey not configured, skipping background music generation');
+      }
+
+      // La confirmation immédiate est 100% silencieuse : aucun message réaction parasite au client
+      rtrace.push(`merchant_reaction: lyrics saved for production - Voice: ${extractedVoice ?? 'auto'}, Style: ${extractedStyle ?? 'auto'}, Order: ${targetOrderId}`);
       return finish('reaction_confirm_and_produce');
     }
 
@@ -649,12 +697,12 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
   // pour que le flux normal évalue l'état de la conversation et reprenne la suite.
   // On mémorise la reprise pour informer le sales brain.
   let resumeNote: string | null = null;
+  let reactionReactedBody: string | null = null;
   if (raw.turn.trigger === 'merchant_reaction') {
     const reactionResult = await handleMerchantReaction(deps, turnRef, raw, trace, enqueuedIds, startedAt);
-    if (reactionResult !== 'continue') return reactionResult;
+    if (reactionResult.action !== 'continue') return reactionResult.outcome;
+    reactionReactedBody = reactionResult.reactedBody;
     resumeNote = 'Le gérant vient de vous rendre la main (réaction ✨). Évaluez l’état actuel de la conversation et continuez naturellement la suite, sans redemander ce qui est déjà acquis.';
-    // Le contrôle est repassé à 'ai' par le handler ; on met à jour l'objet local
-    // pour que les vérifications suivantes voient le bon mode.
     conversation.control_mode = 'ai';
   }
 
@@ -752,7 +800,14 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       return m.body || '';
     })
     .filter(Boolean);
-  const turnText = inboundTexts.join('\n').trim();
+  let turnText = inboundTexts.join('\n').trim();
+  if (!turnText && raw.turn.trigger === 'merchant_reaction') {
+    turnText = reactionReactedBody || '';
+    if (!turnText) {
+      const lastClientMsg = raw.recent.find((r) => r.role === 'client' && r.text);
+      if (lastClientMsg?.text) turnText = lastClientMsg.text;
+    }
+  }
 
   // CORRECTIF (M9) : avant, un échec de transcription (2 tentatives déjà épuisées : ingestion + tour)
   // entraînait une perte silencieuse du contenu du vocal. Désormais le gérant est alerté

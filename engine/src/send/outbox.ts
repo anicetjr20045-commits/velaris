@@ -257,10 +257,25 @@ export class OutboxSender {
         };
       }
       if (!row.media_path) throw new Error('missing_media');
+      if (row.media_path.startsWith('http://') || row.media_path.startsWith('https://')) {
+        return { kind: 'voice', url: row.media_path, mimetype: 'audio/mpeg' };
+      }
       const m = await this.deps.signMedia(row.media_path);
       return { kind: 'voice', url: m.url, mimetype: m.mimetype };
     }
     if (!row.media_path) throw new Error('missing_media');
+    if (row.media_path.startsWith('http://') || row.media_path.startsWith('https://')) {
+      const caption = row.caption ?? undefined;
+      switch (row.kind) {
+        case 'image':
+          return caption === undefined ? { kind: 'image', url: row.media_path, mimetype: 'image/jpeg' } : { kind: 'image', url: row.media_path, mimetype: 'image/jpeg', caption };
+        case 'file':
+        case 'video':
+          return caption === undefined
+            ? { kind: row.kind, url: row.media_path, mimetype: row.kind === 'video' ? 'video/mp4' : 'audio/mpeg', filename: 'chanson.mp3' }
+            : { kind: row.kind, url: row.media_path, mimetype: row.kind === 'video' ? 'video/mp4' : 'audio/mpeg', filename: 'chanson.mp3', caption };
+      }
+    }
     const m = await this.deps.signMedia(row.media_path);
     const caption = row.caption ?? undefined;
     switch (row.kind) {
