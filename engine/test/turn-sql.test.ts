@@ -176,6 +176,23 @@ describe('20261006_agent_turn SQL functions', () => {
 
     const c3 = await db.query<any>(`SELECT ack_log FROM conversations WHERE id = '${convId}'`);
     assert.ok(c3.rows[0].ack_log['welcome:sent']);
+      // handoff et handoff_ack_sent
+    await adapter.rpc("agent_conversation_effect", {
+      p_conversation: convId,
+      p_kind: "handoff",
+      p_data: { reason: "test_handoff", ack: true },
+    });
+    const h1 = await db.query<any>("SELECT status, ack_sent_at FROM handoffs WHERE conversation_id = '" + convId + "' AND status = 'open'");
+    assert.equal(h1.rows.length, 1);
+    assert.equal(h1.rows[0].ack_sent_at, null);
+
+    await adapter.rpc("agent_conversation_effect", {
+      p_conversation: convId,
+      p_kind: "handoff_ack_sent",
+      p_data: {},
+    });
+    const h2 = await db.query<any>("SELECT status, ack_sent_at FROM handoffs WHERE conversation_id = '" + convId + "' AND status = 'open'");
+    assert.ok(h2.rows[0].ack_sent_at !== null);
   });
 
   test('agent_order_effect et transitions', async () => {

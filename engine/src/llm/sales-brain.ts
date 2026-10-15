@@ -30,7 +30,9 @@ Ta mission est d'accueillir chaque client avec respect et fraternité, mener la 
 ## Étape 2 : Le Brief des 4 Repères (Une seule question à la fois)
 Ne repose JAMAIS une question dont la réponse a déjà été donnée (même en vrac ou au tout début) :
 1. Prénom : Le prénom de la personne à honorer (ou des deux mariés). Si c'est pour le client lui-même (« mon anniversaire », « pour moi »), note son prénom et saute la question de l'expéditeur.
-2. Date : « C'est prévu pour quelle date ? » (Ne demande jamais l'âge).
+2. Date (Conditionnelle) : « C'est prévu pour quelle date ? » (Ne demande jamais l'âge).
+   - DEMANDE LA DATE UNIQUEMENT si l'occasion est un anniversaire, un mariage ou un événement expressément daté.
+   - NE DEMANDE JAMAIS LA DATE pour une chanson d'amour, un cadeau spontané, un hommage ou sans événement daté : saute immédiatement cette question et passe directement à l'expéditeur ou aux souvenirs.
 3. Expéditeur : « C'est de la part de qui ? » (inutile si la commande est pour lui-même).
 4. Message & Souvenirs (Optionnel — Ne Bloque Jamais le Brief) :
    - Si le client a DÉJÀ exprimé son message, ses sentiments ou des anecdotes (même spontanément ou en vrac) : le 4e repère est COMPLET. Accuse sobrement réception et passe directement à l'étape 3 (Note Vocale).
@@ -197,8 +199,9 @@ Règles de mise en page :
 
 RÈGLES D'INTERPRÉTATION DU BRIEF (CRITIQUES) :
 1. Si le client dit « c'est moi », « pour moi », « mon anniversaire » : le destinataire ET l'expéditeur sont le client lui-même. Ne redemande JAMAIS s'il s'agit de son propre anniversaire.
-2. Si le client donne son prénom puis ajoute son nom de famille plus tard (ex : « Alima » puis « Mon nom de famille c'est Zongo ») : retiens le nom complet (« Alima Zongo ») et enchaîne directement sur l'invariant suivant (la date) sans redemander confirmation.
+2. Si le client donne son prénom puis ajoute son nom de famille plus tard (ex : « Alima » puis « Mon nom de famille c'est Zongo ») : retiens le nom complet (« Alima Zongo ») et enchaîne directement sur l'invariant suivant (la date si anniversaire/mariage, sinon l'expéditeur) sans redemander confirmation.
 3. Si une information figure déjà dans l'historique ci-dessous, ne repose JAMAIS la question.
+4. Extraction multi-informations : Si le client donne plusieurs éléments d'un coup dans son message ou vocal (ex : prénom + occasion + histoire), valide sobrement l'ensemble en une seule phrase et pose uniquement la question sur le repère manquant. Ne repose jamais de question sur ce qui a déjà été dit.
 `;
 
   // Directive anti-digression (prioritaire) : le classifieur a détecté un hors-sujet

@@ -1392,6 +1392,16 @@ ${detailsSummary}
     if (outboxId) enqueuedIds.push(outboxId);
   }
 
+  // Si un message de handoff_ack a été enfilé en boîte d'envoi, persister
+  // immédiatement handoff_ack_sent dans la table handoffs pour éviter toute boucle au tour suivant
+  if (renderedMessages.some((m) => m.purpose === 'handoff_ack')) {
+    await deps.db.rpc('agent_conversation_effect', {
+      p_conversation: turnRef.conversationId,
+      p_kind: 'handoff_ack_sent',
+      p_data: {},
+    });
+  }
+
   // 14. Clôturer le tour atomiquement
   const finalOutcome = renderedMessages.length > 0 ? 'replied' : 'silent';
   await deps.db.rpc('agent_finish_turn', {
