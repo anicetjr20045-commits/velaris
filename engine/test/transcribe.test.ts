@@ -116,4 +116,23 @@ describe('AudioTranscriber', () => {
     assert.equal(rpcCalls[0]?.args.p_transcript, 'Je veux la formule Or');
     assert.equal(rpcCalls[0]?.args.p_status, 'done');
   });
+  test('transcribeBuffer utilise en priorité sttUrl local (Faster-Whisper) quand disponible', async () => {
+    let capturedUrl = '';
+
+    const fakeFetch: typeof fetch = (async (input: string | URL | Request) => {
+      capturedUrl = String(input);
+      return new Response(JSON.stringify({ text: "C'est pour l'anniversaire de mon frère Franck" }), { status: 200 });
+    }) as typeof fetch;
+
+    const transcriber = new AudioTranscriber({
+      wahaUrl: 'http://waha:3000',
+      wahaApiKey: 'waha-key',
+      sttUrl: 'http://stt-whisper:5001',
+      fetchImpl: fakeFetch,
+    });
+
+    const text = await transcriber.transcribeBuffer(Buffer.from('fake-audio'), 'audio/ogg');
+    assert.equal(capturedUrl, 'http://stt-whisper:5001/transcribe');
+    assert.equal(text, "C'est pour l'anniversaire de mon frère Franck");
+  });
 });

@@ -29,7 +29,7 @@ const log = (line: string, data: Record<string, unknown> = {}): void => {
   process.stdout.write(`${JSON.stringify({ at: new Date().toISOString(), worker: config.workerId, msg: line, ...data })}\n`);
 };
 
-const db = new RestDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey });
+const db = new RestDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, timeoutMs: 25_000 });
 const spool = new Spool(config.spoolDir);
 const waha = new WahaClient({ baseUrl: config.wahaUrl, apiKey: config.wahaApiKey, webhookHmacKey: config.wahaWebhookHmacKey });
 
@@ -40,17 +40,18 @@ const llmProvider = new DeepSeekProvider({
   timeoutMs: config.deepseek.timeoutMs,
 });
 
-const transcriber = config.kieApiKey
+const transcriber = (config.sttUrl || config.kieApiKey)
   ? new AudioTranscriber({
       wahaUrl: config.wahaUrl,
       wahaApiKey: config.wahaApiKey,
-      kieApiKey: config.kieApiKey,
+      sttUrl: config.sttUrl,
+      kieApiKey: config.kieApiKey ?? undefined,
       db,
       log,
     })
   : undefined;
 if (!transcriber) {
-  log('WARNING: KIE_API_KEY non configurée — transcription des notes vocales DÉSACTIVÉE');
+  log('WARNING: Service STT non configuré — transcription des notes vocales DÉSACTIVÉE');
 }
 
 const ingestDeps: IngestServerDeps = {

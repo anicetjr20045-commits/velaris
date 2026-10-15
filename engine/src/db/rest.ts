@@ -31,7 +31,7 @@ export class RestDb implements Db {
 
   constructor(private readonly opts: RestDbOptions) {
     this.fetchImpl = opts.fetchImpl ?? fetch;
-    this.timeoutMs = opts.timeoutMs ?? 8_000;
+    this.timeoutMs = opts.timeoutMs ?? 25_000;
   }
 
   async rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {

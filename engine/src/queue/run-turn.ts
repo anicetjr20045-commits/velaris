@@ -28,7 +28,7 @@ import { bodyHash } from '../ingest/wa-ids.js';
 import type { LlmProvider } from '../llm/provider.js';
 import { understand, type UnderstandInput } from '../llm/understand.js';
 import { composeLyrics, reviseLyrics } from '../llm/lyrics-composer.js';
-import { generateSalesReply, cataloguePrices } from '../llm/sales-brain.js';
+import { generateSalesReply, cataloguePrices, type SalesBrainOutcome } from '../llm/sales-brain.js';
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
 import type { AudioTranscriber } from '../services/transcribe.js';
@@ -593,14 +593,18 @@ async function handleMerchantReaction(
         rdeps.log('merchant_reaction: failed to mark returning_client in ack_log', { error: (e as Error).message });
       });
 
-      // 2. Marquer le contact au niveau de la table contacts (notes = 'returning_client')
+      // 2. Marquer le contact au niveau de la table contacts (sans écraser les notes existantes)
       const contactId = rraw.conversation.contact_id;
       if (contactId && rdeps.db.updateRows) {
         try {
+          const existingNotes = (rraw.contact as any)?.notes?.trim();
+          const targetNotes = existingNotes
+            ? (existingNotes.includes('returning_client') ? existingNotes : `${existingNotes}\nreturning_client`)
+            : 'returning_client';
           await rdeps.db.updateRows(
             'contacts',
             `id=eq.${contactId}`,
-            { notes: 'returning_client' },
+            { notes: targetNotes },
           );
         } catch (e) {
           rdeps.log('merchant_reaction: failed to update contact notes', { error: (e as Error).message });
@@ -1095,8 +1099,9 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
 
   // Priorité absolue : Cerveau Commercial Adaptatif (VELARIS_CLOSING_PROMPT_TEMPLATE via DeepSeek Flash)
   let usedSalesBrain = false;
+  let salesOutcome: SalesBrainOutcome | null = null;
   if (conversation.control_mode === 'ai' && deps.llmProvider) {
-    const salesOutcome = await generateSalesReply(deps.llmProvider, {
+    salesOutcome = await generateSalesReply(deps.llmProvider, {
       turnText: resumeNote ? `${resumeNote}\n${turnText}` : turnText,
       recent: recentHistory,
       contact: {
@@ -1338,6 +1343,24 @@ ${detailsSummary}
       const res = await renderOutputItem(item, renderCtx);
       trace.push(...res.notes);
       renderedMessages.push(...res.messages);
+    }
+
+    // Filet de sécurité : si le LLM a rencontré une coupure et que les gabarits n'ont rien émis
+    // sur un message client entrant en mode IA, envoyer une bulle d'attente polie
+    if (
+      renderedMessages.length === 0 &&
+      conversation.control_mode === 'ai' &&
+      turnRef.trigger === 'inbound_message' &&
+      Boolean(salesOutcome?.notes?.some((n: string) => n.includes('llm call failed')))
+    ) {
+      trace.push('fallback: llm failure safe reassurance bubble emitted');
+      renderedMessages.push({
+        kind: 'text',
+        purpose: 'reply',
+        body: 'Bien reçu ! Je regarde cela tout de suite et je reviens vers vous.',
+        orderId: orders[0]?.id ?? null,
+        isRelay: false,
+      });
     }
   }
 

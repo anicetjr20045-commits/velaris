@@ -22,6 +22,7 @@ export interface EngineConfig {
    * une clé Kie — utiliser la clé DeepSeek directe ici provoquait des 401 silencieux (M8).
    * Null si non configurée : la transcription est alors désactivée (signalé au démarrage).
    */
+  sttUrl: string;
   kieApiKey: string | null;
   spoolDir: string;
   senderConcurrencyPerSession: number;
@@ -74,6 +75,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
     },
     // CORRECTIF (M8) : la clé Kie est exposée séparément. Le transcripteur appelle api.kie.ai ;
     // lui passer une clé DeepSeek directe (non-Kie) causait des 401 sur toutes les transcriptions.
+    sttUrl: env.STT_URL?.trim() || "http://stt-whisper:5001",
     kieApiKey: kieApiKey || null,
     spoolDir: env.SPOOL_DIR?.trim() || './spool',
     senderConcurrencyPerSession: Number(env.SENDER_CONCURRENCY_PER_SESSION ?? 2),

@@ -122,7 +122,7 @@ export class OutboxSender {
         // Phase 1 : Pause silencieuse de réflexion (par défaut 20 s pour un cycle total ~47 s)
         // Vérification par paliers de 1 s pour annulation immédiate si gérant ou client intervient
         const pauseMs = readingPauseMs(row);
-        const pauseStep = 1_000;
+        const pauseStep = 3_000;
         let elapsedPause = 0;
         while (elapsedPause < pauseMs) {
           const step = Math.min(pauseStep, pauseMs - elapsedPause);
@@ -141,7 +141,7 @@ export class OutboxSender {
         if (!isAborted) {
           await waha.typing(row.session_name, row.chat_id, true);
           const typingMs = humanDelayMs(row);
-          const typingStep = 1_000;
+          const typingStep = 3_000;
           let elapsedTyping = 0;
           while (elapsedTyping < typingMs) {
             const step = Math.min(typingStep, typingMs - elapsedTyping);

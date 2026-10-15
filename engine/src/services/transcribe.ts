@@ -14,7 +14,8 @@ import type { Db } from '../db/rest.js';
 export interface AudioTranscriberOpts {
   wahaUrl: string;
   wahaApiKey: string;
-  kieApiKey: string;
+  sttUrl?: string | undefined;
+  kieApiKey?: string | undefined;
   model?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
@@ -25,7 +26,8 @@ export interface AudioTranscriberOpts {
 export class AudioTranscriber {
   private readonly wahaUrl: string;
   private readonly wahaApiKey: string;
-  private readonly kieApiKey: string;
+  private readonly sttUrl?: string | undefined;
+  private readonly kieApiKey?: string | undefined;
   private readonly model: string;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
@@ -35,6 +37,7 @@ export class AudioTranscriber {
   constructor(opts: AudioTranscriberOpts) {
     this.wahaUrl = opts.wahaUrl.replace(/\/$/, '');
     this.wahaApiKey = opts.wahaApiKey;
+    this.sttUrl = opts.sttUrl ? opts.sttUrl.replace(/\/$/, '') : undefined;
     this.kieApiKey = opts.kieApiKey;
     this.model = opts.model ?? 'gemini-3-8-flash';
     this.timeoutMs = opts.timeoutMs ?? 25_000;
@@ -119,6 +122,41 @@ export class AudioTranscriber {
       if (lower.includes('mp4') || lower.includes('m4a')) cleanMime = 'audio/mp4';
       else if (lower.includes('mp3') || lower.includes('mpeg')) cleanMime = 'audio/mp3';
       else if (lower.includes('wav')) cleanMime = 'audio/wav';
+
+      // 1. Priorité au service Faster-Whisper local
+      if (this.sttUrl) {
+        try {
+          const form = new FormData();
+          const blob = new Blob([buffer], { type: cleanMime });
+          form.append('audio', blob, 'voice.ogg');
+          const sttEndpoint = `${this.sttUrl}/transcribe`;
+          const res = await this.fetchImpl(sttEndpoint, {
+            method: 'POST',
+            body: form,
+            signal: AbortSignal.timeout(this.timeoutMs),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { text?: string };
+            if (data.text && typeof data.text === 'string' && data.text.trim()) {
+              let cleaned = data.text.trim();
+              if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith('«') && cleaned.endsWith('»'))) {
+                cleaned = cleaned.slice(1, -1).trim();
+              }
+              if (cleaned) {
+                this.log?.('whisper stt transcribed successfully', { length: cleaned.length, preview: cleaned.slice(0, 50) });
+                return cleaned;
+              }
+            }
+          } else {
+            this.log?.('whisper stt http error, trying fallback', { status: res.status });
+          }
+        } catch (sttErr) {
+          this.log?.('whisper stt failed, trying fallback', { error: (sttErr as Error).message });
+        }
+      }
+
+      // 2. Repli éventuel sur Gemini via Kie.ai
+      if (!this.kieApiKey) return null;
 
       const base64 = buffer.toString('base64');
       const endpoint = `https://api.kie.ai/gemini/v1/models/${this.model}:generateContent`;
