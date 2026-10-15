@@ -1,14 +1,13 @@
 /**
- * Hors-sujet en plein brief : la directive anti-digression doit être injectée
- * au sales brain (répondre en 1 phrase, puis recadrer). C'est LE test du
- * correctif « répondre puis recadrer ».
+ * Échange spontané en plein brief : le sales brain garde le fil sans recadrage
+ * brutal et sans transformer la conversation en interrogatoire.
  */
 import type { Scenario } from './types.js';
 import { U, S, scripted } from './types.js';
 
 export const scenario: Scenario = {
   name: 'hors-sujet',
-  title: "Digression en plein brief → recadrage forcé",
+  title: "Digression en plein brief → transition douce, sans pression",
   llm: scripted({
     understand: [
       U('give_brief_info', { occasion: { value: 'mariage' } }),
@@ -16,7 +15,7 @@ export const scenario: Scenario = {
     ],
     sales: [
       S(["C'est bien noté pour le mariage. Quel est le prénom du marié ?"]),
-      S(["Je n'ai pas suivi le match. Pour revenir à votre chanson, quel est le prénom du marié ?"]),
+      S(["Je n'ai pas suivi le match, mais on pourra reprendre tranquillement les détails de la chanson de mariage de votre frère quand vous serez prêt."]),
     ],
   }),
   steps: [
@@ -27,8 +26,8 @@ export const scenario: Scenario = {
     { pump: true },
     {
       expect: [
-        { llmSaw: { kind: 'sales', contains: 'DIRECTIVE ANTI-DIGRESSION' } },
-        { aiSaid: 'prénom' },
+        { llmSaw: { kind: 'sales', contains: 'Fais ensuite une transition douce' } },
+        { aiSaid: 'reprendre tranquillement' },
       ],
     },
   ],

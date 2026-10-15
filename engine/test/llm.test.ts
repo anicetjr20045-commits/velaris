@@ -288,13 +288,16 @@ describe('sales-brain: directive anti-digression (off_topic)', () => {
     orders: [],
   };
 
-  test('digression=true injecte la directive prioritaire "répondre puis recadrer"', async () => {
+  test('digression=true injecte une consigne de transition calme, sans retour forcé', async () => {
     const { llm, systems } = capturingMockLlm({ bubbles: ['Bien noté.'], procedure_voice: false });
     const outcome = await generateSalesReply(llm, { ...baseInput, digression: true });
     assert.equal(systems.length, 1);
     assert.ok(systems[0]!.includes('DIRECTIVE ANTI-DIGRESSION (PRIORITAIRE)'));
-    assert.ok(systems[0]!.includes('UNE SEULE phrase sobre'));
-    assert.ok(systems[0]!.includes('ne pose JAMAIS de question'));
+    assert.ok(systems[0]!.includes('Fais ensuite une transition douce'));
+    assert.ok(systems[0]!.includes('sans braquer le client'));
+    assert.ok(!systems[0]!.includes('Reviens IMMÉDIATEMENT'));
+    assert.ok(!systems[0]!.includes('règle stricte, en deux temps'));
+    assert.ok(systems[0]!.includes('Ne force jamais une question mécanique'));
     assert.ok(outcome.notes.some((n) => n.includes('anti-digression directive injected')));
   });
 
