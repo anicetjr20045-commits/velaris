@@ -66,17 +66,65 @@ export function formatLyricsForSuno(raw: string): string {
 }
 
 /**
- * Lance la génération d'un morceau Suno V6 sur l'API Kie.ai
+ * Moteur d'enrichissement acoustique professionnel pour Suno V6.
+ * Transforme les styles bruts en prompts calibrés avec instruments réels,
+ * tempo (BPM), timbre et texture studio.
+ * Basé sur l'ADN musical Velaris et le référentiel des styles Suno V6.
  */
+export function optimizeSunoStylePrompt(
+  rawStyle?: string | null,
+  voice?: 'male' | 'female' | 'duo' | string | null,
+): string {
+  const s = (rawStyle || '').trim().toLowerCase();
+  const v = (voice || '').trim().toLowerCase();
+
+  // 1. Timbre vocal riche et naturel
+  let vocalTag = 'warm soulful vocal';
+  if (v === 'female' || v.includes('femme') || v.includes('féminine') || s.includes('femme') || s.includes('féminine') || s.includes('voix féminine')) {
+    vocalTag = 'warm soulful female lead vocal, expressive and clear';
+  } else if (v === 'male' || v.includes('homme') || v.includes('masculin') || s.includes('homme') || s.includes('masculin') || s.includes('voix masculine')) {
+    vocalTag = 'warm soulful male lead vocal, rich tone';
+  } else if (v === 'duo' || v.includes('duo') || s.includes('duo')) {
+    vocalTag = 'male and female duet, tender vocal harmonies';
+  }
+
+  // 2. Base instrumentale acoustique ouest-africaine
+  let acousticBase: string;
+
+  if (s.includes('gospel') || s.includes('louange') || s.includes('priere') || s.includes('prière') || s.includes('chretien') || s.includes('chrétien')) {
+    acousticBase = 'African gospel, warm organ, uplifting choir, hand claps, emotional praise, 96 bpm';
+  } else if (s.includes('zouk')) {
+    acousticBase = 'Zouk love, smooth acoustic guitar, soft synth pads, gentle drums, tender ballad, 90 bpm';
+  } else if (s.includes('rumba')) {
+    acousticBase = 'Congolese rumba, clean electric guitar arpeggios, melodic bassline, authentic acoustic groove, 88 bpm';
+  } else if (s.includes('mandingue') || s.includes('kora') || s.includes('balafon') || s.includes('tradition')) {
+    acousticBase = 'Manding acoustic, kora and balafon undertones, acoustic guitar, soulful West African storytelling, 82 bpm';
+  } else if (s.includes('afrobeat') || s.includes('afropop') || s.includes('afro-pop')) {
+    acousticBase = 'Afropop, acoustic guitar, soft percussion, emotional melody, gentle West African groove, 92 bpm';
+  } else if (s.includes('ballade') || s.includes('calme') || s.includes('intime') || s.includes('piano')) {
+    acousticBase = 'Acoustic guitar ballad, soft piano, warm shaker, intimate and heartfelt, 80 bpm';
+  } else if (s.includes('ambiance') || s.includes('fete') || s.includes('fête') || s.includes('danse') || s.includes('rythme')) {
+    acousticBase = 'Joyful Afropop celebration, rhythmic acoustic guitar, uplifting West African percussion, 104 bpm';
+  } else if (rawStyle && rawStyle.trim().length > 2 && !rawStyle.toLowerCase().includes('défaut') && !rawStyle.toLowerCase().includes('auto')) {
+    acousticBase = `${rawStyle.trim()}, acoustic guitar, gentle West African percussion, emotional melody, 85 bpm`;
+  } else {
+    // Style de prédilection maison : Afro-love acoustique Velaris
+    acousticBase = 'Afro-love, acoustic guitar, gentle West African percussion, romantic ballad, emotional, 85 bpm';
+  }
+
+  // 3. Finition mastering acoustique studio
+  const studioMastering = 'studio acoustic recording, clean mix';
+
+  return `${acousticBase}, ${vocalTag}, ${studioMastering}`.slice(0, 1000);
+}
+
 export async function generateKieSong(
   apiKey: string,
   input: KieSongInput,
   fetchImpl: typeof fetch = fetch,
 ): Promise<KieGenerateResponse> {
   const lyrics = formatLyricsForSuno(input.lyrics);
-  const voiceHint = input.voice ? (input.voice === 'female' ? 'voix féminine' : input.voice === 'male' ? 'voix masculine' : 'voix duo') : null;
-  const rawStyle = input.style || 'Afropop doux';
-  const fullStyle = [rawStyle, voiceHint].filter(Boolean).join(', ').slice(0, 1000);
+  const fullStyle = optimizeSunoStylePrompt(input.style, input.voice);
   const title = (input.title || 'Chanson personnalisée').slice(0, 80);
 
   try {

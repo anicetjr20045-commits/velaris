@@ -563,6 +563,20 @@ async function handleMerchantReaction(
       // 5. Lancement de la production musicale Suno V6 via Kie.ai et livraison automatique
       if (rdeps.kieApiKey) {
         rtrace.push(`merchant_reaction: launching Kie.ai Suno V6 production for order ${targetOrderId}`);
+        let prodTitle = 'Chanson personnalisée';
+        if (targetOrderObj?.recipient_name) {
+          prodTitle = `Chanson pour ${targetOrderObj.recipient_name}`;
+        }
+        const firstLineCandidate = lyrics.split('\n').map((l) => l.trim()).filter(Boolean)[0];
+        if (
+          firstLineCandidate &&
+          !firstLineCandidate.startsWith('[') &&
+          !/^(couplet|refrain|pont|intro|outro)/i.test(firstLineCandidate) &&
+          firstLineCandidate.length <= 80
+        ) {
+          prodTitle = firstLineCandidate.replace(/^[#*_\s]+|[#*_\s]+$/g, '');
+        }
+
         void startBackgroundProduction({
           apiKey: rdeps.kieApiKey,
           db: rdeps.db,
@@ -571,8 +585,8 @@ async function handleMerchantReaction(
           conversationId: rturnRef.conversationId,
           sessionName: rraw.conversation.session_name,
           chatId: rraw.conversation.chat_id,
-          title: 'Chanson personnalisée',
-          style: extractedStyle || targetOrderObj?.style || 'Afropop doux',
+          title: prodTitle,
+          style: extractedStyle || targetOrderObj?.style || 'Afro-love acoustique',
           voice: normalizedVoice || targetOrderObj?.voice || 'male',
           lyrics,
           protectedSessions: rdeps.protectedSessions ?? ['anicet2'],
