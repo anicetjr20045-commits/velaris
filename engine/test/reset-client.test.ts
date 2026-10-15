@@ -8,7 +8,7 @@ describe('Service de Purge et Réinitialisation Client de Test', () => {
     const deletedTables: string[] = [];
 
     const mockDb: any = {
-      async queryTable(table: string, query: string) {
+      async queryTable(table: string, _query: string) {
         if (table === 'contacts') {
           return [{ id: 'contact-uuid-1', name: 'Test User', phone: '22605777308', wa_jid: '22605777308@c.us' }];
         }
@@ -17,7 +17,7 @@ describe('Service de Purge et Réinitialisation Client de Test', () => {
         }
         return [];
       },
-      async deleteRows(table: string, query: string) {
+      async deleteRows(table: string, _query: string) {
         deletedTables.push(table);
         return [{ id: 'deleted-1' }];
       },

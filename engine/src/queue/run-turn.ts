@@ -1021,7 +1021,18 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     understanding,
     studio: studioConfig,
     media: {
-      images: [],
+      images: raw.inbound
+        .filter((m) => m.media_kind === 'image')
+        .map(() => {
+          const isPaymentProof =
+            understanding.paymentSignal.kind === 'claims_paid' ||
+            understanding.primaryIntent === 'payment_claim' ||
+            /re[çc]u|capture|paiement|transfert|pay[ée]|orange\s*money|moov|wave/i.test(turnText);
+          return {
+            kind: isPaymentProof ? ('payment_proof' as const) : ('photo' as const),
+            confidence: isPaymentProof ? 0.95 : 0.9,
+          };
+        }),
       hasAudio: raw.inbound.some((m) => m.media_kind === 'audio'),
     },
     clock: {
@@ -1394,6 +1405,43 @@ ${detailsSummary}
 
         await queueOwnerAlert(actionCtx, order?.id ?? null, alertBody, 'formula_chosen');
 
+        // Persistance de l'offre choisie sur la commande cible
+        const targetOrderToUpdate = order?.id ?? createdOrderId ?? orders[0]?.id;
+        if (targetOrderToUpdate) {
+          const catCode = isPrestige
+            ? (raw.catalogue.find((c) => c.code === 'prestige' || c.code === 'signature')?.code ?? 'prestige')
+            : (raw.catalogue.find((c) => c.code === 'essentiel' || c.code === 'decouverte')?.code ?? 'essentiel');
+          const catItem = raw.catalogue.find((c) => c.code === catCode);
+          const currentVer = orderVersionMap.get(targetOrderToUpdate) ?? (order?.version ?? 0);
+
+          try {
+            const res = await deps.db.rpc<string>('agent_choose_offer', {
+              p_order: targetOrderToUpdate,
+              p_expected_version: currentVer,
+              p_code: catCode,
+            });
+            if (res === 'ok') {
+              orderVersionMap.set(targetOrderToUpdate, currentVer + 1);
+              trace.push(`formula_chosen: order ${targetOrderToUpdate} set to offer ${catCode}`);
+            } else {
+              // Mise à jour directe de secours si verrouillage de version ou étape
+              await deps.db.updateRows?.(
+                'orders',
+                `id=eq.${targetOrderToUpdate}`,
+                {
+                  catalogue_code: catCode,
+                  price_xof: catItem?.price_xof ?? (isPrestige ? 3000 : 1200),
+                  deliverable: catItem?.deliverable ?? (isPrestige ? 'audio_video' : 'audio'),
+                  price_source: 'catalogue',
+                }
+              );
+              trace.push(`formula_chosen: direct update applied for ${catCode}`);
+            }
+          } catch (e) {
+            deps.log('formula_chosen: failed to persist offer on order', { error: (e as Error).message });
+          }
+        }
+
         // Passage de relais immédiat au gérant (l'IA se met en retrait)
         await deps.db.rpc('agent_conversation_effect', {
           p_conversation: turnRef.conversationId,
@@ -1517,7 +1565,7 @@ ${detailsSummary}
     itemIdx++;
     const idempotencyKey = `${turnRef.turnId}_${itemIdx}_${m.purpose}`;
     const hash = bodyHash(m.body ?? null);
-    const targetOrderFinalId = m.orderId === 'new' ? createdOrderId : (m.orderId ?? orders[0]?.id ?? null);
+    const targetOrderFinalId = (m.orderId === 'new' ? createdOrderId : m.orderId) ?? createdOrderId ?? orders[0]?.id ?? null;
 
     const outboxId = await deps.db.rpc<string>('agent_enqueue_outbox', {
       p_user: raw.conversation.user_id,
@@ -1964,6 +2012,16 @@ async function applyAction(action: Action, ctx: ActionContext): Promise<void> {
       break;
     }
     case 'store_images': {
+      const { id } = action.order ? resolveOrderForAction(action.order, ctx) : { id: null };
+      const targetId = id ?? ctx.getCreatedOrderId() ?? ctx.rawOrders[0]?.id ?? null;
+      if (targetId && ctx.db.updateRows) {
+        const photoCount = action.kinds.filter((k) => k === 'photo' || k === 'unclassified').length;
+        if (photoCount > 0) {
+          const currentOrder = ctx.rawOrders.find((o) => o.id === targetId);
+          const newCount = (currentOrder?.photos_count ?? 0) + photoCount;
+          await ctx.db.updateRows('orders', `id=eq.${targetId}`, { photos_count: newCount }).catch(() => undefined);
+        }
+      }
       break;
     }
     case 'close_conversation': {

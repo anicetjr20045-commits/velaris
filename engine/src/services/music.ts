@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 /**
  * Service de production musicale Suno V6 via Kie.ai et livraison WhatsApp.
  *
@@ -309,6 +310,15 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
 
         const caption = `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! Bonne écoute 🎵`;
 
+        // Sauvegarder l'identifiant de génération Suno / Kie sur la commande
+        if (db.updateRows) {
+          await db.updateRows('orders', `id=eq.${orderId}`, {
+            song_generation_id: taskId,
+          }).catch(() => undefined);
+        }
+
+        const bodyHash = createHash('sha256').update(caption || '').digest('hex');
+
         await db.rpc('agent_enqueue_outbox', {
           p_user: userId,
           p_conversation: conversationId,
@@ -316,14 +326,16 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
           p_turn: null,
           p_origin: 'delivery',
           p_kind: 'voice',
-          p_purpose: 'song_delivery',
+          p_purpose: 'song',
           p_is_relay: false,
           p_session: sessionName,
           p_chat_id: chatId,
           p_body: null,
           p_media_path: audioUrl,
           p_caption: caption,
+          p_body_hash: bodyHash,
           p_idempotency_key: `song_delivery_audio_${orderId}_${taskId}`,
+          p_lock_token: 0,
           p_status: 'pending',
         }).catch((e) => log('failed to enqueue audio delivery', { error: (e as Error).message }));
 

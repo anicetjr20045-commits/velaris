@@ -169,7 +169,7 @@ export async function generateSalesReply(
 
   const currentOrder = input.orders[0];
   const orderBrief = currentOrder
-    ? `Occasion: ${currentOrder.occasion || 'Inconnue'}, Destinataire: ${currentOrder.recipientName || 'Inconnu'}, Expéditeur: ${currentOrder.senderName || 'Inconnu'}, Souvenirs/Message: ${currentOrder.memoriesCount > 0 ? 'Fournis' : 'Non fournis'}`
+    ? `Étape : ${currentOrder.stage}, Formule choisie : ${currentOrder.catalogueCode || 'Non encore choisie'}${currentOrder.priceXof ? ` (${currentOrder.priceXof} F CFA)` : ''}, Occasion : ${currentOrder.occasion || 'Inconnue'}, Destinataire : ${currentOrder.recipientName || 'Inconnu'}, Expéditeur : ${currentOrder.senderName || 'Inconnu'}, Souvenirs/Message : ${currentOrder.memoriesCount > 0 ? 'Fournis' : 'Non fournis'}`
     : 'Aucune commande créée';
 
   const crmContextNote = `

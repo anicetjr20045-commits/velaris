@@ -22,7 +22,8 @@ export interface ResetClientResult {
 
 export async function resetTestClient(db: RestDb, identifier: string): Promise<ResetClientResult> {
   const trimmed = identifier.trim();
-  const cleanPhone = trimmed.replace(/\D/g, '');
+  const isLid = trimmed.endsWith('@lid');
+  const cleanPhone = isLid ? '' : trimmed.replace(/\D/g, '');
 
   if (!trimmed && !cleanPhone) {
     return {
@@ -46,7 +47,7 @@ export async function resetTestClient(db: RestDb, identifier: string): Promise<R
       contactFilters.push(`id.eq.${trimmed}`);
     }
     contactFilters.push(`wa_jid.eq.${trimmed}`);
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length >= 6) {
       contactFilters.push(`phone.eq.${cleanPhone}`);
       contactFilters.push(`wa_jid.like.*${cleanPhone}*`);
       contactFilters.push(`phone.like.*${cleanPhone}*`);
@@ -66,7 +67,7 @@ export async function resetTestClient(db: RestDb, identifier: string): Promise<R
       convFilters.push(`contact_id.in.(${contactIds.join(',')})`);
     }
     convFilters.push(`chat_id.eq.${trimmed}`);
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length >= 6) {
       convFilters.push(`chat_id.like.*${cleanPhone}*`);
     }
 
@@ -91,7 +92,7 @@ export async function resetTestClient(db: RestDb, identifier: string): Promise<R
     if (contactIds.length > 0) orderFilters.push(`contact_id.in.(${contactIds.join(',')})`);
 
     if (orderFilters.length > 0) {
-      const oQuery = orderFilters.length > 1 ? `or=(${orderFilters.join(',')})` : orderFilters[0]!;
+      const oQuery = orderFilters.length > 1 ? `or=(${orderFilters.join(',')})` : orderFilters[0]!.replace('.in.', '=in.');
       const delO = await db.deleteRows<Array<{ id: string }>>('orders', oQuery).catch(() => []);
       deletedOrders = delO.length;
     }
@@ -126,10 +127,16 @@ export async function resetTestClient(db: RestDb, identifier: string): Promise<R
     }
 
     // 6. Purge des inbound_events pour effacer la clé de déduplication (permet de renvoyer le même message immédiatement)
-    if (cleanPhone) {
+    if (cleanPhone && cleanPhone.length >= 6) {
       const delEv = await db.deleteRows<Array<{ id: number }>>(
         'inbound_events',
         `or=(dedup_key.like.*${cleanPhone}*,payload->payload->>from.like.*${cleanPhone}*,payload->payload->>to.like.*${cleanPhone}*)`,
+      ).catch(() => []);
+      deletedEvents = delEv.length;
+    } else if (isLid) {
+      const delEv = await db.deleteRows<Array<{ id: number }>>(
+        'inbound_events',
+        `or=(dedup_key.like.*${trimmed}*,payload->payload->>from.eq.${trimmed},payload->payload->>to.eq.${trimmed})`,
       ).catch(() => []);
       deletedEvents = delEv.length;
     }
