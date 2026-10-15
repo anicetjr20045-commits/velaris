@@ -4,7 +4,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Db } from '../src/db/rest.js';
-import { OutboxSender, humanDelayMs, type OutboxRow } from '../src/send/outbox.js';
+import { OutboxSender, humanDelayMs, readingPauseMs, type OutboxRow } from '../src/send/outbox.js';
 import type { OutgoingContent, SendResult } from '../src/send/waha-client.js';
 
 function row(over: Partial<OutboxRow> = {}): OutboxRow {
@@ -125,9 +125,17 @@ describe('OutboxSender', () => {
     await Promise.all(started);
   });
 
-  test('délai humain borné', () => {
-    assert.equal(humanDelayMs({ kind: 'text', body: 'ok' }), 1_500);
-    assert.equal(humanDelayMs({ kind: 'text', body: 'x'.repeat(1000) }), 6_000);
+  test('temporisation et délai humain borné (cycle 45-50s)', () => {
+    // Frappe humaine réaliste (8s à 11s)
+    assert.equal(humanDelayMs({ kind: 'text', body: 'ok' }), 8_030);
+    assert.equal(humanDelayMs({ kind: 'text', body: 'x'.repeat(1000) }), 11_000);
+    assert.equal(humanDelayMs({ kind: 'voice', body: null }), 1_500);
+
+    // Pause de réflexion (20s par défaut pour texte agent, direct pour gérant/relais)
+    assert.equal(readingPauseMs({ kind: 'text', origin: 'agent', purpose: 'chat' }), 20_000);
+    assert.equal(readingPauseMs({ kind: 'text', origin: 'merchant_ui', purpose: 'chat' }), 300);
+    assert.equal(readingPauseMs({ kind: 'text', origin: 'agent', purpose: 'handoff_ack' }), 800);
+    assert.equal(readingPauseMs({ kind: 'voice', origin: 'agent', purpose: 'procedure_voice' }), 1_500);
   });
 
   test('intervention gérant pendant le délai humain (statut annulé) → WAHA jamais appelé', async () => {
@@ -146,5 +154,22 @@ describe('OutboxSender', () => {
     const fin = h.rpcCalls.find((c) => c.fn === 'agent_finish_send')!;
     assert.equal(fin.args.p_status, 'failed');
     assert.equal(fin.args.p_error, 'human_control_merchant_took_over');
+  });
+
+  test('nouveau message client pendant le délai (tour en collecte) → WAHA jamais appelé', async () => {
+    const h = harness();
+    // Simuler qu'un nouveau tour en collecte a été ouvert par un message du client
+    const origQueryTable = h.sender['deps'].db.queryTable!;
+    h.sender['deps'].db.queryTable = async <T>(table: string, filter?: string): Promise<T> => {
+      if (table === 'conversation_turns') {
+        return [{ id: 'new-turn-collecting' }] as T;
+      }
+      return origQueryTable(table, filter);
+    };
+    await h.sender.sendOne(row());
+    assert.equal(h.sends.length, 0);
+    const fin = h.rpcCalls.find((c) => c.fn === 'agent_finish_send')!;
+    assert.equal(fin.args.p_status, 'failed');
+    assert.equal(fin.args.p_error, 'client_sent_new_message_superseded');
   });
 });
