@@ -270,6 +270,8 @@ export interface ConversationState {
 
 export interface ContactFacts {
   deliveredOrders: number;
+  /** Client marqué ou reconnu comme ancien client (⭐ ou ack returning_client). */
+  isReturning?: boolean;
   /** Vocal de procédure déjà reçu et encore valide (calculé par agent_contact_facts). */
   procedureVoiceReceived: boolean;
 }

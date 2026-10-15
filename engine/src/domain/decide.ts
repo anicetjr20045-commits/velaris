@@ -790,7 +790,7 @@ function welcomeTurn(input: DecisionInput, b: DecisionBuilder): Decision {
     return b.note('welcome already sent → silence').build();
   }
 
-  const returning = input.contact.deliveredOrders > 0;
+  const returning = Boolean(input.contact.isReturning || input.contact.deliveredOrders > 0);
   // CORRECTIF (mineur) : si le client repose une question prix/fonctionnement/délai alors que
   // l'accueil a déjà été envoyé, on ne renvoie pas tout le bloc d'accueil — juste la réponse ciblée.
   if (!welcomeRecentlySent) {

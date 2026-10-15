@@ -323,6 +323,7 @@ async function holdTurnForProviderRetry(
  * musical_note confirm_and_produce : le texte reagi doit devenir une chanson (voix/style extraits).
  * tada mark_delivered : la livraison de la chanson est effectuee (commande -> delivered).
  * memo mark_as_lyrics : le message reagi est enregistre comme paroles de la commande.
+ * star mark_returning : le contact est marque ancien client (suppression vocale, accueil returning).
  *
  * Retourne 'continue' pour resume_ai (le flux normal evalue ensuite l'etat et reprend),
  * ou un RunTurnOutcome final pour les autres commandes.
@@ -578,6 +579,36 @@ async function handleMerchantReaction(
       );
       rtrace.push('merchant_reaction: text marked as lyrics');
       return finish('reaction_mark_as_lyrics');
+    }
+
+    case 'mark_returning': {
+      rtrace.push(`merchant_reaction: mark_returning for conversation ${rturnRef.conversationId}`);
+
+      // 1. Marquer la conversation avec l'ack returning_client (persistant et lu dans ack_log)
+      await rdeps.db.rpc('agent_conversation_effect', {
+        p_conversation: rturnRef.conversationId,
+        p_kind: 'mark_ack',
+        p_data: { key: 'returning_client' },
+      }).catch((e) => {
+        rdeps.log('merchant_reaction: failed to mark returning_client in ack_log', { error: (e as Error).message });
+      });
+
+      // 2. Marquer le contact au niveau de la table contacts (notes = 'returning_client')
+      const contactId = rraw.conversation.contact_id;
+      if (contactId && rdeps.db.updateRows) {
+        try {
+          await rdeps.db.updateRows(
+            'contacts',
+            `id=eq.${contactId}`,
+            { notes: 'returning_client' },
+          );
+        } catch (e) {
+          rdeps.log('merchant_reaction: failed to update contact notes', { error: (e as Error).message });
+        }
+      }
+
+      rtrace.push(`merchant_reaction: contact ${contactId} marked as returning client`);
+      return finish('reaction_mark_returning');
     }
 
     default: {
@@ -893,7 +924,17 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
     orders,
     contact: {
       deliveredOrders: raw.contact_facts?.delivered_orders ?? 0,
-      procedureVoiceReceived: contactReceivedProcedureVoice(raw.contact_facts),
+      isReturning: Boolean(
+        raw.conversation.ack_log?.returning_client ||
+        raw.conversation.ack_log?.is_returning ||
+        (raw.contact_facts?.delivered_orders ?? 0) > 0
+      ),
+      procedureVoiceReceived: Boolean(
+        contactReceivedProcedureVoice(raw.contact_facts) ||
+        raw.conversation.ack_log?.returning_client ||
+        raw.conversation.ack_log?.is_returning ||
+        (raw.contact_facts?.delivered_orders ?? 0) > 0
+      ),
     },
     conversation: {
       pendingQuestion: conversation.pending_question as any,
@@ -1063,8 +1104,16 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         name: contact.name,
         wa_jid: contact.wa_jid,
         deliveredOrders: raw.contact_facts?.delivered_orders ?? 0,
+        isReturning: Boolean(
+          raw.conversation.ack_log?.returning_client ||
+          raw.conversation.ack_log?.is_returning ||
+          (raw.contact_facts?.delivered_orders ?? 0) > 0
+        ),
         procedureVoiceReceived: Boolean(
           contactReceivedProcedureVoice(raw.contact_facts) ||
+          raw.conversation.ack_log?.returning_client ||
+          raw.conversation.ack_log?.is_returning ||
+          (raw.contact_facts?.delivered_orders ?? 0) > 0 ||
           assistantSentVoiceInRecent(raw.recent)
         ),
         videoSampleReceived: Boolean(
@@ -1102,9 +1151,18 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
         });
       }
 
+      const isReturningClient = Boolean(
+        raw.conversation.ack_log?.returning_client ||
+        raw.conversation.ack_log?.is_returning ||
+        (raw.contact_facts?.delivered_orders ?? 0) > 0
+      );
+
       // 1. Si le brief est complet et que le vocal de procédure est dû (strictement 1 fois par discussion)
       const procedureVoiceAlreadySent = Boolean(
+        isReturningClient ||
         contactReceivedProcedureVoice(raw.contact_facts) ||
+        raw.conversation.ack_log?.returning_client ||
+        raw.conversation.ack_log?.is_returning ||
         assistantSentVoiceInRecent(raw.recent)
       );
 
@@ -1112,7 +1170,7 @@ export async function runTurn(deps: RunTurnDeps, turnRef: TurnRef): Promise<RunT
       // quand le brief est complet (I13) ; avant, seul le LLM (procedureVoiceDue) pilotait l'envoi et
       // les deux pouvaient diverger (vocal jamais envoyé, ou brief complet sans vocal).
       const decidedProcedureVoiceDue = decision.actions.some((a) => a.type === 'send_procedure_voice');
-      const procedureVoiceDue = salesOutcome.procedureVoiceDue || decidedProcedureVoiceDue;
+      const procedureVoiceDue = !isReturningClient && !procedureVoiceAlreadySent && (salesOutcome.procedureVoiceDue || decidedProcedureVoiceDue);
       if (decidedProcedureVoiceDue && !salesOutcome.procedureVoiceDue) {
         trace.push('deterministic: procedure voice due by decide(), LLM did not flag it — enforcing');
       }

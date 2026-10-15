@@ -41,8 +41,8 @@ Ne repose JAMAIS une question dont la réponse a déjà été donnée (même en 
 
 ## Étape 3 : Note Vocale de Procédure
 - Dès que le brief des 4 repères est complet (ou dès que le client choisit de conserver/adapter ses propres paroles fournies) :
-  Active "procedure_voice": true dans le JSON pour déclencher la note vocale explicative du studio.
-- Ne présente pas les tarifs dans ce message : attends simplement qu'il écoute le vocal.
+  - Si le client est un Ancien Client / Client récurrent (isReturning) : il connaît déjà le fonctionnement, n'envoie JAMAIS la note vocale ("procedure_voice": false). Présente directement les deux formules ({PRIX_DECOUVERTE} F CFA / {PRIX_PRESTIGE} F CFA) pour qu'il choisisse.
+  - Sinon (nouveau prospect) : active "procedure_voice": true dans le JSON pour déclencher la note vocale explicative du studio. Ne présente pas les tarifs dans ce message : attends simplement qu'il écoute le vocal.
 
 ## Étape 4 : Choix de Formule (Après le vocal)
 - Dès que le client répond au vocal (ex : « D'accord », « Ça me convient », « Ok », « C'est bon », « J'ai écouté ») :
@@ -72,6 +72,7 @@ export interface SalesBrainInput {
     name: string | null;
     wa_jid: string;
     deliveredOrders?: number;
+    isReturning?: boolean;
     procedureVoiceReceived?: boolean;
     videoSampleReceived?: boolean;
   };
@@ -150,8 +151,12 @@ export async function generateSalesReply(
     ? 'Burkina Faso (+226) — Paiement Orange Money exclusively'
     : 'International';
 
-  const isReturning = (input.contact.deliveredOrders ?? 0) > 0;
+  const isReturning = Boolean(
+    input.contact.isReturning ||
+    (input.contact.deliveredOrders ?? 0) > 0
+  );
   const procedureVoiceAlreadySent = Boolean(
+    isReturning ||
     input.contact.procedureVoiceReceived ||
     input.recent.some((m) => m.who !== 'client' && (m.text.includes('note vocale') || m.text.includes('vocal de procédure') || m.text.includes('[Note vocale')))
   );
