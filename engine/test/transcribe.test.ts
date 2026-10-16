@@ -1,12 +1,12 @@
 /**
- * Tests unitaires du service AudioTranscriber (Gemini Flash + WAHA).
+ * Tests unitaires du service AudioTranscriber (Kie.ai Gemini 3.6 Flash + WAHA + fallback Whisper).
  */
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { AudioTranscriber } from '../src/services/transcribe.js';
 
 describe('AudioTranscriber', () => {
-  test('downloadAudio réécrit l\'URL pour WAHA et ajoute X-Api-Key', async () => {
+  test('downloadAudio reecrit URL pour WAHA et ajoute X-Api-Key', async () => {
     let capturedUrl = '';
     let capturedKey = '';
 
@@ -30,39 +30,69 @@ describe('AudioTranscriber', () => {
     assert.equal(capturedKey, 'waha-secret-key');
   });
 
-  test('transcribeBuffer envoie inlineData au endpoint natif Gemini et nettoie le texte', async () => {
+  test('transcribeBuffer appelle en priorité Kie.ai Gemini 3.6 Flash via SSE streaming', async () => {
     let capturedUrl = '';
+    let capturedAuth = '';
     let capturedBody: any = null;
 
     const fakeFetch: typeof fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       capturedUrl = String(input);
+      capturedAuth = (init?.headers as Record<string, string>)?.['Authorization'] || '';
       capturedBody = JSON.parse(String(init?.body));
-      return new Response(
-        JSON.stringify({
-          candidates: [
-            {
-              content: {
-                parts: [{ text: '« Bonjour Velaris, je souhaite une chanson pour l\'anniversaire de ma mère »' }],
-              },
-            },
-          ],
-        }),
-        { status: 200 }
-      );
+
+      const sseStream = [
+        'data: {"choices":[{"delta":{"content":"« Bonjour Velaris, je souhaite une chanson "}}]}',
+        'data: {"choices":[{"delta":{"content":"pour anniversaire de ma mere »"}}]}',
+        'data: [DONE]',
+      ].join('\n');
+
+      return new Response(sseStream, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    }) as typeof fetch;
+
+    const transcriber = new AudioTranscriber({
+      wahaUrl: 'http://waha:3000',
+      wahaApiKey: 'waha-key',
+      kieApiKey: 'kie-key-123',
+      sttUrl: 'http://stt-whisper:5001',
+      fetchImpl: fakeFetch,
+    });
+
+    const text = await transcriber.transcribeBuffer(Buffer.from('fake-wav-header'), 'audio/wav');
+    assert.equal(capturedUrl, 'https://api.kie.ai/gemini-3-6-flash-openai/v1/chat/completions');
+    assert.equal(capturedAuth, 'Bearer kie-key-123');
+    assert.equal(capturedBody.model, 'gemini-3-6-flash');
+    assert.equal(capturedBody.stream, true);
+    assert.ok(capturedBody.messages[0].content[1].image_url.url.startsWith('data:audio/wav;base64,'));
+    assert.equal(text, "Bonjour Velaris, je souhaite une chanson pour anniversaire de ma mere");
+  });
+
+  test('transcribeBuffer bascule sur Faster-Whisper local si Kie.ai échoue', async () => {
+    const urlsCalled: string[] = [];
+
+    const fakeFetch: typeof fetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      urlsCalled.push(url);
+      if (url.includes('api.kie.ai')) {
+        return new Response('{"code":500,"msg":"Server error"}', { status: 500 });
+      }
+      return new Response(JSON.stringify({ text: "Repli Whisper réussi pour le brief" }), { status: 200 });
     }) as typeof fetch;
 
     const transcriber = new AudioTranscriber({
       wahaUrl: 'http://waha:3000',
       wahaApiKey: 'waha-key',
       kieApiKey: 'kie-key',
+      sttUrl: 'http://stt-whisper:5001',
       fetchImpl: fakeFetch,
     });
 
-    const text = await transcriber.transcribeBuffer(Buffer.from('fake-audio'), 'audio/ogg; codecs=opus');
-    assert.equal(capturedUrl, 'https://api.kie.ai/gemini/v1/models/gemini-3-8-flash:generateContent');
-    assert.equal(capturedBody.contents[0].parts[1].inlineData.mimeType, 'audio/ogg');
-    assert.equal(capturedBody.contents[0].parts[1].inlineData.data, Buffer.from('fake-audio').toString('base64'));
-    assert.equal(text, "Bonjour Velaris, je souhaite une chanson pour l'anniversaire de ma mère");
+    const text = await transcriber.transcribeBuffer(Buffer.from('fake-wav'), 'audio/wav');
+    assert.equal(text, 'Repli Whisper réussi pour le brief');
+    assert.ok(urlsCalled[0]?.includes('api.kie.ai'));
+    assert.ok(urlsCalled[1]?.includes('stt-whisper:5001/transcribe'));
   });
 
   test('transcribeMessage orchestre le téléchargement, la transcription et la mise à jour SQL', async () => {
@@ -80,18 +110,8 @@ describe('AudioTranscriber', () => {
       if (url.includes('api/files')) {
         return new Response(Buffer.from('audio-content'), { status: 200 });
       }
-      return new Response(
-        JSON.stringify({
-          candidates: [
-            {
-              content: {
-                parts: [{ text: 'Je veux la formule Or' }],
-              },
-            },
-          ],
-        }),
-        { status: 200 }
-      );
+      const sseStream = 'data: {"choices":[{"delta":{"content":"Je veux la formule Or"}}]}\ndata: [DONE]';
+      return new Response(sseStream, { status: 200 });
     }) as typeof fetch;
 
     const transcriber = new AudioTranscriber({
@@ -105,7 +125,7 @@ describe('AudioTranscriber', () => {
     const res = await transcriber.transcribeMessage(
       'msg-uuid-123',
       'Test',
-      'http://localhost:3000/api/files/Test/voice.oga',
+      'http://localhost:3000/api/files/Test/voice.wav',
       'audio'
     );
 
@@ -115,24 +135,5 @@ describe('AudioTranscriber', () => {
     assert.equal(rpcCalls[0]?.args.p_message, 'msg-uuid-123');
     assert.equal(rpcCalls[0]?.args.p_transcript, 'Je veux la formule Or');
     assert.equal(rpcCalls[0]?.args.p_status, 'done');
-  });
-  test('transcribeBuffer utilise en priorité sttUrl local (Faster-Whisper) quand disponible', async () => {
-    let capturedUrl = '';
-
-    const fakeFetch: typeof fetch = (async (input: string | URL | Request) => {
-      capturedUrl = String(input);
-      return new Response(JSON.stringify({ text: "C'est pour l'anniversaire de mon frère Franck" }), { status: 200 });
-    }) as typeof fetch;
-
-    const transcriber = new AudioTranscriber({
-      wahaUrl: 'http://waha:3000',
-      wahaApiKey: 'waha-key',
-      sttUrl: 'http://stt-whisper:5001',
-      fetchImpl: fakeFetch,
-    });
-
-    const text = await transcriber.transcribeBuffer(Buffer.from('fake-audio'), 'audio/ogg');
-    assert.equal(capturedUrl, 'http://stt-whisper:5001/transcribe');
-    assert.equal(text, "C'est pour l'anniversaire de mon frère Franck");
   });
 });
