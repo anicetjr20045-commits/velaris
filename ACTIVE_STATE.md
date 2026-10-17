@@ -25,8 +25,20 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 14 Octobre 2026 (18:30 UTC)
-- **Statut Opérationnel** : **Jalon 124 Validé — Répertoire Interactif des Liens Directs WhatsApp des 32 Témoignages & Synchronisation Drive (Google Sheets, Docs, PDF)** :
+- **Dernière mise à jour** : 17 Octobre 2026 (15:55 UTC)
+- **Statut Opérationnel** : **Jalon 125 Validé — Pack Officiel Multi-Format Base de Connaissances & Mémoire des 709 Anciens Clients (/root/clients_knowledge_base/)** :
+  1. **Consolidation Complète & Vérifiée de la Base Réelle** :
+     - 709 contacts authentiques extraits de la base de production PostgreSQL Supabase active (`dnwlqgsftauqsyjwhoza`).
+     - 486 anciens clients / habitués confirmés (dont 52 VIP multi-commandes et 372 ayant reçu leur chanson livrée).
+     - 391 fiches avec destinataires identifiés et 630 conversations avec fiches mémoires CRM complètes.
+  2. **Génération du Pack Multi-Format pour Développeur & IA** :
+     - [`clients_knowledge_base.json`](file:///root/clients_knowledge_base/clients_knowledge_base.json) (1,5 Mo) : Fiches synthétiques prêtes pour l'IA et RAG avec prompt snippets pré-générés.
+     - [`clients_knowledge_base.jsonl`](file:///root/clients_knowledge_base/clients_knowledge_base.jsonl) (1,3 Mo) : JSON Lines pour bases vectorielles et bancs de test LLM.
+     - [`clients_database.csv`](file:///root/clients_knowledge_base/clients_database.csv) (355 Ko) : Format tabulaire universel UTF-8 BOM pour Excel / Sheets / CRM.
+     - [`clients_database.sql`](file:///root/clients_knowledge_base/clients_database.sql) (1,3 Mo) : Dump DDL + INSERT autonome pour PostgreSQL / Supabase.
+     - [`clients_knowledge_base_pack.zip`](file:///root/clients_knowledge_base/clients_knowledge_base_pack.zip) (736 Ko) : Archive ZIP tout-en-un.
+     - [`README.md`](file:///root/clients_knowledge_base/README.md) : Guide d'intégration complet pour développeur et IA.
+- **Jalon 124 Validé — Répertoire Interactif des Liens Directs WhatsApp des 32 Témoignages & Synchronisation Drive (Google Sheets, Docs, PDF)** :
   1. **Création du Répertoire Multi-Format de Liens Directs WhatsApp** :
      - Pour chacune des 32 conversations réelles à forte émotion, extraction des identifiants certifiés `wa_jid` et génération des liens universels `https://wa.me/<numéro>` (redirection automatique sur l'application mobile ou bureau WhatsApp) et `https://web.whatsapp.com/send?phone=<numéro>` (WhatsApp Web).
      - Génération d'une feuille de calcul interactive Google Sheets / Excel (`Velaris_Liens_WhatsApp_Temoignages.xlsx`) avec formules `=HYPERLINK()`, d'un document Google Docs / Word (`Velaris_Liens_WhatsApp_Temoignages.docx`) et d'un document PDF interactif (`Velaris_Liens_WhatsApp_Temoignages.pdf`).
