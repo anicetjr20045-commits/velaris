@@ -25,8 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Novembre 2026 (23:30 UTC)
-- **Statut Opérationnel** : **Jalon 132 Validé — Plateforme Banc d'Essai & Simulateur WhatsApp Réel (Micro Whisper VPS, Débrayage Rafales, Lecteur Audio OGG/Opus 33s, Échantillon Vidéo MP4 & FSM Déterministe)** :
+- **Dernière mise à jour** : 8 Novembre 2026 (23:55 UTC)
+- **Statut Opérationnel** : **Jalon 133 Validé — Mode Autonome 100% Indépendant & Disposition Spéciale Tablette (Tiroir Rétractable, Plein Écran 100dvh, Micro Whisper VPS & Zéro Encombrement Site)** :
+  1. **Découplage Total & Autonomie 100% Plein Écran** :
+     - Bypass immédiat au niveau de `App.tsx` : si l'URL contient `#playground`, `#simulateur`, `#play` ou le chemin `/simulateur`, l'application s'affiche en pur plein écran sans aucun wrapper de site (zéro navbar supérieure, zéro barre latérale studio, zéro arrière-plan parasite).
+     - Hauteur dynamique stricte (`100dvh`) et marges d'insertion tactiles (`pb-safe`) empêchant la barre de navigation ou le clavier virtuel des tablettes/smartphones de masquer l'input de saisie.
+  2. **Disposition Tactile Optimisée Tablette & Mobile** :
+     - Sur tablette (iPad, Android en orientation portrait ou paysage), le panneau de diagnostic FSM se transforme en un tiroir coulissant fluide (Drawer Slide-Over) avec arrière-plan estompé, activable d'un simple toucher sur le badge d'état du bandeau WhatsApp (`[FSM: STAGE 4/4]`) ou le bouton d'outils.
+     - Boutons d'action, sélecteur de scénario, microphone PTT et contrôles audio dimensionnés pour une ergonomie tactile parfaite (cibles ≥ 44px).
+  3. **Déploiement HTTPS & Validation en Ligne** :
+     - Build Vite de production synchronisé sur le VPS : `https://waha.velarisagent.life/qr/simulateur/index.html#simulateur`
+     - Accès court et direct optimisé tablette : `https://waha.velarisagent.life/qr/play.html`
+- **Jalon Précédent Validé** : **Jalon 132 Validé — Plateforme Banc d'Essai & Simulateur WhatsApp Réel (Micro Whisper VPS, Débrayage Rafales, Lecteur Audio OGG/Opus 33s, Échantillon Vidéo MP4 & FSM Déterministe)** :
   1. **Interface Client & Mobile Authentique WhatsApp (Mode Sombre #0b141a)** :
      - Reproduction exacte de WhatsApp : double coche grise puis bleue (`#53bdeb`), indicateurs de présence dynamiques (`en train d'écrire...` et `enregistre un audio...`), délais de saisie calculés.
      - Gestion déterministe des rafales de messages (Debounce 3.5s avec compte à rebours visuel et bouton d'envoi forcé).
