@@ -17,6 +17,7 @@ import type { Order, StudioMetrics } from './types';
 import { ProtectedStreamView, type ProtectedShareData } from './components/ProtectedStreamView';
 import { getSharedTrackById } from './services/shared-tracks';
 import { ShieldCheck } from 'lucide-react';
+import { PlaygroundView } from './components/PlaygroundView';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
@@ -464,6 +465,22 @@ export function App() {
         >
           Retour au studio
         </button>
+      </div>
+    );
+  }
+
+  // Mode Simulateur Indépendant 100% Plein Écran (Zéro wrapper, zéro sidebar, zéro navbar de site)
+  if (
+    studioSubTab === 'playground' ||
+    (typeof window !== 'undefined' &&
+      (window.location.hash.toLowerCase().includes('playground') ||
+        window.location.hash.toLowerCase().includes('simulateur') ||
+        window.location.hash.toLowerCase().includes('play') ||
+        window.location.pathname.includes('simulateur')))
+  ) {
+    return (
+      <div className="fixed inset-0 w-full h-[100dvh] bg-[#050608] text-white overflow-hidden z-50">
+        <PlaygroundView />
       </div>
     );
   }

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type FC } from 'react';
 import {
   RotateCcw,
   Send,
-  Bot,
   Mic,
   Square,
   Play,
@@ -22,6 +21,7 @@ import {
   ArrowRight,
   Lock,
   X,
+  Sliders,
 } from 'lucide-react';
 import { transcribeAudioBlob } from '../services/whisper-stt';
 import {
@@ -66,7 +66,6 @@ export interface AgentConfig {
   agentName: string;
   studioName: string;
   role: string;
-  provider: 'fsm_local' | 'claude_haiku' | 'deepseek';
   burstWindowMs: number;
   tariffs: {
     decouvertePrice: string;
@@ -84,7 +83,6 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   agentName: 'Alex',
   studioName: 'Velaris Studio',
   role: 'Conseiller Vente WhatsApp',
-  provider: 'fsm_local',
   burstWindowMs: 3500,
   tariffs: {
     decouvertePrice: '1 200',
@@ -151,21 +149,12 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
 ];
 
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_playground_v20_config';
-
 export const PlaygroundView: FC = () => {
-  // 1. Configuration
-  const [config] = useState<AgentConfig>(() => {
-    try {
-      const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
-      if (saved) return { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(saved) };
-    } catch {
-      // ignore
-    }
-    return DEFAULT_AGENT_CONFIG;
-  });
+  // Configuration
+  const [config] = useState<AgentConfig>(DEFAULT_AGENT_CONFIG);
 
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  // Tablet & Desktop Drawer / Panneau Diagnostic
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<'fsm' | 'tariffs' | 'log'>('fsm');
 
   // Ligne Client simulée
@@ -174,7 +163,7 @@ export const PlaygroundView: FC = () => {
   const [countryCode, setCountryCode] = useState<'CI' | 'BF' | 'SN' | 'OTHER'>('BF');
   const [clientProfile, setClientProfile] = useState<'new' | 'returning'>('new');
 
-  // État de la FSM
+  // État FSM
   const [fsmState, setFsmState] = useState<SimulationState>({
     stage: 'GREETING',
     pillars: {
@@ -196,7 +185,7 @@ export const PlaygroundView: FC = () => {
     lastTurnAt: Date.now(),
   });
 
-  // Conversation WhatsApp
+  // Conversation
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [input, setInput] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
@@ -204,13 +193,13 @@ export const PlaygroundView: FC = () => {
   const [merchantAlerts, setMerchantAlerts] = useState<string[]>([]);
   const [latencyMs, setLatencyMs] = useState<number>(320);
 
-  // Système de Rafale / Debounce
+  // Rafale / Debounce
   const [burstQueue, setBurstQueue] = useState<string[]>([]);
   const [burstSecondsLeft, setBurstSecondsLeft] = useState<number>(0);
   const burstTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const burstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Audio Réel & Enregistrement Microphone
+  // Audio & Microphone Réel
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -218,12 +207,12 @@ export const PlaygroundView: FC = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Lecteur Audio HTML5
+  // Lecteur Audio Native
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const activeAudioElementRef = useRef<HTMLAudioElement | null>(null);
 
-  // Pièces Jointes (Photos & Reçus)
+  // Pièces Jointes
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAttachType, setPendingAttachType] = useState<'photo' | 'receipt'>('photo');
@@ -253,9 +242,7 @@ export const PlaygroundView: FC = () => {
     setFsmState((prev) => ({ ...prev, clientProfile: p }));
   };
 
-  // -------------------------------------------------------------------------
-  // Gestion Audio HTML5 Native
-  // -------------------------------------------------------------------------
+  // Lecture Audio Native
   const playNativeAudio = (audioId: string, url: string) => {
     if (playingAudioId === audioId && activeAudioElementRef.current) {
       activeAudioElementRef.current.pause();
@@ -297,9 +284,7 @@ export const PlaygroundView: FC = () => {
     }
   };
 
-  // -------------------------------------------------------------------------
-  // Enregistrement Micro Réel & Transcription Whisper VPS
-  // -------------------------------------------------------------------------
+  // Microphone PTT Réel & Transcription Whisper VPS
   const startRecording = async () => {
     try {
       if (activeAudioElementRef.current) {
@@ -354,7 +339,6 @@ export const PlaygroundView: FC = () => {
     const bubbleId = `user_voice_${Date.now()}`;
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Ajout immédiat de la bulle avec spinner
     const newVoiceBubble: ChatBubble = {
       id: bubbleId,
       role: 'user',
@@ -364,7 +348,7 @@ export const PlaygroundView: FC = () => {
       mediaKind: 'audio',
       mediaUrl: audioUrl,
       mediaDurationSec: Math.max(1, durationSec),
-      mediaTranscript: 'Transcription en cours par le serveur Whisper…',
+      mediaTranscript: 'Transcription Whisper VPS en cours…',
     };
 
     setMessages((prev) => [...prev, newVoiceBubble]);
@@ -390,20 +374,16 @@ export const PlaygroundView: FC = () => {
 
     setIsTranscribing(false);
 
-    // Mise à jour de la bulle avec le vrai texte transcrit
     setMessages((prev) =>
       prev.map((m) =>
         m.id === bubbleId ? { ...m, mediaTranscript: finalTranscript, content: `🎙️ ${finalTranscript}` } : m
       )
     );
 
-    // Envoi du texte transcrit dans le système de rafale
     enqueueInboundText(finalTranscript);
   };
 
-  // -------------------------------------------------------------------------
-  // Système de Rafale / Debounce Réel
-  // -------------------------------------------------------------------------
+  // Système de Rafale / Debounce
   const handleSendMessage = () => {
     if (!input.trim() || isAiThinking) return;
     const text = input.trim();
@@ -430,7 +410,6 @@ export const PlaygroundView: FC = () => {
     const updatedBurst = [...burstQueue, text];
     setBurstQueue(updatedBurst);
 
-    // Réinitialise le compte à rebours de rafale
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
     if (burstTimerRef.current) clearInterval(burstTimerRef.current);
 
@@ -454,7 +433,6 @@ export const PlaygroundView: FC = () => {
     setBurstQueue([]);
     setBurstSecondsLeft(0);
 
-    // Double coches délivrées puis lues
     setMessages((prev) =>
       prev.map((m) => (m.role === 'user' && m.status === 'sent' ? { ...m, status: 'delivered' } : m))
     );
@@ -475,14 +453,11 @@ export const PlaygroundView: FC = () => {
     }
   };
 
-  // -------------------------------------------------------------------------
-  // Exécution du Tour Agent (FSM & Délais Réalistes)
-  // -------------------------------------------------------------------------
+  // Exécution du Tour Agent (FSM)
   const executeAgentTurn = async (inboundText: string, attachmentKind?: 'photo' | 'receipt') => {
     setIsAiThinking(true);
     const startMs = performance.now();
 
-    // Calcul de la décision déterministe via la FSM Velaris
     const turnResult = processSimulationTurn(
       inboundText,
       fsmState,
@@ -493,20 +468,15 @@ export const PlaygroundView: FC = () => {
     setFsmState(turnResult.newState);
     setLatencyMs(Math.round(performance.now() - startMs));
 
-    // Si intervention humaine active (fromMe), l'agent se tait
     if (turnResult.bubbles.length === 0) {
       setIsAiThinking(false);
       setAiPresenceState('idle');
       return;
     }
 
-    // 1. Déclenchement de la présence réaliste WhatsApp
     setAiPresenceState(turnResult.presenceState);
-
-    // Attente du temps de saisie/vocal
     await new Promise((resolve) => setTimeout(resolve, turnResult.presenceDurationMs));
 
-    // 2. Séquençage des bulles (une par une avec délai de lecture)
     for (let i = 0; i < turnResult.bubbles.length; i++) {
       const b = turnResult.bubbles[i];
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -537,14 +507,13 @@ export const PlaygroundView: FC = () => {
     setAiPresenceState('idle');
     setIsAiThinking(false);
 
-    // Journal d'événement
     setMerchantAlerts((prev) => [
       `FSM Tour : ${turnResult.fsmExplanation}`,
       ...prev.slice(0, 8),
     ]);
   };
 
-  // Chargement d'un scénario prédéfini
+  // Chargement Scénario
   const loadScenario = (sc: ScenarioPreset) => {
     if (activeAudioElementRef.current) {
       activeAudioElementRef.current.pause();
@@ -599,13 +568,12 @@ export const PlaygroundView: FC = () => {
 
     setMessages(initialBubbles);
 
-    // Lancement automatique du 1er tour après chargement
     setTimeout(() => {
       void executeAgentTurn(sc.firstMessages.join('\n'));
     }, 400);
   };
 
-  // Simulation intervention humaine
+  // Intervention Humaine
   const toggleHumanTakeover = () => {
     setFsmState((prev) => {
       const next = !prev.isHumanTakeover;
@@ -619,7 +587,7 @@ export const PlaygroundView: FC = () => {
     });
   };
 
-  // Réinitialisation complète
+  // Réinitialisation
   const handleResetChat = () => {
     if (activeAudioElementRef.current) {
       activeAudioElementRef.current.pause();
@@ -656,7 +624,7 @@ export const PlaygroundView: FC = () => {
     });
   };
 
-  // Envoi d'un fichier réel
+  // Envoi Fichier
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -671,114 +639,87 @@ export const PlaygroundView: FC = () => {
     setIsAttachModalOpen(false);
   };
 
+  const completedPillarsCount = Object.values(fsmState.pillars).filter(Boolean).length;
+
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] bg-[#050608] text-neutral-100 overflow-hidden font-sans">
-      {/* ── Entête Studio Simulator ── */}
-      <div className="h-14 border-b border-white/[0.08] bg-[#08090C] px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Bot className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sm text-white">Laboratoire WhatsApp Velaris</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Protocole 2 Vocaux & FSM
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-400 hidden sm:block">
-              Banc d'essai en conditions réelles : vocaux Whisper, rafales, fichiers et FSM sans improvisation
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Bouton Prise de main humaine */}
-          <button
-            onClick={toggleHumanTakeover}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors ${
-              fsmState.isHumanTakeover
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                : 'bg-white/[0.04] border-white/[0.08] text-neutral-300 hover:bg-white/[0.08]'
-            }`}
-            title="Simule l'intervention du commerçant sur le téléphone (l'IA s'arrête)"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{fsmState.isHumanTakeover ? 'Commerçant actif' : 'Mode Conseiller'}</span>
-          </button>
-
-          {/* Bouton Réinitialiser */}
-          <button
-            onClick={handleResetChat}
-            className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 border border-white/[0.08] text-xs flex items-center gap-1.5 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Effacer</span>
-          </button>
-
-          {/* Toggle Volet Diagnostic */}
-          <button
-            onClick={() => setInspectorOpen(!inspectorOpen)}
-            className={`p-2 rounded-lg border text-xs transition-colors ${
-              inspectorOpen
-                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                : 'bg-white/[0.04] border-white/[0.08] text-neutral-400 hover:text-white'
-            }`}
-            title="Afficher/Masquer le Cockpit de diagnostic"
-          >
-            <PanelRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Corps Principal : Chat WhatsApp + Cockpit Diagnostic ── */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* ── COLONNE GAUCHE : L'Interface WhatsApp Réelle ── */}
-        <div className="flex-1 flex flex-col bg-[#0b141a] relative overflow-hidden">
-          {/* Barre WhatsApp Supérieure */}
-          <div className="h-14 px-4 bg-[#202c33] border-b border-black/20 flex items-center justify-between z-10 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-9 h-9 rounded-full bg-emerald-700/60 border border-emerald-500/40 flex items-center justify-center text-white text-sm font-semibold">
-                  {config.agentName.slice(0, 2).toUpperCase()}
-                </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#202c33]" />
+    <div className="w-full h-[100dvh] bg-[#050608] text-neutral-100 flex overflow-hidden font-sans select-none antialiased">
+      {/* ── ZONE GAUCHE / PRINCIPALE : Interface WhatsApp Authentique (Plein Écran sur Tablette & Mobile) ── */}
+      <div className="flex-1 flex flex-col h-full bg-[#0b141a] relative overflow-hidden">
+        {/* Entête WhatsApp Authentique */}
+        <div className="h-16 px-3 sm:px-4 bg-[#202c33] border-b border-black/20 flex items-center justify-between z-20 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-emerald-700/70 border border-emerald-400/40 flex items-center justify-center text-white text-sm font-semibold shadow-inner">
+                {config.agentName.slice(0, 2).toUpperCase()}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-[#e9edef]">{config.agentName}</span>
-                  <span className="text-[10px] text-emerald-400 font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20">
-                    Velaris Officiel
+              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#202c33]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-semibold text-sm sm:text-base text-[#e9edef] leading-tight">
+                  {config.agentName}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 border border-emerald-500/25 hidden xs:inline">
+                  Velaris Studio
+                </span>
+              </div>
+              <div className="text-[11px] text-[#8696a0] flex items-center gap-1.5 font-mono">
+                {aiPresenceState === 'typing' ? (
+                  <span className="text-emerald-400 animate-pulse font-sans font-medium">en train d’écrire…</span>
+                ) : aiPresenceState === 'recording_audio' ? (
+                  <span className="text-emerald-400 animate-pulse flex items-center gap-1 font-sans font-medium">
+                    <Mic className="w-3 h-3 animate-bounce" /> enregistre un audio…
                   </span>
-                </div>
-                <div className="text-[11px] text-[#8696a0] flex items-center gap-1.5 font-mono">
-                  {aiPresenceState === 'typing' ? (
-                    <span className="text-emerald-400 animate-pulse font-sans">en train d’écrire…</span>
-                  ) : aiPresenceState === 'recording_audio' ? (
-                    <span className="text-emerald-400 animate-pulse flex items-center gap-1 font-sans">
-                      <Mic className="w-3 h-3 animate-bounce" /> enregistre un audio…
-                    </span>
-                  ) : fsmState.isHumanTakeover ? (
-                    <span className="text-amber-400">Agent en veille (Commerçant aux commandes)</span>
-                  ) : (
-                    <span>en ligne</span>
-                  )}
-                </div>
+                ) : fsmState.isHumanTakeover ? (
+                  <span className="text-amber-400 font-medium">Commerçant aux commandes</span>
+                ) : (
+                  <span>en ligne</span>
+                )}
               </div>
             </div>
+          </div>
+
+          {/* Outils & Commandes d'Entête (Adaptés Tablette) */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Badge d'État FSM & Brief (Cliquable pour ouvrir le Diagnostic sur Tablette/Mobile) */}
+            <button
+              onClick={() => setIsDrawerOpen(true)}
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-mono flex items-center gap-1.5 transition-colors"
+              title="Ouvrir le panneau diagnostic FSM"
+            >
+              <Cpu className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="font-semibold hidden sm:inline">{fsmState.stage}</span>
+              <span className="px-1.5 py-0.2 rounded bg-emerald-400/20 text-emerald-200 text-[10px] font-bold">
+                {completedPillarsCount}/4
+              </span>
+            </button>
+
+            {/* Mode Conseiller Humain */}
+            <button
+              onClick={toggleHumanTakeover}
+              className={`p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+                fsmState.isHumanTakeover
+                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                  : 'bg-white/[0.04] border-white/[0.08] text-neutral-300 hover:bg-white/[0.08]'
+              }`}
+              title="Simule le marchand qui prend le téléphone (l'IA se tait)"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span className="hidden md:inline">{fsmState.isHumanTakeover ? 'Commerçant actif' : 'Conseiller'}</span>
+            </button>
 
             {/* Sélecteur de Scénario Rapide */}
-            <div className="flex items-center gap-2">
+            <div className="relative">
               <select
                 onChange={(e) => {
                   const sc = SCENARIO_PRESETS.find((s) => s.id === e.target.value);
                   if (sc) loadScenario(sc);
                 }}
                 defaultValue=""
-                className="bg-[#111b21] border border-white/[0.08] text-xs text-neutral-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500/50"
+                className="bg-[#111b21] border border-white/[0.1] text-xs text-neutral-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-emerald-500/50 max-w-[110px] sm:max-w-[160px] truncate"
               >
                 <option value="" disabled>
-                  Charger un scénario…
+                  Scénario…
                 </option>
                 {SCENARIO_PRESETS.map((sc) => (
                   <option key={sc.id} value={sc.id}>
@@ -787,334 +728,371 @@ export const PlaygroundView: FC = () => {
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Zone des Messages (WhatsApp Stream) */}
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#0b141a] bg-radial-[at_top] from-[#0f1d24] to-[#0b141a]"
-          >
-            {/* Bannière de Sécurité WhatsApp Chiffrée */}
-            <div className="flex justify-center my-2">
-              <div className="bg-[#182229] border border-amber-500/20 rounded-lg px-3 py-1.5 text-center max-w-md">
-                <span className="text-[11px] text-amber-200/90 font-mono flex items-center justify-center gap-1.5">
-                  <Lock className="w-3 h-3 text-amber-400 shrink-0" />
-                  Simulation WhatsApp native · Banc d'essai déterministe
-                </span>
-              </div>
-            </div>
-
-            {/* Liste des bulles */}
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
-              >
-                <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3 shadow-md text-sm leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-xs border border-emerald-400/20'
-                      : 'bg-[#202c33] text-[#e9edef] rounded-tl-xs border border-white/[0.06]'
-                  }`}
-                >
-                  {/* Image jointe */}
-                  {m.mediaKind === 'image' && m.mediaUrl && (
-                    <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                      <img src={m.mediaUrl} alt="Fichier joint" className="w-full max-h-60 object-cover" />
-                      {m.attachmentKind && (
-                        <div className="px-2 py-1 bg-black/60 text-[10px] font-mono text-emerald-300">
-                          {m.attachmentKind === 'receipt' ? 'Reçu de paiement' : 'Photos pour montage'}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Vidéo Sample (Exemple Démo 3 000 F) */}
-                  {m.mediaKind === 'video' && m.mediaUrl && (
-                    <div className="mb-2 rounded-xl overflow-hidden border border-emerald-500/40 bg-black/80">
-                      <video
-                        src={m.mediaUrl}
-                        controls
-                        className="w-full max-h-72 rounded-lg bg-black"
-                        preload="metadata"
-                      />
-                      <div className="p-2 bg-[#111b21] flex items-center justify-between text-xs text-neutral-300">
-                        <span className="font-semibold flex items-center gap-1.5">
-                          <Video className="w-4 h-4 text-emerald-400" /> Aperçu Montage Vidéo (Prestige)
-                        </span>
-                        <a
-                          href={m.mediaUrl}
-                          download="montage_sample.mp4"
-                          className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1"
-                        >
-                          Télécharger
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Lecteur Audio Natif WhatsApp */}
-                  {m.mediaKind === 'audio' && m.mediaUrl && (
-                    <div className="my-1.5 p-3 rounded-xl bg-black/30 border border-emerald-500/30 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => playNativeAudio(m.id, m.mediaUrl!)}
-                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 ${
-                            playingAudioId === m.id
-                              ? 'bg-emerald-400 text-black'
-                              : 'bg-emerald-500 text-white hover:bg-emerald-400'
-                          }`}
-                        >
-                          {playingAudioId === m.id ? (
-                            <Pause className="w-4 h-4 fill-current" />
-                          ) : (
-                            <Play className="w-4 h-4 ml-0.5 fill-current" />
-                          )}
-                        </button>
-
-                        <div className="flex-1 space-y-1">
-                          {/* Forme d'onde animée */}
-                          <div className="flex items-center gap-1 h-6">
-                            {[24, 38, 18, 44, 28, 36, 48, 22, 34, 42, 30, 20, 46, 32, 26, 40, 36, 24, 44, 30].map(
-                              (h, idx) => (
-                                <span
-                                  key={idx}
-                                  className={`w-1 rounded-full transition-all duration-150 ${
-                                    playingAudioId === m.id ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'
-                                  }`}
-                                  style={{ height: `${h}px` }}
-                                />
-                              )
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-                            <span>
-                              {m.mediaDurationSec ? `0:${m.mediaDurationSec.toString().padStart(2, '0')}` : '0:33'}
-                            </span>
-                            <button
-                              onClick={togglePlaybackRate}
-                              className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[10px] font-bold"
-                            >
-                              {playbackRate}x
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mention vocale de procédure */}
-                      {m.isProcedureVoice && (
-                        <div className="text-[10px] text-emerald-300 font-mono pt-1 border-t border-white/[0.08]">
-                          Note vocale officielle de 33s (explication de la procédure studio)
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Transcription Whisper pour les vocaux utilisateurs */}
-                  {m.mediaTranscript && (
-                    <details className="mt-1.5 text-xs text-neutral-300 bg-black/20 p-2 rounded-lg border border-white/[0.04]">
-                      <summary className="cursor-pointer text-emerald-300 font-mono text-[11px] hover:underline">
-                        Transcription Whisper VPS
-                      </summary>
-                      <p className="mt-1 text-neutral-200 font-sans italic">{m.mediaTranscript}</p>
-                    </details>
-                  )}
-
-                  {/* Bloc Coordonnées de Paiement Mobile Money */}
-                  {m.isPaymentBlock && (
-                    <div className="my-2 p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-xs font-mono space-y-1.5">
-                      <div className="font-semibold text-emerald-300 flex items-center gap-1.5 text-[13px]">
-                        <CreditCard className="w-4 h-4" /> Coordonnées Officielles
-                      </div>
-                      <p className="whitespace-pre-line text-neutral-200 font-sans text-xs pt-1">{m.content}</p>
-                    </div>
-                  )}
-
-                  {/* Texte classique */}
-                  {!m.isPaymentBlock && !m.mediaTranscript && (
-                    <p className="whitespace-pre-wrap">{m.content}</p>
-                  )}
-
-                  {/* Horodatage & Statut d'envoi */}
-                  <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-neutral-400 font-mono">
-                    <span>{m.timestamp}</span>
-                    {m.role === 'user' && (
-                      <span className="inline-flex items-center ml-0.5">
-                        {m.status === 'read' ? (
-                          <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                        ) : m.status === 'delivered' ? (
-                          <CheckCheck className="w-3.5 h-3.5 text-neutral-400" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5 text-neutral-400" />
-                        )}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {/* Bulle de présence en direct de l'agent */}
-            {aiPresenceState !== 'idle' && (
-              <div className="flex justify-start">
-                <div className="rounded-2xl px-4 py-2.5 bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 text-xs">
-                  {aiPresenceState === 'recording_audio' ? (
-                    <>
-                      <Mic className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-                      <span className="text-emerald-400 font-medium font-mono">
-                        {config.agentName} enregistre un message vocal…
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="inline-flex gap-1 items-center">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse delay-100" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse delay-200" />
-                      </span>
-                      <span className="text-neutral-300 font-mono text-[11px]">
-                        {config.agentName} est en train d’écrire…
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── BARRE DE RAFALE EN COURS (Visual Debounce) ── */}
-          {burstQueue.length > 0 && (
-            <div className="h-10 bg-[#182229] border-t border-emerald-500/30 px-4 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
-              <div className="flex items-center gap-2 text-emerald-400 font-mono">
-                <Clock className="w-3.5 h-3.5 animate-spin" />
-                <span>
-                  Rafale active ({burstQueue.length} msg) : attente {burstSecondsLeft}s…
-                </span>
-              </div>
-              <button
-                onClick={forceFlushNow}
-                className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-[11px] flex items-center gap-1 transition-colors"
-              >
-                Envoyer de suite <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-
-          {/* ── BARRE INFÉRIEURE : Saisie, Micro PTT & Trombone ── */}
-          <div className="p-3 bg-[#202c33] border-t border-black/20 flex items-center gap-2 shrink-0">
-            {/* Input fichier caché */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelected}
-              className="hidden"
-            />
-
-            {/* Bouton Trombone / Pièces jointes */}
+            {/* Réinitialiser */}
             <button
-              onClick={() => setIsAttachModalOpen(true)}
-              className="p-2.5 rounded-full text-[#8696a0] hover:text-white hover:bg-white/[0.06] transition-colors"
-              title="Joindre une photo ou un reçu de paiement"
+              onClick={handleResetChat}
+              className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 border border-white/[0.08] text-xs transition-colors"
+              title="Réinitialiser la discussion"
             >
-              <Paperclip className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4" />
             </button>
 
-            {/* Champ texte principal */}
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder={isRecording ? 'Enregistrement en cours…' : 'Écrire un message…'}
-                disabled={isRecording || isAiThinking}
-                className="w-full h-11 px-4 rounded-xl bg-[#2a3942] border border-transparent focus:border-emerald-500/40 text-sm text-[#e9edef] placeholder-[#8696a0] focus:outline-none transition-all font-sans"
-              />
-            </div>
-
-            {/* Bouton Micro PTT ou Envoi */}
-            {input.trim() ? (
-              <button
-                onClick={handleSendMessage}
-                disabled={isAiThinking}
-                className="w-11 h-11 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shrink-0 transition-transform active:scale-95 shadow-md"
-              >
-                <Send className="w-5 h-5 ml-0.5 fill-current" />
-              </button>
-            ) : isRecording ? (
-              <button
-                onClick={stopRecording}
-                className="h-11 px-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center gap-2 shrink-0 animate-pulse shadow-lg"
-              >
-                <Square className="w-4 h-4 fill-current" />
-                <span className="font-mono text-xs font-bold">0:{recordSeconds.toString().padStart(2, '0')}</span>
-              </button>
-            ) : (
-              <button
-                onClick={startRecording}
-                disabled={isAiThinking || isTranscribing}
-                className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 ${
-                  isTranscribing
-                    ? 'bg-neutral-700 text-neutral-400 cursor-wait'
-                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30'
-                }`}
-                title="Enregistrer une vraie note vocale (Whisper VPS)"
-              >
-                <Mic className="w-5 h-5" />
-              </button>
-            )}
+            {/* Bouton Ouvrir Volet Diagnostic (visible sur Tablette & Desktop) */}
+            <button
+              onClick={() => setIsDrawerOpen(!isDrawerOpen)}
+              className={`p-2 rounded-lg border text-xs transition-colors ${
+                isDrawerOpen
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                  : 'bg-white/[0.04] border-white/[0.08] text-neutral-400 hover:text-white'
+              }`}
+              title="Afficher/Masquer le panneau d'inspection"
+            >
+              <PanelRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* ── COLONNE DROITE : Le Cockpit Diagnostic & FSM ── */}
-        {inspectorOpen && (
-          <div className="w-80 lg:w-96 border-l border-white/[0.08] bg-[#08090C] flex flex-col shrink-0 overflow-hidden">
-            {/* Navigation des Onglets Cockpit */}
-            <div className="h-12 border-b border-white/[0.08] bg-[#0E1015] px-3 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setInspectorTab('fsm')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                    inspectorTab === 'fsm'
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  <Cpu className="w-3.5 h-3.5" /> FSM & Brief
-                </button>
-                <button
-                  onClick={() => setInspectorTab('tariffs')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                    inspectorTab === 'tariffs'
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  <CreditCard className="w-3.5 h-3.5" /> Tarifs
-                </button>
-                <button
-                  onClick={() => setInspectorTab('log')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                    inspectorTab === 'log'
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" /> Journal
-                </button>
+        {/* Zone des Messages (WhatsApp Stream) */}
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3.5 bg-[#0b141a] bg-radial-[at_top] from-[#0f1d24] to-[#0b141a]"
+        >
+          {/* Bannière Déterministe */}
+          <div className="flex justify-center my-1 sm:my-2">
+            <div className="bg-[#182229] border border-emerald-500/20 rounded-lg px-3 py-1.5 text-center max-w-md shadow-sm">
+              <span className="text-[11px] text-emerald-200/90 font-mono flex items-center justify-center gap-1.5">
+                <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                Simulateur Déterministe Velaris · FSM Active
+              </span>
+            </div>
+          </div>
+
+          {/* Liste des bulles de chat */}
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
+            >
+              <div
+                className={`max-w-[88%] sm:max-w-[78%] md:max-w-[70%] rounded-2xl p-3 sm:p-3.5 shadow-md text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-xs border border-emerald-400/20'
+                    : 'bg-[#202c33] text-[#e9edef] rounded-tl-xs border border-white/[0.06]'
+                }`}
+              >
+                {/* Image jointe */}
+                {m.mediaKind === 'image' && m.mediaUrl && (
+                  <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                    <img src={m.mediaUrl} alt="Fichier joint" className="w-full max-h-64 object-cover" />
+                    {m.attachmentKind && (
+                      <div className="px-2.5 py-1 bg-black/60 text-[10px] font-mono text-emerald-300">
+                        {m.attachmentKind === 'receipt' ? 'Reçu de paiement Wave / OM' : 'Photos pour le montage vidéo'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Vidéo Sample (Exemple Démo 3 000 F) */}
+                {m.mediaKind === 'video' && m.mediaUrl && (
+                  <div className="mb-2 rounded-xl overflow-hidden border border-emerald-500/40 bg-black/80">
+                    <video
+                      src={m.mediaUrl}
+                      controls
+                      className="w-full max-h-80 rounded-lg bg-black"
+                      preload="metadata"
+                    />
+                    <div className="p-2 bg-[#111b21] flex items-center justify-between text-xs text-neutral-300">
+                      <span className="font-semibold flex items-center gap-1.5">
+                        <Video className="w-4 h-4 text-emerald-400" /> Aperçu Montage Vidéo (Prestige)
+                      </span>
+                      <a
+                        href={m.mediaUrl}
+                        download="montage_sample.mp4"
+                        className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1"
+                      >
+                        Télécharger
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lecteur Audio Natif WhatsApp */}
+                {m.mediaKind === 'audio' && m.mediaUrl && (
+                  <div className="my-1.5 p-3 rounded-xl bg-black/30 border border-emerald-500/30 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => playNativeAudio(m.id, m.mediaUrl!)}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 ${
+                          playingAudioId === m.id
+                            ? 'bg-emerald-400 text-black'
+                            : 'bg-emerald-500 text-white hover:bg-emerald-400'
+                        }`}
+                      >
+                        {playingAudioId === m.id ? (
+                          <Pause className="w-4 h-4 fill-current" />
+                        ) : (
+                          <Play className="w-4 h-4 ml-0.5 fill-current" />
+                        )}
+                      </button>
+
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-1 h-6">
+                          {[24, 38, 18, 44, 28, 36, 48, 22, 34, 42, 30, 20, 46, 32, 26, 40, 36, 24, 44, 30].map(
+                            (h, idx) => (
+                              <span
+                                key={idx}
+                                className={`w-1 rounded-full transition-all duration-150 ${
+                                  playingAudioId === m.id ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'
+                                }`}
+                                style={{ height: `${h}px` }}
+                              />
+                            )
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
+                          <span>
+                            {m.mediaDurationSec ? `0:${m.mediaDurationSec.toString().padStart(2, '0')}` : '0:33'}
+                          </span>
+                          <button
+                            onClick={togglePlaybackRate}
+                            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[10px] font-bold"
+                          >
+                            {playbackRate}x
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {m.isProcedureVoice && (
+                      <div className="text-[10px] text-emerald-300 font-mono pt-1 border-t border-white/[0.08]">
+                        Note vocale officielle de 33s (procédure studio)
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Transcription Whisper pour les vocaux utilisateurs */}
+                {m.mediaTranscript && (
+                  <details className="mt-1.5 text-xs text-neutral-300 bg-black/20 p-2 rounded-lg border border-white/[0.04]">
+                    <summary className="cursor-pointer text-emerald-300 font-mono text-[11px] hover:underline">
+                      Transcription Whisper VPS
+                    </summary>
+                    <p className="mt-1 text-neutral-200 font-sans italic">{m.mediaTranscript}</p>
+                  </details>
+                )}
+
+                {/* Bloc Paiement Mobile Money */}
+                {m.isPaymentBlock && (
+                  <div className="my-2 p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-xs font-mono space-y-1.5">
+                    <div className="font-semibold text-emerald-300 flex items-center gap-1.5 text-[13px]">
+                      <CreditCard className="w-4 h-4" /> Coordonnées Officielles
+                    </div>
+                    <p className="whitespace-pre-line text-neutral-200 font-sans text-xs pt-1">{m.content}</p>
+                  </div>
+                )}
+
+                {/* Texte de la bulle */}
+                {!m.isPaymentBlock && !m.mediaTranscript && (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                )}
+
+                {/* Horodatage & Statut d'envoi */}
+                <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-neutral-400 font-mono">
+                  <span>{m.timestamp}</span>
+                  {m.role === 'user' && (
+                    <span className="inline-flex items-center ml-0.5">
+                      {m.status === 'read' ? (
+                        <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                      ) : m.status === 'delivered' ? (
+                        <CheckCheck className="w-3.5 h-3.5 text-neutral-400" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 text-neutral-400" />
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
+          ))}
 
-            {/* Contenu du Volet */}
+          {/* Bulle de présence en direct de l'agent */}
+          {aiPresenceState !== 'idle' && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl px-4 py-2.5 bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 text-xs">
+                {aiPresenceState === 'recording_audio' ? (
+                  <>
+                    <Mic className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
+                    <span className="text-emerald-400 font-medium font-mono">
+                      {config.agentName} enregistre un message vocal…
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-flex gap-1 items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse delay-100" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse delay-200" />
+                    </span>
+                    <span className="text-neutral-300 font-mono text-[11px]">
+                      {config.agentName} est en train d’écrire…
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── BARRE DE RAFALE EN COURS (Visual Debounce) ── */}
+        {burstQueue.length > 0 && (
+          <div className="h-10 bg-[#182229] border-t border-emerald-500/30 px-4 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 text-emerald-400 font-mono">
+              <Clock className="w-3.5 h-3.5 animate-spin" />
+              <span>
+                Rafale active ({burstQueue.length} msg) : attente {burstSecondsLeft}s…
+              </span>
+            </div>
+            <button
+              onClick={forceFlushNow}
+              className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-[11px] flex items-center gap-1 transition-colors"
+            >
+              Envoyer de suite <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
+        {/* ── BARRE INFÉRIEURE : Saisie, Micro PTT & Trombone ── */}
+        <div className="p-2.5 sm:p-3 bg-[#202c33] border-t border-black/20 flex items-center gap-2 shrink-0 pb-safe">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelected}
+            className="hidden"
+          />
+
+          <button
+            onClick={() => setIsAttachModalOpen(true)}
+            className="p-2.5 rounded-full text-[#8696a0] hover:text-white hover:bg-white/[0.06] transition-colors"
+            title="Joindre une photo ou un reçu de paiement"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder={isRecording ? 'Enregistrement en cours…' : 'Écrire un message…'}
+              disabled={isRecording || isAiThinking}
+              className="w-full h-11 px-4 rounded-xl bg-[#2a3942] border border-transparent focus:border-emerald-500/40 text-sm text-[#e9edef] placeholder-[#8696a0] focus:outline-none transition-all font-sans"
+            />
+          </div>
+
+          {input.trim() ? (
+            <button
+              onClick={handleSendMessage}
+              disabled={isAiThinking}
+              className="w-11 h-11 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shrink-0 transition-transform active:scale-95 shadow-md cursor-pointer"
+            >
+              <Send className="w-5 h-5 ml-0.5 fill-current" />
+            </button>
+          ) : isRecording ? (
+            <button
+              onClick={stopRecording}
+              className="h-11 px-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center gap-2 shrink-0 animate-pulse shadow-lg cursor-pointer"
+            >
+              <Square className="w-4 h-4 fill-current" />
+              <span className="font-mono text-xs font-bold">0:{recordSeconds.toString().padStart(2, '0')}</span>
+            </button>
+          ) : (
+            <button
+              onClick={startRecording}
+              disabled={isAiThinking || isTranscribing}
+              className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
+                isTranscribing
+                  ? 'bg-neutral-700 text-neutral-400 cursor-wait'
+                  : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30'
+              }`}
+              title="Enregistrer un message vocal réel (Whisper VPS)"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── ZONE DROITE : Cockpit Diagnostic Réactif (Slide-over sur Tablette / Fixe sur Grand Écran) ── */}
+      {isDrawerOpen && (
+        <div className="fixed inset-0 lg:static lg:inset-auto z-50 flex justify-end">
+          {/* Backdrop sombre sur Tablette / Mobile */}
+          <div
+            onClick={() => setIsDrawerOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs lg:hidden"
+          />
+
+          {/* Panneau Latéral Cockpit */}
+          <div className="relative w-full sm:w-[400px] lg:w-96 h-full bg-[#08090C] border-l border-white/[0.08] flex flex-col shadow-2xl z-10 overflow-hidden animate-in slide-in-from-right duration-200">
+            {/* Header Cockpit */}
+            <div className="h-16 border-b border-white/[0.08] bg-[#0E1015] px-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-emerald-400" />
+                <span className="font-semibold text-sm text-white">Diagnostic & État FSM</span>
+              </div>
+              <button
+                onClick={() => setIsDrawerOpen(false)}
+                className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Onglets Navigation Cockpit */}
+            <div className="h-11 border-b border-white/[0.06] bg-[#0A0C10] px-3 flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setInspectorTab('fsm')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  inspectorTab === 'fsm'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" /> FSM & Brief
+              </button>
+              <button
+                onClick={() => setInspectorTab('tariffs')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  inspectorTab === 'tariffs'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" /> Tarifs
+              </button>
+              <button
+                onClick={() => setInspectorTab('log')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  inspectorTab === 'log'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" /> Journal
+              </button>
+            </div>
+
+            {/* Contenu Défilant Cockpit */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
               {/* ── ONGLET 1 : FSM & Les 4 Invariants ── */}
               {inspectorTab === 'fsm' && (
                 <div className="space-y-4">
-                  {/* Badge Étape FSM Courante */}
-                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
-                    <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
-                      Étape Machine à États (FSM)
+                  {/* Badge Étape FSM */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-1.5">
+                    <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+                      Étape Machine à États
                     </span>
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm font-bold text-emerald-400">{fsmState.stage}</span>
@@ -1130,17 +1108,11 @@ export const PlaygroundView: FC = () => {
                       <span className="font-semibold text-white flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Les 4 Invariants du Brief
                       </span>
-                      <span className="text-[10px] font-mono text-neutral-400">
-                        {
-                          Object.values(fsmState.pillars).filter(Boolean).length
-                        }
-                        /4 Validés
-                      </span>
+                      <span className="text-[10px] font-mono text-neutral-400">{completedPillarsCount}/4 Validés</span>
                     </div>
 
                     <div className="space-y-2">
-                      {/* 1. Destinataire */}
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
                         <div>
                           <span className="text-[10px] text-neutral-400 block">1. Personne à célébrer</span>
                           <span className="font-medium text-white">
@@ -1156,8 +1128,7 @@ export const PlaygroundView: FC = () => {
                         )}
                       </div>
 
-                      {/* 2. Occasion / Date */}
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
                         <div>
                           <span className="text-[10px] text-neutral-400 block">2. Occasion / Date</span>
                           <span className="font-medium text-white">
@@ -1173,8 +1144,7 @@ export const PlaygroundView: FC = () => {
                         )}
                       </div>
 
-                      {/* 3. Expéditeur */}
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
                         <div>
                           <span className="text-[10px] text-neutral-400 block">3. Expéditeur</span>
                           <span className="font-medium text-white">
@@ -1190,8 +1160,7 @@ export const PlaygroundView: FC = () => {
                         )}
                       </div>
 
-                      {/* 4. Histoire / Anecdotes */}
-                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
                         <div>
                           <span className="text-[10px] text-neutral-400 block">4. Anecdotes / Paroles</span>
                           <span className="font-medium text-white truncate max-w-[170px] block">
@@ -1212,7 +1181,7 @@ export const PlaygroundView: FC = () => {
                   {/* Verrous d'Unicité Matériels */}
                   <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
                     <span className="font-semibold text-white flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-amber-400" /> Verrous d'Unicité (Anti-Spam)
+                      <Lock className="w-3.5 h-3.5 text-amber-400" /> Verrous d'Unicité Matériels
                     </span>
 
                     <div className="space-y-1.5 font-mono text-[11px]">
@@ -1225,20 +1194,22 @@ export const PlaygroundView: FC = () => {
                       <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
                         <span className="text-neutral-400">Vocal 2 (Procédure 33s) :</span>
                         <span className={fsmState.locks.vocal2Sent ? 'text-emerald-400 font-bold' : 'text-neutral-500'}>
-                          {fsmState.locks.vocal2Sent ? 'Verrouillé' : 'En attente 4/4'}
+                          {fsmState.locks.vocal2Sent ? 'Verrouillé (Unique)' : 'En attente 4/4'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between py-1">
                         <span className="text-neutral-400">Vidéo Sample Démo :</span>
-                        <span className={fsmState.locks.videoSampleSent ? 'text-emerald-400 font-bold' : 'text-neutral-500'}>
+                        <span
+                          className={fsmState.locks.videoSampleSent ? 'text-emerald-400 font-bold' : 'text-neutral-500'}
+                        >
                           {fsmState.locks.videoSampleSent ? 'Envoyé' : 'Non demandé'}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Paramètres Client du Test */}
-                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
+                  {/* Paramètres de Ligne Client */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-white">Ligne Client du Test</span>
                       <span className="text-[11px] font-mono text-emerald-400">{clientPhone}</span>
@@ -1246,6 +1217,7 @@ export const PlaygroundView: FC = () => {
                     <div className="text-[11px] text-neutral-300 font-medium pb-1 border-b border-white/[0.04]">
                       {clientName}
                     </div>
+
                     <div className="space-y-2">
                       <div>
                         <label className="text-[10px] text-neutral-400 block mb-1">Pays / Indicatif</label>
@@ -1336,7 +1308,7 @@ export const PlaygroundView: FC = () => {
                 </div>
               )}
 
-              {/* ── ONGLET 3 : Journal des Décisions & Whisper ── */}
+              {/* ── ONGLET 3 : Journal des Décisions ── */}
               {inspectorTab === 'log' && (
                 <div className="space-y-3">
                   <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
@@ -1364,10 +1336,10 @@ export const PlaygroundView: FC = () => {
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* ── MODALE PIÈCES JOINTES (Photos & Reçus) ── */}
+      {/* ── MODALE PIÈCES JOINTES ── */}
       {isAttachModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
           <div className="w-full max-w-sm rounded-2xl bg-[#0E1015] border border-white/[0.08] p-5 shadow-2xl space-y-4">
