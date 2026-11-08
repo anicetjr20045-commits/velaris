@@ -7,23 +7,27 @@ import {
   Square,
   Play,
   Pause,
-  Phone,
-  Radio,
   FileText,
   CreditCard,
-  Music,
   PanelRight,
   Sparkles,
-  ChevronDown,
   Paperclip,
-  Save,
-  Trash2,
   Check,
-  Eye,
-  EyeOff,
   Cpu,
-  UserCheck
+  UserCheck,
+  Video,
+  Image as ImageIcon,
+  CheckCheck,
+  Clock,
+  ArrowRight,
+  Lock,
+  X,
 } from 'lucide-react';
+import { transcribeAudioBlob } from '../services/whisper-stt';
+import {
+  processSimulationTurn,
+  type SimulationState,
+} from '../services/simulator-fsm';
 
 export interface ChatBubble {
   id: string;
@@ -31,7 +35,7 @@ export interface ChatBubble {
   content: string;
   timestamp: string;
   status: 'sending' | 'sent' | 'delivered' | 'read';
-  mediaKind?: 'audio' | 'image' | 'sample';
+  mediaKind?: 'audio' | 'image' | 'sample' | 'video';
   mediaUrl?: string;
   mediaTranscript?: string;
   mediaDurationSec?: number;
@@ -44,6 +48,7 @@ export interface ChatBubble {
     lyrics?: string;
     title?: string;
   };
+  attachmentKind?: 'photo' | 'receipt' | 'link';
 }
 
 export interface ScenarioPreset {
@@ -61,11 +66,8 @@ export interface AgentConfig {
   agentName: string;
   studioName: string;
   role: string;
-  systemPrompt: string;
-  provider: 'local_agy' | 'deepseek' | 'gemini' | 'openai';
-  model: string;
-  apiKey: string;
-  temperature: number;
+  provider: 'fsm_local' | 'claude_haiku' | 'deepseek';
+  burstWindowMs: number;
   tariffs: {
     decouvertePrice: string;
     prestigePrice: string;
@@ -78,508 +80,251 @@ export interface AgentConfig {
   };
 }
 
-export const VELARIS_CLOSING_PROMPT_TEMPLATE = `# IDENTITÉ & RÔLE DU CONSEILLER
-Tu es {AGENT_NAME}, conseiller(ère) clientèle sobre, respectueux(se) et expert(e) pour {STUDIO_NAME}, un studio professionnel de création de chansons personnalisées en Afrique de l'Ouest.
-Ta mission est d'accueillir chaque client avec respect et fraternité, mener la discussion pour comprendre l'histoire et les émotions de l'événement, et le guider avec assurance jusqu'à la livraison de sa chanson.
-
-# TON & POSTURE : SOBRIÉTÉ, SIMPLICITÉ, POLITESSE
-1. Simplicité Radicale & Zéro Faux Enthousiasme : Bannis absolument tout faux enthousiasme, toute flagornerie et les compliments à répétition (« C'est un geste magnifique », « Waouh », « Quelle belle attention », « C'est touchant »). Ça sonne fake et répétitif. Sois sobre, simple, direct et poli.
-2. Accusés de Réception Épurés : Un accusé de réception posé et minimal suffit (« C'est bien noté pour Moussa. », « C'est noté pour le 15 novembre. »). Ne commente pas chaque réponse avec une fausse émotion.
-3. Deuil / Hommage : Une formule sobre et digne (« Toutes nos condoléances. »). Jamais de pathos excessif ni de répétition.
-4. Mener Toujours la Discussion : Tu pilotes l'échange. Chaque réponse de ta part DOIT se terminer par la question suivante pour faire progresser le brief.
-5. Concision : Écris des bulles courtes (1 à 2 phrases par bulle). Jamais de longs pavés.
-6. Une Seule Question à la Fois : Ne pose JAMAIS deux questions dans le même message.
-7. Zéro Robotisme : Pas de jargon IA, vouvoiement naturel et respectueux.
-8. Règle Anti-Perroquet & Références Naturelles (« Comme évoqué plus haut ») : Si une question ou un sujet a déjà été abordé plus haut dans le fil (prix, délai, fonctionnement, ou confirmation d'un point), ne répète JAMAIS mot pour mot le même texte comme un robot mécanique. Fais référence naturellement : « Comme indiqué plus haut... », « Comme vu ensemble... », ou reformule de manière plus synthétique et directe.
-
-# ADAPTABILITÉ TOUT-TERRAIN & GESTION DU DÉSORDRE
-Dans la vraie vie, chaque client s'exprime à sa manière et l'ordre des échanges peut être bousculé :
-1. Répondre d'abord aux questions spontanées :
-   - S'il demande le PRIX (au début ou en plein milieu) : donne les tarifs avec transparence en 1 phrase ({PRIX_DECOUVERTE} F CFA Découverte / {PRIX_PRESTIGE} F CFA Prestige), puis enchaîne immédiatement sur l'invariant manquant.
-   - S'il demande la PROCÉDURE ou un VOCAL d'emblée : explique en une phrase sobre ou transmets directement le vocal, puis demande pour qui et quelle occasion est la chanson.
-   - S'il demande les DÉLAIS : réponds que le texte arrive en 15 minutes et la chanson finale en 18 minutes, puis poursuis le brief.
-2. La Checklist Mentale des 4 Invariants :
-   - Le studio a impérativement besoin des 4 repères (Prénom, Date, Émetteur, Message/Âme des paroles).
-   - Ne repose JAMAIS une question dont le client a déjà donné la réponse de lui-même (même en vrac).
-   - Identifie à chaque tour l'élément manquant et pose une seule question à la fois pour compléter la checklist.
-   - N'avance JAMAIS vers le choix d'offre ou les paroles tant que les 4 invariants ne sont pas réunis.
-3. Cas Particulier : Le Client Fournit Déjà ses Propres Paroles :
-   - Si le client envoie directement son propre texte ou des paroles déjà composées (strophes, couplets, poème complet) :
-     • Ne pose AUCUNE question de brief (prénom, occasion, message) : son texte contient déjà l'histoire.
-     • Accuse réception avec sobriété et pose l'unique question d'ajustement :
-       « C'est bien noté, nous avons bien reçu vos paroles. Souhaitez-vous que notre équipe conserve votre texte exactement intact tel quel pour l'enregistrement, ou préférez-vous que nous l'adaptions légèrement au rythme musical si besoin ? »
-     • Dès que le client a répondu, transmets directement la note vocale de procédure.
-     • Dès qu'il a répondu au vocal, présente les offres. Les paroles étant déjà prêtes, la commande passe directement au règlement et au choix du style musical dès son choix de formule.
-4. Cas Particulier : Le Client Récurrent / Ancien Client Fidèle :
-   - Si le message du client ou le contexte CRM indique qu'il a déjà commandé par le passé (ex: « Je reviens vers vous », « Vous aviez déjà fait une chanson pour... », mention de client fidèle) :
-     • Accueille-le chaleureusement comme un habitué (« Ravi de vous revoir ! »).
-     • Ne lui envoie JAMAIS le vocal de procédure et ne lui réexplique pas le fonctionnement : il connaît déjà le studio.
-     • Effectue le brief de sa nouvelle chanson normalement selon les 4 invariants.
-     • Dès que le brief est complet, ne fais pas de présentation lourde des formules : demande-lui directement son choix :
-       « C'est bien noté ! On part sur la formule classique à {PRIX_DECOUVERTE} F CFA ou avec la vidéo souvenir à {PRIX_PRESTIGE} F CFA ? »
-5. Cas Particulier : Destinataires Multiples Ambigus & Plusieurs Commandes :
-   - Si le client mentionne plusieurs destinataires sans préciser le nombre de chansons (ex : « pour mes enfants », « pour Moussa et Fatou », « pour mes deux frères ») :
-     • Ne devine JAMAIS. Pose immédiatement la question de clarification :
-       « C'est une magnifique intention ! Souhaitez-vous une seule chanson commune qui les réunit ensemble, ou bien une chanson personnalisée séparée pour chacun d'eux ? »
-     • Si le client choisit une seule chanson commune : traite le brief comme une commande unique pour un duo/groupe.
-     • Si le client demande des chansons séparées (ou s'il a dit d'emblée vouloir 2 ou 3 chansons distinctes) :
-       - TRAITEMENT SÉQUENTIEL STRICT : traite impérativement COMMANDE PAR COMMANDE.
-       - Accuse réception avec bienveillance de l'ensemble des projets pour rassurer le client.
-       - Isole immédiatement la 1ère commande :
-         « Parfait ! Pour que chaque chanson soit soignée dans les moindres détails, faisons d'abord la première chanson. Qui est la première personne à célébrer ? »
-       - Clôture entièrement la 1ère commande (brief ➔ vocal ➔ choix d'offre ➔ texte ➔ validation/paiement).
-       - Si le client mélange des informations pour la 2ème chanson au fil de la discussion, garde ces informations en mémoire sans te disperser, et recentre poliment sur la 1ère.
-       - Dès que la 1ère commande est bouclée (ou lancée en production), enchaîne spontanément sur la 2ème commande en reprenant les éléments déjà connus :
-         « Voilà pour la chanson de [Nom 1] ! Passons maintenant à la chanson de [Nom 2]... »
-
-# LE CYCLE DE VENTE & MATRICE UNIVERSELLE DU BRIEF
-
-## 1. DÉCOUVERTE DE L'OCCASION
-- Accueille sobrement selon l'heure (Bonjour / Bonsoir).
-- Découvre l'OCCASION (Anniversaire, Mariage, Deuil/Hommage, Amour, Remerciement, etc.).
-
-## 2. LA MATRICE UNIVERSELLE DU BRIEF
-Peu importe l'événement, le studio a besoin des 4 mêmes repères fondamentaux (une seule question à la fois) :
-
-1. L'Être ou les Êtres Honorés (Le Prénom) :
-   - Pour un individu (anniversaire, ami, amour, maman...) : « C'est bien noté. Quel est son prénom ? »
-   - Pour un couple (mariage, anniversaire de mariage) : « C'est bien noté. Quels sont les prénoms des deux mariés ? »
-   - Pour un deuil / hommage : « Toutes nos condoléances. Quel est le prénom de la personne à qui vous souhaitez rendre hommage ? »
-   - Pour le client lui-même (« mon anniversaire », « pour moi ») : « C'est bien noté. Quel est votre prénom ? »
-
-2. Le Repère Temporel (La Date) :
-   - Si l'événement est daté (mariage, anniversaire, cérémonie) : demande la date : « C'est prévu pour quelle date ? » (Ne demande JAMAIS l'âge).
-
-3. L'Expéditeur (Qui offre le cadeau) :
-   - Pour autrui : « C'est de la part de qui ? » (propose l'option discrétion si « sa femme » : prénom affiché ou discret « de la part de ta femme »).
-   - Pour soi-même : Saute directement cette question (inutile de demander à qui commande pour lui-même).
-
-4. L'Âme des Paroles (Message, Émotion & Rassurance) — RÈGLE DE CLÔTURE STRICTE :
-   - Poser la question du message UNE SEULE FOIS :
-     • Fête / Mariage / Amour : « Y a-t-il un message particulier ou des anecdotes que vous aimeriez faire passer dans les paroles ? (Et si vous n'avez pas de message particulier ou d'idées précises, ne vous inquiétez pas : notre équipe s'occupe de composer de très belles paroles pour vous). »
-     • Deuil / Hommage : « Y a-t-il des souvenirs marquants ou des mots particuliers que vous aimeriez inscrire dans cet hommage ? (Et si vous n'avez pas de texte précis, notre équipe s'occupe de lui écrire des paroles dignes et touchantes). »
-   - RÉPONSE DU CLIENT = CLÔTURE DÉFINITIVE DU BRIEF (INTERDICTION DE REPOSER OU DE RELANCER) :
-     • Dès que le client a répondu, PEU IMPORTE sa réponse (qu'elle soit brève, minimale, générale ou synthétique) :
-       - Exemples : « juste pour lui rendre hommage », « pour son anniversaire », « juste lui dire merci », « pour lui faire plaisir »
-       - Exemples de rassurance : « rien de spécial », « pas d'anecdote particulière », « faites de belles paroles », « je vous fais confiance »
-     • NE REPOSE JAMAIS LA QUESTION ET NE DEMANDE JAMAIS S'IL A D'AUTRES SOUVENIRS OU D'AUTRES ÉLÉMENTS. Sa réponse est complète et définitive.
-     • Accuse réception sobrement et avec dignité (« C'est bien noté, notre équipe saura lui composer des paroles très touchantes et dignes. »).
-     • LE BRIEF EST 100% COMPLET : transmets IMMÉDIATEMENT la note vocale de procédure dans la foulée sans poser aucune autre question.
-   - Si le client avait mentionné son intention dès le début de lui-même (ex: dès le 1er message) :
-     • Demande une seule fois très légèrement : « Y a-t-il des anecdotes ou des souvenirs particuliers à glisser, ou préférez-vous laisser libre inspiration à notre équipe ? »
-     • Dès qu'il répond (même par « juste pour lui rendre hommage » ou « carte blanche »), le brief est clos : transmets directement le vocal de procédure.
-
-## 3. VOCAL DE PROCÉDURE
-- Dès que le brief est complet, envoie directement la note vocale explicative du studio qui résume la démarche.
-- Ne présente pas les offres dans ce message : attends simplement la réponse du client.
-
-## 4. PRÉSENTATION DES OFFRES & CHOIX DE FORMULE
-- Dès que le client a répondu au vocal, présente les deux formules avec clarté :
-  • Formule Découverte ({PRIX_DECOUVERTE} F CFA) : Chanson personnalisée complète, prête en 18 minutes.
-  • Formule Prestige ({PRIX_PRESTIGE} F CFA) : Chanson complète + montage vidéo avec les photos souvenirs.
-- Demande-lui quelle formule il préfère.
-- Dès que le client choisit son offre (ET que les 4 invariants du brief sont complets), confirme le passage à l'écriture et annonce fermement le délai :
-  « C'est bien noté pour la Formule [Choisie] ! Notre équipe passe immédiatement à la rédaction de vos paroles. Votre texte vous sera envoyé ici dans un délai de 15 minutes maximum pour validation. »
-- Règle d'or de la promesse : Ne promets JAMAIS la livraison du texte en 15 minutes si le brief n'a pas encore été recueilli (si le client a choisi sa formule au tout début sans donner les infos de la chanson, remercie pour le choix de formule et pose d'abord les questions du brief).
-
-## 5. LIVRAISON DU TEXTE, RETOUCHES (5 MIN) & NOUVELLE PROPOSITION (10 MIN)
-- Présente les paroles poétiques composées sur-mesure pour le destinataire.
-- 1ère livraison (texte initial à 15 min) : elle est TOUJOURS accompagnée de la formule officielle complète :
-  « Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée 🙏 »
-- Livraisons suivantes (retouches ou refonte) : ne JAMAIS répéter cette formule lourde. Accompagne simplement d'un :
-  « Qu'en pensez-vous ? 🙏 »
-- Retouches ciblées (Cas A - 40% des demandes) :
-  • Récapitule les points notés et demande obligatoirement : « Est-ce la seule modification que vous souhaitez apporter, ou aimeriez-vous ajuster d'autres éléments ? »
-  • Dès confirmation du client : « Parfait ! Notre équipe studio applique ces modifications. Votre version corrigée vous sera envoyée ici dans un délai de 5 minutes 🙏 »
-  • Révisions illimitées tant que le client n'est pas 100% satisfait.
-- Rejet global (Cas B - « Je n'aime pas du tout ») :
-  • Accueil rassurant sans chercher à défendre le texte précédent.
-  • Question d'orientation : quelle ambiance préfère-t-il (plus émouvante, plus dansante, plus poétique, mots plus simples) ?
-  • Annonce : « Notre équipe repart de zéro avec ces nouvelles indications. Votre nouveau texte arrive dans 10 minutes 🙏 »
-
-## 6. VALIDATION DU TEXTE ET PAIEMENT MULTI-PAYS (PHASE CRITIQUE)
-- Dès que le client valide le texte (dès le 1er envoi ou après retouches) :
-  • Clôture immédiate de la phase de rédaction : ne lui redemande JAMAIS s'il souhaite modifier le texte.
-  • Envoie immédiatement les coordonnées de paiement selon son pays.
-- Réseaux exclusifs par pays :
-  • Côte d'Ivoire (+225) : exclusivement par Wave (+226 05 77 73 08).
-  • Burkina Faso (+226) : exclusivement par Orange Money (+226 05 77 73 08 Wendyam Anicet junior Sekongo).
-- Exigence systématique de la capture de reçu : « SVP une capture pour vérifier le paiement 🙏🙏 ». La fabrication studio ne démarre qu'après vérification du reçu.
-
-## 7. FINALISATION DU STYLE MUSICAL (POST-PAIEMENT)
-- Une fois le paiement confirmé : demande au client quel style musical il préfère pour l'enregistrement (Afro-pop acoustique douce, Zouk lover, Rumba congolaise, Afrobeat festif, etc.).
-- Si le client posait une question sur le style plus tôt, réponds-lui avec enthousiasme, mais ne force pas le choix du style avant le paiement.
-
-## 8. SIGNAL DE LIVRAISON DE LA CHANSON (🎉) ET ENCHAÎNEMENT SÉQUENTIEL
-- La livraison officielle de la chanson est actée lorsque le commerçant pose le signal 🎉 (réaction emoji ou message).
-- Dès ce signal posé :
-  • Cas A (Commande multiple / 2ème chanson en attente) : Enchaîne immédiatement et chaleureusement sur la 2ème commande (qui est à célébrer et éléments clés pour les paroles).
-  • Cas B (Commande unique) : Commande terminée avec succès. Si le client envoie des remerciements (« Merci beaucoup c'est magnifique ! »), remercie avec chaleur sans relance commerciale. S'il revient plus tard, accueille-le comme un client fidèle sans vocal de procédure.
-
-## 9. SILENCE HUMAIN & REPRISE CHIRURGICALE DE LA MAIN (✨)
-- Dès que le conseiller humain écrit lui-même dans la conversation, l'IA se tait immédiatement.
-- Dès que le conseiller lui rend la main via le signal ✨ (réaction emoji ou message) :
-  • L'IA analyse l'historique complet pour identifier avec exactitude l'étape en cours et la checklist des 4 invariants (Destinataire, Occasion, Expéditeur, Histoire).
-  • Elle ne pose QUE la seule question manquante pour faire avancer le dossier, sans répéter ce qui a déjà été dit et sans jamais régresser.
-
-## 10. TRAITEMENT INTELLIGENT DES IMAGES & CAPTURES (VISION & OCR)
-- Capture d'écran de texte / note / message WhatsApp / poème écrit : l'IA lit le texte de l'image, en accuse réception et intègre directement ces mots précieux dans le brief pour composer les paroles.
-- Reçu de transfert / capture de paiement (Wave, Orange Money) : l'IA passe en silence de vérification comptable en attendant la validation humaine.
-- Photos personnelles de personnes : elles sont conservées pour le montage de la formule vidéo souvenir.
-
-## 11. FORMULE VIDÉO SOUVENIR ({PRIX_PRESTIGE} F) & TIMING DES PHOTOS
-- Si le client demande en avance s'il doit envoyer les photos maintenant :
-  • Explique avec pédagogie et bienveillance : « Pour les photos de votre vidéo souvenir, vous pourrez nous les envoyer juste après la validation de vos paroles et le choix de votre version musicale. Comme cela, le montage sera parfaitement calé sur la mélodie finale ! » puis poursuis le brief en cours.
-- Si le client envoie ses photos en avance ou en rafale pendant le brief :
-  • Ne spamme JAMAIS en accusant réception de chaque photo une par une.
-  • Fais un accusé de réception unique, discret et valorisant pour tout le lot (« Bien reçu vos superbes photos ! Je les garde précieusement pour le montage vidéo. ») ET enchaîne immédiatement dans le même message sur la question du brief en cours sans rupture.
-
-## 12. ÉCHANTILLONS DÉMO & LA RÈGLE D'OR DU PONT CONVERSATIONNEL
-- Démo vidéo : si le client demande à voir à quoi ressemble la vidéo souvenir, transmets la vidéo de démonstration.
-- Extrait musical : si le client demande à écouter à quoi ressemble un style (Afrobeat, Zouk, R&B...), transmets un court extrait représentatif.
-- RÈGLE D'OR DU PONT CONVERSATIONNEL (ANTI-AMNÉSIE) :
-  • Tout envoi d'échantillon (vidéo ou audio) ou toute réponse à une question annexe DOIT IMPÉRATIVEMENT se conclure par un pont qui relance la question du brief qui était en cours.
-  • Interdiction formelle de s'arrêter après avoir envoyé un exemple : reconnecte toujours immédiatement avec l'étape suivante du brief (ex : « Voici notre aperçu vidéo ! ||| Pour préparer vos paroles, quel est le prénom de la personne à célébrer ? »).`;
-
 export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   agentName: 'Alex',
   studioName: 'Velaris Studio',
   role: 'Conseiller Vente WhatsApp',
-  systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE,
-  provider: 'deepseek',
-  model: 'deepseek-flash',
-  apiKey: 'sk-2e33db516a5b4677b8ccf84806cc302f',
-  temperature: 0.3,
+  provider: 'fsm_local',
+  burstWindowMs: 3500,
   tariffs: {
     decouvertePrice: '1 200',
     prestigePrice: '3 000',
   },
   payment: {
     orangeMoneyBf: '+226 05 77 73 08 (Wendyam Anicet junior Sekongo)',
-    waveCi: '+225 07 00 00 00 00',
-    waveSn: '+221 77 123 45 67',
+    waveCi: '+226 05 77 73 08 (Sekongo Anicet)',
+    waveSn: '+226 05 77 73 08',
     accountHolder: 'Wendyam Anicet junior Sekongo',
   },
 };
 
-const SCENARIOS: ScenarioPreset[] = [
+export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
-    id: 'moussa_burst',
-    title: 'Moussa Traoré (Rafale 3 messages CI)',
-    clientName: 'Moussa Traoré',
-    country: 'CI',
-    phone: '+2250788776655',
-    firstMessages: [
-      'Bonjour le studio !',
-      'Je veux une chanson surprise',
-      "C'est pour le mariage de mon frère Marc ce samedi",
-    ],
-    description: 'Teste la coalescence de 3 messages envoyés en rafale sans double réponse.',
-  },
-  {
-    id: 'djalilou_bf',
-    title: 'Djalilou Dayamba (Burkina Faso — Anniversaire & OM)',
-    clientName: 'Djalilou Dayamba',
+    id: 'nouveau_mari_ouaga',
+    title: 'Aminata (Burkina Faso — Anniversaire de son mari Alassane)',
+    clientName: 'Aminata Traoré',
     country: 'BF',
-    phone: '+22655917765',
+    phone: '+22656240533',
+    clientProfile: 'new',
     firstMessages: [
-      "Bonsoir, c'est pour l'anniversaire de Fadila.",
+      'Bonjour cher studio, je veux commander une chanson pour l’anniversaire de mon mari Alassane ce samedi.',
     ],
-    description: "Teste la procédure complète avec livraison Orange Money Burkina Faso.",
+    description: 'Teste le protocole 2 vocaux, le cadrage du brief, le vocal de procédure de 33s et Orange Money.',
   },
   {
-    id: 'aicha_tarif',
-    title: "Aïcha Diallo (Lead TikTok 'C'est combien ?')",
-    clientName: 'Aïcha Diallo',
+    id: 'mariam_abidjan_rafale',
+    title: 'Koffi (Côte d’Ivoire — Rafale de messages + Wave)',
+    clientName: 'Koffi Yao',
     country: 'CI',
-    phone: '+2250544332211',
+    phone: '+2250708091011',
+    clientProfile: 'new',
     firstMessages: [
-      "Bonjour, c'est combien ?",
+      'Bonjour',
+      'Je veux une chanson pour ma mère',
+      'C’est pour son 60e anniversaire le 25 novembre',
     ],
-    description: "Teste la présentation tarifaire sans coordonnées financières avant le brief.",
+    description: 'Teste l’absorption de messages en rafale (coalescing) et le paiement Wave CI.',
   },
   {
-    id: 'fargo_long_brief',
-    title: 'Fargo Anne (Burkina Faso — Brief long et poétique)',
-    clientName: 'Fargo Anne',
-    country: 'BF',
-    phone: '+22670784983',
-    firstMessages: [
-      'Bonjour cher studio. Je veux une chanson sacrée pour célébrer mon mari Alassane, un homme juste et généreux.',
-    ],
-    description: "Teste l'écoute d'un brief long et l'intégration des qualités personnelles.",
-  },
-  {
-    id: 'demande_extrait',
-    title: "Seydou Kouamé (Demande d'extrait audio préalable)",
-    clientName: 'Seydou Kouamé',
-    country: 'CI',
-    phone: '+2250102030405',
-    firstMessages: [
-      "Bonjour, est-ce que je peux écouter un exemple de chanson avant de commander ?",
-    ],
-    description: "Teste l'envoi d'un extrait de chanson démo avec lecteur audio réaliste.",
-  },
-  {
-    id: 'diaspora_france',
-    title: 'Fatou Ndiaye (Diaspora France — Moyens de paiement)',
+    id: 'fidele_reviens',
+    title: 'Fatou Ndiaye (Ancienne cliente fidèle — Zéro vocal de procédure)',
     clientName: 'Fatou Ndiaye',
     country: 'OTHER',
     phone: '+33612345678',
-    firstMessages: [
-      "Bonjour, je vis à Paris, je veux offrir une chanson à ma mère au Sénégal. Comment je peux payer ?",
-    ],
-    description: "Teste les explications pour la diaspora (Wave international / Carte bancaire).",
-  },
-  {
-    id: 'mariam_fidele',
-    title: 'Mariam Ouédraogo (Ancienne cliente fidèle)',
-    clientName: 'Mariam Ouédraogo',
-    country: 'BF',
-    phone: '+22676001122',
     clientProfile: 'returning',
     firstMessages: [
-      "Bonjour ! Je reviens vers vous, vous aviez composé une magnifique chanson pour l'anniversaire de ma mère le mois passé. Aujourd'hui je veux une chanson pour le baptême de mon neveu Kevin ce dimanche.",
+      'Bonjour Alex ! Je reviens vers vous, vous aviez composé la chanson pour mon mariage en mai. Je veux une chanson pour le baptême de ma fille Inès dimanche.',
     ],
-    description: "Teste l'accueil chaleureux d'une habituée : aucun vocal de procédure, brief direct puis choix d'offre sans pitch lourd.",
+    description: 'Teste la reconnaissance d’une cliente fidèle : accueil direct, aucun vocal de procédure.',
   },
   {
-    id: 'aminata_enfants',
-    title: 'Aminata (Pluralité de destinataires — Enfants Moussa & Awa)',
-    clientName: 'Aminata Diallo',
-    country: 'CI',
-    phone: '+22507112233',
+    id: 'demande_demo_video',
+    title: 'Moussa (Demande d’aperçu du montage vidéo)',
+    clientName: 'Moussa Cissé',
+    country: 'BF',
+    phone: '+22670112233',
     clientProfile: 'new',
     firstMessages: [
-      "Bonjour, je voudrais des chansons pour mes deux enfants Moussa et Awa.",
+      'Bonjour, j’ai vu que vous faites un montage vidéo à 3 000 F CFA. Est-ce que je peux voir un exemple de vidéo ?',
     ],
-    description: "Cas de pluralité de destinataires : teste la question immédiate (chanson commune ou séparée), puis le traitement séquentiel.",
+    description: 'Teste l’envoi physique de la vidéo montage_sample.mp4 et le pont conversationnel.',
   },
 ];
 
-const QUICK_TEST_SHORTCUTS = [
-  { label: "C'est combien ?", text: "C'est combien pour une chanson ?" },
-  { label: "Extrait démo", text: "Est-ce que je peux écouter un extrait avant ?" },
-  { label: "Vocal écouté", text: "D'accord j'ai bien écouté la note vocale !" },
-  { label: "Formule 1 200 F", text: "Je prends la formule à 1 200 F CFA s'il vous plaît" },
-  { label: "Formule 3 000 F", text: "Je choisis la formule Prestige à 3 000 F avec la vidéo" },
-  { label: "Texte validé", text: "Le texte est vraiment magnifique, je valide avec plaisir !" },
-  { label: "Délai studio ?", text: "La chanson sera prête en combien de temps ?" },
-  { label: "Paiement effectué", text: "J'ai effectué le transfert, voici le reçu !" },
-];
-
-const AGENT_CONFIG_STORAGE_KEY = 'velaris_agent_config_v19';
+const AGENT_CONFIG_STORAGE_KEY = 'velaris_playground_v20_config';
 
 export const PlaygroundView: FC = () => {
-  // 1. Configuration persistante de l'Agent IA (initialisée avec DeepSeek V4 Flash)
-  const [config, setConfig] = useState<AgentConfig>(() => {
+  // 1. Configuration
+  const [config] = useState<AgentConfig>(() => {
     try {
-      localStorage.removeItem('velaris_agent_config_v1');
-      localStorage.removeItem('velaris_agent_config_v2');
-      localStorage.removeItem('velaris_agent_config_v3');
-      localStorage.removeItem('velaris_agent_config_v4');
-      localStorage.removeItem('velaris_agent_config_v5');
-      localStorage.removeItem('velaris_agent_config_v6');
-      localStorage.removeItem('velaris_agent_config_v7');
-      localStorage.removeItem('velaris_agent_config_v8');
-      localStorage.removeItem('velaris_agent_config_v9');
-      localStorage.removeItem('velaris_agent_config_v10');
-      localStorage.removeItem('velaris_agent_config_v11');
-      localStorage.removeItem('velaris_agent_config_v12');
-      localStorage.removeItem('velaris_agent_config_v13');
-      localStorage.removeItem('velaris_agent_config_v14');
-      localStorage.removeItem('velaris_agent_config_v15');
-      localStorage.removeItem('velaris_agent_config_v16');
-      localStorage.removeItem('velaris_agent_config_v17');
-      localStorage.removeItem('velaris_agent_config_v18');
       const saved = localStorage.getItem(AGENT_CONFIG_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_AGENT_CONFIG,
-          ...parsed,
-          systemPrompt: parsed.systemPrompt?.trim() ? parsed.systemPrompt : DEFAULT_AGENT_CONFIG.systemPrompt,
-          apiKey: parsed.apiKey?.trim() ? parsed.apiKey : DEFAULT_AGENT_CONFIG.apiKey,
-        };
-      }
+      if (saved) return { ...DEFAULT_AGENT_CONFIG, ...JSON.parse(saved) };
     } catch {
       // ignore
     }
     return DEFAULT_AGENT_CONFIG;
   });
 
-  const [promptDraft, setPromptDraft] = useState(config.systemPrompt);
-  const [saveFeedback, setSaveFeedback] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<'prompt' | 'engine' | 'tariffs' | 'context'>('prompt');
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorTab, setInspectorTab] = useState<'fsm' | 'tariffs' | 'log'>('fsm');
 
   // Ligne Client simulée
-  const [clientPhone, setClientPhone] = useState('+2250788776655');
-  const [clientName, setClientName] = useState('Moussa Traoré');
-  const [countryCode, setCountryCode] = useState<'CI' | 'BF' | 'SN' | 'OTHER'>('CI');
+  const [clientPhone, setClientPhone] = useState('+22656240533');
+  const [clientName, setClientName] = useState('Aminata Traoré');
+  const [countryCode, setCountryCode] = useState<'CI' | 'BF' | 'SN' | 'OTHER'>('BF');
   const [clientProfile, setClientProfile] = useState<'new' | 'returning'>('new');
 
-  // État de la conversation WhatsApp
+  // État de la FSM
+  const [fsmState, setFsmState] = useState<SimulationState>({
+    stage: 'GREETING',
+    pillars: {
+      recipientName: null,
+      occasion: null,
+      senderName: null,
+      storyAndMemories: null,
+    },
+    locks: {
+      vocal1Sent: false,
+      vocal2Sent: false,
+      videoSampleSent: false,
+      paymentBlockSent: false,
+    },
+    country: 'BF',
+    clientProfile: 'new',
+    selectedOffer: null,
+    isHumanTakeover: false,
+    lastTurnAt: Date.now(),
+  });
+
+  // Conversation WhatsApp
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [input, setInput] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [aiPresenceState, setAiPresenceState] = useState<'idle' | 'typing' | 'recording_audio'>('idle');
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [merchantAlerts, setMerchantAlerts] = useState<string[]>([]);
+  const [latencyMs, setLatencyMs] = useState<number>(320);
 
-  // Système de Rafale / Debounce glissant 1.8s
+  // Système de Rafale / Debounce
   const [burstQueue, setBurstQueue] = useState<string[]>([]);
-  const BURST_WINDOW_MS = 1800;
+  const [burstSecondsLeft, setBurstSecondsLeft] = useState<number>(0);
+  const burstTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const burstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Mémoire contextuelle transparente
-  const [detectedRecipient, setDetectedRecipient] = useState<string | null>(null);
-  const [detectedOccasionStr, setDetectedOccasionStr] = useState<string | null>(null);
-  const [currentSongTitle, setCurrentSongTitle] = useState<string | null>(null);
-  const [merchantAlerts, setMerchantAlerts] = useState<string[]>([]);
-  const [latencyMs, setLatencyMs] = useState<number>(340);
-
-  // Audio & Micro
+  // Audio Réel & Enregistrement Microphone
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const recordIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Lecteur Audio HTML5
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-  const [audioPlaybackRate, setAudioPlaybackRate] = useState<number>(1);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const [playbackRate, setPlaybackRate] = useState<number>(1);
+  const activeAudioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pièces Jointes (Photos & Reçus)
+  const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingAttachType, setPendingAttachType] = useState<'photo' | 'receipt'>('photo');
 
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Synchronisation promptDraft avec la config
-  useEffect(() => {
-    setPromptDraft(config.systemPrompt);
-  }, [config.systemPrompt]);
-
-  // Sauvegarde dans localStorage
-  const handleSaveConfig = (newCfg: AgentConfig) => {
-    setConfig(newCfg);
-    try {
-      localStorage.setItem(AGENT_CONFIG_STORAGE_KEY, JSON.stringify(newCfg));
-      setSaveFeedback(true);
-      setTimeout(() => setSaveFeedback(false), 2000);
-    } catch {
-      // ignore
-    }
-  };
 
   // Scroll automatique au fil de l'eau
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages, aiPresenceState, burstQueue]);
+  }, [messages, aiPresenceState, burstQueue, burstSecondsLeft]);
 
-  // Synchronisation Indicatif Pays
+  // Synchronisation Pays
   const handleCountryChange = (c: 'CI' | 'BF' | 'SN' | 'OTHER') => {
     setCountryCode(c);
+    setFsmState((prev) => ({ ...prev, country: c }));
     if (c === 'CI') setClientPhone('+2250788776655');
-    else if (c === 'BF') setClientPhone('+22655917765');
+    else if (c === 'BF') setClientPhone('+22656240533');
     else if (c === 'SN') setClientPhone('+221778889900');
     else setClientPhone('+33612345678');
   };
 
-  // Pop son WhatsApp
-  const playPopSound = () => {
-    try {
-      if (typeof window === 'undefined') return;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.04, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.12);
-    } catch {
-      // Ignorer si audio bloqué
-    }
+  // Synchronisation Profil
+  const handleProfileChange = (p: 'new' | 'returning') => {
+    setClientProfile(p);
+    setFsmState((prev) => ({ ...prev, clientProfile: p }));
   };
 
-  const playSynthesizedAcousticTrack = (audioId: string, durationSec = 15) => {
-    if (playingAudioId === audioId) {
-      stopSynthesizedAudio();
+  // -------------------------------------------------------------------------
+  // Gestion Audio HTML5 Native
+  // -------------------------------------------------------------------------
+  const playNativeAudio = (audioId: string, url: string) => {
+    if (playingAudioId === audioId && activeAudioElementRef.current) {
+      activeAudioElementRef.current.pause();
+      setPlayingAudioId(null);
       return;
     }
-    stopSynthesizedAudio();
+
+    if (activeAudioElementRef.current) {
+      activeAudioElementRef.current.pause();
+      activeAudioElementRef.current = null;
+    }
+
+    const audio = new Audio(url);
+    audio.playbackRate = playbackRate;
+    activeAudioElementRef.current = audio;
     setPlayingAudioId(audioId);
 
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      audioContextRef.current = ctx;
+    audio.onended = () => {
+      setPlayingAudioId(null);
+      activeAudioElementRef.current = null;
+    };
 
-      const chords = [
-        [220, 261.63, 329.63], // Am
-        [174.61, 220, 261.63], // F
-        [130.81, 164.81, 196], // C
-        [196, 246.94, 293.66], // G
-      ];
+    audio.onerror = () => {
+      setPlayingAudioId(null);
+      activeAudioElementRef.current = null;
+    };
 
-      const now = ctx.currentTime;
-      const barDuration = 2.4 / audioPlaybackRate;
-      const totalBars = Math.ceil(durationSec / barDuration);
+    audio.play().catch((err) => {
+      console.warn('Lecture audio bloquée :', err);
+      setPlayingAudioId(null);
+    });
+  };
 
-      for (let bar = 0; bar < totalBars; bar++) {
-        const chord = chords[bar % chords.length];
-        const barStart = now + bar * barDuration;
-
-        chord.forEach((freq, idx) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(freq, barStart + idx * 0.1);
-
-          gain.gain.setValueAtTime(0.001, barStart + idx * 0.1);
-          gain.gain.exponentialRampToValueAtTime(0.06, barStart + idx * 0.1 + 0.05);
-          gain.gain.exponentialRampToValueAtTime(0.001, barStart + (idx + 1) * 0.5);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start(barStart + idx * 0.1);
-          osc.stop(barStart + (idx + 1) * 0.5 + 0.1);
-        });
-      }
-
-      setTimeout(() => {
-        stopSynthesizedAudio();
-      }, (durationSec * 1000) / audioPlaybackRate);
-    } catch (err) {
-      console.warn('Audio non démarré :', err);
-      stopSynthesizedAudio();
+  const togglePlaybackRate = () => {
+    const nextRate = playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
+    setPlaybackRate(nextRate);
+    if (activeAudioElementRef.current) {
+      activeAudioElementRef.current.playbackRate = nextRate;
     }
   };
 
-  const stopSynthesizedAudio = () => {
-    if (audioContextRef.current) {
-      try {
-        audioContextRef.current.close();
-      } catch {
-        // ignore
-      }
-      audioContextRef.current = null;
-    }
-    setPlayingAudioId(null);
-  };
-
-  // Enregistrement micro
+  // -------------------------------------------------------------------------
+  // Enregistrement Micro Réel & Transcription Whisper VPS
+  // -------------------------------------------------------------------------
   const startRecording = async () => {
     try {
-      stopSynthesizedAudio();
+      if (activeAudioElementRef.current) {
+        activeAudioElementRef.current.pause();
+        setPlayingAudioId(null);
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
       const mr = new MediaRecorder(stream);
       mediaRecorderRef.current = mr;
+
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await handleAudioRecordingFinished(audioBlob, recordSeconds);
+      };
+
       setIsRecording(true);
       setRecordSeconds(0);
 
@@ -587,15 +332,12 @@ export const PlaygroundView: FC = () => {
         setRecordSeconds((s) => s + 1);
       }, 1000);
 
-      mr.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        sendDirectAudioMessage(Math.max(3, recordSeconds));
-      };
-
-      mr.start();
+      mr.start(250);
     } catch (err) {
-      console.warn('Microphone inaccessible, envoi vocal simulé :', err);
-      sendDirectAudioMessage(4);
+      console.warn('Microphone inaccessible ou refusé :', err);
+      const duration = 4;
+      const fakeBlob = new Blob(['simulated-audio'], { type: 'audio/ogg' });
+      void handleAudioRecordingFinished(fakeBlob, duration, "Bonjour, c'est pour l'anniversaire de mon mari samedi.");
     }
   };
 
@@ -607,63 +349,69 @@ export const PlaygroundView: FC = () => {
     setIsRecording(false);
   };
 
-  const sendDirectAudioMessage = (durationSec: number) => {
+  const handleAudioRecordingFinished = async (blob: Blob, durationSec: number, fallbackText?: string) => {
+    const audioUrl = URL.createObjectURL(blob);
+    const bubbleId = `user_voice_${Date.now()}`;
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const voiceBubble: ChatBubble = {
-      id: `user_voice_${Date.now()}`,
+
+    // Ajout immédiat de la bulle avec spinner
+    const newVoiceBubble: ChatBubble = {
+      id: bubbleId,
       role: 'user',
-      content: '🎙️ Note vocale client (brief parlé)',
+      content: '🎙️ Note vocale client',
       timestamp: nowStr,
       status: 'sent',
       mediaKind: 'audio',
-      mediaDurationSec: durationSec,
-      mediaTranscript: "Bonjour, c'est pour l'anniversaire de ma mère Awa samedi prochain, elle aime la musique acoustique.",
+      mediaUrl: audioUrl,
+      mediaDurationSec: Math.max(1, durationSec),
+      mediaTranscript: 'Transcription en cours par le serveur Whisper…',
     };
 
-    setMessages((prev) => [...prev, voiceBubble]);
-    handleInboundUserText(voiceBubble.mediaTranscript || "Note vocale de brief client");
+    setMessages((prev) => [...prev, newVoiceBubble]);
+    setIsTranscribing(true);
+
+    let finalTranscript = fallbackText || '';
+    if (!fallbackText) {
+      try {
+        const result = await transcribeAudioBlob(blob);
+        finalTranscript = result.text || 'Message vocal reçu';
+        setMerchantAlerts((prev) => [
+          `Whisper VPS (${result.durationMs}ms) : « ${finalTranscript} »`,
+          ...prev.slice(0, 8),
+        ]);
+      } catch (err: any) {
+        finalTranscript = "Bonjour, c'est pour une chanson personnalisée.";
+        setMerchantAlerts((prev) => [
+          `Alerte Whisper (${err?.message || 'timeout'}) : repli appliqué`,
+          ...prev.slice(0, 8),
+        ]);
+      }
+    }
+
+    setIsTranscribing(false);
+
+    // Mise à jour de la bulle avec le vrai texte transcrit
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === bubbleId ? { ...m, mediaTranscript: finalTranscript, content: `🎙️ ${finalTranscript}` } : m
+      )
+    );
+
+    // Envoi du texte transcrit dans le système de rafale
+    enqueueInboundText(finalTranscript);
   };
 
-  // Chargement d'un scénario
-  const loadScenario = (sc: ScenarioPreset) => {
-    stopSynthesizedAudio();
-    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-
-    setMessages([]);
-    setBurstQueue([]);
-    setMerchantAlerts([]);
-    setCurrentSongTitle(null);
-    setClientName(sc.clientName);
-    setCountryCode(sc.country);
-    setClientPhone(sc.phone);
-    setClientProfile(sc.clientProfile || 'new');
-
-    const initialBubbles: ChatBubble[] = sc.firstMessages.map((msg, i) => ({
-      id: `init_${Date.now()}_${i}`,
-      role: 'user',
-      content: msg,
-      timestamp: new Date(Date.now() - (sc.firstMessages.length - i) * 1500).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      status: 'read',
-    }));
-
-    setMessages(initialBubbles);
-    setTimeout(() => {
-      void runAgentTurn(initialBubbles);
-    }, 400);
-  };
-
-  // Saisie utilisateur & Rafale
+  // -------------------------------------------------------------------------
+  // Système de Rafale / Debounce Réel
+  // -------------------------------------------------------------------------
   const handleSendMessage = () => {
     if (!input.trim() || isAiThinking) return;
     const text = input.trim();
     setInput('');
-    handleInboundUserText(text);
+    enqueueInboundText(text);
   };
 
-  const handleInboundUserText = (text: string) => {
+  const enqueueInboundText = (text: string, attachmentKind?: 'photo' | 'receipt', attachmentUrl?: string) => {
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const newBubble: ChatBubble = {
@@ -672,6 +420,9 @@ export const PlaygroundView: FC = () => {
       content: text,
       timestamp: nowStr,
       status: 'sent',
+      mediaKind: attachmentKind === 'photo' || attachmentKind === 'receipt' ? 'image' : undefined,
+      mediaUrl: attachmentUrl,
+      attachmentKind,
     };
 
     setMessages((prev) => [...prev, newBubble]);
@@ -679,18 +430,31 @@ export const PlaygroundView: FC = () => {
     const updatedBurst = [...burstQueue, text];
     setBurstQueue(updatedBurst);
 
+    // Réinitialise le compte à rebours de rafale
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+    if (burstTimerRef.current) clearInterval(burstTimerRef.current);
+
+    const burstDurationMs = config.burstWindowMs || 3500;
+    setBurstSecondsLeft(Math.round(burstDurationMs / 1000));
+
+    burstTimerRef.current = setInterval(() => {
+      setBurstSecondsLeft((prev) => (prev > 1 ? prev - 1 : 1));
+    }, 1000);
 
     burstTimeoutRef.current = setTimeout(() => {
-      flushBurstQueue(updatedBurst);
-    }, BURST_WINDOW_MS);
+      flushBurstQueue(updatedBurst, attachmentKind);
+    }, burstDurationMs);
   };
 
-  const flushBurstQueue = (pendingItems: string[]) => {
+  const flushBurstQueue = (pendingItems: string[], attachmentKind?: 'photo' | 'receipt') => {
     if (pendingItems.length === 0) return;
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
-    setBurstQueue([]);
+    if (burstTimerRef.current) clearInterval(burstTimerRef.current);
 
+    setBurstQueue([]);
+    setBurstSecondsLeft(0);
+
+    // Double coches délivrées puis lues
     setMessages((prev) =>
       prev.map((m) => (m.role === 'user' && m.status === 'sent' ? { ...m, status: 'delivered' } : m))
     );
@@ -699,554 +463,405 @@ export const PlaygroundView: FC = () => {
       setMessages((prev) =>
         prev.map((m) => (m.role === 'user' && m.status === 'delivered' ? { ...m, status: 'read' } : m))
       );
+    }, 600);
 
-      setMessages((currentHistory) => {
-        void runAgentTurn(currentHistory);
-        return currentHistory;
-      });
-    }, 500);
+    const mergedTurnText = pendingItems.join('\n');
+    void executeAgentTurn(mergedTurnText, attachmentKind);
   };
 
-  // Moteur d'IA générative dynamique : 100% gouverné par le prompt configuré
-  const runAgentTurn = async (history: ChatBubble[]) => {
-    if (isAiThinking) return;
+  const forceFlushNow = () => {
+    if (burstQueue.length > 0) {
+      flushBurstQueue(burstQueue);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // Exécution du Tour Agent (FSM & Délais Réalistes)
+  // -------------------------------------------------------------------------
+  const executeAgentTurn = async (inboundText: string, attachmentKind?: 'photo' | 'receipt') => {
     setIsAiThinking(true);
-    const start = Date.now();
+    const startMs = performance.now();
 
+    // Calcul de la décision déterministe via la FSM Velaris
+    const turnResult = processSimulationTurn(
+      inboundText,
+      fsmState,
+      Boolean(attachmentKind),
+      attachmentKind
+    );
 
-    const newAssistantBubbles: ChatBubble[] = [];
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setFsmState(turnResult.newState);
+    setLatencyMs(Math.round(performance.now() - startMs));
 
-    // 1. Appel API Externe Réel si configuré (DeepSeek, Gemini, OpenAI)
-    let generatedTexts: string[] = [];
-
-    const crmContextNote = clientProfile === 'returning'
-      ? "\n\n[FICHE CLIENT CRM : Client fidèle et régulier. A déjà commandé et payé une chanson personnalisée le mois passé. Il connaît déjà la démarche et les tarifs du studio.]"
-      : "\n\n[FICHE CLIENT CRM : Nouveau prospect — Première prise de contact avec le studio.]";
-
-    const effectiveSystemPrompt = ((config.systemPrompt || '') + crmContextNote)
-      .replace(/{AGENT_NAME}/g, config.agentName || 'Alex')
-      .replace(/{STUDIO_NAME}/g, config.studioName || 'Velaris Studio')
-      .replace(/{PRIX_DECOUVERTE}/g, config.tariffs.decouvertePrice || '1 200')
-      .replace(/{PRIX_PRESTIGE}/g, config.tariffs.prestigePrice || '3 000');
-
-    if (config.provider === 'local_agy') {
-      try {
-        const publicHttpsGatewayUrl = 'https://waha.velarisagent.life/v1/chat/completions';
-        const proxyUrl = '/api/local-llm/chat/completions';
-        const directLocalUrl = 'http://127.0.0.1:4041/v1/chat/completions';
-
-        const requestBody = JSON.stringify({
-          model: config.model || 'gemini-3.8-flash-low',
-          project: 'velaris',
-          conversationId: clientPhone,
-          messages: [
-            { role: 'system', content: effectiveSystemPrompt },
-            ...history.map((h) => ({
-              role: h.role === 'user' ? 'user' : 'assistant',
-              content: h.content,
-            })),
-          ],
-        });
-
-        // Ordonnancement intelligent selon l'environnement (HTTPS distant vs HTTP localhost)
-        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-        const endpointsToTry = isHttps
-          ? [publicHttpsGatewayUrl, proxyUrl]
-          : [proxyUrl, directLocalUrl, publicHttpsGatewayUrl];
-
-        let res: Response | null = null;
-        let lastFailureReason = '';
-
-        for (const url of endpointsToTry) {
-          try {
-            const attempt = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Project': 'velaris',
-              },
-              body: requestBody,
-            });
-
-            // Si le serveur renvoie 404 ou 405 (proxy non supporté sur l'hébergement courant), tester le endpoint suivant
-            if (attempt.status === 404 || attempt.status === 405) {
-              lastFailureReason = `HTTP ${attempt.status}`;
-              continue;
-            }
-
-            res = attempt;
-            break;
-          } catch (err: any) {
-            lastFailureReason = err?.message || 'Erreur réseau';
-          }
-        }
-
-        if (res && res.ok) {
-          const data = await res.json();
-          const reply = data.choices?.[0]?.message?.content?.trim();
-          if (reply) {
-            generatedTexts = reply.split(/\n\n+/).filter(Boolean);
-          }
-        } else if (res) {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `Erreur HTTP ${res.status}`;
-          generatedTexts = [
-            `[Alerte Daemon Velaris : ${errMsg}] (Vérifiez le statut du service avec 'bash scripts/status_daemon.sh').`,
-          ];
-        } else {
-          generatedTexts = [
-            `[Alerte Daemon Velaris : Service injoignable (${lastFailureReason})]. Vérifiez la passerelle avec 'bash scripts/status_daemon.sh' et la connexion VPS avec 'bash scripts/connect_vps.sh'.`,
-          ];
-        }
-      } catch (err) {
-        console.warn('Échec appel Daemon Velaris :', err);
-        generatedTexts = [
-          `[Alerte Daemon Velaris : Le service local sur le port 4041 n'est pas joignable. Lancez 'bash scripts/start_daemon.sh' sur le serveur pour activer l'IA résidente gratuite 0€].`,
-        ];
-      }
-    } else if (config.apiKey) {
-      try {
-        if (config.provider === 'deepseek') {
-          const res = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${config.apiKey}`,
-            },
-            body: JSON.stringify({
-              model: config.model || 'deepseek-flash',
-              temperature: config.temperature,
-              thinking: { type: 'disabled' },
-              messages: [
-                { role: 'system', content: effectiveSystemPrompt },
-                ...history.map((h) => ({
-                  role: h.role === 'user' ? 'user' : 'assistant',
-                  content: h.content,
-                })),
-              ],
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const reply = data.choices?.[0]?.message?.content?.trim();
-            if (reply) {
-              generatedTexts = reply.split(/\n\n+/).filter(Boolean);
-            }
-            const cacheHit = data.usage?.prompt_cache_hit_tokens || 0;
-            if (cacheHit > 0) {
-              console.log(`[DeepSeek Context Cache] ${cacheHit} tokens réutilisés depuis le cache.`);
-            }
-          } else {
-            const errData = await res.json().catch(() => ({}));
-            const errMsg = errData.error?.message || `Erreur HTTP ${res.status}`;
-            generatedTexts = [
-              `[Alerte API DeepSeek : ${errMsg}] (Votre solde d'API DeepSeek semble épuisé ou requiert une recharge sur platform.deepseek.com).`,
-            ];
-          }
-        } else if (config.provider === 'gemini') {
-          const modelName = config.model || 'gemini-1.5-flash';
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${config.apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: effectiveSystemPrompt }] },
-                contents: history.map((h) => ({
-                  role: h.role === 'user' ? 'user' : 'model',
-                  parts: [{ text: h.content }],
-                })),
-                generationConfig: { temperature: config.temperature },
-              }),
-            }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-            if (reply) {
-              generatedTexts = reply.split(/\n\n+/).filter(Boolean);
-            }
-          } else {
-            const errData = await res.json().catch(() => ({}));
-            const errMsg = errData.error?.message || `Erreur HTTP ${res.status}`;
-            generatedTexts = [`[Alerte API Gemini : ${errMsg}]`];
-          }
-        } else if (config.provider === 'openai') {
-          const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${config.apiKey}`,
-            },
-            body: JSON.stringify({
-              model: config.model || 'gpt-4o-mini',
-              temperature: config.temperature,
-              messages: [
-                { role: 'system', content: effectiveSystemPrompt },
-                ...history.map((h) => ({
-                  role: h.role === 'user' ? 'user' : 'assistant',
-                  content: h.content,
-                })),
-              ],
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const reply = data.choices?.[0]?.message?.content?.trim();
-            if (reply) {
-              generatedTexts = reply.split(/\n\n+/).filter(Boolean);
-            }
-          } else {
-            const errData = await res.json().catch(() => ({}));
-            const errMsg = errData.error?.message || `Erreur HTTP ${res.status}`;
-            generatedTexts = [`[Alerte API OpenAI : ${errMsg}]`];
-          }
-        }
-      } catch (err) {
-        console.warn('Échec appel API externe :', err);
-      }
+    // Si intervention humaine active (fromMe), l'agent se tait
+    if (turnResult.bubbles.length === 0) {
+      setIsAiThinking(false);
+      setAiPresenceState('idle');
+      return;
     }
 
-    // 2. Traitement si aucune réponse API externe (100% neutre, aucune règle ni regex)
-    if (generatedTexts.length === 0) {
-      if (!config.systemPrompt.trim()) {
-        generatedTexts = [
-          "L'agent IA est actuellement vierge (aucun prompt système configuré). Renseignez vos consignes dans l'onglet 'Prompt Système' pour définir son identité, ses règles et son comportement commercial.",
-        ];
-      } else {
-        generatedTexts = [
-          `[Mode simulation locale] Le prompt système est actif (${config.systemPrompt.length} caractères). Pour que l'agent génère des réponses dynamiques en direct selon vos consignes, activez le Daemon Local 0€ ou renseignez votre clé d'API dans l'onglet Moteur.`,
-        ];
-      }
-    }
+    // 1. Déclenchement de la présence réaliste WhatsApp
+    setAiPresenceState(turnResult.presenceState);
 
-    // Ajout des bulles de texte générées
-    generatedTexts.forEach((text, i) => {
-      newAssistantBubbles.push({
-        id: `ai_${Date.now()}_${i}`,
+    // Attente du temps de saisie/vocal
+    await new Promise((resolve) => setTimeout(resolve, turnResult.presenceDurationMs));
+
+    // 2. Séquençage des bulles (une par une avec délai de lecture)
+    for (let i = 0; i < turnResult.bubbles.length; i++) {
+      const b = turnResult.bubbles[i];
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newAgentBubble: ChatBubble = {
+        id: `agent_${Date.now()}_${i}`,
         role: 'assistant',
-        content: text,
+        content: b.content,
         timestamp: nowStr,
-        status: 'read',
-      });
-    });
+        status: 'delivered',
+        mediaKind: b.mediaKind,
+        mediaUrl: b.mediaUrl,
+        mediaDurationSec: b.mediaDurationSec,
+        isProcedureVoice: b.isProcedureVoice,
+        isPaymentBlock: b.isPaymentBlock,
+        isLyricsCard: b.isLyricsCard,
+        lyricsData: b.lyricsData,
+      };
 
-    setLatencyMs(Date.now() - start + 420);
+      setMessages((prev) => [...prev, newAgentBubble]);
 
-    // Distribution séquentielle avec délai de frappe WhatsApp réaliste
-    for (let i = 0; i < newAssistantBubbles.length; i++) {
-      const bubble = newAssistantBubbles[i];
-      setAiPresenceState('typing');
-
-      const typingMs = Math.min(2600, Math.max(1200, bubble.content.length * 18));
-      await new Promise((r) => setTimeout(r, typingMs));
-
-      setMessages((prev) => [...prev, bubble]);
-      playPopSound();
-
-      if (i < newAssistantBubbles.length - 1) {
-        setAiPresenceState('idle');
-        await new Promise((r) => setTimeout(r, 500));
+      if (i < turnResult.bubbles.length - 1) {
+        setAiPresenceState('typing');
+        await new Promise((resolve) => setTimeout(resolve, turnResult.interBubbleDelayMs));
       }
     }
 
     setAiPresenceState('idle');
     setIsAiThinking(false);
+
+    // Journal d'événement
+    setMerchantAlerts((prev) => [
+      `FSM Tour : ${turnResult.fsmExplanation}`,
+      ...prev.slice(0, 8),
+    ]);
   };
 
-  // Reçu de paiement simulé
-  const handleSendPaymentSlipImage = () => {
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const imgBubble: ChatBubble = {
-      id: `user_slip_${Date.now()}`,
-      role: 'user',
-      content: 'Capture du reçu de transfert Mobile Money (1 200 F CFA)',
-      timestamp: nowStr,
-      status: 'sent',
-      mediaKind: 'image',
-      mediaUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80',
+  // Chargement d'un scénario prédéfini
+  const loadScenario = (sc: ScenarioPreset) => {
+    if (activeAudioElementRef.current) {
+      activeAudioElementRef.current.pause();
+      activeAudioElementRef.current = null;
+    }
+    setPlayingAudioId(null);
+    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+    if (burstTimerRef.current) clearInterval(burstTimerRef.current);
+
+    setMessages([]);
+    setBurstQueue([]);
+    setBurstSecondsLeft(0);
+    setMerchantAlerts([]);
+    setClientName(sc.clientName);
+    setCountryCode(sc.country);
+    setClientPhone(sc.phone);
+    setClientProfile(sc.clientProfile || 'new');
+
+    const initialState: SimulationState = {
+      stage: 'GREETING',
+      pillars: {
+        recipientName: null,
+        occasion: null,
+        senderName: null,
+        storyAndMemories: null,
+      },
+      locks: {
+        vocal1Sent: false,
+        vocal2Sent: sc.clientProfile === 'returning',
+        videoSampleSent: false,
+        paymentBlockSent: false,
+      },
+      country: sc.country,
+      clientProfile: sc.clientProfile || 'new',
+      selectedOffer: null,
+      isHumanTakeover: false,
+      lastTurnAt: Date.now(),
     };
-    setMessages((prev) => [...prev, imgBubble]);
-    handleInboundUserText("Voilà le reçu du transfert que je viens d'effectuer !");
+
+    setFsmState(initialState);
+
+    const initialBubbles: ChatBubble[] = sc.firstMessages.map((msg, i) => ({
+      id: `init_${Date.now()}_${i}`,
+      role: 'user',
+      content: msg,
+      timestamp: new Date(Date.now() - (sc.firstMessages.length - i) * 1200).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      status: 'read',
+    }));
+
+    setMessages(initialBubbles);
+
+    // Lancement automatique du 1er tour après chargement
+    setTimeout(() => {
+      void executeAgentTurn(sc.firstMessages.join('\n'));
+    }, 400);
+  };
+
+  // Simulation intervention humaine
+  const toggleHumanTakeover = () => {
+    setFsmState((prev) => {
+      const next = !prev.isHumanTakeover;
+      setMerchantAlerts((log) => [
+        next
+          ? 'Intervention Commerçant : L’agent IA se tait immédiatement.'
+          : 'Reprise IA : L’agent reprend la supervision du dossier.',
+        ...log.slice(0, 8),
+      ]);
+      return { ...prev, isHumanTakeover: next };
+    });
+  };
+
+  // Réinitialisation complète
+  const handleResetChat = () => {
+    if (activeAudioElementRef.current) {
+      activeAudioElementRef.current.pause();
+      activeAudioElementRef.current = null;
+    }
+    setPlayingAudioId(null);
+    if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+    if (burstTimerRef.current) clearInterval(burstTimerRef.current);
+
+    setMessages([]);
+    setBurstQueue([]);
+    setBurstSecondsLeft(0);
+    setMerchantAlerts([]);
+
+    setFsmState({
+      stage: 'GREETING',
+      pillars: {
+        recipientName: null,
+        occasion: null,
+        senderName: null,
+        storyAndMemories: null,
+      },
+      locks: {
+        vocal1Sent: false,
+        vocal2Sent: false,
+        videoSampleSent: false,
+        paymentBlockSent: false,
+      },
+      country: countryCode,
+      clientProfile,
+      selectedOffer: null,
+      isHumanTakeover: false,
+      lastTurnAt: Date.now(),
+    });
+  };
+
+  // Envoi d'un fichier réel
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const objectUrl = URL.createObjectURL(file);
+    const caption =
+      pendingAttachType === 'receipt'
+        ? 'Voici le reçu de mon transfert de paiement'
+        : 'Voici mes photos pour le montage vidéo souvenir';
+
+    enqueueInboundText(caption, pendingAttachType, objectUrl);
+    setIsAttachModalOpen(false);
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6.5rem)] min-h-[760px] w-full space-y-3">
-      {/* Barre Supérieure de Contrôle Studio */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#08090C] border border-white/[0.08] px-4 py-2.5 rounded-2xl shadow-xl shrink-0">
+    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] bg-[#050608] text-neutral-100 overflow-hidden font-sans">
+      {/* ── Entête Studio Simulator ── */}
+      <div className="h-14 border-b border-white/[0.08] bg-[#08090C] px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-            <Sparkles className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <Bot className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight">Playground Studio WhatsApp</h1>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hidden sm:inline-flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Agent : {config.agentName} ({config.provider === 'local_agy' ? 'Daemon 0€' : config.provider})
+              <span className="font-semibold text-sm text-white">Laboratoire WhatsApp Velaris</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Protocole 2 Vocaux & FSM
               </span>
             </div>
-            <p className="text-xs text-neutral-400 hidden sm:block">
-              Simulateur réaliste, 100% gouverné par votre prompt système. Zéro règle cachée ni restriction forcée.
+            <p className="text-[11px] text-neutral-400 hidden sm:block">
+              Banc d'essai en conditions réelles : vocaux Whisper, rafales, fichiers et FSM sans improvisation
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Sélecteur de Scénario Pré-enregistré */}
-          <div className="relative">
-            <select
-              aria-label="Charger un scénario de test"
-              onChange={(e) => {
-                const sc = SCENARIOS.find((s) => s.id === e.target.value);
-                if (sc) loadScenario(sc);
-              }}
-              defaultValue=""
-              className="h-9 px-3 pr-8 rounded-xl bg-[#0E1015] border border-white/[0.08] text-xs text-white appearance-none cursor-pointer focus:outline-none focus:border-white/20"
-            >
-              <option value="" disabled>Charger un scénario client…</option>
-              {SCENARIOS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-3 pointer-events-none" />
-          </div>
-
+          {/* Bouton Prise de main humaine */}
           <button
-            type="button"
-            onClick={() => {
-              stopSynthesizedAudio();
-              setMessages([]);
-              setBurstQueue([]);
-              setDetectedRecipient(null);
-              setDetectedOccasionStr(null);
-              setCurrentSongTitle(null);
-              setMerchantAlerts([]);
-            }}
-            title="Effacer et recommencer la discussion"
-            className="h-9 px-3 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-xs text-neutral-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={toggleHumanTakeover}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+              fsmState.isHumanTakeover
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                : 'bg-white/[0.04] border-white/[0.08] text-neutral-300 hover:bg-white/[0.08]'
+            }`}
+            title="Simule l'intervention du commerçant sur le téléphone (l'IA s'arrête)"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Réinitialiser</span>
+            <UserCheck className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">{fsmState.isHumanTakeover ? 'Commerçant actif' : 'Mode Conseiller'}</span>
           </button>
 
+          {/* Bouton Réinitialiser */}
           <button
-            type="button"
-            onClick={() => setInspectorOpen(!inspectorOpen)}
-            title={inspectorOpen ? "Masquer l'inspecteur" : "Afficher l'inspecteur"}
-            className={`h-9 px-3 rounded-xl border transition-colors flex items-center gap-1.5 text-xs cursor-pointer ${
-              inspectorOpen
-                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                : 'border-white/[0.08] bg-white/[0.02] text-neutral-400 hover:text-white'
-            }`}
+            onClick={handleResetChat}
+            className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 border border-white/[0.08] text-xs flex items-center gap-1.5 transition-colors"
           >
-            <PanelRight className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Configuration IA & Prompt</span>
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Effacer</span>
+          </button>
+
+          {/* Toggle Volet Diagnostic */}
+          <button
+            onClick={() => setInspectorOpen(!inspectorOpen)}
+            className={`p-2 rounded-lg border text-xs transition-colors ${
+              inspectorOpen
+                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                : 'bg-white/[0.04] border-white/[0.08] text-neutral-400 hover:text-white'
+            }`}
+            title="Afficher/Masquer le Cockpit de diagnostic"
+          >
+            <PanelRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Conteneur Principal : WhatsApp Web Mockup + Inspecteur */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
-        {/* Colonne WhatsApp Web */}
-        <div className={`flex flex-col rounded-2xl border border-white/[0.08] bg-[#0b141a] overflow-hidden shadow-2xl ${inspectorOpen ? 'lg:col-span-7 xl:col-span-7' : 'lg:col-span-12'}`}>
-          {/* En-tête de Discussion WhatsApp */}
-          <div className="flex items-center justify-between px-4 py-3 bg-[#1f2c34] border-b border-white/[0.06] shrink-0">
+      {/* ── Corps Principal : Chat WhatsApp + Cockpit Diagnostic ── */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ── COLONNE GAUCHE : L'Interface WhatsApp Réelle ── */}
+        <div className="flex-1 flex flex-col bg-[#0b141a] relative overflow-hidden">
+          {/* Barre WhatsApp Supérieure */}
+          <div className="h-14 px-4 bg-[#202c33] border-b border-black/20 flex items-center justify-between z-10 shrink-0">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-emerald-800/80 border border-emerald-400/40 flex items-center justify-center text-white font-bold text-sm tracking-wide shadow-inner">
+                <div className="w-9 h-9 rounded-full bg-emerald-700/60 border border-emerald-500/40 flex items-center justify-center text-white text-sm font-semibold">
                   {config.agentName.slice(0, 2).toUpperCase()}
                 </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#1f2c34]" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#202c33]" />
               </div>
-
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-semibold text-white">{config.agentName} · {config.studioName}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Officiel
+                  <span className="font-semibold text-sm text-[#e9edef]">{config.agentName}</span>
+                  <span className="text-[10px] text-emerald-400 font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 border border-emerald-500/20">
+                    Velaris Officiel
                   </span>
                 </div>
-                <div className="text-xs font-normal">
+                <div className="text-[11px] text-[#8696a0] flex items-center gap-1.5 font-mono">
                   {aiPresenceState === 'typing' ? (
-                    <span className="text-emerald-400 font-medium animate-pulse flex items-center gap-1">
-                      <Radio className="w-3 h-3 animate-spin" /> en train d’écrire…
-                    </span>
+                    <span className="text-emerald-400 animate-pulse font-sans">en train d’écrire…</span>
                   ) : aiPresenceState === 'recording_audio' ? (
-                    <span className="text-emerald-400 font-medium animate-pulse flex items-center gap-1">
-                      <Mic className="w-3 h-3 animate-bounce" /> enregistre un message vocal…
+                    <span className="text-emerald-400 animate-pulse flex items-center gap-1 font-sans">
+                      <Mic className="w-3 h-3 animate-bounce" /> enregistre un audio…
                     </span>
+                  ) : fsmState.isHumanTakeover ? (
+                    <span className="text-amber-400">Agent en veille (Commerçant aux commandes)</span>
                   ) : (
-                    <span className="text-neutral-400">en ligne</span>
+                    <span>en ligne</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Profil Client CRM & Sélecteur de Pays Prospect */}
+            {/* Sélecteur de Scénario Rapide */}
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setClientProfile((prev) => (prev === 'new' ? 'returning' : 'new'))}
-                title="Cliquer pour basculer : Nouveau Prospect vs Client Fidèle (Habitué)"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
-                  clientProfile === 'returning'
-                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 shadow-sm'
-                    : 'bg-[#111b21] border-white/[0.08] text-neutral-400 hover:text-white'
-                }`}
+              <select
+                onChange={(e) => {
+                  const sc = SCENARIO_PRESETS.find((s) => s.id === e.target.value);
+                  if (sc) loadScenario(sc);
+                }}
+                defaultValue=""
+                className="bg-[#111b21] border border-white/[0.08] text-xs text-neutral-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500/50"
               >
-                <UserCheck className={`w-3.5 h-3.5 ${clientProfile === 'returning' ? 'text-amber-400' : 'text-neutral-400'}`} />
-                <span className="hidden sm:inline">{clientProfile === 'returning' ? 'Habitué (Fidèle)' : 'Nouveau Prospect'}</span>
-              </button>
-
-              <div className="flex items-center gap-2 bg-[#111b21] px-3 py-1.5 rounded-xl border border-white/[0.08]">
-                <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-xs text-neutral-400 hidden sm:inline">Ligne :</span>
-                <select
-                  aria-label="Sélectionner le pays du prospect"
-                  value={countryCode}
-                  onChange={(e) => handleCountryChange(e.target.value as any)}
-                  className="bg-transparent border-0 text-xs text-white font-medium focus:outline-none cursor-pointer"
-                >
-                  <option value="CI" className="bg-[#111b21]">Côte d'Ivoire (+225)</option>
-                  <option value="BF" className="bg-[#111b21]">Burkina Faso (+226)</option>
-                  <option value="SN" className="bg-[#111b21]">Sénégal (+221)</option>
-                  <option value="OTHER" className="bg-[#111b21]">France (+33)</option>
-                </select>
-              </div>
+                <option value="" disabled>
+                  Charger un scénario…
+                </option>
+                {SCENARIO_PRESETS.map((sc) => (
+                  <option key={sc.id} value={sc.id}>
+                    {sc.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Fil des Messages WhatsApp */}
+          {/* Zone des Messages (WhatsApp Stream) */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 bg-[#0b141a] bg-opacity-95 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px]"
+            className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-[#0b141a] bg-radial-[at_top] from-[#0f1d24] to-[#0b141a]"
           >
-            {messages.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-[#1f2c34] border border-white/[0.08] flex items-center justify-center text-emerald-400 shadow-xl">
-                  <Bot className="w-7 h-7" />
-                </div>
-                <div className="max-w-md space-y-1.5">
-                  <p className="text-base font-medium text-white">Agent IA Vierge & Prêt</p>
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    Écrivez un message comme un vrai client. L'agent répondra exactement selon le Prompt Système configuré dans le panneau de droite.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-2 pt-2 max-w-lg">
-                  {QUICK_TEST_SHORTCUTS.slice(0, 4).map((s, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setInput(s.text)}
-                      className="h-8 px-3 rounded-xl border border-white/[0.08] bg-[#111b21] hover:bg-[#1f2c34] text-xs text-neutral-300 transition-colors cursor-pointer"
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Bannière de Sécurité WhatsApp Chiffrée */}
+            <div className="flex justify-center my-2">
+              <div className="bg-[#182229] border border-amber-500/20 rounded-lg px-3 py-1.5 text-center max-w-md">
+                <span className="text-[11px] text-amber-200/90 font-mono flex items-center justify-center gap-1.5">
+                  <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                  Simulation WhatsApp native · Banc d'essai déterministe
+                </span>
               </div>
-            )}
+            </div>
 
+            {/* Liste des bulles */}
             {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={m.id}
+                className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
+              >
                 <div
-                  className={`relative rounded-2xl px-4 py-3 max-w-[88%] sm:max-w-[78%] text-[14px] leading-relaxed shadow-lg ${
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3 shadow-md text-sm leading-relaxed ${
                     m.role === 'user'
-                      ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-xs'
-                      : 'bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs'
+                      ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-xs border border-emerald-400/20'
+                      : 'bg-[#202c33] text-[#e9edef] rounded-tl-xs border border-white/[0.06]'
                   }`}
                 >
                   {/* Image jointe */}
                   {m.mediaKind === 'image' && m.mediaUrl && (
-                    <div className="mb-2.5 rounded-xl overflow-hidden border border-white/10 max-w-sm">
-                      <img src={m.mediaUrl} alt="Média joint" className="w-full h-auto object-cover max-h-60" />
-                    </div>
-                  )}
-
-                  {/* Lecteur Audio */}
-                  {m.mediaKind === 'audio' && (
-                    <div className="my-1 p-3 rounded-xl bg-black/25 border border-white/10 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => playSynthesizedAcousticTrack(m.id, m.mediaDurationSec || 15)}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
-                            playingAudioId === m.id
-                              ? 'bg-emerald-400 text-black shadow-lg shadow-emerald-500/20'
-                              : 'bg-emerald-500 text-white hover:bg-emerald-400'
-                          }`}
-                        >
-                          {playingAudioId === m.id ? (
-                            <Pause className="w-4 h-4 fill-current" />
-                          ) : (
-                            <Play className="w-4 h-4 ml-0.5 fill-current" />
-                          )}
-                        </button>
-
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-1.5 h-6">
-                            {[16, 24, 38, 18, 28, 42, 34, 20, 36, 44, 22, 30, 40, 26, 18, 32, 28, 38, 20, 34, 42, 16, 26, 36].map((h, i) => (
-                              <span
-                                key={i}
-                                className={`w-1 rounded-full transition-all duration-200 ${
-                                  playingAudioId === m.id
-                                    ? 'bg-emerald-400 animate-pulse'
-                                    : 'bg-white/30'
-                                }`}
-                                style={{ height: `${h}px` }}
-                              />
-                            ))}
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-                            <span>{m.mediaDurationSec ? `0:${String(m.mediaDurationSec).padStart(2, '0')}` : '0:33'}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-emerald-400">
-                                {playingAudioId === m.id ? 'Lecture en cours…' : 'Note vocale studio'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setAudioPlaybackRate((prev) => (prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1))}
-                                className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white font-mono transition-colors cursor-pointer"
-                              >
-                                {audioPlaybackRate}x
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {m.mediaTranscript && (
-                        <div className="pt-2 border-t border-white/[0.08] text-xs text-neutral-300 leading-normal italic">
-                          "{m.mediaTranscript}"
+                    <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-black/40">
+                      <img src={m.mediaUrl} alt="Fichier joint" className="w-full max-h-60 object-cover" />
+                      {m.attachmentKind && (
+                        <div className="px-2 py-1 bg-black/60 text-[10px] font-mono text-emerald-300">
+                          {m.attachmentKind === 'receipt' ? 'Reçu de paiement' : 'Photos pour montage'}
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Lecteur Extrait Démo */}
-                  {m.mediaKind === 'sample' && (
-                    <div className="my-1 p-3 rounded-xl bg-black/30 border border-emerald-500/20 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
-                          <Music className="w-3.5 h-3.5" /> {m.sampleTitle || 'Extrait Démo Studio'}
+                  {/* Vidéo Sample (Exemple Démo 3 000 F) */}
+                  {m.mediaKind === 'video' && m.mediaUrl && (
+                    <div className="mb-2 rounded-xl overflow-hidden border border-emerald-500/40 bg-black/80">
+                      <video
+                        src={m.mediaUrl}
+                        controls
+                        className="w-full max-h-72 rounded-lg bg-black"
+                        preload="metadata"
+                      />
+                      <div className="p-2 bg-[#111b21] flex items-center justify-between text-xs text-neutral-300">
+                        <span className="font-semibold flex items-center gap-1.5">
+                          <Video className="w-4 h-4 text-emerald-400" /> Aperçu Montage Vidéo (Prestige)
                         </span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
-                          45s Studio
-                        </span>
+                        <a
+                          href={m.mediaUrl}
+                          download="montage_sample.mp4"
+                          className="text-[11px] text-emerald-400 hover:underline flex items-center gap-1"
+                        >
+                          Télécharger
+                        </a>
                       </div>
+                    </div>
+                  )}
 
+                  {/* Lecteur Audio Natif WhatsApp */}
+                  {m.mediaKind === 'audio' && m.mediaUrl && (
+                    <div className="my-1.5 p-3 rounded-xl bg-black/30 border border-emerald-500/30 space-y-2">
                       <div className="flex items-center gap-3">
                         <button
-                          type="button"
-                          onClick={() => playSynthesizedAcousticTrack(m.id, 45)}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
+                          onClick={() => playNativeAudio(m.id, m.mediaUrl!)}
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 ${
                             playingAudioId === m.id
-                              ? 'bg-emerald-400 text-black shadow-lg shadow-emerald-500/20'
+                              ? 'bg-emerald-400 text-black'
                               : 'bg-emerald-500 text-white hover:bg-emerald-400'
                           }`}
                         >
@@ -1258,77 +873,79 @@ export const PlaygroundView: FC = () => {
                         </button>
 
                         <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-1.5 h-6">
-                            {[20, 32, 44, 26, 36, 48, 30, 22, 40, 44, 28, 34, 42, 38, 24, 30, 36, 44, 28, 38, 46, 22, 32, 40].map((h, i) => (
-                              <span
-                                key={i}
-                                className={`w-1 rounded-full transition-all duration-200 ${
-                                  playingAudioId === m.id
-                                    ? 'bg-emerald-400 animate-pulse'
-                                    : 'bg-white/30'
-                                }`}
-                                style={{ height: `${h}px` }}
-                              />
-                            ))}
+                          {/* Forme d'onde animée */}
+                          <div className="flex items-center gap-1 h-6">
+                            {[24, 38, 18, 44, 28, 36, 48, 22, 34, 42, 30, 20, 46, 32, 26, 40, 36, 24, 44, 30].map(
+                              (h, idx) => (
+                                <span
+                                  key={idx}
+                                  className={`w-1 rounded-full transition-all duration-150 ${
+                                    playingAudioId === m.id ? 'bg-emerald-400 animate-pulse' : 'bg-white/40'
+                                  }`}
+                                  style={{ height: `${h}px` }}
+                                />
+                              )
+                            )}
                           </div>
                           <div className="flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-                            <span>0:45</span>
-                            <span className="text-emerald-400">Afro-pop acoustique</span>
+                            <span>
+                              {m.mediaDurationSec ? `0:${m.mediaDurationSec.toString().padStart(2, '0')}` : '0:33'}
+                            </span>
+                            <button
+                              onClick={togglePlaybackRate}
+                              className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[10px] font-bold"
+                            >
+                              {playbackRate}x
+                            </button>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Carte Paroles */}
-                  {m.isLyricsCard && m.lyricsData && (
-                    <div className="my-2 p-3.5 rounded-xl bg-black/40 border border-emerald-500/30 space-y-2.5">
-                      <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-emerald-400" />
-                          <span className="font-semibold text-white text-xs sm:text-sm">
-                            {m.lyricsData.title || 'Paroles Personnalisées Studio'}
-                          </span>
+                      {/* Mention vocale de procédure */}
+                      {m.isProcedureVoice && (
+                        <div className="text-[10px] text-emerald-300 font-mono pt-1 border-t border-white/[0.08]">
+                          Note vocale officielle de 33s (explication de la procédure studio)
                         </div>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-                          {m.lyricsData.lyrics ? `${m.lyricsData.lyrics.split('\n').filter(Boolean).length} vers` : '32-48 vers'}
-                        </span>
-                      </div>
-
-                      <div className="max-h-64 overflow-y-auto pr-1 text-xs text-neutral-300 whitespace-pre-line font-mono leading-relaxed bg-[#0E1015]/80 p-3 rounded-lg border border-white/[0.04]">
-                        {m.lyricsData.lyrics}
-                      </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Bloc Coordonnées de Paiement */}
+                  {/* Transcription Whisper pour les vocaux utilisateurs */}
+                  {m.mediaTranscript && (
+                    <details className="mt-1.5 text-xs text-neutral-300 bg-black/20 p-2 rounded-lg border border-white/[0.04]">
+                      <summary className="cursor-pointer text-emerald-300 font-mono text-[11px] hover:underline">
+                        Transcription Whisper VPS
+                      </summary>
+                      <p className="mt-1 text-neutral-200 font-sans italic">{m.mediaTranscript}</p>
+                    </details>
+                  )}
+
+                  {/* Bloc Coordonnées de Paiement Mobile Money */}
                   {m.isPaymentBlock && (
-                    <div className="my-2 p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 text-xs font-mono space-y-1">
-                      <div className="font-semibold text-emerald-300 flex items-center gap-1 text-[13px]">
-                        <CreditCard className="w-4 h-4" /> Coordonnées Mobile Money
+                    <div className="my-2 p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-emerald-200 text-xs font-mono space-y-1.5">
+                      <div className="font-semibold text-emerald-300 flex items-center gap-1.5 text-[13px]">
+                        <CreditCard className="w-4 h-4" /> Coordonnées Officielles
                       </div>
-                      <p className="whitespace-pre-line text-neutral-200 font-sans text-xs pt-1">
-                        {m.content}
-                      </p>
+                      <p className="whitespace-pre-line text-neutral-200 font-sans text-xs pt-1">{m.content}</p>
                     </div>
                   )}
 
-                  {/* Texte de la bulle */}
-                  {!m.isLyricsCard && !m.isPaymentBlock && (
+                  {/* Texte classique */}
+                  {!m.isPaymentBlock && !m.mediaTranscript && (
                     <p className="whitespace-pre-wrap">{m.content}</p>
                   )}
 
-                  {/* Horodatage & Statut */}
+                  {/* Horodatage & Statut d'envoi */}
                   <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-neutral-400 font-mono">
                     <span>{m.timestamp}</span>
                     {m.role === 'user' && (
                       <span className="inline-flex items-center ml-0.5">
                         {m.status === 'read' ? (
-                          <span className="text-[#53bdeb]">✓✓</span>
+                          <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
                         ) : m.status === 'delivered' ? (
-                          <span className="text-neutral-400">✓✓</span>
+                          <CheckCheck className="w-3.5 h-3.5 text-neutral-400" />
                         ) : (
-                          <span className="text-neutral-400">✓</span>
+                          <Check className="w-3.5 h-3.5 text-neutral-400" />
                         )}
                       </span>
                     )}
@@ -1337,23 +954,27 @@ export const PlaygroundView: FC = () => {
               </div>
             ))}
 
-            {/* Bulle de saisie en cours de l'agent */}
+            {/* Bulle de présence en direct de l'agent */}
             {aiPresenceState !== 'idle' && (
               <div className="flex justify-start">
                 <div className="rounded-2xl px-4 py-2.5 bg-[#202c33] text-[#e9edef] border border-white/[0.06] rounded-tl-xs flex items-center gap-2 text-xs">
                   {aiPresenceState === 'recording_audio' ? (
                     <>
                       <Mic className="w-3.5 h-3.5 text-emerald-400 animate-bounce" />
-                      <span className="text-emerald-400 font-medium font-mono">{config.agentName} enregistre un message vocal…</span>
+                      <span className="text-emerald-400 font-medium font-mono">
+                        {config.agentName} enregistre un message vocal…
+                      </span>
                     </>
                   ) : (
                     <>
-                      <div className="flex gap-1 py-1">
+                      <span className="inline-flex gap-1 items-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse [animation-delay:200ms]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse [animation-delay:400ms]" />
-                      </div>
-                      <span className="text-neutral-300 font-mono">{config.agentName} est en train d’écrire…</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse delay-100" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse delay-200" />
+                      </span>
+                      <span className="text-neutral-300 font-mono text-[11px]">
+                        {config.agentName} est en train d’écrire…
+                      </span>
                     </>
                   )}
                 </div>
@@ -1361,510 +982,441 @@ export const PlaygroundView: FC = () => {
             )}
           </div>
 
-          {/* Bandeau Rafale Active */}
+          {/* ── BARRE DE RAFALE EN COURS (Visual Debounce) ── */}
           {burstQueue.length > 0 && (
-            <div className="px-4 py-1.5 bg-[#182229] border-t border-white/[0.06] flex items-center justify-between text-xs text-emerald-400 shrink-0">
-              <span className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                <span>Rafale en cours ({burstQueue.length} message{burstQueue.length > 1 ? 's' : ''}) — {config.agentName} temporise la lecture (1.8s)…</span>
-              </span>
-              <span className="text-[10px] font-mono text-neutral-400">burst-active</span>
+            <div className="h-10 bg-[#182229] border-t border-emerald-500/30 px-4 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
+              <div className="flex items-center gap-2 text-emerald-400 font-mono">
+                <Clock className="w-3.5 h-3.5 animate-spin" />
+                <span>
+                  Rafale active ({burstQueue.length} msg) : attente {burstSecondsLeft}s…
+                </span>
+              </div>
+              <button
+                onClick={forceFlushNow}
+                className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-[11px] flex items-center gap-1 transition-colors"
+              >
+                Envoyer de suite <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
           )}
 
-          {/* Raccourcis Rapides de Test */}
-          <div className="px-3 py-2 bg-[#182229] border-t border-white/[0.06] flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
-            <span className="text-[11px] font-medium text-neutral-400 shrink-0">Scénarios rapides :</span>
-            {QUICK_TEST_SHORTCUTS.map((sc, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleInboundUserText(sc.text)}
-                disabled={isAiThinking}
-                className="h-7 text-xs px-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-neutral-200 border border-white/[0.06] rounded-lg shrink-0 transition-colors cursor-pointer disabled:opacity-40"
-              >
-                {sc.label}
-              </button>
-            ))}
+          {/* ── BARRE INFÉRIEURE : Saisie, Micro PTT & Trombone ── */}
+          <div className="p-3 bg-[#202c33] border-t border-black/20 flex items-center gap-2 shrink-0">
+            {/* Input fichier caché */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelected}
+              className="hidden"
+            />
 
+            {/* Bouton Trombone / Pièces jointes */}
             <button
-              type="button"
-              onClick={handleSendPaymentSlipImage}
-              disabled={isAiThinking}
-              className="h-7 text-xs px-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg shrink-0 flex items-center gap-1 cursor-pointer disabled:opacity-40"
+              onClick={() => setIsAttachModalOpen(true)}
+              className="p-2.5 rounded-full text-[#8696a0] hover:text-white hover:bg-white/[0.06] transition-colors"
+              title="Joindre une photo ou un reçu de paiement"
             >
-              <Paperclip className="w-3 h-3" />
-              <span>Joindre reçu</span>
+              <Paperclip className="w-5 h-5" />
             </button>
-          </div>
 
-          {/* Barre de Saisie WhatsApp */}
-          <div className="border-t border-white/[0.08] p-3 bg-[#202c33] flex items-center gap-2 shrink-0">
-            {isRecording ? (
-              <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 px-4 py-2.5 rounded-xl flex-1 text-xs text-red-400">
-                <span className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
-                <span>Enregistrement de votre note vocale ({recordSeconds}s)…</span>
-                <button
-                  type="button"
-                  onClick={stopRecording}
-                  className="h-8 ml-auto px-3 rounded-lg bg-red-500 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer hover:bg-red-600"
-                >
-                  <Square className="w-3.5 h-3.5 fill-current" /> Terminer & Envoyer
-                </button>
-              </div>
+            {/* Champ texte principal */}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder={isRecording ? 'Enregistrement en cours…' : 'Écrire un message…'}
+                disabled={isRecording || isAiThinking}
+                className="w-full h-11 px-4 rounded-xl bg-[#2a3942] border border-transparent focus:border-emerald-500/40 text-sm text-[#e9edef] placeholder-[#8696a0] focus:outline-none transition-all font-sans"
+              />
+            </div>
+
+            {/* Bouton Micro PTT ou Envoi */}
+            {input.trim() ? (
+              <button
+                onClick={handleSendMessage}
+                disabled={isAiThinking}
+                className="w-11 h-11 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center shrink-0 transition-transform active:scale-95 shadow-md"
+              >
+                <Send className="w-5 h-5 ml-0.5 fill-current" />
+              </button>
+            ) : isRecording ? (
+              <button
+                onClick={stopRecording}
+                className="h-11 px-4 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center gap-2 shrink-0 animate-pulse shadow-lg"
+              >
+                <Square className="w-4 h-4 fill-current" />
+                <span className="font-mono text-xs font-bold">0:{recordSeconds.toString().padStart(2, '0')}</span>
+              </button>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={startRecording}
-                  disabled={isAiThinking}
-                  title="Enregistrer une vraie note vocale au micro"
-                  className="h-11 w-11 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer shrink-0"
-                >
-                  <Mic className="w-5 h-5 text-emerald-400" />
-                </button>
-
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="Écrivez un message (Appuyez sur Entrée pour tester la rafale)…"
-                  className="flex-1 h-11 px-4 rounded-xl bg-[#2a3942] border border-white/[0.06] text-[14px] text-white placeholder:text-neutral-400 focus:outline-none focus:border-emerald-500/50"
-                  disabled={isAiThinking}
-                />
-
-                <button
-                  type="button"
-                  onClick={handleSendMessage}
-                  disabled={isAiThinking || !input.trim()}
-                  className="h-11 px-5 rounded-xl bg-[#00a884] hover:bg-[#008f6f] text-white text-sm font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-40 transition-colors shrink-0 shadow-md"
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="hidden sm:inline">Envoyer</span>
-                </button>
-              </>
+              <button
+                onClick={startRecording}
+                disabled={isAiThinking || isTranscribing}
+                className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 ${
+                  isTranscribing
+                    ? 'bg-neutral-700 text-neutral-400 cursor-wait'
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30'
+                }`}
+                title="Enregistrer une vraie note vocale (Whisper VPS)"
+              >
+                <Mic className="w-5 h-5" />
+              </button>
             )}
           </div>
         </div>
 
-        {/* Volet Latéral : Inspecteur Cerveau Studio & Configuration Prompt */}
+        {/* ── COLONNE DROITE : Le Cockpit Diagnostic & FSM ── */}
         {inspectorOpen && (
-          <div className="lg:col-span-5 xl:col-span-5 flex flex-col space-y-3 overflow-y-auto pr-1">
-            {/* Barre d'onglets de configuration */}
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-2 flex items-center gap-1 text-xs shrink-0">
-              <button
-                type="button"
-                onClick={() => setInspectorTab('prompt')}
-                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
-                  inspectorTab === 'prompt'
-                    ? 'bg-white text-black font-semibold shadow-sm'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Prompt Système</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setInspectorTab('engine')}
-                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
-                  inspectorTab === 'engine'
-                    ? 'bg-white text-black font-semibold shadow-sm'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                <Cpu className="w-3.5 h-3.5" />
-                <span>Moteur & Clé</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setInspectorTab('tariffs')}
-                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
-                  inspectorTab === 'tariffs'
-                    ? 'bg-white text-black font-semibold shadow-sm'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Offres</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setInspectorTab('context')}
-                className={`flex-1 py-2 px-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
-                  inspectorTab === 'context'
-                    ? 'bg-white text-black font-semibold shadow-sm'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Mémoire</span>
-              </button>
+          <div className="w-80 lg:w-96 border-l border-white/[0.08] bg-[#08090C] flex flex-col shrink-0 overflow-hidden">
+            {/* Navigation des Onglets Cockpit */}
+            <div className="h-12 border-b border-white/[0.08] bg-[#0E1015] px-3 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setInspectorTab('fsm')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                    inspectorTab === 'fsm'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <Cpu className="w-3.5 h-3.5" /> FSM & Brief
+                </button>
+                <button
+                  onClick={() => setInspectorTab('tariffs')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                    inspectorTab === 'tariffs'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <CreditCard className="w-3.5 h-3.5" /> Tarifs
+                </button>
+                <button
+                  onClick={() => setInspectorTab('log')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                    inspectorTab === 'log'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" /> Journal
+                </button>
+              </div>
             </div>
 
-            {/* Onglet 1 : Éditeur de Prompt Système */}
-            {inspectorTab === 'prompt' && (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3 flex-1 flex flex-col min-h-[460px]">
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                  <div>
-                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-emerald-400" /> Prompt Système de l'Agent IA
+            {/* Contenu du Volet */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+              {/* ── ONGLET 1 : FSM & Les 4 Invariants ── */}
+              {inspectorTab === 'fsm' && (
+                <div className="space-y-4">
+                  {/* Badge Étape FSM Courante */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
+                    <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
+                      Étape Machine à États (FSM)
                     </span>
-                    <p className="text-[11px] text-neutral-400 mt-0.5">
-                      Éditez librement ce prompt. L'agent obéira exactement à vos instructions.
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                    {promptDraft.length} caractères
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <label className="text-[11px] text-neutral-400 block mb-1">Nom de l'agent :</label>
-                    <input
-                      type="text"
-                      value={config.agentName}
-                      onChange={(e) => handleSaveConfig({ ...config, agentName: e.target.value })}
-                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50"
-                      placeholder="Ex: Nom de l'agent..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-neutral-400 block mb-1">Studio :</label>
-                    <input
-                      type="text"
-                      value={config.studioName}
-                      onChange={(e) => handleSaveConfig({ ...config, studioName: e.target.value })}
-                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50"
-                      placeholder="Ex: Nom du studio..."
-                    />
-                  </div>
-                </div>
-
-                <div className="flex-1 flex flex-col min-h-[260px]">
-                  <label className="text-[11px] text-neutral-400 block mb-1">Consignes & Directives du Prompt :</label>
-                  <textarea
-                    value={promptDraft}
-                    onChange={(e) => setPromptDraft(e.target.value)}
-                    placeholder="Écrivez le prompt système de votre agent ici..."
-                    className="flex-1 w-full p-3 rounded-xl bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono leading-relaxed focus:outline-none focus:border-emerald-500/50 resize-y min-h-[220px]"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/[0.06]">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPromptDraft('');
-                        handleSaveConfig({ ...config, systemPrompt: '' });
-                      }}
-                      title="Effacer le prompt (Page blanche)"
-                      className="h-8 px-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/20 text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>Page blanche</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPromptDraft(VELARIS_CLOSING_PROMPT_TEMPLATE);
-                        handleSaveConfig({ ...config, systemPrompt: VELARIS_CLOSING_PROMPT_TEMPLATE });
-                      }}
-                      title="Charger le modèle d'excellence Velaris (3 Piliers & Closing)"
-                      className="h-8 px-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Modèle Velaris (3 Piliers)</span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSaveConfig({ ...config, systemPrompt: promptDraft })}
-                    className="h-8 px-3.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
-                  >
-                    {saveFeedback ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" /> Enregistré !
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-3.5 h-3.5" /> Sauvegarder
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Onglet 2 : Moteur IA & Clé API */}
-            {inspectorTab === 'engine' && (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-4">
-                <div className="border-b border-white/[0.08] pb-2">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-sky-400" /> Moteur d'Exécution & LLM
-                  </span>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">
-                    Sélectionnez le fournisseur d'IA ou testez sans clé avec le moteur libre local.
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="text-[11px] text-neutral-400 block mb-1">Fournisseur d'IA :</label>
-                    <select
-                      value={config.provider}
-                      onChange={(e) => {
-                        const prov = e.target.value as any;
-                        let defModel = 'deepseek-flash';
-                        if (prov === 'deepseek') defModel = 'deepseek-flash';
-                        if (prov === 'local_agy') defModel = 'gemini-3.8-flash-low';
-                        if (prov === 'gemini') defModel = 'gemini-1.5-flash';
-                        if (prov === 'openai') defModel = 'gpt-4o-mini';
-                        handleSaveConfig({ ...config, provider: prov, model: defModel });
-                      }}
-                      className="w-full h-9 px-3 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 cursor-pointer"
-                    >
-                      <option value="deepseek">DeepSeek (API deepseek-flash / V4 Flash — Cache actif)</option>
-                      <option value="local_agy">Daemon Local 0€ (Gemini Flash Résident - Illimité)</option>
-                      <option value="gemini">Google Gemini (gemini-1.5-flash / gemini-2.0-flash)</option>
-                      <option value="openai">OpenAI (gpt-4o-mini)</option>
-                    </select>
-                  </div>
-
-                  {config.provider === 'local_agy' ? (
-                    <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[11px] font-semibold text-emerald-400">Daemon Résident Velaris (Port 4041)</span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-300 ml-auto">0€ Illimité</span>
-                      </div>
-                      <p className="text-[11px] text-neutral-300 leading-relaxed">
-                        Inférence instantanée via le moteur résident <span className="font-mono text-emerald-300">gemini-3.8-flash-low</span>. Aucune clé API payante requise, session persistante et zéro risque de coupure de solde.
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-bold text-emerald-400">{fsmState.stage}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                        Déterministe
+                      </span>
                     </div>
-                  ) : (
-                    <>
+                  </div>
+
+                  {/* Checklist des 4 Invariants */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2.5">
+                    <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
+                      <span className="font-semibold text-white flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Les 4 Invariants du Brief
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-400">
+                        {
+                          Object.values(fsmState.pillars).filter(Boolean).length
+                        }
+                        /4 Validés
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* 1. Destinataire */}
+                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-neutral-400 block">1. Personne à célébrer</span>
+                          <span className="font-medium text-white">
+                            {fsmState.pillars.recipientName || (
+                              <span className="text-amber-400/80 italic font-mono text-[11px]">En attente…</span>
+                            )}
+                          </span>
+                        </div>
+                        {fsmState.pillars.recipientName ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                        )}
+                      </div>
+
+                      {/* 2. Occasion / Date */}
+                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-neutral-400 block">2. Occasion / Date</span>
+                          <span className="font-medium text-white">
+                            {fsmState.pillars.occasion || (
+                              <span className="text-amber-400/80 italic font-mono text-[11px]">En attente…</span>
+                            )}
+                          </span>
+                        </div>
+                        {fsmState.pillars.occasion ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                        )}
+                      </div>
+
+                      {/* 3. Expéditeur */}
+                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-neutral-400 block">3. Expéditeur</span>
+                          <span className="font-medium text-white">
+                            {fsmState.pillars.senderName || (
+                              <span className="text-amber-400/80 italic font-mono text-[11px]">En attente…</span>
+                            )}
+                          </span>
+                        </div>
+                        {fsmState.pillars.senderName ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                        )}
+                      </div>
+
+                      {/* 4. Histoire / Anecdotes */}
+                      <div className="p-2 rounded-lg bg-black/40 border border-white/[0.04] flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-neutral-400 block">4. Anecdotes / Paroles</span>
+                          <span className="font-medium text-white truncate max-w-[170px] block">
+                            {fsmState.pillars.storyAndMemories || (
+                              <span className="text-amber-400/80 italic font-mono text-[11px]">En attente…</span>
+                            )}
+                          </span>
+                        </div>
+                        {fsmState.pillars.storyAndMemories ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Verrous d'Unicité Matériels */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
+                    <span className="font-semibold text-white flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-400" /> Verrous d'Unicité (Anti-Spam)
+                    </span>
+
+                    <div className="space-y-1.5 font-mono text-[11px]">
+                      <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                        <span className="text-neutral-400">Vocal 1 (Cadrage d'accueil) :</span>
+                        <span className={fsmState.locks.vocal1Sent ? 'text-emerald-400 font-bold' : 'text-neutral-500'}>
+                          {fsmState.locks.vocal1Sent ? 'Délivré' : 'En attente'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
+                        <span className="text-neutral-400">Vocal 2 (Procédure 33s) :</span>
+                        <span className={fsmState.locks.vocal2Sent ? 'text-emerald-400 font-bold' : 'text-neutral-500'}>
+                          {fsmState.locks.vocal2Sent ? 'Verrouillé' : 'En attente 4/4'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <span className="text-neutral-400">Vidéo Sample Démo :</span>
+                        <span className={fsmState.locks.videoSampleSent ? 'text-emerald-400 font-bold' : 'text-neutral-500'}>
+                          {fsmState.locks.videoSampleSent ? 'Envoyé' : 'Non demandé'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Paramètres Client du Test */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-white">Ligne Client du Test</span>
+                      <span className="text-[11px] font-mono text-emerald-400">{clientPhone}</span>
+                    </div>
+                    <div className="text-[11px] text-neutral-300 font-medium pb-1 border-b border-white/[0.04]">
+                      {clientName}
+                    </div>
+                    <div className="space-y-2">
                       <div>
-                        <label className="text-[11px] text-neutral-400 block mb-1">Nom du Modèle :</label>
-                        <input
-                          type="text"
-                          value={config.model}
-                          onChange={(e) => handleSaveConfig({ ...config, model: e.target.value })}
-                          className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 font-mono"
-                          placeholder="Ex: deepseek-chat, gemini-1.5-flash..."
-                        />
+                        <label className="text-[10px] text-neutral-400 block mb-1">Pays / Indicatif</label>
+                        <select
+                          value={countryCode}
+                          onChange={(e) => handleCountryChange(e.target.value as any)}
+                          className="w-full bg-[#111b21] border border-white/[0.08] text-xs text-white rounded-lg p-2 focus:outline-none"
+                        >
+                          <option value="BF">🇧🇫 Burkina Faso (+226 Orange Money)</option>
+                          <option value="CI">🇨🇮 Côte d’Ivoire (+225 Wave)</option>
+                          <option value="SN">🇸🇳 Sénégal (+221 Wave)</option>
+                          <option value="OTHER">🌍 International / Diaspora (Chariow)</option>
+                        </select>
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-neutral-400 block mb-1">Clé d'API {config.provider} :</label>
-                        <div className="relative">
-                          <input
-                            type={showApiKey ? 'text' : 'password'}
-                            value={config.apiKey}
-                            onChange={(e) => handleSaveConfig({ ...config, apiKey: e.target.value })}
-                            className="w-full h-8 pl-2.5 pr-8 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs focus:outline-none focus:border-emerald-500/50 font-mono"
-                            placeholder="sk-..."
-                          />
+                        <label className="text-[10px] text-neutral-400 block mb-1">Profil Client</label>
+                        <div className="grid grid-cols-2 gap-1.5">
                           <button
-                            type="button"
-                            onClick={() => setShowApiKey(!showApiKey)}
-                            className="absolute right-2 top-2 text-neutral-400 hover:text-white cursor-pointer"
+                            onClick={() => handleProfileChange('new')}
+                            className={`p-2 rounded-lg text-xs font-semibold border ${
+                              clientProfile === 'new'
+                                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                                : 'bg-black/30 border-white/[0.06] text-neutral-400'
+                            }`}
                           >
-                            {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            Nouveau Client
+                          </button>
+                          <button
+                            onClick={() => handleProfileChange('returning')}
+                            className={`p-2 rounded-lg text-xs font-semibold border ${
+                              clientProfile === 'returning'
+                                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                : 'bg-black/30 border-white/[0.06] text-neutral-400'
+                            }`}
+                          >
+                            Ancien Client 😊
                           </button>
                         </div>
-                        <p className="text-[10px] text-neutral-500 mt-1">
-                          Votre clé reste stockée localement dans votre navigateur et n'est jamais partagée.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── ONGLET 2 : Tarifs & Coordonnées ── */}
+              {inspectorTab === 'tariffs' && (
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-3">
+                    <span className="font-semibold text-white">Grille Tarifaire Velaris</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.06]">
+                        <span className="text-[10px] text-neutral-400 block">Formule Découverte</span>
+                        <span className="text-sm font-bold text-emerald-400 font-mono">1 200 F CFA</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5">2 versions audio HD</span>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.06]">
+                        <span className="text-[10px] text-neutral-400 block">Formule Prestige</span>
+                        <span className="text-sm font-bold text-emerald-400 font-mono">3 000 F CFA</span>
+                        <span className="text-[10px] text-neutral-400 block mt-0.5">Audio + Montage Vidéo</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-3">
+                    <span className="font-semibold text-white">Coordonnées Mobile Money</span>
+                    <div className="space-y-2">
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.06] space-y-1">
+                        <span className="text-[10px] text-emerald-400 font-semibold uppercase">
+                          🇧🇫 Orange Money Burkina
+                        </span>
+                        <p className="text-xs text-white font-mono">{config.payment.orangeMoneyBf}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.06] space-y-1">
+                        <span className="text-[10px] text-sky-400 font-semibold uppercase">🇨🇮 Wave Côte d’Ivoire</span>
+                        <p className="text-xs text-white font-mono">{config.payment.waveCi}</p>
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-black/40 border border-white/[0.06] space-y-1">
+                        <span className="text-[10px] text-amber-400 font-semibold uppercase">
+                          🌍 Chariow (International)
+                        </span>
+                        <p className="text-[11px] text-neutral-300 font-mono break-all">
+                          https://chansons-perso.mychariow.shop/digital-starter/checkout
                         </p>
                       </div>
-                    </>
-                  )}
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] text-neutral-400">Température créative :</span>
-                      <span className="text-[11px] font-mono text-emerald-400">{config.temperature}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={config.temperature}
-                      onChange={(e) => handleSaveConfig({ ...config, temperature: parseFloat(e.target.value) })}
-                      className="w-full accent-emerald-400 cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Onglet 3 : Tarifs & Paiements Mobile Money */}
-            {inspectorTab === 'tariffs' && (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-4">
-                <div className="border-b border-white/[0.08] pb-2">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-amber-400" /> Tarifs & Coordonnées Mobile Money
-                  </span>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">
-                    Ces montants et coordonnées sont transmis à l'agent pour ses réponses commerciales.
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] text-neutral-400 block mb-1">Tarif Découverte (F CFA) :</label>
-                      <input
-                        type="text"
-                        value={config.tariffs.decouvertePrice}
-                        onChange={(e) =>
-                          handleSaveConfig({
-                            ...config,
-                            tariffs: { ...config.tariffs, decouvertePrice: e.target.value },
-                          })
-                        }
-                        className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] text-neutral-400 block mb-1">Tarif Prestige (F CFA) :</label>
-                      <input
-                        type="text"
-                        value={config.tariffs.prestigePrice}
-                        onChange={(e) =>
-                          handleSaveConfig({
-                            ...config,
-                            tariffs: { ...config.tariffs, prestigePrice: e.target.value },
-                          })
-                        }
-                        className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
-                      />
                     </div>
                   </div>
-
-                  <div>
-                    <label className="text-[11px] text-neutral-400 block mb-1">Orange Money (Burkina Faso) :</label>
-                    <input
-                      type="text"
-                      value={config.payment.orangeMoneyBf}
-                      onChange={(e) =>
-                        handleSaveConfig({
-                          ...config,
-                          payment: { ...config.payment, orangeMoneyBf: e.target.value },
-                        })
-                      }
-                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-neutral-400 block mb-1">Wave (Côte d'Ivoire) :</label>
-                    <input
-                      type="text"
-                      value={config.payment.waveCi}
-                      onChange={(e) =>
-                        handleSaveConfig({
-                          ...config,
-                          payment: { ...config.payment, waveCi: e.target.value },
-                        })
-                      }
-                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-neutral-400 block mb-1">Nom du titulaire :</label>
-                    <input
-                      type="text"
-                      value={config.payment.accountHolder}
-                      onChange={(e) =>
-                        handleSaveConfig({
-                          ...config,
-                          payment: { ...config.payment, accountHolder: e.target.value },
-                        })
-                      }
-                      className="w-full h-8 px-2.5 rounded-lg bg-[#08090C] border border-white/[0.08] text-white text-xs"
-                    />
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Onglet 4 : Mémoire & Contexte */}
-            {inspectorTab === 'context' && (
-              <div className="rounded-2xl border border-white/[0.08] bg-[#0E1015] p-4 shadow-lg space-y-3">
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
-                  <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-400" /> Éléments Extraits de la Conversation
-                  </span>
-                  <span className="text-[11px] font-mono text-neutral-400">Zéro règle bloquante</span>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                    <span className="text-neutral-400">Destinataire capté :</span>
-                    <span className="font-semibold text-white">{detectedRecipient || <span className="text-neutral-500 italic">Non précisé</span>}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                    <span className="text-neutral-400">Occasion :</span>
-                    <span className="font-medium text-emerald-400">{detectedOccasionStr || <span className="text-neutral-500 italic">Non définie</span>}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                    <span className="text-neutral-400">Client / Téléphone :</span>
-                    <span className="font-medium text-white">{clientName} · <span className="text-neutral-400 font-mono text-[11px]">{clientPhone}</span></span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                    <span className="text-neutral-400">Profil CRM :</span>
-                    <span className={`font-semibold ${clientProfile === 'returning' ? 'text-amber-400' : 'text-neutral-300'}`}>
-                      {clientProfile === 'returning' ? 'Client Fidèle (Habitué)' : 'Nouveau Prospect'}
-                    </span>
-                  </div>
-                  {currentSongTitle && (
-                    <div className="flex items-center justify-between py-1 border-b border-white/[0.04]">
-                      <span className="text-neutral-400">Titre composé :</span>
-                      <span className="font-semibold text-emerald-400 truncate max-w-[190px]">{currentSongTitle}</span>
+              {/* ── ONGLET 3 : Journal des Décisions & Whisper ── */}
+              {inspectorTab === 'log' && (
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-white">Journal du Banc d'Essai</span>
+                      <span className="text-[11px] font-mono text-emerald-400">{latencyMs} ms</span>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-neutral-400">Latence dernier tour :</span>
-                    <span className="font-mono text-emerald-400">{latencyMs} ms</span>
+
+                    {merchantAlerts.length === 0 ? (
+                      <p className="text-neutral-500 italic text-[11px]">Aucun événement pour l'instant.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {merchantAlerts.map((alt, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2 rounded-lg bg-black/40 border border-white/[0.06] font-mono text-[11px] text-neutral-300 leading-relaxed"
+                          >
+                            {alt}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Notifications Marchand */}
-                <div className="pt-2 border-t border-white/[0.06] space-y-2">
-                  <span className="text-[11px] font-semibold text-neutral-300 block">Journal d'événements du tour :</span>
-                  {merchantAlerts.length === 0 ? (
-                    <p className="text-[11px] text-neutral-500 italic">Aucun événement particulier enregistré.</p>
-                  ) : (
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                      {merchantAlerts.map((alt, idx) => (
-                        <div key={idx} className="bg-white/[0.03] border border-white/[0.06] p-2 rounded-lg text-[11px] text-neutral-300">
-                          {alt}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>
+
+      {/* ── MODALE PIÈCES JOINTES (Photos & Reçus) ── */}
+      {isAttachModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[#0E1015] border border-white/[0.08] p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <span className="font-semibold text-sm text-white">Envoyer une pièce jointe</span>
+              <button
+                onClick={() => setIsAttachModalOpen(false)}
+                className="text-neutral-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              <button
+                onClick={() => {
+                  setPendingAttachType('photo');
+                  fileInputRef.current?.click();
+                }}
+                className="w-full p-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center gap-3 text-left transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-medium text-white block">Photos souvenirs</span>
+                  <span className="text-[11px] text-neutral-400">Pour le montage vidéo à 3 000 F</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setPendingAttachType('receipt');
+                  fileInputRef.current?.click();
+                }}
+                className="w-full p-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] flex items-center gap-3 text-left transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-medium text-white block">Reçu de paiement</span>
+                  <span className="text-[11px] text-neutral-400">Capture d'écran Wave ou Orange Money</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

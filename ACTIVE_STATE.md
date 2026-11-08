@@ -25,8 +25,31 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Octobre 2026 (15:55 UTC)
-- **Statut Opérationnel** : **Jalon 125 Validé — Pack Officiel Multi-Format Base de Connaissances & Mémoire des 709 Anciens Clients (/root/clients_knowledge_base/)** :
+- **Dernière mise à jour** : 8 Novembre 2026 (23:30 UTC)
+- **Statut Opérationnel** : **Jalon 132 Validé — Plateforme Banc d'Essai & Simulateur WhatsApp Réel (Micro Whisper VPS, Débrayage Rafales, Lecteur Audio OGG/Opus 33s, Échantillon Vidéo MP4 & FSM Déterministe)** :
+  1. **Interface Client & Mobile Authentique WhatsApp (Mode Sombre #0b141a)** :
+     - Reproduction exacte de WhatsApp : double coche grise puis bleue (`#53bdeb`), indicateurs de présence dynamiques (`en train d'écrire...` et `enregistre un audio...`), délais de saisie calculés.
+     - Gestion déterministe des rafales de messages (Debounce 3.5s avec compte à rebours visuel et bouton d'envoi forcé).
+     - Support complet des pièces jointes : photos pour montage vidéo (formule 3 000 F) et reçus de transfert Wave/Orange Money.
+  2. **Micro PTT Réel & Transcription Whisper VPS** :
+     - Enregistrement microphone réel dans le navigateur (`navigator.mediaDevices.getUserMedia`) converti en WebM/OGG.
+     - Transcription instantanée via l'API Whisper VPS (`https://waha.velarisagent.life/api/stt/transcribe`) avec badge rétractable et injection directe dans le brief.
+  3. **Moteur FSM Déterministe & Protocole Officiel des 2 Vocaux** :
+     - Vocal 1 : Accueil et cadrage global en début de conversation (évite les interrogatoires au compte-gouttes).
+     - Extraction temps réel des 4 Invariants (Destinataire, Occasion/Date, Expéditeur, Âme des paroles/Anecdotes).
+     - Vocal 2 : Note vocale officielle de 33 secondes ([`procedure_voice.ogg`](file:///root/projets/velaris/public/assets/procedure_voice.ogg)) envoyée automatiquement dès brief complet (verrouillée anti-répétition).
+     - Échantillon vidéo réel ([`montage_sample.mp4`](file:///root/projets/velaris/public/assets/montage_sample.mp4)) transmis lors de toute demande de démo vidéo avec pont conversationnel.
+     - Coordonnées de paiement adaptées par pays (Orange Money BF +226, Wave CI +225, Diaspora Chariow).
+  4. **Cockpit Diagnostic & Déploiement HTTPS Téléphone** :
+     - Volet latéral d'inspection en direct : état FSM, checklist des 4 invariants, verrous d'unicité et mode "Prise de main humaine" (`fromMe` silencieux).
+     - Déployé en direct sur le VPS avec certificat SSL : `https://waha.velarisagent.life/qr/simulateur/index.html` (accès rapide via `https://waha.velarisagent.life/qr/play.html`).
+- **Jalon Précédent Validé** : **Jalon 131 Validé — Moteur V4 « WALLPAPER PUR & SCINTILLEMENTS MAGIQUES » (Zéro Filtre Décolorant + Étoiles Glints)** :
+- **Jalon Précédent Validé** : **Jalon 130 — Moteur V3 « MASTERPIECE CINÉMA » 60 FPS (Light Leaks + Onde Sonore Dorée + Intro Dédicace Royale)** :
+- **Jalon Précédent Validé** : **Jalon 129 — Moteur V2 WHAOU : Vraie Neige 3D Profondeur de Champ & Défilement Cinématique 3 Niveaux Centré** :
+- **Jalon Précédent Validé** : **Jalon 128 — Moteur Vidéo Lyrics Wallpaper Pinterest avec Effet Neige / Particules & Sélecteur d'Occasions** :
+- **Jalon Précédent Validé** : **Jalon 127 — Moteur d'Incrustation Paroles « WHAOU » Opérationnel sur Vidéos Réelles & Campagne 54 Contacts Livrés** :
+- **Jalon Précédent Validé** : **Jalon 126 — Connexion Directe WhatsApp Baileys (+226 56 24 05 33), Campagne Relance 1 200 FCFA & Moteur Vidéo Lyrics Opérationnel** :
+- **Jalon Précédent Validé** : **Jalon 125 — Pack Officiel Multi-Format Base de Connaissances & Mémoire des 709 Anciens Clients (/root/clients_knowledge_base/)** :
   1. **Consolidation Complète & Vérifiée de la Base Réelle** :
      - 709 contacts authentiques extraits de la base de production PostgreSQL Supabase active (`dnwlqgsftauqsyjwhoza`).
      - 486 anciens clients / habitués confirmés (dont 52 VIP multi-commandes et 372 ayant reçu leur chanson livrée).
@@ -1891,3 +1914,61 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 ### 2. Socle Frontend Studio OS Déployé (30 Septembre 2026)
 - Initialisation React + TypeScript + Tailwind CSS dans `/root/projets/velaris`.
+
+## Milestone 20 : Vidéo Lyrics Complète Miadzin (Drive Réel)
+- Fichier source Drive : `https://drive.google.com/drive/folders/1ofIhJUQ6qba5M2TL78sWfaa1hAaL-5eJ`
+- Chanson extraite : `Document de Digital Starter miazin` (ID Suno: `b4c1e57a-43b8-491b-b97d-f008cceacdfe`, 3m24s / 203.68s)
+- Titre : **MIADZIN — LE VILLAGE OÙ LA VIE NOUS SOURIT** (Par Eminem)
+- Paroles complètes : `/root/montage_client/paroles_miadzin.txt` (Intro, Couplet 1, Refrain, Couplet 2, Pont, Refrain Final, Outro)
+- Rendu vertical 9:16 (720x1280) avec wallpaper sombre luxe Pinterest et animation de chute de pétales de roses 3D réalistes
+- Système de sous-titres : Style Apple Music 3 tiers (Ligne passée, Ligne active dorée/blanche lumineuse, Ligne suivante estompée)
+- Fichier final disponible sur le téléphone : `/sdcard/Download/video_lyrics_miadzin_complet.mp4` (69.7 Mo, 3m24s)
+
+## Milestone 21 : Automatisations WhatsApp Déclenchées par Réactions Emoji Activées
+- Serveur : `/root/wa-pairing/server.js` (Baileys v6, écoute live + serveur local port 4000)
+- Numéro connecté : `+226 56 24 05 33` (`Digital Starter`)
+- Mode de fonctionnement : Dès que le propriétaire réagit à un message client avec l'un des 9 emojis, l'action est expédiée instantanément dans la discussion WhatsApp.
+- Grille des 9 déclencheurs configurée et active :
+  1. `😊` : Message texte d'accueil Djelia
+  2. `✨` : Présentation des offres (1 200 F / 3 500 F)
+  3. `🙏` : Coordonnées Orange Money BF (+226 56240533)
+  4. `💢` : Coordonnées Wave CI (+225 0759600590)
+  5. `🥰` : Demande d'avis Facebook
+  6. `✍️` : Message de validation ferme des paroles
+  7. `☺️` : Note vocale PTT de prise de commande (`AUD-20261021-WA0007.opus`)
+  8. `🎥` : Vidéo démo officielle (`324048.mp4`)
+  9. `🎵` : Note vocale PTT explicative de procédure (`AUD-20261026-WA0046.opus`)
+
+## Milestone 22 : Blindage & Haute Disponibilité PM2 du Bot WhatsApp Réactions
+- Supervision : PM2 Daemon (`djelia-wa-bot`) avec démarrage automatique au boot (`/etc/init.d/pm2-root`)
+- Fichier écosystème : `/root/wa-pairing/ecosystem.config.js`
+- Bouclier anti-crash : Interception globale `uncaughtException` et `unhandledRejection`
+- Reconnexion avec backoff exponentiel plafonné à 30s en cas de coupure réseau
+- Watchdog interne actif : Ping WebSocket toutes les 60s si inactivité > 10 min
+- Plafond mémoire dynamique : Redémarrage automatique si mémoire > 350 Mo
+- Journalisation permanente horodatée : `/root/wa-pairing/logs/out.log` et `/root/wa-pairing/logs/err.log`
+
+## Milestone 23 : Bot Telegram Opérationnel Djelia Ops Commander Déployé
+- Bot Telegram : `@Djelia_bot` (Token: `9215267150:AAFGpysUQXMmQFfqBtTrRNx8YDBI4S9z924`)
+- Emplacement : `/root/djelia-telegram-ops/bot.js`
+- Gestionnaire de processus : PM2 (`djelia-telegram-ops`), autorun au boot
+- Utilisateur autorisé : ID Telegram `6404095847` (accès restreint et sécurisé)
+- Capacités connectées :
+  1. Veille WhatsApp temps réel : Alerte Telegram instantanée à chaque message reçu sur WhatsApp avec boutons d'actions rapides (😊, ✨, ☺️, 🎵, 📋)
+  2. Commande `/clients` : Liste des derniers clients actifs avec date et aperçu
+  3. Commande `/fiche <numéro ou nom>` : Synthèse intelligente de la commande et profilage
+  4. Réponse directe : En répondant à une notification Telegram, le message part sur WhatsApp au client
+  5. Rédaction de paroles `/paroles` et analyse libre par IA GPT-5.6
+
+## Milestone 24 : Cerveau IA Haute Cohérence & Menu Bleu Telegram pour Djelia Ops
+- Menu bleu natif officiel activé (`setMyCommands`) :
+  - `/menu` : Tableau de bord & Statut WhatsApp
+  - `/clients` : Derniers clients actifs
+  - `/recherche` : Recherche d'un client ou d'un sujet
+  - `/paroles` : Rédaction d'une chanson par IA
+  - `/actions` : Guide des 9 automatisations
+  - `/clear` : Réinitialisation de la mémoire de discussion
+- Mémoire de session multi-tours (fenêtre glissante de 20 messages conservée pour éviter tout oubli de sujet en discussion longue)
+- Suivi du client actif (`activeContext`) : comprend immédiatement les questions de suivi ("et elle ?", "combien ?", "envoie-lui l'offre") sans redemander le sujet
+- Accès direct et total à la base WhatsApp : analyse transversale de tous les messages de tous les clients pour répondre à des questions globales ("Quel client me parle de mariage ?", "Qui a envoyé des photos ?")
+- Exécution d'actions WhatsApp par langage naturel : envoyer des formules, coordonnées Wave/Orange Money ou vocaux en le disant simplement au bot

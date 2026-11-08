@@ -79,7 +79,7 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
   if (rawHash === 'pipeline') {
     return { activeTab: 'studio', studioSubTab: 'pipeline' };
   }
-  if (rawHash === 'playground' || rawHash === 'play' || rawHash === 'simulateur') {
+  if (rawHash === 'playground' || rawHash === 'play' || rawHash === 'simulateur' || pathname.includes('simulateur')) {
     return { activeTab: 'studio', studioSubTab: 'playground' };
   }
   if (rawHash === 'whatsapp') {
