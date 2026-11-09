@@ -25,8 +25,22 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Novembre 2026 (08:48 UTC)
-- **Statut Opérationnel** : **Jalon 136 Validé — Refonte Complète Zéro-Regex (Extracteur Sémantique Pur LLM JSON + FSM Mathématique Déterministe)** :
+- **Dernière mise à jour** : 9 Novembre 2026 (09:02 UTC)
+- **Statut Opérationnel** : **Jalon 137 Validé — Ingestion Immédiate des Faits Sémantiques & Cadrage Contextuel Sans Question Répétitive ni Parachutage Tarifaire** :
+  1. **Résolution de la Cause Racine du Faux Positif Signalé** :
+     - *Constat* : Le client disait *« Bonjour Puis je en savoir plus / Je veux une chanson d'anniversaire pour ma femme »*. Le robot parachutait les 2 formules tarifaires puis demandait *« Pour quel événement ou quelle occasion souhaitez-vous offrir cette chanson ? »*.
+     - *Cause 1* : La mise à jour de `newState.pillars` était placée en étape 8, APRES la vérification des tarifs et des questions de relance. Lors de l'évaluation, `newState.pillars.occasion` était encore `null`, provoquant la question répétitive.
+     - *Cause 2* : La phrase *« en savoir plus »* était faussement assimilée à une demande de tarifs (`asks_pricing`), contournant le Vocal 1 officiel d'accueil.
+  2. **Ingestion Immédiate des Faits en Étape 1 de la FSM** :
+     - `newState.pillars` est désormais mis à jour immédiatement dès l'entrée dans `processSimulationTurn`. Tout champ extrait est instantanément gravé en mémoire avant la moindre logique conditionnelle.
+  3. **Cadrage Contextuel Vocal 1 d'Accueil Restauré & Personnalisé** :
+     - Dès le premier message d'un nouveau contact, l'agent envoie le Vocal 1 d'accueil en saluant précisément le projet : *« Bonjour et bienvenue au Studio Velaris ! C’est un magnifique projet pour votre femme à l'occasion de son anniversaire. »*.
+     - Il demande UNIQUEMENT les éléments manquants : *« Quel est le prénom de votre femme ? »*, de la part de qui et les souvenirs. Zéro question sur l'événement déjà donné.
+  4. **Validation Automatisée & Déploiement VPS** :
+     - Test unitaire vérifié sur le cas exact à 100%.
+     - Build Vite recompilé (`index-if2jOj4m.js`) et synchronisé sur le VPS Contabo (`162.35.113.220`).
+     - Commit Git `89f207e` poussé sur `origin/main`.
+- **Jalon Précédent Validé** : **Jalon 136 Validé — Refonte Complète Zéro-Regex (Extracteur Sémantique Pur LLM JSON + FSM Mathématique Déterministe)** :
   1. **Purge Intégrale des Regex Heuristiques** :
      - Élimination définitive de toutes les regex de parsing et de décision (`senderPattern`, `matchFor`, `cleanExtractedName`, `matchRelative`, `matchWife`, `matchMother`, `norm.includes('prestige')`, etc.).
      - Suppression du risque de faux positifs sur les tournures complexes (ex: *« Je veux la formule à 1 200 F sans vidéo »* qui déclenchait faussement la formule Prestige à cause du mot vidéo).
