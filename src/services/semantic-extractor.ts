@@ -141,33 +141,39 @@ export async function extractSemanticTurn(
     return deterministicFallbackExtractor(trimmed, state.pillars);
   }
 
-  const prompt = `Tu es l'extracteur sémantique de l'Académie Studio Velaris (vente de chansons personnalisées en Afrique de l'Ouest).
-Analyse le message reçu d'un client et extrais UNIQUEMENT un objet JSON valide correspondant aux faits mentionnés.
+  const prompt = `Tu es l'extracteur sémantique officiel de l'Académie Studio Velaris (service client WhatsApp pour chansons personnalisées en Afrique de l'Ouest).
+Analyse les messages du client avec précision sémantique et produis UNIQUEMENT l'objet JSON ci-dessous.
 
 Contexte actuel :
-- Étape actuelle : ${state.stage}
-- Destinataire déjà connu : ${state.pillars.recipientName || 'inconnu'}
-- Occasion déjà connue : ${state.pillars.occasion || 'inconnue'}
-- Expéditeur déjà connu : ${state.pillars.senderName || 'inconnu'}
+- Étape FSM : ${state.stage}
+- Destinataire déjà enregistré : ${state.pillars.recipientName || 'inconnu'}
+- Occasion déjà enregistrée : ${state.pillars.occasion || 'inconnue'}
+- Expéditeur déjà enregistré : ${state.pillars.senderName || 'inconnu'}
 - Formule déjà choisie : ${state.selectedOffer || 'aucune'}
 
-Message(s) du client :
+Message(s) du client à analyser :
 « ${trimmed} »
 
-Schéma JSON obligatoire (strictement rien d'autre que l'objet JSON) :
+Règles sémantiques strictes :
+1. "recipient_relation" : Si le client dit "pour ma femme", "mon mari", "ma maman", "mon ami", etc., extrais le lien de proximité ("femme", "mari", "maman", "ami", etc.).
+2. "occasion" : Si le client dit "chanson d'anniversaire", "pour son mariage", etc., extrais formellement l'occasion ("Anniversaire", "Mariage", etc.).
+3. "formula_choice" : "decouverte" si le client choisit la formule à 1 200 F CFA (formule simple audio). "prestige" si le client choisit la formule à 3 000 F CFA (avec montage vidéo). Renvoie null si le client ne choisit pas de formule dans ce message.
+4. "asks_pricing" : true UNIQUEMENT si le client demande expressément le tarif ou le montant d'argent ("c'est combien", "quel est le prix", "vos tarifs"). Une demande générale comme "en savoir plus", "expliquez-moi", "comment ça marche" N'EST PAS une demande de prix (renvoie false).
+
+Format JSON attendu (strictement sans markdown) :
 {
-  "recipient_name": string ou null (prénom ou nom complet de la personne honorée, ex: "Alassane", "Mamadou Traoré"),
-  "recipient_relation": string ou null (ex: "mari", "maman", "épouse", "frère", "ami"),
-  "sender_name": string ou null (personne qui offre le cadeau, ex: "Aminata", "Fatou"),
-  "occasion": string ou null (ex: "Anniversaire", "Mariage", "Déclaration d'amour", "Hommage", "Baptême"),
-  "story_and_memories": string ou null (anecdotes, qualités, mots doux, ou mention si le client donne carte blanche),
-  "formula_choice": "decouverte" (1200 F) ou "prestige" (3000 F avec vidéo) ou null (ATTENTION: null sauf si le message présent exprime un choix de formule),
-  "wants_video_demo": boolean (true si le client demande à voir un exemple de vidéo ou aperçu de montage),
-  "asks_pricing": boolean (true si le client demande les tarifs ou les formules),
-  "lyrics_feedback": "approved" (s'il valide le texte proposé) ou "rejected" (s'il demande des modifications) ou null,
-  "payment_claim": boolean (true s'il affirme avoir payé, demande le numéro de dépôt ou envoie le reçu),
-  "is_receipt_proof": boolean (true s'il transmet une capture ou référence de transaction Wave/Orange Money),
-  "is_ack_only": boolean (true si le message est juste un accusé type "ok", "d'accord", "merci")
+  "recipient_name": string ou null (prénom ou nom complet s'il est donné dans le message),
+  "recipient_relation": string ou null (ex: "femme", "mari", "maman", "fille"),
+  "sender_name": string ou null (prénom de la personne qui offre),
+  "occasion": string ou null (ex: "Anniversaire", "Mariage"),
+  "story_and_memories": string ou null (souvenirs, qualités ou carte blanche),
+  "formula_choice": "decouverte" ou "prestige" ou null,
+  "wants_video_demo": boolean,
+  "asks_pricing": boolean,
+  "lyrics_feedback": "approved" ou "rejected" ou null,
+  "payment_claim": boolean,
+  "is_receipt_proof": boolean,
+  "is_ack_only": boolean
 }`;
 
   const controller = new AbortController();

@@ -150,8 +150,24 @@ export function processSimulationTurn(
     };
   }
 
-  // 1. GESTION DES REÇUS ET PREUVES DE PAIEMENT
-  if (hasImageAttachment && imageType === 'receipt' || semantic.isReceiptProof) {
+  // 1. INGESTION IMMÉDIATE DES FAITS DU BRIEF (SÉMANTIQUE PURE - AUCUN ÉTAT PÉRIMÉ)
+  if (semantic.recipientName && !newState.pillars.recipientName) {
+    newState.pillars.recipientName = semantic.recipientName;
+  }
+  if (semantic.occasion && !newState.pillars.occasion) {
+    newState.pillars.occasion = semantic.occasion;
+  }
+  if (semantic.senderName && !newState.pillars.senderName) {
+    newState.pillars.senderName = semantic.senderName;
+  }
+  if (semantic.storyAndMemories && !newState.pillars.storyAndMemories) {
+    newState.pillars.storyAndMemories = semantic.storyAndMemories;
+  }
+
+  const allComplete = areAllPillarsComplete(newState.pillars);
+
+  // 2. GESTION DES REÇUS ET PREUVES DE PAIEMENT
+  if ((hasImageAttachment && imageType === 'receipt') || semantic.isReceiptProof) {
     newState.stage = 'PAYMENT_VERIFYING';
     return {
       bubbles: [
@@ -167,7 +183,7 @@ export function processSimulationTurn(
     };
   }
 
-  // 2. GESTION DES PHOTOS SOUVENIRS (MONTAGE VIDÉO)
+  // 3. GESTION DES PHOTOS SOUVENIRS (MONTAGE VIDÉO)
   if (hasImageAttachment && imageType === 'photo') {
     return {
       bubbles: [
@@ -183,9 +199,61 @@ export function processSimulationTurn(
     };
   }
 
-  // 3. DEMANDE D’EXEMPLE / EXTRAIT VIDÉO
+  // 4. PREMIER CONTACT D'UN NOUVEAU CLIENT (ENVOI DU VOCAL 1 D'ACCUEIL & CADRAGE)
+  if (!newState.locks.vocal1Sent && newState.clientProfile === 'new') {
+    newState.locks.vocal1Sent = true;
+    newState.stage = 'COLLECTING_PILLARS';
+
+    const hasAnyPillar = Boolean(newState.pillars.recipientName || newState.pillars.occasion || semantic.recipientRelation);
+    let vocal1Text = '';
+    if (hasAnyPillar) {
+      const ackParts: string[] = [];
+      if (newState.pillars.recipientName) {
+        ackParts.push(`pour ${newState.pillars.recipientName}`);
+      } else if (semantic.recipientRelation) {
+        ackParts.push(`pour votre ${semantic.recipientRelation}`);
+      }
+      if (newState.pillars.occasion) {
+        ackParts.push(`à l'occasion de son ${newState.pillars.occasion.toLowerCase()}`);
+      }
+      
+      vocal1Text = `Bonjour et bienvenue au Studio Velaris ! C’est un magnifique projet ${ackParts.join(' ')}.\n\nPour que notre équipe compose sa chanson sur-mesure, il nous manque juste quelques précisions :\n`;
+      if (!newState.pillars.recipientName) {
+        const who = semantic.recipientRelation ? `votre ${semantic.recipientRelation}` : 'la personne à célébrer';
+        vocal1Text += `— Quel est le prénom de ${who} ?\n`;
+      }
+      if (!newState.pillars.senderName) {
+        vocal1Text += `— De la part de qui est offert ce beau cadeau ?\n`;
+      }
+      if (!newState.pillars.storyAndMemories) {
+        vocal1Text += `— Avez-vous de petits souvenirs, anecdotes ou mots doux à glisser dans les paroles ?\n`;
+      }
+      vocal1Text += `\nVous pouvez nous expliquer cela par message ou par note vocale selon ce qui est le plus confortable pour vous !`;
+    } else {
+      vocal1Text = "Bonjour et bienvenue au Studio Velaris ! Pour composer une chanson sur-mesure d'exception, nous avons simplement besoin de connaître :\n1. Le prénom de la personne à célébrer\n2. L'occasion ou la date de l'événement\n3. De la part de qui est offert ce cadeau\n4. Vos anecdotes, souvenirs ou mots doux à glisser dans les paroles.\n\nVous pouvez nous expliquer tout cela d'un coup, par message texte ou par note vocale selon ce qui est le plus confortable pour vous !";
+    }
+
+    return {
+      bubbles: [
+        {
+          content: vocal1Text,
+          mediaKind: 'audio',
+          mediaDurationSec: 24,
+          mediaUrl: '/assets/vocal_1_accueil.ogg',
+        },
+      ],
+      presenceState: 'recording_audio',
+      presenceDurationMs: 4200,
+      interBubbleDelayMs: 1000,
+      newState,
+      fsmExplanation: 'Premier contact client ➔ Envoi du Vocal 1 de cadrage adapté aux éléments sémantiques reçus.',
+    };
+  }
+
+  // 5. DEMANDE D’EXEMPLE / EXTRAIT VIDÉO
   if (semantic.wantsVideoDemo && !newState.locks.videoSampleSent) {
     newState.locks.videoSampleSent = true;
+    const relWho = newState.pillars.recipientName || (semantic.recipientRelation ? `votre ${semantic.recipientRelation}` : null);
     return {
       bubbles: [
         {
@@ -194,8 +262,8 @@ export function processSimulationTurn(
           mediaUrl: '/assets/montage_sample.mp4',
         },
         {
-          content: newState.pillars.recipientName
-            ? `C’est ce même niveau de finition qui sera appliqué pour ${newState.pillars.recipientName}. Souhaitez-vous partir sur cette formule à 3 000 F CFA ?`
+          content: relWho
+            ? `C’est ce même niveau de finition qui sera appliqué pour ${relWho}. Souhaitez-vous partir sur cette formule à 3 000 F CFA ?`
             : 'Pour commencer la composition de vos paroles, quel est le prénom de la personne à célébrer ?',
         },
       ],
@@ -207,31 +275,33 @@ export function processSimulationTurn(
     };
   }
 
-  // 4. DEMANDE DE TARIFS
-  if (semantic.asksPricing && newState.stage !== 'OFFER_PITCH') {
-    const priceText = 'Nous proposons deux formules pour la création de votre chanson :\n— La formule Découverte à 1 200 F CFA : la chanson personnalisée complète livrée en 2 versions audio HD.\n— La formule Prestige à 3 000 F CFA : la chanson complète accompagnée de son montage vidéo personnalisé avec vos photos.';
-    
-    // Pont vers le brief en cours
-    const nextQuestion = !newState.pillars.occasion
-      ? 'Pour quel événement ou quelle occasion souhaitez-vous offrir cette chanson ?'
-      : !newState.pillars.recipientName
-      ? 'Quel est le prénom de la personne que vous souhaitez célébrer ?'
-      : 'Quel message ou anecdotes aimeriez-vous faire passer dans les paroles ?';
+  // 6. BRIEF COMPLET & VOCAL 2 PAS ENCORE ENVOYÉ ➔ ENVOI DU VOCAL 2 (33S)
+  if (allComplete && !newState.locks.vocal2Sent && newState.clientProfile === 'new') {
+    newState.locks.vocal2Sent = true;
+    newState.stage = 'VOCAL_2_DUE';
 
     return {
       bubbles: [
-        { content: priceText },
-        { content: nextQuestion },
+        {
+          content: `C'est bien noté pour ${newState.pillars.recipientName}. Nous avons tous les éléments nécessaires.`,
+        },
+        {
+          content: 'Voici une courte note vocale expliquant notre démarche de création :',
+          mediaKind: 'audio',
+          mediaUrl: '/assets/procedure_voice.ogg',
+          mediaDurationSec: 33,
+          isProcedureVoice: true,
+        },
       ],
-      presenceState: 'typing',
-      presenceDurationMs: 3200,
-      interBubbleDelayMs: 1200,
+      presenceState: 'recording_audio',
+      presenceDurationMs: 3800,
+      interBubbleDelayMs: 1400,
       newState,
-      fsmExplanation: 'Demande de tarif ➔ Présentation transparente des 2 prix + relance du brief en cours.',
+      fsmExplanation: 'Les 4 invariants sont validés ➔ Déclenchement automatique du Vocal 2 de procédure (33s OGG WhatsApp natif).',
     };
   }
 
-  // 5. CHOIX DE FORMULE (DÉCOUVERTE OU PRESTIGE)
+  // 7. CHOIX DE FORMULE (DÉCOUVERTE OU PRESTIGE)
   if (semantic.formulaChoice === 'decouverte' && newState.selectedOffer !== 'decouverte') {
     newState.selectedOffer = 'decouverte';
     newState.stage = 'DRAFTING_LYRICS';
@@ -272,7 +342,7 @@ export function processSimulationTurn(
     };
   }
 
-  // 6. VALIDATION DES PAROLES ➔ TRANSMISSION DES COORDONNÉES DE PAIEMENT
+  // 8. VALIDATION DES PAROLES ➔ TRANSMISSION DES COORDONNÉES DE PAIEMENT
   if (semantic.lyricsFeedback === 'approved' && (newState.stage === 'LYRICS_VALIDATION' || newState.stage === 'DRAFTING_LYRICS' || newState.selectedOffer !== null)) {
     newState.stage = 'PAYMENT_PENDING';
     newState.locks.paymentBlockSent = true;
@@ -298,69 +368,7 @@ export function processSimulationTurn(
     };
   }
 
-  // 7. PRÉSENTATION DES PAROLES RÉDIGÉES
-  if (newState.stage === 'DRAFTING_LYRICS') {
-    newState.stage = 'LYRICS_VALIDATION';
-    const recipient = newState.pillars.recipientName || 'votre proche';
-    const occasion = newState.pillars.occasion || 'cet événement précieux';
-    const sender = newState.pillars.senderName ? `de la part de ${newState.pillars.senderName}` : '';
-    const anecdote = newState.pillars.storyAndMemories ? `— ${newState.pillars.storyAndMemories}` : '';
-
-    const proposal = `Voici la proposition de texte composée par notre studio pour ${recipient} (${occasion}) :\n\n[Couplet 1]\nDans le secret des jours et la douceur du temps,\nTon sourire éclaire nos vies à chaque instant.\nUn cœur si généreux, une présence si précieuse,\nQue cette mélodie te rende l'âme heureuse.\n\n[Refrain]\nJoyeux ${occasion} pour toi, ${recipient},\nCes mots gravés d'amour te sont dédiés ${sender}.\nQue la paix et la joie t'accompagnent pour toujours,\nAu rythme de nos cœurs et de nos plus beaux jours.\n\n[Couplet 2]\n${anecdote || 'Que la grâce divine veille sur tes pas,\nEt que chaque prière veille sur toi.'}\n\nDites-nous si ces paroles vous touchent ou si vous souhaitez ajuster un passage avant l’enregistrement en studio ?`;
-
-    return {
-      bubbles: [{ content: proposal }],
-      presenceState: 'typing',
-      presenceDurationMs: 3200,
-      interBubbleDelayMs: 1200,
-      newState,
-      fsmExplanation: 'Paroles rédigées et soumises au client pour validation avant enregistrement studio.',
-    };
-  }
-
-  // 8. MISE À JOUR DES 4 INVARIANTS DU BRIEF (SÉMANTIQUE PURE)
-  if (semantic.recipientName && !newState.pillars.recipientName) {
-    newState.pillars.recipientName = semantic.recipientName;
-  }
-  if (semantic.occasion && !newState.pillars.occasion) {
-    newState.pillars.occasion = semantic.occasion;
-  }
-  if (semantic.senderName && !newState.pillars.senderName) {
-    newState.pillars.senderName = semantic.senderName;
-  }
-  if (semantic.storyAndMemories && !newState.pillars.storyAndMemories) {
-    newState.pillars.storyAndMemories = semantic.storyAndMemories;
-  }
-
-  const allComplete = areAllPillarsComplete(newState.pillars);
-
-  // 9. BRIEF COMPLET & VOCAL 2 PAS ENCORE ENVOYÉ ➔ ENVOI DU VOCAL 2 (33S)
-  if (allComplete && !newState.locks.vocal2Sent && newState.clientProfile === 'new') {
-    newState.locks.vocal2Sent = true;
-    newState.stage = 'VOCAL_2_DUE';
-
-    return {
-      bubbles: [
-        {
-          content: `C'est bien noté pour ${newState.pillars.recipientName}. Nous avons tous les éléments nécessaires.`,
-        },
-        {
-          content: 'Voici une courte note vocale expliquant notre démarche de création :',
-          mediaKind: 'audio',
-          mediaUrl: '/assets/procedure_voice.ogg',
-          mediaDurationSec: 33,
-          isProcedureVoice: true,
-        },
-      ],
-      presenceState: 'recording_audio',
-      presenceDurationMs: 3800,
-      interBubbleDelayMs: 1400,
-      newState,
-      fsmExplanation: 'Les 4 invariants sont validés ➔ Déclenchement automatique du Vocal 2 de procédure (33s OGG WhatsApp natif).',
-    };
-  }
-
-  // 10. CLIENT EN ÉTAPE VOCAL_2_DUE ➔ PRÉSENTATION DES OFFRES
+  // 9. CLIENT EN ÉTAPE VOCAL_2_DUE ➔ PRÉSENTATION DES OFFRES
   if (newState.locks.vocal2Sent && newState.stage === 'VOCAL_2_DUE') {
     newState.stage = 'OFFER_PITCH';
     return {
@@ -377,47 +385,59 @@ export function processSimulationTurn(
     };
   }
 
-  // 11. VOCAL 1 : PREMIER CONTACT D'UN NOUVEAU CLIENT
-  if (!newState.locks.vocal1Sent && newState.clientProfile === 'new') {
-    newState.locks.vocal1Sent = true;
-    newState.stage = 'COLLECTING_PILLARS';
-
-    const hasAnyPillar = Boolean(newState.pillars.recipientName || newState.pillars.occasion);
-    let vocal1Text = '';
-    if (hasAnyPillar) {
-      const ackParts: string[] = [];
-      if (newState.pillars.recipientName) ackParts.push(`pour ${newState.pillars.recipientName}`);
-      if (newState.pillars.occasion) ackParts.push(`à l'occasion de son ${newState.pillars.occasion.toLowerCase()}`);
-      vocal1Text = `Bonjour et bienvenue au Studio Velaris ! C’est un magnifique projet ${ackParts.join(' ')}.\n\nPour que notre équipe compose sa chanson sur-mesure, il nous manque juste quelques précisions :\n`;
-      if (!newState.pillars.senderName) vocal1Text += `— De la part de qui est offert ce beau cadeau ?\n`;
-      if (!newState.pillars.storyAndMemories) vocal1Text += `— Avez-vous de petits souvenirs, anecdotes ou mots doux à glisser dans les paroles ?\n`;
-      vocal1Text += `\nVous pouvez nous expliquer cela par message ou par note vocale selon ce qui est le plus confortable pour vous !`;
-    } else {
-      vocal1Text = "Bonjour et bienvenue au Studio Velaris ! Pour composer une chanson sur-mesure d'exception, nous avons simplement besoin de connaître :\n1. Le prénom de la personne à célébrer\n2. L'occasion ou la date de l'événement\n3. De la part de qui est offert ce cadeau\n4. Vos anecdotes, souvenirs ou mots doux à glisser dans les paroles.\n\nVous pouvez nous expliquer tout cela d'un coup, par message texte ou par note vocale selon ce qui est le plus confortable pour vous !";
-    }
+  // 10. DEMANDE DE TARIFS EN COURS DE ROUTE
+  if (semantic.asksPricing && newState.stage !== 'OFFER_PITCH') {
+    const priceText = 'Nous proposons deux formules pour la création de votre chanson :\n— La formule Découverte à 1 200 F CFA : la chanson personnalisée complète livrée en 2 versions audio HD.\n— La formule Prestige à 3 000 F CFA : la chanson complète accompagnée de son montage vidéo personnalisé avec vos photos.';
+    
+    // Pont vers le brief en cours (utilise les piliers mis à jour immédiatement)
+    const who = newState.pillars.recipientName || (semantic.recipientRelation ? `votre ${semantic.recipientRelation}` : null);
+    const nextQuestion = !who
+      ? `Quel est le prénom de ${semantic.recipientRelation ? `votre ${semantic.recipientRelation}` : 'la personne que vous souhaitez célébrer'} ?`
+      : !newState.pillars.occasion
+      ? `Pour quelle occasion ou à quelle date souhaitez-vous offrir cette chanson à ${who} ?`
+      : !newState.pillars.senderName
+      ? `Et de la part de qui est offert ce beau cadeau ?`
+      : 'Quel message ou anecdotes aimeriez-vous faire passer dans les paroles ?';
 
     return {
       bubbles: [
-        {
-          content: vocal1Text,
-          mediaKind: 'audio',
-          mediaDurationSec: 24,
-          mediaUrl: '/assets/vocal_1_accueil.ogg',
-        },
+        { content: priceText },
+        { content: nextQuestion },
       ],
-      presenceState: 'recording_audio',
-      presenceDurationMs: 4200,
-      interBubbleDelayMs: 1000,
+      presenceState: 'typing',
+      presenceDurationMs: 3200,
+      interBubbleDelayMs: 1200,
       newState,
-      fsmExplanation: 'Premier contact client ➔ Envoi du Vocal 1 de cadrage adapté aux éléments sémantiques reçus.',
+      fsmExplanation: 'Demande de tarif ➔ Présentation transparente des 2 prix + relance du brief en cours.',
     };
   }
 
-  // 12. RELANCE CIBLÉE SUR LE SEUL INVARIANT MANQUANT
+  // 11. PRÉSENTATION DES PAROLES RÉDIGÉES
+  if (newState.stage === 'DRAFTING_LYRICS') {
+    newState.stage = 'LYRICS_VALIDATION';
+    const recipient = newState.pillars.recipientName || (semantic.recipientRelation ? `votre ${semantic.recipientRelation}` : 'votre proche');
+    const occasion = newState.pillars.occasion || 'cet événement précieux';
+    const sender = newState.pillars.senderName ? `de la part de ${newState.pillars.senderName}` : '';
+    const anecdote = newState.pillars.storyAndMemories ? `— ${newState.pillars.storyAndMemories}` : '';
+
+    const proposal = `Voici la proposition de texte composée par notre studio pour ${recipient} (${occasion}) :\n\n[Couplet 1]\nDans le secret des jours et la douceur du temps,\nTon sourire éclaire nos vies à chaque instant.\nUn cœur si généreux, une présence si précieuse,\nQue cette mélodie te rende l'âme heureuse.\n\n[Refrain]\nJoyeux ${occasion} pour toi, ${recipient},\nCes mots gravés d'amour te sont dédiés ${sender}.\nQue la paix et la joie t'accompagnent pour toujours,\nAu rythme de nos cœurs et de nos plus beaux jours.\n\n[Couplet 2]\n${anecdote || 'Que la grâce divine veille sur tes pas,\nEt que chaque prière veille sur toi.'}\n\nDites-nous si ces paroles vous touchent ou si vous souhaitez ajuster un passage avant l’enregistrement en studio ?`;
+
+    return {
+      bubbles: [{ content: proposal }],
+      presenceState: 'typing',
+      presenceDurationMs: 3200,
+      interBubbleDelayMs: 1200,
+      newState,
+      fsmExplanation: 'Paroles rédigées et soumises au client pour validation avant enregistrement studio.',
+    };
+  }
+
+  // 12. RELANCE CIBLÉE SUR LE SEUL INVARIANT MANQUANT (ZÉRO QUESTION RÉPÉTITIVE)
   newState.stage = 'COLLECTING_PILLARS';
   let missingPrompt = '';
   if (!newState.pillars.recipientName) {
-    missingPrompt = 'Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ?';
+    const who = semantic.recipientRelation ? `votre ${semantic.recipientRelation}` : 'la personne à qui vous souhaitez dédier cette chanson';
+    missingPrompt = `Quel est le prénom de ${who} ?`;
   } else if (!newState.pillars.occasion) {
     missingPrompt = `C’est bien noté pour ${newState.pillars.recipientName}. Pour quelle occasion ou à quelle date est prévue cette célébration ?`;
   } else if (!newState.pillars.senderName) {
