@@ -18,10 +18,10 @@ import {
   Image as ImageIcon,
   CheckCheck,
   Clock,
-  ArrowRight,
   Lock,
   X,
   Sliders,
+  Zap,
 } from 'lucide-react';
 import { transcribeAudioBlob } from '../services/whisper-stt';
 import {
@@ -83,7 +83,7 @@ export const DEFAULT_AGENT_CONFIG: AgentConfig = {
   agentName: 'Alex',
   studioName: 'Velaris Studio',
   role: 'Conseiller Vente WhatsApp',
-  burstWindowMs: 3500,
+  burstWindowMs: 40000,
   tariffs: {
     decouvertePrice: '1 200',
     prestigePrice: '3 000',
@@ -149,9 +149,31 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
 ];
 
+function playWhatsAppChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.22);
+  } catch {
+    // Audio context restriction ignore
+  }
+}
+
 export const PlaygroundView: FC = () => {
   // Configuration
   const [config] = useState<AgentConfig>(DEFAULT_AGENT_CONFIG);
+  const [responseDelaySec, setResponseDelaySec] = useState<number>(40);
 
   // Tablet & Desktop Drawer / Panneau Diagnostic
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -292,6 +314,11 @@ export const PlaygroundView: FC = () => {
         setPlayingAudioId(null);
       }
 
+      // Suspendre le compte à rebours de réponse pendant l'enregistrement pour ne pas couper le client
+      if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
+      if (burstTimerRef.current) clearInterval(burstTimerRef.current);
+      setBurstSecondsLeft(0);
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
 
@@ -413,8 +440,8 @@ export const PlaygroundView: FC = () => {
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);
     if (burstTimerRef.current) clearInterval(burstTimerRef.current);
 
-    const burstDurationMs = config.burstWindowMs || 3500;
-    setBurstSecondsLeft(Math.round(burstDurationMs / 1000));
+    const burstDurationMs = responseDelaySec * 1000;
+    setBurstSecondsLeft(responseDelaySec);
 
     burstTimerRef.current = setInterval(() => {
       setBurstSecondsLeft((prev) => (prev > 1 ? prev - 1 : 1));
@@ -433,15 +460,17 @@ export const PlaygroundView: FC = () => {
     setBurstQueue([]);
     setBurstSecondsLeft(0);
 
+    // 1. Double coche grise : Reçu par le serveur WhatsApp
     setMessages((prev) =>
       prev.map((m) => (m.role === 'user' && m.status === 'sent' ? { ...m, status: 'delivered' } : m))
     );
 
+    // 2. Double coche bleue : Lu par le conseiller après 1s
     setTimeout(() => {
       setMessages((prev) =>
         prev.map((m) => (m.role === 'user' && m.status === 'delivered' ? { ...m, status: 'read' } : m))
       );
-    }, 600);
+    }, 1000);
 
     const mergedTurnText = pendingItems.join('\n');
     void executeAgentTurn(mergedTurnText, attachmentKind);
@@ -497,6 +526,14 @@ export const PlaygroundView: FC = () => {
       };
 
       setMessages((prev) => [...prev, newAgentBubble]);
+      playWhatsAppChime();
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(35);
+        } catch {
+          // ignore
+        }
+      }
 
       if (i < turnResult.bubbles.length - 1) {
         setAiPresenceState('typing');
@@ -944,20 +981,22 @@ export const PlaygroundView: FC = () => {
           )}
         </div>
 
-        {/* ── BARRE DE RAFALE EN COURS (Visual Debounce) ── */}
+        {/* ── BARRE DE RAFALE EN COURS (Visual Debounce 40s) ── */}
         {burstQueue.length > 0 && (
-          <div className="h-10 bg-[#182229] border-t border-emerald-500/30 px-4 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
-            <div className="flex items-center gap-2 text-emerald-400 font-mono">
-              <Clock className="w-3.5 h-3.5 animate-spin" />
-              <span>
-                Rafale active ({burstQueue.length} msg) : attente {burstSecondsLeft}s…
+          <div className="h-11 bg-[#182229] border-t border-emerald-500/30 px-3 sm:px-4 flex items-center justify-between text-xs shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 text-emerald-400 font-mono truncate mr-2">
+              <Clock className="w-4 h-4 animate-spin text-emerald-400 shrink-0" />
+              <span className="truncate">
+                Délai de réponse WhatsApp : <strong>{burstSecondsLeft}s</strong> ({burstQueue.length} msg)
               </span>
             </div>
             <button
               onClick={forceFlushNow}
-              className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-[11px] flex items-center gap-1 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-sm"
+              title="Court-circuiter le délai et obtenir la réponse de suite"
             >
-              Envoyer de suite <ArrowRight className="w-3 h-3" />
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Répondre de suite</span>
             </button>
           </div>
         )}
@@ -1256,6 +1295,33 @@ export const PlaygroundView: FC = () => {
                           >
                             Ancien Client 😊
                           </button>
+                        </div>
+                      </div>
+
+                      {/* Délai de Réponse WhatsApp */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] text-neutral-400">Délai de Réponse Conseiller</label>
+                          <span className="text-[10px] font-mono text-emerald-400 font-semibold">{responseDelaySec}s</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1">
+                          {[
+                            { sec: 40, label: '40s Réel' },
+                            { sec: 20, label: '20s Modéré' },
+                            { sec: 5, label: '5s Express' },
+                          ].map((d) => (
+                            <button
+                              key={d.sec}
+                              onClick={() => setResponseDelaySec(d.sec)}
+                              className={`py-1.5 px-2 rounded-lg text-[11px] font-medium border text-center transition-colors cursor-pointer ${
+                                responseDelaySec === d.sec
+                                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold'
+                                  : 'bg-black/30 border-white/[0.06] text-neutral-400 hover:text-white'
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>

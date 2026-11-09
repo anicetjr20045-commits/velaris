@@ -369,10 +369,37 @@ export function processSimulationTurn(
     };
   }
 
+  // 4b. PRÉSENTATION DES PAROLES RÉDIGÉES (PASSAGE EN LYRICS_VALIDATION)
+  if (newState.stage === 'DRAFTING_LYRICS') {
+    newState.stage = 'LYRICS_VALIDATION';
+    const recipient = newState.pillars.recipientName || 'votre proche';
+    const occasion = newState.pillars.occasion || 'cet événement précieux';
+    const sender = newState.pillars.senderName ? `de la part de ${newState.pillars.senderName}` : '';
+    const anecdote = newState.pillars.storyAndMemories ? `— ${newState.pillars.storyAndMemories}` : '';
+
+    const proposal = `Voici la proposition de texte composée par notre studio pour ${recipient} (${occasion}) :\n\n[Couplet 1]\nDans le secret des jours et la douceur du temps,\nTon sourire éclaire nos vies à chaque instant.\nUn cœur si généreux, une présence si précieuse,\nQue cette mélodie te rende l'âme heureuse.\n\n[Refrain]\nJoyeux ${occasion} pour toi, ${recipient},\nCes mots gravés d'amour te sont dédiés ${sender}.\nQue la paix et la joie t'accompagnent pour toujours,\nAu rythme de nos cœurs et de nos plus beaux jours.\n\n[Couplet 2]\n${anecdote || 'Que la grâce divine veille sur tes pas,\nEt que chaque prière veille sur toi.'}\n\nDites-nous si ces paroles vous touchent ou si vous souhaitez ajuster un passage avant l’enregistrement en studio ?`;
+
+    return {
+      bubbles: [{ content: proposal }],
+      presenceState: 'typing',
+      presenceDurationMs: 3200,
+      interBubbleDelayMs: 1200,
+      newState,
+      fsmExplanation: 'Paroles rédigées et soumises au client pour validation avant enregistrement studio.',
+    };
+  }
+
   // 5. VALIDATION DU TEXTE (LIVRAISON DES COORDONNÉES DE PAIEMENT)
   if (
-    (norm.includes('valide') || norm.includes('parfait') || norm.includes('magnifique') || norm.includes('j aime') || norm.includes('tres beau') || norm.includes('c est bon')) &&
-    (newState.stage === 'DRAFTING_LYRICS' || newState.stage === 'LYRICS_VALIDATION' || newState.selectedOffer !== null)
+    (norm.includes('valide') ||
+      norm.includes('parfait') ||
+      norm.includes('magnifique') ||
+      norm.includes('j aime') ||
+      norm.includes('tres beau') ||
+      norm.includes('c est bon') ||
+      norm.includes('daccord pour le texte') ||
+      norm.includes('enregistrez')) &&
+    (newState.stage === 'LYRICS_VALIDATION' || newState.selectedOffer !== null)
   ) {
     newState.stage = 'PAYMENT_PENDING';
     newState.locks.paymentBlockSent = true;
@@ -429,8 +456,8 @@ export function processSimulationTurn(
     };
   }
 
-  // Si le client répond au Vocal 2 (ou après sa diffusion), on présente les offres
-  if (newState.locks.vocal2Sent && (newState.stage === 'VOCAL_2_DUE' || norm.includes('daccord') || norm.includes('compris') || norm.includes('ecoute') || norm.includes('ok'))) {
+  // Si le client répond au Vocal 2 (ou après sa diffusion), on présente les offres (strictement en étape VOCAL_2_DUE)
+  if (newState.locks.vocal2Sent && newState.stage === 'VOCAL_2_DUE') {
     newState.stage = 'OFFER_PITCH';
     return {
       bubbles: [
