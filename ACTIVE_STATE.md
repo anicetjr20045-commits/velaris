@@ -25,8 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 8 Novembre 2026 (23:55 UTC)
-- **Statut Opérationnel** : **Jalon 133 Validé — Mode Autonome 100% Indépendant & Disposition Spéciale Tablette (Tiroir Rétractable, Plein Écran 100dvh, Micro Whisper VPS & Zéro Encombrement Site)** :
+- **Dernière mise à jour** : 9 Novembre 2026 (00:10 UTC)
+- **Statut Opérationnel** : **Jalon 134 Validé — Temporisation Réelle WhatsApp 40s (Absorption Rafales & Vocaux), Carillon Audio Double-Bip, Cycle Complet Rédaction Paroles & Verrous FSM Étanches** :
+  1. **Temporisation Déterministe de 40 Secondes (Conforme Réalité WhatsApp)** :
+     - Fenêtre de réponse calibrée par défaut à **40 secondes** (`burstWindowMs: 40000`). Permet au client de formuler sa demande en plusieurs messages rapprochés ou d'enregistrer une note vocale au micro sans être interrompu.
+     - Mise en pause automatique du compte à rebours dès l'activation de l'enregistrement micro (`startRecording`), empêchant l'IA de déclencher un tour pendant que le client parle.
+     - Sélecteur de tempo intégré dans le tiroir de diagnostic : **40s Réel WhatsApp** (défaut), **20s Modéré**, **5s Test Rapide**.
+     - Bouton d'accélération instantané `[⚡ Répondre de suite]` dans la barre de compte à rebours pour court-circuiter le délai lors des tests manuels.
+  2. **Cycle Conversationnel Réel & Paroles Studio Complètes** :
+     - Étape 1 : Vocal 1 de cadrage global (24s).
+     - Étape 2 : Recueil fluide des 4 invariants sans interrogatoire empilé (1 question max par bulle, acceptation de "carte blanche").
+     - Étape 3 : Vocal 2 officiel de procédure (33s `procedure_voice.ogg`) à diffusion strictement unique.
+     - Étape 4 : Présentation des offres (1 200 F Découverte / 3 000 F Prestige) et envoi vidéo démo (`montage_sample.mp4`) sur demande.
+     - Étape 5 : Rédaction et proposition d'un texte personnalisé de paroles (`LYRICS_VALIDATION`) selon les éléments du brief.
+     - Étape 6 : Validation des paroles par le client ➔ Déclenchement automatique des coordonnées selon l'indicatif (Orange Money +226 BF, Wave +225 CI, Carte Chariow Diaspora).
+     - Étape 7 : Réception du reçu de transfert ou capture ➔ Accusé de réception, vérification comptable et lancement studio (`PAYMENT_VERIFYING`).
+  3. **Rendu Visuel, Auditif & Tactile WhatsApp Réel** :
+     - Séquençage strict des statuts : Simple coche `✓` (envoyé) ➔ Double coche grise `✓✓` (reçu) ➔ Double coche bleue `✓✓` (lu après 1s) ➔ Présence `"en train d'écrire..."` ➔ Bulle agent.
+     - Carillon audio natif Web Audio (double tonalité sinusoïdale 587Hz / 880Hz) et vibration tactile haptique sur smartphone/tablette à chaque réception de bulle.
+  4. **Déploiement VPS & Accès En Ligne** :
+     - Accessible en direct sur : `https://waha.velarisagent.life/qr/simulateur/index.html#simulateur` (ou `https://waha.velarisagent.life/qr/play.html`).
+- **Jalon Précédent Validé** : **Jalon 133 Validé — Mode Autonome 100% Indépendant & Disposition Spéciale Tablette (Tiroir Rétractable, Plein Écran 100dvh, Micro Whisper VPS & Zéro Encombrement Site)** :
   1. **Découplage Total & Autonomie 100% Plein Écran** :
      - Bypass immédiat au niveau de `App.tsx` : si l'URL contient `#playground`, `#simulateur`, `#play` ou le chemin `/simulateur`, l'application s'affiche en pur plein écran sans aucun wrapper de site (zéro navbar supérieure, zéro barre latérale studio, zéro arrière-plan parasite).
      - Hauteur dynamique stricte (`100dvh`) et marges d'insertion tactiles (`pb-safe`) empêchant la barre de navigation ou le clavier virtuel des tablettes/smartphones de masquer l'input de saisie.
