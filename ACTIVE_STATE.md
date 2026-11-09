@@ -25,8 +25,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Novembre 2026 (00:10 UTC)
-- **Statut Opérationnel** : **Jalon 134 Validé — Temporisation Réelle WhatsApp 40s (Absorption Rafales & Vocaux), Carillon Audio Double-Bip, Cycle Complet Rédaction Paroles & Verrous FSM Étanches** :
+- **Dernière mise à jour** : 9 Novembre 2026 (08:20 UTC)
+- **Statut Opérationnel** : **Jalon 135 Validé — Élimination Définitive des Questions Répétitives & Extracteur Robuste Destinataire/Expéditeur Simultanés** :
+  1. **Analyse de la Cause Racine du Bug Signalé** :
+     - Lorsque le client répondait au prénom en enchaînant l'expéditeur (ex: *« Alassane, de la part d'Aminata »* ou *« C'est Alassane et moi c'est Aminata »*), l'ancien parseur regex exigeait le mot *« pour »* ou une relation explicite pour le destinataire, et échouait sur l'apostrophe contractée (*« d'Aminata »* sans espace).
+     - Conséquence : Seul l'expéditeur était capturé (*Aminata*), tandis que le destinataire restait à `null`. L'agent reposait alors aveuglément la question : *« Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ? »*.
+  2. **Architecture d'Extraction Robuste & Multi-Niveaux (`extractPillarsFromText`)** :
+     - Normalisation préalable des apostrophes courbes (`’` ➔ `'`).
+     - Détection prioritaire et isolation de la clause expéditeur (*de la part de / d'*, *offert par*, *moi c'est*, *et moi*).
+     - Nettoyage et extraction immédiate du destinataire à partir du reste de la phrase, y compris sur les réponses nominales directes (*« Alassane »*, *« C'est Alassane »*, *« Il s'appelle Alassane »*, *« Mon mari Alassane »*).
+     - Test unitaire automatisé (`test-extractor.ts`) validant 11 cas d'usage réels à 100%.
+  3. **Personnalisation Contextuelle du Vocal 1 d'Accueil** :
+     - Si le premier message du client contient déjà le prénom ou l'occasion (ex: *« Je veux une chanson pour l'anniversaire de mon mari Alassane »*), l'agent accuse réception directement de ces éléments au lieu de réciter froidement la liste des 4 questions.
+  4. **Ajout du Bouton « Copier » en 1 Clic** :
+     - Bouton dédié dans l'en-tête WhatsApp permettant de copier l'intégralité de la discussion dans le presse-papier pour audit immédiat.
+  5. **Déploiement en Production VPS** :
+     - Build Vite recompilé et synchronisé : `https://waha.velarisagent.life/qr/simulateur/index.html#simulateur`
+- **Jalon Précédent Validé** : **Jalon 134 Validé — Temporisation Réelle WhatsApp 40s (Absorption Rafales & Vocaux), Carillon Audio Double-Bip, Cycle Complet Rédaction Paroles & Verrous FSM Étanches** :
   1. **Temporisation Déterministe de 40 Secondes (Conforme Réalité WhatsApp)** :
      - Fenêtre de réponse calibrée par défaut à **40 secondes** (`burstWindowMs: 40000`). Permet au client de formuler sa demande en plusieurs messages rapprochés ou d'enregistrer une note vocale au micro sans être interrompu.
      - Mise en pause automatique du compte à rebours dès l'activation de l'enregistrement micro (`startRecording`), empêchant l'IA de déclencher un tour pendant que le client parle.
