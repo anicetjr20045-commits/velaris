@@ -25,8 +25,25 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Novembre 2026 (08:20 UTC)
-- **Statut Opérationnel** : **Jalon 135 Validé — Élimination Définitive des Questions Répétitives & Extracteur Robuste Destinataire/Expéditeur Simultanés** :
+- **Dernière mise à jour** : 9 Novembre 2026 (08:48 UTC)
+- **Statut Opérationnel** : **Jalon 136 Validé — Refonte Complète Zéro-Regex (Extracteur Sémantique Pur LLM JSON + FSM Mathématique Déterministe)** :
+  1. **Purge Intégrale des Regex Heuristiques** :
+     - Élimination définitive de toutes les regex de parsing et de décision (`senderPattern`, `matchFor`, `cleanExtractedName`, `matchRelative`, `matchWife`, `matchMother`, `norm.includes('prestige')`, etc.).
+     - Suppression du risque de faux positifs sur les tournures complexes (ex: *« Je veux la formule à 1 200 F sans vidéo »* qui déclenchait faussement la formule Prestige à cause du mot vidéo).
+  2. **Création du Module Sémantique Pur (`semantic-extractor.ts`)** :
+     - Extraction structurée sémantique via LLM contextuel (Google Gemini Flash via Fal Any-LLM, latence ~1.5s, température 0).
+     - Rendu sous schéma JSON strict (`recipient_name`, `sender_name`, `recipient_relation`, `occasion`, `formula_choice`, `wants_video_demo`, `lyrics_feedback`, `payment_claim`).
+     - Fallback tokenisé résilient en cas de rupture réseau (zéro regex empilée).
+  3. **Machine à États Déterministe Sans Texte Brut (`simulator-fsm.ts`)** :
+     - La FSM consomme uniquement les faits extraits et les booléens validés, jamais de chaînes brutes.
+     - Transitions mathématiques rigides garantissant le séquençage officiel : Recueil brief ➔ Vocal 2 de procédure (33s OGG) ➔ Choix formule ➔ Paroles studio ➔ Coordonnées Orange Money / Wave ➔ Reçu comptable.
+  4. **Banc d'Essai Automatisé Validé (100% Succès)** :
+     - Script `scratch/test-zero-regex.ts` validant les 5 tours de dialogue critiques avec de vrais appels sémantiques.
+  5. **Déploiement en Production VPS & Push Git** :
+     - Build Vite de production synchronisé sur le VPS Contabo (`162.35.113.220`).
+     - Live direct : `https://waha.velarisagent.life/qr/simulateur/index.html#simulateur` et `https://waha.velarisagent.life/qr/play.html`.
+     - Commit Git `c62bf1c` poussé sur `origin/main`.
+- **Jalon Précédent Validé** : **Jalon 135 Validé — Élimination Définitive des Questions Répétitives & Extracteur Robuste Destinataire/Expéditeur Simultanés** :
   1. **Analyse de la Cause Racine du Bug Signalé** :
      - Lorsque le client répondait au prénom en enchaînant l'expéditeur (ex: *« Alassane, de la part d'Aminata »* ou *« C'est Alassane et moi c'est Aminata »*), l'ancien parseur regex exigeait le mot *« pour »* ou une relation explicite pour le destinataire, et échouait sur l'apostrophe contractée (*« d'Aminata »* sans espace).
      - Conséquence : Seul l'expéditeur était capturé (*Aminata*), tandis que le destinataire restait à `null`. L'agent reposait alors aveuglément la question : *« Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ? »*.
