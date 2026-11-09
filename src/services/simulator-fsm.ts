@@ -1,8 +1,13 @@
 /**
- * Moteur FSM Déterministe pour le Simulateur WhatsApp Velaris
- * Implémente le protocole officiel des 2 vocaux, les 4 invariants,
- * les verrous matériels d'unicité et le séquençage réaliste des bulles.
+ * Moteur FSM Déterministe ZÉRO-REGEX pour le Simulateur WhatsApp Velaris
+ * 
+ * Conforme au Contrat d'Ingénierie IA (Règle 5 de /root/AGENTS.md) :
+ * - Aucune regex d'intention, de prix ou d'extraction fragile.
+ * - Réception d'un objet sémantique structuré (SemanticTurnExtraction).
+ * - Machine à états mathématique avec verrous d'unicité matériels étanches.
  */
+
+import type { SemanticTurnExtraction } from './semantic-extractor';
 
 export interface BriefPillars {
   recipientName: string | null;
@@ -61,165 +66,6 @@ export interface GeneratedTurnReply {
   fsmExplanation: string;
 }
 
-// ---------------------------------------------------------------------------
-// Détection déterministe d'intentions et extraction des 4 repères
-// ---------------------------------------------------------------------------
-
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
-}
-
-function cleanExtractedName(raw: string): string | null {
-  if (!raw) return null;
-  let s = raw.trim();
-  s = s.replace(/^[,\.\-;:\s]+|[,\.\-;:\s]+$/g, '');
-  s = s.replace(/^(?:c'est|il s'appelle|elle s'appelle|son prenom c'est|son nom c'est|prenom|nom|le|la|mon|ma|pour|offert|offerte|de)\s+/i, '');
-  s = s.replace(/\s+(?:offert|offerte|de|pour)$/i, '');
-  s = s.trim();
-  const stopWords = ['qui', 'quoi', 'son', 'sa', 'ses', 'lui', 'elle', 'mon', 'ma', 'mes', 'un', 'une', 'des', 'le', 'la', 'les', 'pour', 'chanson', 'studio', 'bonjour', 'merci', 'oui', 'non', 'ok', 'offert', 'offerte', 'de'];
-  if (stopWords.includes(s.toLowerCase())) return null;
-  if (s.length < 2) return null;
-  return s
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
-
-export function extractPillarsFromText(rawText: string, current: BriefPillars): BriefPillars {
-  // Remplacer apostrophes courbes par apostrophes droites pour uniformité
-  const text = rawText.replace(/[\u2018\u2019]/g, "'");
-  const norm = normalizeText(text);
-  const updated: BriefPillars = { ...current };
-
-  // 1. Détection de l'Occasion
-  if (!updated.occasion) {
-    if (norm.includes('anniversaire') || norm.includes('anniv') || norm.includes('aniv') || /\b(?:\d{1,2}|ans)\s*(?:ans|bougies)\b/i.test(text)) {
-      updated.occasion = 'Anniversaire';
-    } else if (norm.includes('mariage') || norm.includes('dote') || norm.includes('dot') || norm.includes('fiancaille')) {
-      updated.occasion = 'Mariage';
-    } else if (norm.includes('deuil') || norm.includes('hommage') || norm.includes('decede') || norm.includes('obseques') || norm.includes('deces') || norm.includes('enterrement')) {
-      updated.occasion = 'Hommage / Deuil';
-    } else if (norm.includes('amour') || norm.includes('saint valentin') || norm.includes('reconciliation') || norm.includes('je t aime') || norm.includes('pardon')) {
-      updated.occasion = 'Déclaration d’amour';
-    } else if (norm.includes('bapteme') || norm.includes('naissance') || norm.includes('bebe')) {
-      updated.occasion = 'Baptême / Naissance';
-    } else if (norm.includes('diplome') || norm.includes('soutenance') || norm.includes('reussite') || norm.includes('bac') || norm.includes('licence') || norm.includes('master')) {
-      updated.occasion = 'Félicitations / Diplôme';
-    } else if (norm.includes('merci') || norm.includes('remerciement') || norm.includes('gratitude')) {
-      updated.occasion = 'Remerciement';
-    }
-  }
-
-  // 2. Détection de l'Expéditeur
-  const senderPattern = /(?:c'est de la part de\s+|c'est de la part d'|de la part de\s+|de la part d'|offert par\s+|et moi c'est\s+|moi c'est\s+|mon prenom c'est\s+|mon nom c'est\s+|signe\s+|et moi\s+|par\s+)([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i;
-  const matchSender = text.match(senderPattern);
-  if (matchSender && matchSender[1]) {
-    const s = cleanExtractedName(matchSender[1]);
-    if (s && !['qui', 'quoi', 'son', 'sa', 'lui'].includes(s.toLowerCase())) {
-      if (!updated.senderName) updated.senderName = s;
-    }
-  } else if (!updated.senderName && (norm.includes('de ma part') || norm.includes('de moi') || norm.includes('c est moi'))) {
-    updated.senderName = 'Le client';
-  }
-
-  // 3. Préparation du texte pour le Destinataire (on retire la clause expéditeur pour éviter toute confusion)
-  let textForRecipient = text;
-  if (matchSender && matchSender[0]) {
-    textForRecipient = textForRecipient.replace(matchSender[0], ' ');
-  }
-
-  // 4. Détection du Destinataire
-  if (!updated.recipientName) {
-    const matchRelative = textForRecipient.match(/(?:mon mari|mon homme|mon époux|mon conjoint)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-    const matchWife = textForRecipient.match(/(?:ma femme|mon épouse|ma chérie|ma conjointe)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-    const matchMother = textForRecipient.match(/(?:ma mère|ma maman|maman)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-    const matchFather = textForRecipient.match(/(?:mon père|mon papa|papa)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-    const matchOtherRel = textForRecipient.match(/(?:mon ami|mon amie|mon frère|ma sœur|mon fils|ma fille|mon bébé|mon amour)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-
-    if (matchRelative && matchRelative[1]) {
-      const c = cleanExtractedName(matchRelative[1]);
-      if (c) updated.recipientName = `Son mari ${c}`;
-    } else if (matchWife && matchWife[1]) {
-      const c = cleanExtractedName(matchWife[1]);
-      if (c) updated.recipientName = `Sa femme ${c}`;
-    } else if (matchMother && matchMother[1]) {
-      const c = cleanExtractedName(matchMother[1]);
-      if (c) updated.recipientName = `Sa maman ${c}`;
-    } else if (matchFather && matchFather[1]) {
-      const c = cleanExtractedName(matchFather[1]);
-      if (c) updated.recipientName = `Son papa ${c}`;
-    } else if (matchOtherRel && matchOtherRel[1]) {
-      const c = cleanExtractedName(matchOtherRel[1]);
-      if (c) updated.recipientName = c;
-    } else {
-      const matchFor = textForRecipient.match(/(?:pour|célébrer|honorer|offrir à|dédié à|dédiée à|destiné à|destinée à|il s'appelle|elle s'appelle|son prénom c'est|son nom c'est|nommé|nommée)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
-      if (matchFor && matchFor[1]) {
-        const c = cleanExtractedName(matchFor[1]);
-        if (c && c !== updated.senderName) updated.recipientName = c;
-      } else if (norm.includes('pour moi') || norm.includes('mon propre') || norm.includes('pour moi-même')) {
-        updated.recipientName = 'Le client lui-même';
-      } else {
-        // Phrase courte ou prénom direct (ex: "Alassane", "C'est Alassane", "Alassane Traoré")
-        let stripped = textForRecipient;
-        stripped = stripped.replace(/(?:pour\s+son\s+anniversaire|anniversaire|mariage|pour\s+ce\s+samedi|samedi|dimanche)/gi, ' ');
-        stripped = stripped.replace(/^(?:c'est|il s'appelle|elle s'appelle|prenom|nom|pour)\s+/i, ' ');
-        stripped = stripped.replace(/[,;\.\-\/]/g, ' ').trim();
-
-        const words = stripped
-          .split(/\s+/)
-          .filter((w) => w.length > 1 && !['et', 'de', 'la', 'part', 'pour', 'offert', 'moi', 'cest', "c'est"].includes(w.toLowerCase()));
-        if (words.length >= 1 && words.length <= 3) {
-          const candidate = cleanExtractedName(words.join(' '));
-          if (candidate && candidate !== updated.senderName) {
-            updated.recipientName = candidate;
-          }
-        }
-      }
-    }
-  }
-
-  // 5. Détection de l'Âme des Paroles / Anecdotes / Carte blanche
-  if (!updated.storyAndMemories) {
-    if (
-      norm.includes('anecdote') ||
-      norm.includes('souvenir') ||
-      norm.includes('rencontre') ||
-      norm.includes('qualite') ||
-      norm.includes('homme genereux') ||
-      norm.includes('toujours la') ||
-      norm.includes('gentil') ||
-      norm.includes('aimant') ||
-      norm.includes('courageuse') ||
-      norm.includes('pas danecdote') ||
-      norm.includes('pas d’anecdote') ||
-      norm.includes('rien de special') ||
-      norm.includes('rien a ajouter') ||
-      norm.includes('aucune anecdote') ||
-      norm.includes('pas grand chose') ||
-      norm.includes('vous avez carte blanche') ||
-      norm.includes('carte blanche') ||
-      norm.includes('laisse libre') ||
-      norm.includes('faites de belles paroles') ||
-      norm.includes('faites comme vous voulez') ||
-      norm.includes('je vous fais confiance') ||
-      norm.includes('inspirez-vous') ||
-      norm.includes('inspirez vous') ||
-      norm.includes('pas d idee') ||
-      norm.includes('pas d’idee')
-    ) {
-      updated.storyAndMemories = text.length > 25 ? text.slice(0, 150) : 'Carte blanche confiée au Studio';
-    } else if (text.length > 80 && (updated.recipientName || updated.occasion)) {
-      updated.storyAndMemories = text.slice(0, 150) + '...';
-    }
-  }
-
-  return updated;
-}
-
 export function areAllPillarsComplete(p: BriefPillars): boolean {
   return Boolean(p.recipientName && p.occasion && p.senderName && p.storyAndMemories);
 }
@@ -240,16 +86,16 @@ export function getPaymentCoordinates(country: 'CI' | 'BF' | 'SN' | 'OTHER', off
 }
 
 // ---------------------------------------------------------------------------
-// Exécution d'un tour de FSM
+// Exécution Déterministe d'un Tour de FSM (100% ZÉRO-REGEX)
 // ---------------------------------------------------------------------------
 
 export function processSimulationTurn(
   inboundText: string,
   state: SimulationState,
+  semantic: SemanticTurnExtraction,
   hasImageAttachment = false,
   imageType?: 'photo' | 'receipt'
 ): GeneratedTurnReply {
-  const norm = normalizeText(inboundText);
   let newState: SimulationState = {
     ...state,
     pillars: { ...state.pillars },
@@ -304,46 +150,41 @@ export function processSimulationTurn(
     };
   }
 
-  // 1. GESTION DES REÇUS ET IMAGES
-  if (hasImageAttachment || imageType === 'receipt' || norm.includes('reçu') || norm.includes('recu') || norm.includes('capture de paiement')) {
-    if (imageType === 'receipt' || norm.includes('recu') || norm.includes('reçu') || norm.includes('transfert')) {
-      newState.stage = 'PAYMENT_VERIFYING';
-      return {
-        bubbles: [
-          {
-            content: 'Bien reçu votre confirmation de transfert. Notre service comptable vérifie la transaction et notre équipe musicale lance immédiatement l’enregistrement en studio.',
-          },
-        ],
-        presenceState: 'typing',
-        presenceDurationMs: 2400,
-        interBubbleDelayMs: 1000,
-        newState,
-        fsmExplanation: 'Reçu de paiement détecté ➔ Passage en attente de validation comptable et lancement studio.',
-      };
-    }
-
-    if (imageType === 'photo' || norm.includes('photo') || norm.includes('voici les photos')) {
-      return {
-        bubbles: [
-          {
-            content: 'Bien reçu vos photos souvenirs. Elles sont précieusement conservées pour le montage de votre vidéo.',
-          },
-        ],
-        presenceState: 'typing',
-        presenceDurationMs: 2000,
-        interBubbleDelayMs: 1000,
-        newState,
-        fsmExplanation: 'Photos de montage vidéo reçues et sécurisées.',
-      };
-    }
+  // 1. GESTION DES REÇUS ET PREUVES DE PAIEMENT
+  if (hasImageAttachment && imageType === 'receipt' || semantic.isReceiptProof) {
+    newState.stage = 'PAYMENT_VERIFYING';
+    return {
+      bubbles: [
+        {
+          content: 'Bien reçu votre confirmation de transfert. Notre service comptable vérifie la transaction et notre équipe musicale lance immédiatement l’enregistrement en studio.',
+        },
+      ],
+      presenceState: 'typing',
+      presenceDurationMs: 2400,
+      interBubbleDelayMs: 1000,
+      newState,
+      fsmExplanation: 'Preuve de paiement reçue ➔ Passage en validation comptable et lancement studio.',
+    };
   }
 
-  // 2. DEMANDE D’EXEMPLE / EXTRAIT VIDÉO
-  if (
-    (norm.includes('video') || norm.includes('montage') || norm.includes('exemple') || norm.includes('apercu') || norm.includes('voir')) &&
-    (norm.includes('montre') || norm.includes('comment') || norm.includes('ressemble') || norm.includes('extrait') || norm.includes('apercu')) &&
-    !newState.locks.videoSampleSent
-  ) {
+  // 2. GESTION DES PHOTOS SOUVENIRS (MONTAGE VIDÉO)
+  if (hasImageAttachment && imageType === 'photo') {
+    return {
+      bubbles: [
+        {
+          content: 'Bien reçu vos photos souvenirs. Elles sont précieusement conservées pour le montage de votre vidéo.',
+        },
+      ],
+      presenceState: 'typing',
+      presenceDurationMs: 2000,
+      interBubbleDelayMs: 1000,
+      newState,
+      fsmExplanation: 'Photos pour montage vidéo reçues et sécurisées.',
+    };
+  }
+
+  // 3. DEMANDE D’EXEMPLE / EXTRAIT VIDÉO
+  if (semantic.wantsVideoDemo && !newState.locks.videoSampleSent) {
     newState.locks.videoSampleSent = true;
     return {
       bubbles: [
@@ -366,11 +207,11 @@ export function processSimulationTurn(
     };
   }
 
-  // 3. DEMANDE DE TARIFS EN COURS DE ROUTE
-  if (norm.includes('combien') || norm.includes('prix') || norm.includes('tarif') || norm.includes('coute')) {
+  // 4. DEMANDE DE TARIFS
+  if (semantic.asksPricing && newState.stage !== 'OFFER_PITCH') {
     const priceText = 'Nous proposons deux formules pour la création de votre chanson :\n— La formule Découverte à 1 200 F CFA : la chanson personnalisée complète livrée en 2 versions audio HD.\n— La formule Prestige à 3 000 F CFA : la chanson complète accompagnée de son montage vidéo personnalisé avec vos photos.';
     
-    // Pont vers le brief
+    // Pont vers le brief en cours
     const nextQuestion = !newState.pillars.occasion
       ? 'Pour quel événement ou quelle occasion souhaitez-vous offrir cette chanson ?'
       : !newState.pillars.recipientName
@@ -386,12 +227,12 @@ export function processSimulationTurn(
       presenceDurationMs: 3200,
       interBubbleDelayMs: 1200,
       newState,
-      fsmExplanation: 'Question tarifaire ➔ Présentation transparente des prix + pont immédiat vers le recueil du brief.',
+      fsmExplanation: 'Demande de tarif ➔ Présentation transparente des 2 prix + relance du brief en cours.',
     };
   }
 
-  // 4. CHOIX DE FORMULE (1 200 F ou 3 000 F)
-  if (norm.includes('1 200') || norm.includes('1200') || norm.includes('decouverte')) {
+  // 5. CHOIX DE FORMULE (DÉCOUVERTE OU PRESTIGE)
+  if (semantic.formulaChoice === 'decouverte' && newState.selectedOffer !== 'decouverte') {
     newState.selectedOffer = 'decouverte';
     newState.stage = 'DRAFTING_LYRICS';
     return {
@@ -407,11 +248,11 @@ export function processSimulationTurn(
       presenceDurationMs: 2800,
       interBubbleDelayMs: 1200,
       newState,
-      fsmExplanation: 'Choix formule Découverte (1 200 F) validé ➔ Engagement du délai de rédaction (15 minutes).',
+      fsmExplanation: 'Choix formule Découverte (1 200 F) validé sémantiquement ➔ Engagement du délai de rédaction (15 minutes).',
     };
   }
 
-  if (norm.includes('3 000') || norm.includes('3000') || norm.includes('prestige') || norm.includes('video')) {
+  if (semantic.formulaChoice === 'prestige' && newState.selectedOffer !== 'prestige') {
     newState.selectedOffer = 'prestige';
     newState.stage = 'DRAFTING_LYRICS';
     return {
@@ -427,42 +268,12 @@ export function processSimulationTurn(
       presenceDurationMs: 2800,
       interBubbleDelayMs: 1200,
       newState,
-      fsmExplanation: 'Choix formule Prestige (3 000 F) validé ➔ Rédaction en cours, photos annoncées post-validation.',
+      fsmExplanation: 'Choix formule Prestige (3 000 F) validé sémantiquement ➔ Rédaction en cours, photos annoncées post-validation.',
     };
   }
 
-  // 4b. PRÉSENTATION DES PAROLES RÉDIGÉES (PASSAGE EN LYRICS_VALIDATION)
-  if (newState.stage === 'DRAFTING_LYRICS') {
-    newState.stage = 'LYRICS_VALIDATION';
-    const recipient = newState.pillars.recipientName || 'votre proche';
-    const occasion = newState.pillars.occasion || 'cet événement précieux';
-    const sender = newState.pillars.senderName ? `de la part de ${newState.pillars.senderName}` : '';
-    const anecdote = newState.pillars.storyAndMemories ? `— ${newState.pillars.storyAndMemories}` : '';
-
-    const proposal = `Voici la proposition de texte composée par notre studio pour ${recipient} (${occasion}) :\n\n[Couplet 1]\nDans le secret des jours et la douceur du temps,\nTon sourire éclaire nos vies à chaque instant.\nUn cœur si généreux, une présence si précieuse,\nQue cette mélodie te rende l'âme heureuse.\n\n[Refrain]\nJoyeux ${occasion} pour toi, ${recipient},\nCes mots gravés d'amour te sont dédiés ${sender}.\nQue la paix et la joie t'accompagnent pour toujours,\nAu rythme de nos cœurs et de nos plus beaux jours.\n\n[Couplet 2]\n${anecdote || 'Que la grâce divine veille sur tes pas,\nEt que chaque prière veille sur toi.'}\n\nDites-nous si ces paroles vous touchent ou si vous souhaitez ajuster un passage avant l’enregistrement en studio ?`;
-
-    return {
-      bubbles: [{ content: proposal }],
-      presenceState: 'typing',
-      presenceDurationMs: 3200,
-      interBubbleDelayMs: 1200,
-      newState,
-      fsmExplanation: 'Paroles rédigées et soumises au client pour validation avant enregistrement studio.',
-    };
-  }
-
-  // 5. VALIDATION DU TEXTE (LIVRAISON DES COORDONNÉES DE PAIEMENT)
-  if (
-    (norm.includes('valide') ||
-      norm.includes('parfait') ||
-      norm.includes('magnifique') ||
-      norm.includes('j aime') ||
-      norm.includes('tres beau') ||
-      norm.includes('c est bon') ||
-      norm.includes('daccord pour le texte') ||
-      norm.includes('enregistrez')) &&
-    (newState.stage === 'LYRICS_VALIDATION' || newState.selectedOffer !== null)
-  ) {
+  // 6. VALIDATION DES PAROLES ➔ TRANSMISSION DES COORDONNÉES DE PAIEMENT
+  if (semantic.lyricsFeedback === 'approved' && (newState.stage === 'LYRICS_VALIDATION' || newState.stage === 'DRAFTING_LYRICS' || newState.selectedOffer !== null)) {
     newState.stage = 'PAYMENT_PENDING';
     newState.locks.paymentBlockSent = true;
     const offerLabel = newState.selectedOffer === 'prestige' ? 'Formule Prestige avec Vidéo' : 'Formule Découverte';
@@ -483,16 +294,47 @@ export function processSimulationTurn(
       presenceDurationMs: 3400,
       interBubbleDelayMs: 1400,
       newState,
-      fsmExplanation: 'Validation des paroles par le client ➔ Déclenchement déterministe des coordonnées de paiement selon l’indicatif pays.',
+      fsmExplanation: 'Validation sémantique des paroles par le client ➔ Déclenchement des coordonnées de règlement selon l’indicatif.',
     };
   }
 
-  // 6. EXTRACTION DES 4 INVARIANTS DU BRIEF
-  const updatedPillars = extractPillarsFromText(inboundText, newState.pillars);
-  newState.pillars = updatedPillars;
-  const allComplete = areAllPillarsComplete(updatedPillars);
+  // 7. PRÉSENTATION DES PAROLES RÉDIGÉES
+  if (newState.stage === 'DRAFTING_LYRICS') {
+    newState.stage = 'LYRICS_VALIDATION';
+    const recipient = newState.pillars.recipientName || 'votre proche';
+    const occasion = newState.pillars.occasion || 'cet événement précieux';
+    const sender = newState.pillars.senderName ? `de la part de ${newState.pillars.senderName}` : '';
+    const anecdote = newState.pillars.storyAndMemories ? `— ${newState.pillars.storyAndMemories}` : '';
 
-  // 7. SI BRIEF COMPLET ET VOCAL 2 PAS ENCORE ENVOYÉ ➔ ENVOI DU VOCAL 2 (33S)
+    const proposal = `Voici la proposition de texte composée par notre studio pour ${recipient} (${occasion}) :\n\n[Couplet 1]\nDans le secret des jours et la douceur du temps,\nTon sourire éclaire nos vies à chaque instant.\nUn cœur si généreux, une présence si précieuse,\nQue cette mélodie te rende l'âme heureuse.\n\n[Refrain]\nJoyeux ${occasion} pour toi, ${recipient},\nCes mots gravés d'amour te sont dédiés ${sender}.\nQue la paix et la joie t'accompagnent pour toujours,\nAu rythme de nos cœurs et de nos plus beaux jours.\n\n[Couplet 2]\n${anecdote || 'Que la grâce divine veille sur tes pas,\nEt que chaque prière veille sur toi.'}\n\nDites-nous si ces paroles vous touchent ou si vous souhaitez ajuster un passage avant l’enregistrement en studio ?`;
+
+    return {
+      bubbles: [{ content: proposal }],
+      presenceState: 'typing',
+      presenceDurationMs: 3200,
+      interBubbleDelayMs: 1200,
+      newState,
+      fsmExplanation: 'Paroles rédigées et soumises au client pour validation avant enregistrement studio.',
+    };
+  }
+
+  // 8. MISE À JOUR DES 4 INVARIANTS DU BRIEF (SÉMANTIQUE PURE)
+  if (semantic.recipientName && !newState.pillars.recipientName) {
+    newState.pillars.recipientName = semantic.recipientName;
+  }
+  if (semantic.occasion && !newState.pillars.occasion) {
+    newState.pillars.occasion = semantic.occasion;
+  }
+  if (semantic.senderName && !newState.pillars.senderName) {
+    newState.pillars.senderName = semantic.senderName;
+  }
+  if (semantic.storyAndMemories && !newState.pillars.storyAndMemories) {
+    newState.pillars.storyAndMemories = semantic.storyAndMemories;
+  }
+
+  const allComplete = areAllPillarsComplete(newState.pillars);
+
+  // 9. BRIEF COMPLET & VOCAL 2 PAS ENCORE ENVOYÉ ➔ ENVOI DU VOCAL 2 (33S)
   if (allComplete && !newState.locks.vocal2Sent && newState.clientProfile === 'new') {
     newState.locks.vocal2Sent = true;
     newState.stage = 'VOCAL_2_DUE';
@@ -500,7 +342,7 @@ export function processSimulationTurn(
     return {
       bubbles: [
         {
-          content: `C'est bien noté pour ${updatedPillars.recipientName}. Nous avons tous les éléments nécessaires.`,
+          content: `C'est bien noté pour ${newState.pillars.recipientName}. Nous avons tous les éléments nécessaires.`,
         },
         {
           content: 'Voici une courte note vocale expliquant notre démarche de création :',
@@ -514,11 +356,11 @@ export function processSimulationTurn(
       presenceDurationMs: 3800,
       interBubbleDelayMs: 1400,
       newState,
-      fsmExplanation: 'Les 4 invariants sont complets ➔ Déclenchement automatique du Vocal 2 de procédure (33s OGG WhatsApp natif).',
+      fsmExplanation: 'Les 4 invariants sont validés ➔ Déclenchement automatique du Vocal 2 de procédure (33s OGG WhatsApp natif).',
     };
   }
 
-  // Si le client répond au Vocal 2 (ou après sa diffusion), on présente les offres (strictement en étape VOCAL_2_DUE)
+  // 10. CLIENT EN ÉTAPE VOCAL_2_DUE ➔ PRÉSENTATION DES OFFRES
   if (newState.locks.vocal2Sent && newState.stage === 'VOCAL_2_DUE') {
     newState.stage = 'OFFER_PITCH';
     return {
@@ -535,20 +377,20 @@ export function processSimulationTurn(
     };
   }
 
-  // 8. VOCAL 1 : PREMIER CONTACT D'UN NOUVEAU CLIENT
+  // 11. VOCAL 1 : PREMIER CONTACT D'UN NOUVEAU CLIENT
   if (!newState.locks.vocal1Sent && newState.clientProfile === 'new') {
     newState.locks.vocal1Sent = true;
     newState.stage = 'COLLECTING_PILLARS';
 
-    const hasAnyPillar = Boolean(updatedPillars.recipientName || updatedPillars.occasion);
+    const hasAnyPillar = Boolean(newState.pillars.recipientName || newState.pillars.occasion);
     let vocal1Text = '';
     if (hasAnyPillar) {
       const ackParts: string[] = [];
-      if (updatedPillars.recipientName) ackParts.push(`pour ${updatedPillars.recipientName}`);
-      if (updatedPillars.occasion) ackParts.push(`à l'occasion de son ${updatedPillars.occasion.toLowerCase()}`);
+      if (newState.pillars.recipientName) ackParts.push(`pour ${newState.pillars.recipientName}`);
+      if (newState.pillars.occasion) ackParts.push(`à l'occasion de son ${newState.pillars.occasion.toLowerCase()}`);
       vocal1Text = `Bonjour et bienvenue au Studio Velaris ! C’est un magnifique projet ${ackParts.join(' ')}.\n\nPour que notre équipe compose sa chanson sur-mesure, il nous manque juste quelques précisions :\n`;
-      if (!updatedPillars.senderName) vocal1Text += `— De la part de qui est offert ce beau cadeau ?\n`;
-      if (!updatedPillars.storyAndMemories) vocal1Text += `— Avez-vous de petits souvenirs, anecdotes ou mots doux à glisser dans les paroles ?\n`;
+      if (!newState.pillars.senderName) vocal1Text += `— De la part de qui est offert ce beau cadeau ?\n`;
+      if (!newState.pillars.storyAndMemories) vocal1Text += `— Avez-vous de petits souvenirs, anecdotes ou mots doux à glisser dans les paroles ?\n`;
       vocal1Text += `\nVous pouvez nous expliquer cela par message ou par note vocale selon ce qui est le plus confortable pour vous !`;
     } else {
       vocal1Text = "Bonjour et bienvenue au Studio Velaris ! Pour composer une chanson sur-mesure d'exception, nous avons simplement besoin de connaître :\n1. Le prénom de la personne à célébrer\n2. L'occasion ou la date de l'événement\n3. De la part de qui est offert ce cadeau\n4. Vos anecdotes, souvenirs ou mots doux à glisser dans les paroles.\n\nVous pouvez nous expliquer tout cela d'un coup, par message texte ou par note vocale selon ce qui est le plus confortable pour vous !";
@@ -567,20 +409,20 @@ export function processSimulationTurn(
       presenceDurationMs: 4200,
       interBubbleDelayMs: 1000,
       newState,
-      fsmExplanation: 'Premier contact client ➔ Envoi du Vocal 1 de cadrage global adapté aux éléments reçus.',
+      fsmExplanation: 'Premier contact client ➔ Envoi du Vocal 1 de cadrage adapté aux éléments sémantiques reçus.',
     };
   }
 
-  // 9. RELANCE CIBLÉE SUR L'INVARIANT MANQUANT
+  // 12. RELANCE CIBLÉE SUR LE SEUL INVARIANT MANQUANT
   newState.stage = 'COLLECTING_PILLARS';
   let missingPrompt = '';
-  if (!updatedPillars.recipientName) {
+  if (!newState.pillars.recipientName) {
     missingPrompt = 'Quel est le prénom de la personne à qui vous souhaitez dédier cette chanson ?';
-  } else if (!updatedPillars.occasion) {
-    missingPrompt = `C’est bien noté pour ${updatedPillars.recipientName}. Pour quelle occasion ou à quelle date est prévue cette célébration ?`;
-  } else if (!updatedPillars.senderName) {
-    missingPrompt = `C’est bien noté pour ${updatedPillars.recipientName}. Et de la part de qui est offert ce beau cadeau ?`;
-  } else if (!updatedPillars.storyAndMemories) {
+  } else if (!newState.pillars.occasion) {
+    missingPrompt = `C’est bien noté pour ${newState.pillars.recipientName}. Pour quelle occasion ou à quelle date est prévue cette célébration ?`;
+  } else if (!newState.pillars.senderName) {
+    missingPrompt = `C’est bien noté pour ${newState.pillars.recipientName}. Et de la part de qui est offert ce beau cadeau ?`;
+  } else if (!newState.pillars.storyAndMemories) {
     missingPrompt = 'Avez-vous des anecdotes, des souvenirs particuliers ou un message à lui transmettre dans les paroles ? (Si vous n’avez pas d’idée précise, notre équipe se chargera de composer de très belles paroles).';
   }
 
@@ -591,10 +433,10 @@ export function processSimulationTurn(
     interBubbleDelayMs: 1000,
     newState,
     fsmExplanation: `Brief partiel (${[
-      updatedPillars.recipientName ? 'Prénom OK' : 'Prénom manquant',
-      updatedPillars.occasion ? 'Occasion OK' : 'Occasion manquante',
-      updatedPillars.senderName ? 'Expéditeur OK' : 'Expéditeur manquant',
-      updatedPillars.storyAndMemories ? 'Histoire OK' : 'Histoire manquante',
-    ].join(' • ')}) ➔ Question unique ciblée.`,
+      newState.pillars.recipientName ? 'Prénom OK' : 'Prénom manquant',
+      newState.pillars.occasion ? 'Occasion OK' : 'Occasion manquante',
+      newState.pillars.senderName ? 'Expéditeur OK' : 'Expéditeur manquant',
+      newState.pillars.storyAndMemories ? 'Histoire OK' : 'Histoire manquante',
+    ].join(' • ')}) ➔ Question unique ciblée sans répétition.`,
   };
 }

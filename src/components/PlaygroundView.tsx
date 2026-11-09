@@ -29,6 +29,10 @@ import {
   processSimulationTurn,
   type SimulationState,
 } from '../services/simulator-fsm';
+import {
+  extractSemanticTurn,
+  type SemanticTurnExtraction,
+} from '../services/semantic-extractor';
 
 export interface ChatBubble {
   id: string;
@@ -207,6 +211,9 @@ export const PlaygroundView: FC = () => {
     isHumanTakeover: false,
     lastTurnAt: Date.now(),
   });
+
+  // Dernier Résultat d'Extraction Sémantique Zéro-Regex
+  const [lastSemantic, setLastSemantic] = useState<SemanticTurnExtraction | null>(null);
 
   // Conversation
   const [messages, setMessages] = useState<ChatBubble[]>([]);
@@ -497,14 +504,21 @@ export const PlaygroundView: FC = () => {
     }
   };
 
-  // Exécution du Tour Agent (FSM)
+  // Exécution du Tour Agent (Architecture Zéro-Regex : Sémantique + FSM Déterministe)
   const executeAgentTurn = async (inboundText: string, attachmentKind?: 'photo' | 'receipt') => {
     setIsAiThinking(true);
+    setAiPresenceState('typing');
     const startMs = performance.now();
 
+    // 1. Extraction Sémantique Pure (LLM JSON sans aucune regex)
+    const semantic = await extractSemanticTurn(inboundText, fsmState);
+    setLastSemantic(semantic);
+
+    // 2. Exécution Mathématique Déterministe de la FSM
     const turnResult = processSimulationTurn(
       inboundText,
       fsmState,
+      semantic,
       Boolean(attachmentKind),
       attachmentKind
     );
@@ -579,6 +593,7 @@ export const PlaygroundView: FC = () => {
     setBurstQueue([]);
     setBurstSecondsLeft(0);
     setMerchantAlerts([]);
+    setLastSemantic(null);
     setClientName(sc.clientName);
     setCountryCode(sc.country);
     setClientPhone(sc.phone);
@@ -606,6 +621,7 @@ export const PlaygroundView: FC = () => {
     };
 
     setFsmState(initialState);
+    setLastSemantic(null);
 
     const initialBubbles: ChatBubble[] = sc.firstMessages.map((msg, i) => ({
       id: `init_${Date.now()}_${i}`,
@@ -653,6 +669,7 @@ export const PlaygroundView: FC = () => {
     setBurstQueue([]);
     setBurstSecondsLeft(0);
     setMerchantAlerts([]);
+    setLastSemantic(null);
 
     setFsmState({
       stage: 'GREETING',
@@ -1168,6 +1185,44 @@ export const PlaygroundView: FC = () => {
                         Déterministe
                       </span>
                     </div>
+                  </div>
+
+                  {/* Analyse Sémantique Pure (Zéro-Regex) */}
+                  <div className="p-3.5 rounded-xl bg-[#0E1015] border border-white/[0.08] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+                        Compréhension Sémantique
+                      </span>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                        lastSemantic?.engine === 'llm_semantic'
+                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                          : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                      }`}>
+                        {lastSemantic?.engine === 'llm_semantic' ? 'LLM JSON (Zero-Regex)' : 'Zéro-Regex Actif'}
+                      </span>
+                    </div>
+                    {lastSemantic ? (
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+                        <div className="p-1.5 rounded bg-black/40 border border-white/[0.04]">
+                          <span className="text-neutral-500 text-[10px] block">Formule</span>
+                          <span className="text-neutral-200">{lastSemantic.formulaChoice || 'aucune'}</span>
+                        </div>
+                        <div className="p-1.5 rounded bg-black/40 border border-white/[0.04]">
+                          <span className="text-neutral-500 text-[10px] block">Démo Vidéo</span>
+                          <span className="text-neutral-200">{lastSemantic.wantsVideoDemo ? 'Demandée' : 'Non'}</span>
+                        </div>
+                        <div className="p-1.5 rounded bg-black/40 border border-white/[0.04]">
+                          <span className="text-neutral-500 text-[10px] block">Paroles</span>
+                          <span className="text-neutral-200">{lastSemantic.lyricsFeedback || 'en attente'}</span>
+                        </div>
+                        <div className="p-1.5 rounded bg-black/40 border border-white/[0.04]">
+                          <span className="text-neutral-500 text-[10px] block">Reçu / Virement</span>
+                          <span className="text-neutral-200">{lastSemantic.paymentClaim ? 'Détecté' : 'Non'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-neutral-500 italic">En attente du premier message client…</div>
+                    )}
                   </div>
 
                   {/* Checklist des 4 Invariants */}
