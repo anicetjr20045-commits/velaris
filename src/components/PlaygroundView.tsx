@@ -22,6 +22,7 @@ import {
   X,
   Sliders,
   Zap,
+  Copy,
 } from 'lucide-react';
 import { transcribeAudioBlob } from '../services/whisper-stt';
 import {
@@ -238,6 +239,20 @@ export const PlaygroundView: FC = () => {
   const [isAttachModalOpen, setIsAttachModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingAttachType, setPendingAttachType] = useState<'photo' | 'receipt'>('photo');
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopyConversation = async () => {
+    const transcript = messages
+      .map((m) => `[${m.timestamp}] ${m.role === 'user' ? 'Client' : 'Studio (Alex)'}: ${m.content}`)
+      .join('\n\n');
+    try {
+      await navigator.clipboard.writeText(transcript);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -765,6 +780,20 @@ export const PlaygroundView: FC = () => {
                 ))}
               </select>
             </div>
+
+            {/* Copier la conversation */}
+            <button
+              onClick={handleCopyConversation}
+              className={`p-2 rounded-lg border text-xs flex items-center gap-1 transition-colors ${
+                isCopied
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08] text-neutral-300 border-white/[0.08]'
+              }`}
+              title="Copier toute la discussion pour analyse"
+            >
+              <Copy className="w-4 h-4" />
+              <span className="hidden lg:inline text-[11px]">{isCopied ? 'Copié !' : 'Copier'}</span>
+            </button>
 
             {/* Réinitialiser */}
             <button

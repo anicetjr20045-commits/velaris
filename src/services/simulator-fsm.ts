@@ -73,63 +73,116 @@ function normalizeText(text: string): string {
     .trim();
 }
 
-export function extractPillarsFromText(text: string, current: BriefPillars): BriefPillars {
+function cleanExtractedName(raw: string): string | null {
+  if (!raw) return null;
+  let s = raw.trim();
+  s = s.replace(/^[,\.\-;:\s]+|[,\.\-;:\s]+$/g, '');
+  s = s.replace(/^(?:c'est|il s'appelle|elle s'appelle|son prenom c'est|son nom c'est|prenom|nom|le|la|mon|ma|pour|offert|offerte|de)\s+/i, '');
+  s = s.replace(/\s+(?:offert|offerte|de|pour)$/i, '');
+  s = s.trim();
+  const stopWords = ['qui', 'quoi', 'son', 'sa', 'ses', 'lui', 'elle', 'mon', 'ma', 'mes', 'un', 'une', 'des', 'le', 'la', 'les', 'pour', 'chanson', 'studio', 'bonjour', 'merci', 'oui', 'non', 'ok', 'offert', 'offerte', 'de'];
+  if (stopWords.includes(s.toLowerCase())) return null;
+  if (s.length < 2) return null;
+  return s
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+export function extractPillarsFromText(rawText: string, current: BriefPillars): BriefPillars {
+  // Remplacer apostrophes courbes par apostrophes droites pour uniformité
+  const text = rawText.replace(/[\u2018\u2019]/g, "'");
   const norm = normalizeText(text);
-  const updated = { ...current };
+  const updated: BriefPillars = { ...current };
 
   // 1. Détection de l'Occasion
   if (!updated.occasion) {
-    if (norm.includes('anniversaire') || norm.includes('anniv') || norm.includes('aniv')) {
+    if (norm.includes('anniversaire') || norm.includes('anniv') || norm.includes('aniv') || /\b(?:\d{1,2}|ans)\s*(?:ans|bougies)\b/i.test(text)) {
       updated.occasion = 'Anniversaire';
-    } else if (norm.includes('mariage') || norm.includes('dote') || norm.includes('dot')) {
+    } else if (norm.includes('mariage') || norm.includes('dote') || norm.includes('dot') || norm.includes('fiancaille')) {
       updated.occasion = 'Mariage';
-    } else if (norm.includes('deuil') || norm.includes('hommage') || norm.includes('decede') || norm.includes('obseques') || norm.includes('deces')) {
+    } else if (norm.includes('deuil') || norm.includes('hommage') || norm.includes('decede') || norm.includes('obseques') || norm.includes('deces') || norm.includes('enterrement')) {
       updated.occasion = 'Hommage / Deuil';
-    } else if (norm.includes('amour') || norm.includes('saint valentin') || norm.includes('reconciliation')) {
+    } else if (norm.includes('amour') || norm.includes('saint valentin') || norm.includes('reconciliation') || norm.includes('je t aime') || norm.includes('pardon')) {
       updated.occasion = 'Déclaration d’amour';
-    } else if (norm.includes('bapteme') || norm.includes('naissance')) {
+    } else if (norm.includes('bapteme') || norm.includes('naissance') || norm.includes('bebe')) {
       updated.occasion = 'Baptême / Naissance';
-    } else if (norm.includes('diplome') || norm.includes('soutenance') || norm.includes('reussite')) {
+    } else if (norm.includes('diplome') || norm.includes('soutenance') || norm.includes('reussite') || norm.includes('bac') || norm.includes('licence') || norm.includes('master')) {
       updated.occasion = 'Félicitations / Diplôme';
-    } else if (norm.includes('merci') || norm.includes('remerciement')) {
+    } else if (norm.includes('merci') || norm.includes('remerciement') || norm.includes('gratitude')) {
       updated.occasion = 'Remerciement';
     }
   }
 
-  // 2. Détection du Destinataire
+  // 2. Détection de l'Expéditeur
+  const senderPattern = /(?:c'est de la part de\s+|c'est de la part d'|de la part de\s+|de la part d'|offert par\s+|et moi c'est\s+|moi c'est\s+|mon prenom c'est\s+|mon nom c'est\s+|signe\s+|et moi\s+|par\s+)([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i;
+  const matchSender = text.match(senderPattern);
+  if (matchSender && matchSender[1]) {
+    const s = cleanExtractedName(matchSender[1]);
+    if (s && !['qui', 'quoi', 'son', 'sa', 'lui'].includes(s.toLowerCase())) {
+      if (!updated.senderName) updated.senderName = s;
+    }
+  } else if (!updated.senderName && (norm.includes('de ma part') || norm.includes('de moi') || norm.includes('c est moi'))) {
+    updated.senderName = 'Le client';
+  }
+
+  // 3. Préparation du texte pour le Destinataire (on retire la clause expéditeur pour éviter toute confusion)
+  let textForRecipient = text;
+  if (matchSender && matchSender[0]) {
+    textForRecipient = textForRecipient.replace(matchSender[0], ' ');
+  }
+
+  // 4. Détection du Destinataire
   if (!updated.recipientName) {
-    // Patterns "pour [Nom]", "mon mari [Nom]", "ma femme [Nom]", "ma mère [Nom]"
-    const matchFor = text.match(/(?:pour|célébrer|honorer|offrir à)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ]+)?)/i);
-    const matchRelative = text.match(/(?:mon mari|mon homme|mon époux|mon conjoint)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)?/i);
-    const matchWife = text.match(/(?:ma femme|mon épouse|ma chérie|ma conjointe)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)?/i);
-    const matchMother = text.match(/(?:ma mère|ma maman|maman)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)?/i);
+    const matchRelative = textForRecipient.match(/(?:mon mari|mon homme|mon époux|mon conjoint)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
+    const matchWife = textForRecipient.match(/(?:ma femme|mon épouse|ma chérie|ma conjointe)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
+    const matchMother = textForRecipient.match(/(?:ma mère|ma maman|maman)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
+    const matchFather = textForRecipient.match(/(?:mon père|mon papa|papa)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
+    const matchOtherRel = textForRecipient.match(/(?:mon ami|mon amie|mon frère|ma sœur|mon fils|ma fille|mon bébé|mon amour)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
 
-    if (matchFor && matchFor[1] && !['mon', 'ma', 'mes', 'un', 'une', 'lui', 'elle'].includes(matchFor[1].toLowerCase())) {
-      updated.recipientName = matchFor[1].trim();
-    } else if (matchRelative && matchRelative[1]) {
-      updated.recipientName = `Son mari ${matchRelative[1].trim()}`;
+    if (matchRelative && matchRelative[1]) {
+      const c = cleanExtractedName(matchRelative[1]);
+      if (c) updated.recipientName = `Son mari ${c}`;
     } else if (matchWife && matchWife[1]) {
-      updated.recipientName = `Sa femme ${matchWife[1].trim()}`;
+      const c = cleanExtractedName(matchWife[1]);
+      if (c) updated.recipientName = `Sa femme ${c}`;
     } else if (matchMother && matchMother[1]) {
-      updated.recipientName = `Sa maman ${matchMother[1].trim()}`;
-    } else if (norm.includes('pour moi') || norm.includes('mon propre')) {
-      updated.recipientName = 'Le client lui-même';
+      const c = cleanExtractedName(matchMother[1]);
+      if (c) updated.recipientName = `Sa maman ${c}`;
+    } else if (matchFather && matchFather[1]) {
+      const c = cleanExtractedName(matchFather[1]);
+      if (c) updated.recipientName = `Son papa ${c}`;
+    } else if (matchOtherRel && matchOtherRel[1]) {
+      const c = cleanExtractedName(matchOtherRel[1]);
+      if (c) updated.recipientName = c;
+    } else {
+      const matchFor = textForRecipient.match(/(?:pour|célébrer|honorer|offrir à|dédié à|dédiée à|destiné à|destinée à|il s'appelle|elle s'appelle|son prénom c'est|son nom c'est|nommé|nommée)\s+([A-ZÀ-Ÿa-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿa-zà-ÿ\-]+)?)/i);
+      if (matchFor && matchFor[1]) {
+        const c = cleanExtractedName(matchFor[1]);
+        if (c && c !== updated.senderName) updated.recipientName = c;
+      } else if (norm.includes('pour moi') || norm.includes('mon propre') || norm.includes('pour moi-même')) {
+        updated.recipientName = 'Le client lui-même';
+      } else {
+        // Phrase courte ou prénom direct (ex: "Alassane", "C'est Alassane", "Alassane Traoré")
+        let stripped = textForRecipient;
+        stripped = stripped.replace(/(?:pour\s+son\s+anniversaire|anniversaire|mariage|pour\s+ce\s+samedi|samedi|dimanche)/gi, ' ');
+        stripped = stripped.replace(/^(?:c'est|il s'appelle|elle s'appelle|prenom|nom|pour)\s+/i, ' ');
+        stripped = stripped.replace(/[,;\.\-\/]/g, ' ').trim();
+
+        const words = stripped
+          .split(/\s+/)
+          .filter((w) => w.length > 1 && !['et', 'de', 'la', 'part', 'pour', 'offert', 'moi', 'cest', "c'est"].includes(w.toLowerCase()));
+        if (words.length >= 1 && words.length <= 3) {
+          const candidate = cleanExtractedName(words.join(' '));
+          if (candidate && candidate !== updated.senderName) {
+            updated.recipientName = candidate;
+          }
+        }
+      }
     }
   }
 
-  // 3. Détection de l'Expéditeur
-  if (!updated.senderName) {
-    const matchFrom = text.match(/(?:de la part de|c'est de la part de|offert par|de)\s+([A-ZÀ-Ÿ][a-zà-ÿ]+)/i);
-    if (matchFrom && matchFrom[1] && !['qui', 'quoi', 'son', 'sa'].includes(matchFrom[1].toLowerCase())) {
-      updated.senderName = matchFrom[1].trim();
-    } else if (norm.includes('de ma part') || norm.includes('de moi')) {
-      updated.senderName = 'Le client';
-    } else if (norm.includes('pour mon') || norm.includes('pour ma')) {
-      updated.senderName = 'Le conjoint / la famille';
-    }
-  }
-
-  // 4. Détection de l'Âme des Paroles / Anecdotes
+  // 5. Détection de l'Âme des Paroles / Anecdotes / Carte blanche
   if (!updated.storyAndMemories) {
     if (
       norm.includes('anecdote') ||
@@ -142,15 +195,24 @@ export function extractPillarsFromText(text: string, current: BriefPillars): Bri
       norm.includes('aimant') ||
       norm.includes('courageuse') ||
       norm.includes('pas danecdote') ||
+      norm.includes('pas d’anecdote') ||
       norm.includes('rien de special') ||
+      norm.includes('rien a ajouter') ||
+      norm.includes('aucune anecdote') ||
+      norm.includes('pas grand chose') ||
       norm.includes('vous avez carte blanche') ||
+      norm.includes('carte blanche') ||
       norm.includes('laisse libre') ||
       norm.includes('faites de belles paroles') ||
-      norm.includes('je vous fais confiance')
+      norm.includes('faites comme vous voulez') ||
+      norm.includes('je vous fais confiance') ||
+      norm.includes('inspirez-vous') ||
+      norm.includes('inspirez vous') ||
+      norm.includes('pas d idee') ||
+      norm.includes('pas d’idee')
     ) {
-      updated.storyAndMemories = text.length > 30 ? text.slice(0, 150) : 'Carte blanche confiée au Studio';
+      updated.storyAndMemories = text.length > 25 ? text.slice(0, 150) : 'Carte blanche confiée au Studio';
     } else if (text.length > 80 && (updated.recipientName || updated.occasion)) {
-      // Long message descriptif
       updated.storyAndMemories = text.slice(0, 150) + '...';
     }
   }
@@ -478,7 +540,19 @@ export function processSimulationTurn(
     newState.locks.vocal1Sent = true;
     newState.stage = 'COLLECTING_PILLARS';
 
-    const vocal1Text = "Bonjour et bienvenue au Studio Velaris ! Pour composer une chanson sur-mesure d'exception, nous avons simplement besoin de connaître :\n1. Le prénom de la personne à célébrer\n2. L'occasion ou la date de l'événement\n3. De la part de qui est offert ce cadeau\n4. Vos anecdotes, souvenirs ou mots doux à glisser dans les paroles.\n\nVous pouvez nous expliquer tout cela d'un coup, par message texte ou par note vocale selon ce qui est le plus confortable pour vous !";
+    const hasAnyPillar = Boolean(updatedPillars.recipientName || updatedPillars.occasion);
+    let vocal1Text = '';
+    if (hasAnyPillar) {
+      const ackParts: string[] = [];
+      if (updatedPillars.recipientName) ackParts.push(`pour ${updatedPillars.recipientName}`);
+      if (updatedPillars.occasion) ackParts.push(`à l'occasion de son ${updatedPillars.occasion.toLowerCase()}`);
+      vocal1Text = `Bonjour et bienvenue au Studio Velaris ! C’est un magnifique projet ${ackParts.join(' ')}.\n\nPour que notre équipe compose sa chanson sur-mesure, il nous manque juste quelques précisions :\n`;
+      if (!updatedPillars.senderName) vocal1Text += `— De la part de qui est offert ce beau cadeau ?\n`;
+      if (!updatedPillars.storyAndMemories) vocal1Text += `— Avez-vous de petits souvenirs, anecdotes ou mots doux à glisser dans les paroles ?\n`;
+      vocal1Text += `\nVous pouvez nous expliquer cela par message ou par note vocale selon ce qui est le plus confortable pour vous !`;
+    } else {
+      vocal1Text = "Bonjour et bienvenue au Studio Velaris ! Pour composer une chanson sur-mesure d'exception, nous avons simplement besoin de connaître :\n1. Le prénom de la personne à célébrer\n2. L'occasion ou la date de l'événement\n3. De la part de qui est offert ce cadeau\n4. Vos anecdotes, souvenirs ou mots doux à glisser dans les paroles.\n\nVous pouvez nous expliquer tout cela d'un coup, par message texte ou par note vocale selon ce qui est le plus confortable pour vous !";
+    }
 
     return {
       bubbles: [
@@ -493,11 +567,11 @@ export function processSimulationTurn(
       presenceDurationMs: 4200,
       interBubbleDelayMs: 1000,
       newState,
-      fsmExplanation: 'Premier contact client ➔ Envoi du Vocal 1 de cadrage global (évite les interrogatoires au compte-gouttes).',
+      fsmExplanation: 'Premier contact client ➔ Envoi du Vocal 1 de cadrage global adapté aux éléments reçus.',
     };
   }
 
-  // 9. RELANCE DIBLÉE SUR L'INVARIANT MANQUANT
+  // 9. RELANCE CIBLÉE SUR L'INVARIANT MANQUANT
   newState.stage = 'COLLECTING_PILLARS';
   let missingPrompt = '';
   if (!updatedPillars.recipientName) {
@@ -505,7 +579,7 @@ export function processSimulationTurn(
   } else if (!updatedPillars.occasion) {
     missingPrompt = `C’est bien noté pour ${updatedPillars.recipientName}. Pour quelle occasion ou à quelle date est prévue cette célébration ?`;
   } else if (!updatedPillars.senderName) {
-    missingPrompt = 'Et de la part de qui est offert ce beau cadeau ?';
+    missingPrompt = `C’est bien noté pour ${updatedPillars.recipientName}. Et de la part de qui est offert ce beau cadeau ?`;
   } else if (!updatedPillars.storyAndMemories) {
     missingPrompt = 'Avez-vous des anecdotes, des souvenirs particuliers ou un message à lui transmettre dans les paroles ? (Si vous n’avez pas d’idée précise, notre équipe se chargera de composer de très belles paroles).';
   }
