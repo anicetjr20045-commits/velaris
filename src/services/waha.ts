@@ -97,11 +97,19 @@ async function wahaFetch(path: string, init: { method?: 'GET' | 'POST'; body?: s
  * Ping du serveur WAHA (latence mesurée par l'appelant)
  */
 export async function pingWaha(): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
-    const res = await wahaFetch('/ping', {}, 6000);
+    const res = await fetch(`${WAHA_CONFIG.baseUrl}/ping`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
     return res.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

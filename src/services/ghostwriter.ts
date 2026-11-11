@@ -204,8 +204,20 @@ export function shiftTextTone(text: string, tone: 'shorter' | 'warmer' | 'action
   if (!trimmed) return text;
 
   if (tone === 'shorter') {
-    const firstSentence = trimmed.split(/[.!?]\s+/)[0];
-    return firstSentence.length > 10 ? `${firstSentence}.` : trimmed;
+    const cleanPunct = trimmed.replace(/[.!?]+$/, '');
+    const sentences = cleanPunct.split(/(?:[.!?]|\n)\s+/).filter(Boolean);
+    if (sentences.length > 1) {
+      return `${sentences[0].trim()}.`;
+    }
+    const clauses = cleanPunct.split(/[,;]\s+/).filter(Boolean);
+    if (clauses.length > 1) {
+      return `${clauses[0].trim()}.`;
+    }
+    const words = cleanPunct.split(/\s+/);
+    if (words.length > 10) {
+      return `${words.slice(0, Math.ceil(words.length * 0.65)).join(' ').trim()}.`;
+    }
+    return `${cleanPunct}.`;
   }
 
   if (tone === 'warmer') {
@@ -216,7 +228,7 @@ export function shiftTextTone(text: string, tone: 'shorter' | 'warmer' | 'action
   }
 
   if (tone === 'action') {
-    if (!trimmed.includes('capture') && (trimmed.includes('paiement') || trimmed.includes('Wave') || trimmed.includes('Orange'))) {
+    if (!trimmed.includes('capture') && (trimmed.includes('paiement') || trimmed.includes('Wave') || trimmed.includes('Orange') || trimmed.includes('compte'))) {
       return `${trimmed}\nSvp envoyez la capture d'écran dès validation pour lancer la composition immédiate !`;
     }
   }

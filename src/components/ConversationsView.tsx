@@ -384,6 +384,7 @@ export function extractActiveOrderScope(thread: ThreadMessage[], clientName: str
 
   // Détection du prénom sur la commande active
   let recipientName = '';
+  const relationTargetMatch = allInboundText.match(/\bpour\s+(?:mon|ma|son|sa|notre)?\s*(?:femme|mari|mère|mere|maman|père|pere|papa|fille|fils|frère|frere|soeur|sœur|chéri|chérie|ami|amie|collègue|collegue)\s+([a-zà-ÿ-]{2,18})/i);
   const pourMatch = allInboundText.match(/\bpour\s+(?:un|une|mon|ma|mes|son|sa)?\s*([a-zà-ÿ-]{2,18})/i);
   const nomMatch = allInboundText.match(/\b(noms?|prénoms?|prenoms?)\s*(?:sont|c'est|est|:)?\s*([a-zà-ÿ-]{2,18})/i);
   const appelleMatch = allInboundText.match(/\bs'appelle\s+([a-zà-ÿ-]{2,18})/i);
@@ -406,7 +407,9 @@ export function extractActiveOrderScope(thread: ThreadMessage[], clientName: str
     return candidate.trim().charAt(0).toUpperCase() + candidate.trim().slice(1);
   };
 
-  if (appelleMatch && testNameCandidate(appelleMatch[1])) {
+  if (relationTargetMatch && testNameCandidate(relationTargetMatch[1])) {
+    recipientName = testNameCandidate(relationTargetMatch[1]);
+  } else if (appelleMatch && testNameCandidate(appelleMatch[1])) {
     recipientName = testNameCandidate(appelleMatch[1]);
   } else if (destinataireMatch && testNameCandidate(destinataireMatch[1])) {
     recipientName = testNameCandidate(destinataireMatch[1]);

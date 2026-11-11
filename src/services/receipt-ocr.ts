@@ -23,9 +23,13 @@ export function analyzeReceiptText(text: string): ReceiptAnalysisResult {
 
   // Détection du fournisseur
   let provider: ReceiptAnalysisResult['provider'] = null;
-  if (clean.includes('wave')) provider = 'Wave';
-  else if (clean.includes('orange money') || clean.includes('om ') || clean.includes('orange')) provider = 'Orange Money';
-  else if (clean.includes('moov')) provider = 'Moov';
+  if (clean.includes('wave') || clean.includes('wav-') || /wav[0-9-]/i.test(clean)) {
+    provider = 'Wave';
+  } else if (clean.includes('orange money') || clean.includes('om ') || clean.includes('orange') || clean.includes('om-') || /om[0-9-]/i.test(clean)) {
+    provider = 'Orange Money';
+  } else if (clean.includes('moov') || clean.includes('flooz')) {
+    provider = 'Moov';
+  }
 
   // Détection du montant
   let amount: number | null = null;
@@ -38,9 +42,9 @@ export function analyzeReceiptText(text: string): ReceiptAnalysisResult {
     }
   }
 
-  // Détection d'ID de transaction
+  // Détection d'ID de transaction (priorité aux mots les plus longs pour ne pas tronquer "référence" sur "réf")
   let transactionRef: string | null = null;
-  const refMatch = text.match(/(?:réf|ref|transaction|id|tx|code)\s*[:#.]?\s*([A-Za-z0-9-]{6,25})/i);
+  const refMatch = text.match(/(?:référence|reference|transaction|réf|ref|id|tx|code)\s*[:#.]?\s*([A-Za-z0-9-]{6,25})/i);
   if (refMatch) {
     transactionRef = refMatch[1].trim();
   }
