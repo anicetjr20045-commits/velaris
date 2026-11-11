@@ -16,13 +16,18 @@ import {
   Loader2,
   Mail,
   MailOpen,
+  Maximize2,
   MessageCircle,
   Mic,
+  Minimize2,
+  PanelRightClose,
   Receipt,
   RefreshCw,
+  ScanLine,
   Search,
   ShieldCheck,
   Sparkles,
+  StickyNote,
   Tag,
   Video,
   WandSparkles,
@@ -31,6 +36,21 @@ import {
 } from 'lucide-react';
 import type { ConversationItem } from '../types';
 import { REAL_CONVERSATION_MESSAGES } from '../data/realProductionData';
+import { supabase } from '../services/supabase';
+import {
+  resolvePaymentInfoByPhone,
+  updateConversationAiMode,
+  fetchConversationAiMode,
+  savePrivateContactNote,
+} from '../services/realtime-chat';
+import {
+  generateGhostwriterVariants,
+  shiftTextTone,
+} from '../services/ghostwriter';
+import {
+  analyzeReceiptText,
+  type ReceiptAnalysisResult,
+} from '../services/receipt-ocr';
 
 const EMPTY_CONVERSATIONS: ConversationItem[] = [];
 import {
@@ -1119,6 +1139,21 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [isCashing, setIsCashing] = useState(false);
   const [moreShortcutsOpen, setMoreShortcutsOpen] = useState(false);
 
+  // Super Cockpit & Temps Réel Sub-50ms
+  const [instantStreamedMessages, setInstantStreamedMessages] = useState<ThreadMessage[]>([]);
+  const [isImmersiveFullScreen, setIsImmersiveFullScreen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const h = window.location.hash.toLowerCase();
+    return h === '#chat' || h === '#whatsapp-web' || h === '#cockpit-chat';
+  });
+  const [isSuperCockpitOpen, setIsSuperCockpitOpen] = useState<boolean>(true);
+  const [cockpitTab, setCockpitTab] = useState<'ghostwriter' | 'crm' | 'actions' | 'ocr'>('ghostwriter');
+  const [aiPilotEnabled, setAiPilotEnabled] = useState<boolean>(true);
+  const [isLoadingAiMode, setIsLoadingAiMode] = useState<boolean>(false);
+  const [privateNote, setPrivateNote] = useState<string>('');
+  const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
+  const [receiptAnalysis, setReceiptAnalysis] = useState<ReceiptAnalysisResult | null>(null);
+
   const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
 
   const threadRef = useRef<HTMLDivElement>(null);
@@ -1172,26 +1207,120 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     { enabled: !!user && !!activeId, pollMs: 15000 }
   );
 
+  // Réinitialise le stream direct et l'analyse de reçu au changement de chat
+  useEffect(() => {
+    setInstantStreamedMessages([]);
+    setReceiptAnalysis(null);
+  }, [activeId]);
+
+  // Détection du mode de pilotage IA (Pilote Auto vs Manuel)
+  useEffect(() => {
+    if (!activeId || !user) return;
+    let cancelled = false;
+    fetchConversationAiMode(activeId).then((res) => {
+      if (!cancelled) {
+        setAiPilotEnabled(!res.isPaused && res.controlMode === 'ai');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId, user]);
+
+  const handleToggleAiPilot = async () => {
+    if (!activeId || !user || isLoadingAiMode) return;
+    setIsLoadingAiMode(true);
+    const nextMode = !aiPilotEnabled;
+    setAiPilotEnabled(nextMode);
+    const ok = await updateConversationAiMode(activeId, nextMode);
+    setIsLoadingAiMode(false);
+    showFeedback({
+      success: ok,
+      message: nextMode
+        ? "Pilote Automatique IA activé : l'agent répondra en toute autonomie."
+        : "Mode Manuel activé : l'IA est en veille, vous avez le contrôle total.",
+    });
+  };
+
+  // Canal Supabase Realtime DIRECT sur activeId (zéro délai, zéro debounce 300ms)
+  useEffect(() => {
+    if (!activeId || !user) return;
+    const channel = supabase.channel(`direct-conv-stream-${activeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${activeId}`,
+        },
+        (payload) => {
+          const m = payload.new as any;
+          if (!m || !m.id) return;
+          const newMsg: ThreadMessage = {
+            id: m.id,
+            inbound: m.direction === 'inbound',
+            body: m.body || '',
+            createdAt: stampOf(new Date(m.created_at || Date.now())),
+            receipt: (m.direction === 'inbound' ? undefined : 'delivered') as ReceiptState,
+          };
+          setInstantStreamedMessages((prev) => {
+            if (prev.some((x) => x.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          if (m.direction === 'inbound' && selectedConv?.phone) {
+            markWahaChatSeen(selectedConv.phone, sessionName);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${activeId}`,
+        },
+        (payload) => {
+          const m = payload.new as any;
+          if (!m || !m.id) return;
+          setInstantStreamedMessages((prev) =>
+            prev.map((x) => (x.id === m.id ? { ...x, body: m.body || x.body } : x))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeId, user, selectedConv?.phone, sessionName]);
+
   const history: ThreadMessage[] = useMemo(() => {
     if (!selectedConv) return [];
-    if (user && liveMessages.length > 0) {
-      return liveMessages.map((m) => ({
+    if (user && (liveMessages.length > 0 || instantStreamedMessages.length > 0)) {
+      const base: ThreadMessage[] = liveMessages.map((m) => ({
         id: m.id,
         inbound: m.direction === 'inbound',
         body: m.body || '',
         createdAt: m.created_at ? stampOf(new Date(m.created_at)) : 'Récent',
-        receipt: m.direction === 'inbound' ? undefined : 'delivered',
+        receipt: (m.direction === 'inbound' ? undefined : 'delivered') as ReceiptState,
       }));
+      // Fusion sans doublon des messages arrivés instantanément par Realtime
+      const missingStreamed = instantStreamedMessages.filter(
+        (s) => !base.some((b) => b.id === s.id)
+      );
+      return [...base, ...missingStreamed];
     }
     const seed = REAL_CONVERSATION_MESSAGES[selectedConv.id];
     if (seed) {
       return seed.map((m, i) => {
         const inbound = m.role === 'user' || m.direction === 'inbound';
-        return { id: m.id || `m${i}`, inbound, body: m.body, createdAt: m.createdAt, receipt: inbound ? undefined : 'read' };
+        return { id: m.id || `m${i}`, inbound, body: m.body, createdAt: m.createdAt, receipt: (inbound ? undefined : 'read') as ReceiptState };
       });
     }
     return [{ id: 'default-1', inbound: true, body: selectedConv.fullMessage || selectedConv.preview, createdAt: selectedConv.lastExchange }];
-  }, [selectedConv, user, liveMessages]);
+  }, [selectedConv, user, liveMessages, instantStreamedMessages]);
 
   /* Un envoi local disparaît dès que Supabase le renvoie (même corps sortant) */
   const pending = (outgoing[activeId] || []).filter(
@@ -1484,6 +1613,50 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     return analyzeNextStep(selectedConv, thread);
   }, [selectedConv, thread]);
 
+  const orderScope = useMemo(() => {
+    if (!selectedConv) return null;
+    return extractActiveOrderScope(thread, selectedConv.name);
+  }, [selectedConv, thread]);
+
+  const paymentInfo = useMemo(() => {
+    return resolvePaymentInfoByPhone(selectedConv?.phone || '');
+  }, [selectedConv?.phone]);
+
+  const ghostwriter = useMemo(() => {
+    return generateGhostwriterVariants(
+      nextStep?.stageKey || 'accueil',
+      selectedConv?.name || '',
+      orderScope?.recipientName || nextStep?.recipientName || '',
+      orderScope?.detectedOccasion || nextStep?.detectedOccasion || '',
+      nextStep?.recommendedReply || ''
+    );
+  }, [nextStep?.stageKey, selectedConv?.name, orderScope?.recipientName, orderScope?.detectedOccasion, nextStep?.recommendedReply]);
+
+  const handleApplyTone = (tone: 'shorter' | 'warmer' | 'action') => {
+    if (!replyText.trim()) return;
+    const shifted = shiftTextTone(replyText, tone);
+    setReplyText(shifted);
+  };
+
+  const handleAnalyzeLastReceipt = () => {
+    const inbounds = thread.filter((m) => m.inbound);
+    const lastInbound = inbounds[inbounds.length - 1];
+    const textToAnalyze = lastInbound?.body || '';
+    const res = analyzeReceiptText(textToAnalyze);
+    setReceiptAnalysis(res);
+  };
+
+  const handleSavePrivateNote = async () => {
+    if (!selectedConv?.phone || isSavingNote) return;
+    setIsSavingNote(true);
+    const ok = await savePrivateContactNote(selectedConv.phone, privateNote);
+    setIsSavingNote(false);
+    showFeedback({
+      success: ok,
+      message: ok ? 'Note interne enregistrée dans le dossier client.' : 'Erreur d\'enregistrement de la note.',
+    });
+  };
+
   const handleGenerateLyricsForChat = () => {
     if (!selectedConv) return;
     const orderScope = extractActiveOrderScope(thread, selectedConv.name);
@@ -1565,53 +1738,124 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className="max-w-6xl mx-auto pb-16 space-y-5 vx-view-enter">
-      {/* En-tête */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Discussions WhatsApp</h1>
-          <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed max-w-xl">
-            Répondez aux prospects de vos publicités et suivez les relances de l'IA, au même endroit.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-          <span
-            title={beatTitle}
-            className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]"
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
-            <span className="text-neutral-200">{linkMeta.label}</span>
-            {link.state === 'online' && link.latencyMs !== null && (
-              <span className="font-mono tabular-nums text-neutral-500">{link.latencyMs} ms</span>
-            )}
-            {secure && <ShieldCheck className="h-3 w-3 text-neutral-500" strokeWidth={1.75} aria-label="Transport chiffré" />}
-          </span>
-          {user && (link.state === 'offline' || link.state === 'scan') && (
+    <div className={
+      isImmersiveFullScreen
+        ? "fixed inset-0 z-[100] h-screen w-screen bg-[#08090C] overflow-hidden flex flex-col select-none"
+        : "max-w-7xl mx-auto pb-16 space-y-5 vx-view-enter"
+    }>
+      {/* En-tête WhatsApp Web Plein Écran */}
+      {isImmersiveFullScreen ? (
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[#0A0C10] border-b border-white/[0.08] shrink-0">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-2 font-display text-base font-bold text-white tracking-wide">
+              <MessageCircle className="h-4 w-4 text-emerald-400" />
+              <span>WhatsApp Super Cockpit</span>
+            </span>
+            <span className="h-4 w-px bg-white/[0.1]" />
+            <span title={beatTitle} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11px] text-[#A3A3A3]">
+              <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
+              <span className="text-neutral-200">{linkMeta.label}</span>
+              {link.state === 'online' && link.latencyMs !== null && (
+                <span className="font-mono tabular-nums text-neutral-500">{link.latencyMs} ms</span>
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs text-neutral-400 hidden sm:inline">
+              <span className="text-white font-semibold">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
+            </span>
             <button
               type="button"
-              onClick={link.reconnect}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+              onClick={() => setIsSuperCockpitOpen(!isSuperCockpitOpen)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                isSuperCockpitOpen ? 'bg-[#E5B54F]/20 border border-[#E5B54F]/50 text-[#F1DDB4]' : 'border border-white/[0.12] text-neutral-300 hover:text-white'
+              }`}
             >
-              <RefreshCw className="h-3 w-3" strokeWidth={2} />
-              Reconnecter
+              <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" />
+              <span>{isSuperCockpitOpen ? 'Masquer Cockpit' : 'Ouvrir Cockpit'}</span>
             </button>
-          )}
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
-            <span className="font-mono tabular-nums text-white">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
-          </span>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
-          >
-            <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
-            <span>Exporter</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsImmersiveFullScreen(false)}
+              title="Quitter le plein écran"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+              <span>Sortir Plein Écran</span>
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* En-tête standard */
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Discussions WhatsApp</h1>
+            <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed max-w-xl">
+              Répondez aux prospects de vos publicités et pilotez vos ventes avec le Super Cockpit IA en direct.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {/* Bouton Plein Écran Immédiat */}
+            <button
+              type="button"
+              onClick={() => setIsImmersiveFullScreen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1.5 text-[12.5px] font-semibold text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/50 transition-all cursor-pointer shadow-sm"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+              <span>Mode WhatsApp Web OS</span>
+            </button>
 
-      {/* Boîte double panneau */}
-      <div className="vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] lg:h-[calc(100dvh-13rem)] lg:min-h-[620px]">
+            <span
+              title={beatTitle}
+              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]"
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
+              <span className="text-neutral-200">{linkMeta.label}</span>
+              {link.state === 'online' && link.latencyMs !== null && (
+                <span className="font-mono tabular-nums text-neutral-500">{link.latencyMs} ms</span>
+              )}
+              {secure && <ShieldCheck className="h-3 w-3 text-neutral-500" strokeWidth={1.75} aria-label="Transport chiffré" />}
+            </span>
+            {user && (link.state === 'offline' || link.state === 'scan') && (
+              <button
+                type="button"
+                onClick={link.reconnect}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
+              >
+                <RefreshCw className="h-3 w-3" strokeWidth={2} />
+                Reconnecter
+              </button>
+            )}
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
+              <span className="font-mono tabular-nums text-white">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
+            </span>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <span>Exporter</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Boîte WhatsApp Cockpit (2 ou 3 colonnes) */}
+      <div className={
+        isImmersiveFullScreen
+          ? `flex-1 grid grid-cols-1 ${
+              isSuperCockpitOpen
+                ? 'lg:grid-cols-[360px_minmax(0,1fr)_380px]'
+                : 'lg:grid-cols-[360px_minmax(0,1fr)]'
+            } overflow-hidden min-h-0 bg-[#08090C]`
+          : `vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden grid grid-cols-1 ${
+              isSuperCockpitOpen
+                ? 'xl:grid-cols-[340px_minmax(0,1fr)_380px] lg:grid-cols-[320px_minmax(0,1fr)]'
+                : 'lg:grid-cols-[340px_minmax(0,1fr)]'
+            } lg:h-[calc(100dvh-13rem)] lg:min-h-[660px]`
+      }>
         {/* Liste */}
         <div className={`flex-col min-h-0 border-r border-white/[0.08] ${mobileThreadOpen ? 'hidden lg:flex' : 'flex'}`}>
           {/* Les 2 sections maîtresses : Discussions & Archivées */}
@@ -1808,10 +2052,56 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 </button>
                 <Monogram name={selectedConv.name} size="sm" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-white">{selectedConv.name}</div>
-                  <div className="font-mono text-[12.5px] text-neutral-500">{selectedConv.phone}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold text-white">{selectedConv.name}</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] font-mono text-neutral-300 shrink-0">
+                      {paymentInfo.flag} {paymentInfo.countryName}
+                    </span>
+                  </div>
+                  <div className="font-mono text-[12px] text-neutral-500">{selectedConv.phone}</div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Commutateur Pilote Auto vs Mode Manuel */}
+                  <button
+                    type="button"
+                    onClick={handleToggleAiPilot}
+                    disabled={isLoadingAiMode}
+                    title={aiPilotEnabled ? "Désactiver le pilote auto pour répondre manuellement" : "Activer le pilote auto pour laisser l'IA répondre"}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-all cursor-pointer ${
+                      aiPilotEnabled
+                        ? 'border border-emerald-400/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                        : 'border border-amber-400/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${aiPilotEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                    <span className="hidden sm:inline">{aiPilotEnabled ? 'Pilote Auto IA' : 'Mode Manuel'}</span>
+                  </button>
+
+                  {/* Toggle Super Cockpit */}
+                  <button
+                    type="button"
+                    onClick={() => setIsSuperCockpitOpen(!isSuperCockpitOpen)}
+                    title={isSuperCockpitOpen ? "Replier le Cockpit" : "Ouvrir le Super Cockpit"}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-all cursor-pointer ${
+                      isSuperCockpitOpen
+                        ? 'bg-[#E5B54F]/20 border border-[#E5B54F]/50 text-[#F1DDB4]'
+                        : 'border border-white/[0.12] bg-white/[0.04] text-neutral-300 hover:text-white hover:border-white/25'
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" />
+                    <span className="hidden md:inline">Cockpit</span>
+                  </button>
+
+                  {/* Toggle Plein Écran */}
+                  <button
+                    type="button"
+                    onClick={() => setIsImmersiveFullScreen(!isImmersiveFullScreen)}
+                    title={isImmersiveFullScreen ? "Sortir du plein écran" : "Mode plein écran immersif"}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
+                  >
+                    {isImmersiveFullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                    <span className="hidden xl:inline">{isImmersiveFullScreen ? 'Sortir' : 'Plein Écran'}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleArchive(selectedConv)}
@@ -2119,6 +2409,396 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
             </div>
           )}
         </div>
+
+        {/* 3e Colonne : Le Super Cockpit Métier */}
+        {isSuperCockpitOpen && selectedConv && (
+          <aside className="border-l border-white/[0.08] bg-[#07080B] flex flex-col h-full overflow-hidden select-none">
+            {/* En-tête du Cockpit avec 4 onglets */}
+            <div className="p-3 border-b border-white/[0.08] bg-[#0A0C10] shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#E5B54F]" />
+                  <span className="font-heading font-semibold text-xs tracking-wider uppercase text-white">Super Cockpit</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10.5px] px-2 py-0.5 rounded-full bg-white/[0.04] text-neutral-400 border border-white/[0.06]">
+                    {paymentInfo.code}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsSuperCockpitOpen(false)}
+                    title="Masquer le panneau"
+                    className="p-1 rounded-lg text-neutral-500 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  >
+                    <PanelRightClose className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1 p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => setCockpitTab('ghostwriter')}
+                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
+                    cockpitTab === 'ghostwriter' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Copilote
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCockpitTab('crm')}
+                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
+                    cockpitTab === 'crm' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Brief
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCockpitTab('actions')}
+                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
+                    cockpitTab === 'actions' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Actions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCockpitTab('ocr');
+                    handleAnalyzeLastReceipt();
+                  }}
+                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
+                    cockpitTab === 'ocr' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Reçu
+                </button>
+              </div>
+            </div>
+
+            {/* Corps du Cockpit */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+              {/* ONGLET 1 : GHOSTWRITER */}
+              {cockpitTab === 'ghostwriter' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                    <span>Étape : <strong className="text-white">{nextStep?.stageBadge || 'En discussion'}</strong></span>
+                    <span>Intention : <span className="text-emerald-400">{nextStep?.detectedIntent || 'Générale'}</span></span>
+                  </div>
+
+                  {/* 3 Variantes de réponses */}
+                  <div className="space-y-2">
+                    {[ghostwriter.variantDirect, ghostwriter.variantWarm, ghostwriter.variantConcise].map((v, i) => (
+                      <div key={i} className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:border-white/20 transition-all space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-xs text-white flex items-center gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#E5B54F]" />
+                            {v.label}
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-neutral-400">{v.tag}</span>
+                        </div>
+                        <p className="text-[12px] text-neutral-300 leading-relaxed whitespace-pre-line">{v.text}</p>
+                        <div className="flex items-center justify-end gap-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyText(v.text);
+                              if (composerRef.current) composerRef.current.focus();
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-white/[0.08] hover:bg-white/[0.08] text-neutral-300 hover:text-white transition-all cursor-pointer"
+                          >
+                            Insérer
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => sendText(v.text)}
+                            className="px-3 py-1 rounded-lg text-[11px] font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer"
+                          >
+                            Envoyer
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tonalité */}
+                  <div className="pt-2 border-t border-white/[0.08] space-y-1.5">
+                    <span className="text-[11px] text-neutral-400">Ajuster le message rédigé :</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyTone('shorter')}
+                        className="px-2.5 py-1 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-300 hover:text-white transition-all cursor-pointer"
+                      >
+                        Raccourcir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyTone('warmer')}
+                        className="px-2.5 py-1 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-300 hover:text-white transition-all cursor-pointer"
+                      >
+                        Plus chaleureux
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyTone('action')}
+                        className="px-2.5 py-1 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-300 hover:text-white transition-all cursor-pointer"
+                      >
+                        Demander capture
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ONGLET 2 : BRIEF & CRM */}
+              {cockpitTab === 'crm' && (
+                <div className="space-y-3.5">
+                  {/* Fiche contact */}
+                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white">{selectedConv.name}</span>
+                      <span className="text-xs">{paymentInfo.flag}</span>
+                    </div>
+                    <div className="text-[11.5px] font-mono text-neutral-400">{selectedConv.phone}</div>
+                    <div className="text-[11.5px] text-neutral-400">
+                      Pays détecté : <strong className="text-neutral-200">{paymentInfo.countryName}</strong>
+                    </div>
+                  </div>
+
+                  {/* Les 4 repères extraits */}
+                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Brief Chanson</span>
+                    <div className="space-y-1.5 text-[12px]">
+                      <div>
+                        <span className="text-neutral-500">Destinataire : </span>
+                        <span className="font-semibold text-white">{orderScope?.recipientName || 'Non précisé'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500">Occasion : </span>
+                        <span className="text-emerald-400 font-medium">{orderScope?.detectedOccasion || 'Non précisée'}</span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500">Souvenirs : </span>
+                        <span className="text-neutral-300">
+                          {orderScope?.memories && orderScope.memories.length > 0 ? orderScope.memories.join(' · ') : 'En attente des détails'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Note interne privée */}
+                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                        <StickyNote className="h-3 w-3" />
+                        Note Privée (Confidentiel)
+                      </span>
+                    </div>
+                    <textarea
+                      rows={3}
+                      placeholder="Ex: Doit payer à 17h après la banque..."
+                      value={privateNote}
+                      onChange={(e) => setPrivateNote(e.target.value)}
+                      className="w-full rounded-lg border border-white/[0.08] bg-black/40 p-2 text-xs text-white placeholder:text-neutral-600 outline-none resize-none focus:border-amber-400/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSavePrivateNote}
+                      disabled={isSavingNote || !privateNote.trim()}
+                      className="w-full py-1.5 rounded-lg text-xs font-semibold bg-amber-400 text-black hover:bg-amber-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                    >
+                      {isSavingNote ? 'Enregistrement...' : 'Enregistrer la note'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ONGLET 3 : ACTIONS 1-CLIC */}
+              {cockpitTab === 'actions' && (
+                <div className="space-y-3">
+                  {/* Carte Paiement Pays */}
+                  <div className="p-3 rounded-xl border border-emerald-400/30 bg-emerald-400/[0.04] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                        <span>{paymentInfo.flag}</span>
+                        <span>{paymentInfo.primaryMethod}</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-emerald-400">{paymentInfo.accountNumber}</span>
+                    </div>
+                    <p className="text-[11.5px] text-neutral-300 leading-relaxed">{paymentInfo.instructions}</p>
+                    <button
+                      type="button"
+                      onClick={() => sendText(paymentInfo.formattedBubble)}
+                      className="w-full py-2 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <Receipt className="h-3.5 w-3.5" />
+                      <span>Envoyer coordonnées ({paymentInfo.primaryMethod})</span>
+                    </button>
+                  </div>
+
+                  {/* Raccourcis Officiels 1-Clic */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Médias & Vocaux Studio</span>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'procedure_voice');
+                          if (shortcut) handleShortcutClick(shortcut, false);
+                        }}
+                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Mic className="h-3.5 w-3.5 text-[#E5B54F]" />
+                          <span>Vocal de procédure (33s)</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-500">Audio PTT</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'video_demo');
+                          if (shortcut) handleShortcutClick(shortcut, false);
+                        }}
+                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Video className="h-3.5 w-3.5 text-sky-400" />
+                          <span>Exemple vidéo démo</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-500">Vidéo MP4</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'tarifs');
+                          if (shortcut) handleShortcutClick(shortcut, false);
+                        }}
+                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Tag className="h-3.5 w-3.5 text-neutral-300" />
+                          <span>Grille tarifs (1 200 F / 3 000 F)</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-500">Texte</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Paroles & Caisse */}
+                  <div className="space-y-1.5 pt-2 border-t border-white/[0.08]">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Atelier Studio</span>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleGenerateLyricsForChat}
+                        className="p-2.5 rounded-xl border border-[#E5B54F]/30 bg-[#E5B54F]/10 hover:bg-[#E5B54F]/20 text-left text-xs font-semibold text-[#F1DDB4] flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" />
+                          <span>Générer les Paroles d'Or</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-[#E5B54F]">Studio AI</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCashModalOpen(true)}
+                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Receipt className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>Encaisser dans la Caisse</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-500">Trésorerie</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ONGLET 4 : SCANNER OCR REÇU */}
+              {cockpitTab === 'ocr' && (
+                <div className="space-y-3.5">
+                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                        <ScanLine className="h-3.5 w-3.5 text-sky-400" />
+                        Scanner de Quittance Mobile Money
+                      </span>
+                    </div>
+                    <p className="text-[11.5px] text-neutral-400 leading-relaxed">
+                      Analyse la dernière capture ou message reçu pour extraire le montant et vérifier si le transfert est authentique.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAnalyzeLastReceipt}
+                      className="w-full py-2 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer"
+                    >
+                      Lancer l'analyse du dernier message
+                    </button>
+                  </div>
+
+                  {receiptAnalysis && (
+                    <div className={`p-3 rounded-xl border space-y-2 ${
+                      receiptAnalysis.status === 'verified'
+                        ? 'border-emerald-400/40 bg-emerald-500/[0.06]'
+                        : receiptAnalysis.status === 'suspect'
+                        ? 'border-amber-400/40 bg-amber-500/[0.06]'
+                        : 'border-white/[0.08] bg-white/[0.02]'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-bold ${
+                          receiptAnalysis.status === 'verified' ? 'text-emerald-400' : receiptAnalysis.status === 'suspect' ? 'text-amber-400' : 'text-neutral-400'
+                        }`}>
+                          {receiptAnalysis.status === 'verified' ? 'Reçu Authentique Détecté' : receiptAnalysis.status === 'suspect' ? 'Quittance Suspecte' : 'Non reconnu comme reçu'}
+                        </span>
+                        {receiptAnalysis.provider && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.08] text-white">
+                            {receiptAnalysis.provider}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-[12px] text-neutral-300 space-y-1">
+                        {receiptAnalysis.amount && (
+                          <div>Montant : <strong className="text-white">{receiptAnalysis.amount.toLocaleString('fr-FR')} F CFA</strong></div>
+                        )}
+                        {receiptAnalysis.transactionRef && (
+                          <div className="font-mono text-[11px] text-neutral-400">Réf : {receiptAnalysis.transactionRef}</div>
+                        )}
+                        <p className="text-[11.5px] text-neutral-400 pt-1 leading-relaxed">{receiptAnalysis.summary}</p>
+                      </div>
+
+                      {receiptAnalysis.status === 'verified' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleConfirmCashOrder({
+                              amount: receiptAnalysis.amount || 1200,
+                              paymentMethod: receiptAnalysis.provider || 'Wave',
+                              recipientName: orderScope?.recipientName || 'Client',
+                              occasion: orderScope?.detectedOccasion || 'Anniversaire',
+                              sendConfirmWhatsApp: true,
+                            });
+                          }}
+                          className="w-full mt-2 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 transition-all cursor-pointer"
+                        >
+                          Confirmer l'encaissement et lancer en Studio
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Modal d'Encaissement Direct (Caisse & Trésorerie) */}

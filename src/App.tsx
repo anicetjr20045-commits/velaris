@@ -74,7 +74,7 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
   if (rawHash === 'studio' || rawHash === 'atelier' || rawHash === 'studio_ai') {
     return { activeTab: 'studio', studioSubTab: 'studio_ai' };
   }
-  if (rawHash === 'conversations' || rawHash === 'discussions' || rawHash === 'messages') {
+  if (rawHash === 'conversations' || rawHash === 'discussions' || rawHash === 'messages' || rawHash === 'chat' || rawHash === 'whatsapp-web' || rawHash === 'cockpit-chat' || pathname === '/chat') {
     return { activeTab: 'studio', studioSubTab: 'conversations' };
   }
   if (rawHash === 'pipeline') {

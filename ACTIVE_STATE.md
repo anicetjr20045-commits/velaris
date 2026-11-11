@@ -25,8 +25,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 9 Novembre 2026 (09:02 UTC)
-- **Statut Opérationnel** : **Jalon 137 Validé — Ingestion Immédiate des Faits Sémantiques & Cadrage Contextuel Sans Question Répétitive ni Parachutage Tarifaire** :
+- **Dernière mise à jour** : 11 Novembre 2026 (11:05 UTC)
+- **Statut Opérationnel** : **Jalon 138 Validé — WhatsApp Super Cockpit (WhatsApp OS) : Mode Plein Écran Immersif 100vh, Ingestion Sub-50ms Supabase Realtime, Copilote Ghostwriter (3 Variantes Intelligentes), Fiche Brief CRM & Détecteur Pays Mobile Money, Scanner OCR Reçu & Commutateur Pilote Auto vs Mode Manuel** :
+  1. **Mode Plein Écran Immersif ("WhatsApp Web OS")** :
+     - Accès direct via bouton dédié ou route/hash `#chat`, `#whatsapp-web`, `/chat`.
+     - Layout 3 colonnes 100vh sans scroll global parasite : Liste Discussions (360px), Fil WhatsApp actif avec fond sombre graphite haute couture et waveform audio, Super Cockpit rétractable (380px).
+  2. **Ingestion Temps Réel Sub-50ms (Supabase Realtime Direct)** :
+     - Abonnement WebSocket direct `direct-conv-stream-${activeId}` sur la table `messages` sans aucun debounce 300ms ni refetch bloquant.
+     - Insertion instantanée des messages entrants et sortants dans le fil en temps réel.
+  3. **Copilote Ghostwriter & Tone Shifter** :
+     - 3 variantes contextualisées en direct sous chaque message : Directe & Efficace (action), Chaleureuse (relationnel), Synthétique (mobile).
+     - Boutons d'ajustement de tonalité : Raccourcir, Plus chaleureux, Demande de capture.
+  4. **Fiche Client, Brief 4 Repères & Notes Privées** :
+     - Détection dynamique du pays client (+225 CI, +226 BF, +221 SN, Diaspora) avec drapeau et coordonnées Mobile Money officielles.
+     - Suivi des 4 repères (Destinataire, Occasion, Souvenirs) et enregistrement de notes internes confidentielles.
+  5. **Vérificateur OCR de Reçus Mobile Money & Commutateur Pilote Auto** :
+     - Scanner heuristique de quittances Wave/OM avec certification d'authenticité.
+     - Commutateur `Pilote Auto IA` (l'agent répond seul) vs `Mode Manuel` (contrôle total gérant).
+  6. **Validation & Compilation Production** :
+     - TypeScript et build Vite validés 100% au vert (`npm run build`, 0 erreur).
+- **Jalon Précédent Validé** : **Jalon 137 Validé — Ingestion Immédiate des Faits Sémantiques & Cadrage Contextuel Sans Question Répétitive ni Parachutage Tarifaire** :
   1. **Résolution de la Cause Racine du Faux Positif Signalé** :
      - *Constat* : Le client disait *« Bonjour Puis je en savoir plus / Je veux une chanson d'anniversaire pour ma femme »*. Le robot parachutait les 2 formules tarifaires puis demandait *« Pour quel événement ou quelle occasion souhaitez-vous offrir cette chanson ? »*.
      - *Cause 1* : La mise à jour de `newState.pillars` était placée en étape 8, APRES la vérification des tarifs et des questions de relance. Lors de l'évaluation, `newState.pillars.occasion` était encore `null`, provoquant la question répétitive.
