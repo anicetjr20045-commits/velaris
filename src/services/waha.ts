@@ -18,7 +18,7 @@ export const WAHA_CONFIG = {
   baseUrl: env.VITE_WAHA_BASE_URL || 'https://waha.velarisagent.life',
   mode: (env.VITE_WAHA_MODE === 'proxy' || !directKey ? 'proxy' : 'direct') as 'proxy' | 'direct',
   proxyUrl: `${SUPABASE_CONFIG.url}/functions/v1/waha-proxy`,
-  defaultSession: 'Test', // Session principale liée au +22656240533
+  defaultSession: (typeof window !== 'undefined' && localStorage.getItem('waha_session')) || 'marigold', // Session active WhatsApp (+22656240533)
   secondarySession: 'anicet2', // Session préservée +22658357772 : lecture seule depuis le web
   protectedSessions: ['anicet2'] as readonly string[],
   webhookHmacKey: 'f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066',
