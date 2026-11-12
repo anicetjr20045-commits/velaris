@@ -68,6 +68,7 @@ import { useWahaHeartbeat } from '../hooks/useWaha';
 import {
   getLiveConversations,
   getLiveMessages,
+  normalizeMediaUrl,
   recordDirectPayment,
   recordOutboundMessage,
   updateConversationArchiveStatus,
@@ -172,6 +173,9 @@ interface ThreadMessage {
   createdAt: string;
   receipt?: ReceiptState;
   voice?: { url?: string; durationSec?: number; peaks?: number[] };
+  mediaUrl?: string;
+  mediaKind?: 'audio' | 'image' | 'video' | 'document' | string;
+  transcript?: string;
 }
 
 interface OutgoingMessage extends ThreadMessage {
@@ -1120,10 +1124,26 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     []
   );
   const readState = useReadState();
-  const conversations = useMemo(
-    () => applyReadState(rawConversations, readState.readOverrides, readState.archiveOverrides),
-    [rawConversations, readState]
-  );
+  const [conversationPatches, setConversationPatches] = useState<Record<string, { preview?: string; lastExchange?: string; unread?: boolean; timestamp?: number }>>({});
+  const conversations = useMemo(() => {
+    const list = applyReadState(rawConversations, readState.readOverrides, readState.archiveOverrides);
+    if (Object.keys(conversationPatches).length === 0) return list;
+    const patched = list.map(c => {
+      const patch = conversationPatches[c.id];
+      if (!patch) return c;
+      return {
+        ...c,
+        preview: patch.preview ?? c.preview,
+        lastExchange: patch.lastExchange ?? c.lastExchange,
+        unread: patch.unread !== undefined ? patch.unread : c.unread,
+      };
+    });
+    return patched.sort((a, b) => {
+      const aTime = conversationPatches[a.id]?.timestamp ?? 0;
+      const bTime = conversationPatches[b.id]?.timestamp ?? 0;
+      return bTime - aTime;
+    });
+  }, [rawConversations, readState, conversationPatches]);
 
   const [selectedId, setSelectedId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -1198,13 +1218,13 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const selectedConv = (selectedId ? conversations.find(c => c.id === selectedId) : null) || filteredConversations[0] || conversations[0] || null;
   const activeId = selectedConv?.id ?? '';
 
-  /* Historique réel du studio connecté (Realtime + polling) */
+  /* Historique réel du studio connecté (Realtime + polling accéléré 4s) */
   const { data: liveMessages } = useStudioLive<any[]>(
     () => getLiveMessages(activeId),
     [],
     ['messages'],
     [activeId],
-    { enabled: !!activeId, pollMs: 15000 }
+    { enabled: !!activeId, pollMs: 4000 }
   );
 
   // Réinitialise le stream direct et l'analyse de reçu au changement de chat
@@ -1242,35 +1262,79 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     });
   };
 
-  // Canal Supabase Realtime DIRECT sur activeId (zéro délai, zéro debounce 300ms)
+  const mapRawMessageToThreadMessage = (m: any): ThreadMessage => {
+    const cleanUrl = normalizeMediaUrl(m.media_path || m.media_url);
+    const isAudio = m.media_kind === 'audio' || (m.body && /\.(m4a|mp3|ogg|wav)$/i.test(m.body.trim()));
+    const isImage = m.media_kind === 'image' || (m.body && /\.(jpe?g|png|webp)$/i.test(m.body.trim()));
+    const isVideo = m.media_kind === 'video' || (m.body && /\.(mp4|mov)$/i.test(m.body.trim()));
+
+    let bodyText = m.body || m.transcript || '';
+    if (!bodyText) {
+      if (isAudio) bodyText = 'Note vocale';
+      else if (isImage) bodyText = 'Photo';
+      else if (isVideo) bodyText = 'Vidéo';
+    }
+
+    return {
+      id: m.id,
+      inbound: m.direction === 'inbound',
+      body: bodyText,
+      createdAt: m.created_at ? stampOf(new Date(m.created_at)) : 'Récent',
+      receipt: (m.direction === 'inbound' ? undefined : 'delivered') as ReceiptState,
+      voice: isAudio && cleanUrl ? { url: cleanUrl, durationSec: 30 } : undefined,
+      mediaUrl: cleanUrl || undefined,
+      mediaKind: m.media_kind || (isAudio ? 'audio' : isImage ? 'image' : isVideo ? 'video' : undefined),
+      transcript: m.transcript || undefined,
+    };
+  };
+
+  // Canal Supabase Realtime GLOBAL pour tout le studio (zéro délai, synchro instantanée de toutes les discussions)
   useEffect(() => {
-    if (!activeId) return;
-    const channel = supabase.channel(`direct-conv-stream-${activeId}`)
+    const channel = supabase.channel(`studio-global-stream-${Date.now()}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${activeId}`,
         },
         (payload) => {
           const m = payload.new as any;
           if (!m || !m.id) return;
-          const newMsg: ThreadMessage = {
-            id: m.id,
-            inbound: m.direction === 'inbound',
-            body: m.body || '',
-            createdAt: stampOf(new Date(m.created_at || Date.now())),
-            receipt: (m.direction === 'inbound' ? undefined : 'delivered') as ReceiptState,
-          };
-          setInstantStreamedMessages((prev) => {
-            if (prev.some((x) => x.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
-          if (m.direction === 'inbound' && selectedConv?.phone) {
-            markWahaChatSeen(selectedConv.phone, sessionName);
+          const msgConvId = m.conversation_id;
+
+          // 1. Si ce message concerne la discussion actuellement affichée, l'injecter immédiatement dans le fil
+          if (msgConvId === activeId) {
+            const newMsg = mapRawMessageToThreadMessage(m);
+            setInstantStreamedMessages((prev) => {
+              if (prev.some((x) => x.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+            if (m.direction === 'inbound' && selectedConv?.phone) {
+              markWahaChatSeen(selectedConv.phone, sessionName);
+            }
           }
+
+          // 2. Mettre à jour en temps réel l'aperçu et remonter la discussion en tête de liste à gauche
+          const prefix = m.direction === 'outbound' ? 'Vous : ' : '';
+          let textPreview = m.body || '';
+          if (!textPreview) {
+            if (m.transcript) textPreview = 'Note vocale : ' + m.transcript.slice(0, 50);
+            else if (m.media_kind === 'audio') textPreview = 'Note vocale';
+            else if (m.media_kind === 'image') textPreview = 'Photo';
+            else if (m.media_kind === 'video') textPreview = 'Vidéo';
+            else textPreview = 'Nouveau message';
+          }
+          const nowStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          setConversationPatches((prev) => ({
+            ...prev,
+            [msgConvId]: {
+              preview: prefix + (textPreview.length > 70 ? textPreview.slice(0, 70) + '...' : textPreview),
+              lastExchange: nowStr,
+              unread: msgConvId === activeId ? false : m.direction === 'inbound',
+              timestamp: Date.now(),
+            },
+          }));
         }
       )
       .on(
@@ -1279,14 +1343,30 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
           event: 'UPDATE',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${activeId}`,
         },
         (payload) => {
           const m = payload.new as any;
           if (!m || !m.id) return;
-          setInstantStreamedMessages((prev) =>
-            prev.map((x) => (x.id === m.id ? { ...x, body: m.body || x.body } : x))
-          );
+          if (m.conversation_id === activeId) {
+            setInstantStreamedMessages((prev) =>
+              prev.map((x) => (x.id === m.id ? { ...x, body: m.body || m.transcript || x.body } : x))
+            );
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversations',
+        },
+        (payload) => {
+          const c = payload.new as any;
+          if (!c || !c.id) return;
+          if (c.id === activeId) {
+            setAiPilotEnabled(!c.ai_paused && c.control_mode === 'ai');
+          }
         }
       )
       .subscribe();
@@ -1299,13 +1379,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const history: ThreadMessage[] = useMemo(() => {
     if (!selectedConv) return [];
     if (liveMessages.length > 0 || instantStreamedMessages.length > 0) {
-      const base: ThreadMessage[] = liveMessages.map((m) => ({
-        id: m.id,
-        inbound: m.direction === 'inbound',
-        body: m.body || '',
-        createdAt: m.created_at ? stampOf(new Date(m.created_at)) : 'Récent',
-        receipt: (m.direction === 'inbound' ? undefined : 'delivered') as ReceiptState,
-      }));
+      const base: ThreadMessage[] = liveMessages.map(mapRawMessageToThreadMessage);
       // Fusion sans doublon des messages arrivés instantanément par Realtime
       const missingStreamed = instantStreamedMessages.filter(
         (s) => !base.some((b) => b.id === s.id)
@@ -2055,7 +2129,9 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-3 bg-[#08090C]"
               >
                 {thread.map((m, idx, all) => {
-                  const voiceIn = m.inbound && isVoice(m.body);
+                  const isAudio = !!m.voice || m.mediaKind === 'audio' || (m.inbound && isVoice(m.body));
+                  const isImage = m.mediaKind === 'image';
+                  const isVideo = m.mediaKind === 'video';
                   const day = dayOf(m.createdAt);
                   const showDay = idx === 0 || day !== dayOf(all[idx - 1].createdAt);
                   return (
@@ -2071,21 +2147,43 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         <div
                           className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 ${
                             m.inbound
-                              ? `rounded-bl-sm border bg-[#0E1015] border-white/[0.08] text-neutral-200 ${voiceIn ? 'w-[320px]' : ''}`
-                              : `rounded-br-sm bg-white text-black shadow-sm ${m.voice ? 'w-[320px]' : ''}`
+                              ? `rounded-bl-sm border bg-[#0E1015] border-white/[0.08] text-neutral-200 ${isAudio ? 'w-[320px]' : ''}`
+                              : `rounded-br-sm bg-white text-black shadow-sm ${isAudio ? 'w-[320px]' : ''}`
                           }`}
                         >
-                          {voiceIn ? (
+                          {isAudio ? (
                             <div className="space-y-2">
-                              <WaveformPlayer seed={m.id + m.body} durationHint={Math.min(58, Math.max(9, Math.round(stripVoice(m.body).length / 4.5)))} />
-                              <div className="border-t border-white/[0.08] pt-1.5 text-xs text-neutral-300">
-                                {stripVoice(m.body)}
-                              </div>
+                              <WaveformPlayer
+                                seed={m.id + (m.body || '')}
+                                src={m.voice?.url || m.mediaUrl}
+                                peaks={m.voice?.peaks}
+                                durationHint={m.voice?.durationSec || 30}
+                                tone={m.inbound ? 'dark' : 'light'}
+                              />
+                              {(m.transcript || (m.body && !/\.(m4a|mp3|ogg|wav)$/i.test(m.body))) && (
+                                <div className={`border-t pt-1.5 text-xs ${m.inbound ? 'border-white/[0.08] text-neutral-300' : 'border-black/10 text-neutral-700'}`}>
+                                  {m.transcript || stripVoice(m.body)}
+                                </div>
+                              )}
                             </div>
-                          ) : m.voice ? (
-                            <WaveformPlayer seed={m.id} src={m.voice.url} peaks={m.voice.peaks} durationHint={m.voice.durationSec} tone="light" />
+                          ) : isImage && m.mediaUrl ? (
+                            <div className="space-y-1.5">
+                              <a href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl">
+                                <img src={m.mediaUrl} alt="Photo WhatsApp" className="max-h-64 w-auto rounded-xl object-cover hover:opacity-90 transition-opacity" />
+                              </a>
+                              {m.body && m.body !== 'Photo' && (
+                                <p className="whitespace-pre-line text-[13.5px] leading-relaxed">{m.body}</p>
+                              )}
+                            </div>
+                          ) : isVideo && m.mediaUrl ? (
+                            <div className="space-y-1.5">
+                              <video src={m.mediaUrl} controls className="max-h-64 w-auto rounded-xl" />
+                              {m.body && m.body !== 'Vidéo' && (
+                                <p className="whitespace-pre-line text-[13.5px] leading-relaxed">{m.body}</p>
+                              )}
+                            </div>
                           ) : (
-                            <p className="whitespace-pre-line text-[13.5px] leading-relaxed">{m.body}</p>
+                            <p className="whitespace-pre-line text-[13.5px] leading-relaxed">{m.body || m.transcript || ''}</p>
                           )}
                           <div className="mt-1 flex items-center justify-end gap-1.5 font-mono text-[10.5px] text-neutral-500">
                             <span>{timeOf(m.createdAt)}</span>

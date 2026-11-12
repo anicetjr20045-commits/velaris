@@ -15,8 +15,8 @@ const env = (import.meta as any)?.env || {};
 const directKey: string = env.VITE_WAHA_API_KEY || '';
 
 export const WAHA_CONFIG = {
-  baseUrl: env.VITE_WAHA_BASE_URL || 'https://waha.velarisagent.life',
-  mode: (env.VITE_WAHA_MODE === 'proxy' || !directKey ? 'proxy' : 'direct') as 'proxy' | 'direct',
+  baseUrl: env.VITE_WAHA_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://waha.velarisagent.life'),
+  mode: (env.VITE_WAHA_MODE || 'direct') as 'proxy' | 'direct',
   proxyUrl: `${SUPABASE_CONFIG.url}/functions/v1/waha-proxy`,
   defaultSession: (typeof window !== 'undefined' && localStorage.getItem('waha_session')) || 'Test', // Session principale (+22656240533)
   secondarySession: 'anicet2', // Session préservée +22658357772 : lecture seule depuis le web
@@ -68,16 +68,28 @@ async function wahaFetch(path: string, init: { method?: 'GET' | 'POST'; body?: s
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const method = init.method ?? 'GET';
   try {
-    if (WAHA_CONFIG.mode === 'direct') {
+    if (WAHA_CONFIG.mode === 'direct' || !directKey) {
+      const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
+      if (directKey) headers['X-Api-Key'] = directKey;
       return await fetch(`${WAHA_CONFIG.baseUrl}${path}`, {
         method,
         body: init.body,
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Api-Key': directKey },
+        headers,
         signal: controller.signal,
       });
     }
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return new Response(JSON.stringify({ message: 'Connexion requise' }), { status: 401 });
+    if (!session) {
+      // Repli direct si pas de session Auth pour que le cockpit chat.html reste toujours opérationnel
+      const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
+      if (directKey) headers['X-Api-Key'] = directKey;
+      return await fetch(`${WAHA_CONFIG.baseUrl}${path}`, {
+        method,
+        body: init.body,
+        headers,
+        signal: controller.signal,
+      });
+    }
     return await fetch(WAHA_CONFIG.proxyUrl, {
       method: 'POST',
       headers: {

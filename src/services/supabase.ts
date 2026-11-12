@@ -73,14 +73,39 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       return [];
     }
 
+    // Récupération des tout derniers messages réels pour chaque conversation
+    const convIds = data.map((c: any) => c.id);
+    const lastMsgMap = new Map<string, any>();
+    if (convIds.length > 0) {
+      try {
+        const { data: recentMsgs } = await supabase
+          .from('messages')
+          .select('conversation_id, body, media_kind, transcript, direction, created_at')
+          .in('conversation_id', convIds)
+          .order('created_at', { ascending: false })
+          .limit(300);
+        if (recentMsgs) {
+          for (const m of recentMsgs) {
+            if (!lastMsgMap.has(m.conversation_id)) {
+              lastMsgMap.set(m.conversation_id, m);
+            }
+          }
+        }
+      } catch {
+        // repli gracieux
+      }
+    }
+
     return data.map((c: any) => {
       const ack = c.ack_log || {};
       const isArchived = Boolean(ack.archived);
+      const lastMsg = lastMsgMap.get(c.id);
 
       // Statut non-lu fiable :
       // 1. Si ack.unread est explicitement défini (ex. forcé manuellement)
       // 2. Si un message a été reçu après la dernière consultation (last_message_at > last_read_at)
-      // 3. Sinon, par défaut le statut funnel_stage === 'new'
+      // 3. Si le dernier message est sortant (envoyé par nous), ce n'est JAMAIS non-lu
+      // 4. Sinon, par défaut le statut funnel_stage === 'new'
       let unread = c.funnel_stage === 'new';
       if (typeof ack.unread === 'boolean') {
         unread = ack.unread;
@@ -88,14 +113,51 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       if (ack.last_read_at && c.last_message_at) {
         unread = new Date(c.last_message_at).getTime() > new Date(ack.last_read_at).getTime();
       }
+      if (lastMsg?.direction === 'outbound') {
+        unread = false;
+      }
+
+      // Formatage fin de l'heure du dernier échange (ex: 14:25 si aujourd'hui, sinon 12 nov.)
+      const lastDate = c.last_message_at ? new Date(c.last_message_at) : null;
+      let lastExchange = 'Récent';
+      if (lastDate && !isNaN(lastDate.getTime())) {
+        const isToday = new Date().toDateString() === lastDate.toDateString();
+        lastExchange = isToday
+          ? lastDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+          : lastDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      }
+
+      // Aperçu textuel vivant du dernier message réel (ou média)
+      let preview = c.summary ? c.summary.slice(0, 90) + '...' : 'En discussion WhatsApp';
+      let fullMessage = c.summary || '';
+      if (lastMsg) {
+        const prefix = lastMsg.direction === 'outbound' ? 'Vous : ' : '';
+        if (lastMsg.body) {
+          preview = prefix + (lastMsg.body.length > 70 ? lastMsg.body.slice(0, 70) + '...' : lastMsg.body);
+          fullMessage = lastMsg.body;
+        } else if (lastMsg.transcript) {
+          preview = prefix + 'Note vocale : ' + (lastMsg.transcript.length > 60 ? lastMsg.transcript.slice(0, 60) + '...' : lastMsg.transcript);
+          fullMessage = lastMsg.transcript;
+        } else if (lastMsg.media_kind === 'audio') {
+          preview = prefix + 'Note vocale';
+          fullMessage = 'Note vocale';
+        } else if (lastMsg.media_kind === 'image') {
+          preview = prefix + 'Photo';
+          fullMessage = 'Photo';
+        } else if (lastMsg.media_kind === 'video') {
+          preview = prefix + 'Vidéo';
+          fullMessage = 'Vidéo';
+        }
+      }
 
       return {
         id: c.id,
-        name: c.contacts?.name || 'Client WhatsApp',
+        name: c.contacts?.name || (c.contacts?.phone ? `+${c.contacts.phone}` : 'Client WhatsApp'),
         phone: c.contacts?.phone || '',
-        lastExchange: c.last_message_at ? new Date(c.last_message_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : 'Récent',
+        lastExchange,
         status: mapFunnelStage(c.funnel_stage),
-        preview: c.summary ? c.summary.slice(0, 90) + '...' : 'En discussion WhatsApp',
+        preview,
+        fullMessage,
         facts: c.summary,
         unread,
         isArchived,
@@ -653,6 +715,13 @@ export async function recordDirectPayment(order: {
   }
 }
 
+export function normalizeMediaUrl(url?: string | null): string {
+  if (!url) return '';
+  // Convertir l'URL locale du conteneur en URL publique Caddy accessible par le navigateur
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://waha.velarisagent.life';
+  return url.replace(/https?:\/\/(localhost|127\.0\.0\.1):3000\//i, `${origin}/`);
+}
+
 /**
  * Récupère les messages d'une conversation spécifique (ou de toutes les conversations récentes)
  */
@@ -660,17 +729,21 @@ export async function getLiveMessages(conversationId?: string): Promise<any[]> {
   try {
     let query = supabase
       .from('messages')
-      .select('id, role, direction, body, created_at, conversation_id, conversations(contact_id, contacts(name, phone))')
+      .select('id, role, direction, body, created_at, conversation_id, media_kind, media_url, media_path, transcript, conversations(contact_id, contacts(name, phone))')
       .order('created_at', { ascending: false });
 
     if (conversationId) {
       query = query.eq('conversation_id', conversationId);
     }
 
-    // Les 50 plus récents, rendus dans l'ordre chronologique
-    const { data, error } = await query.limit(50);
+    // Les 100 plus récents, rendus dans l'ordre chronologique
+    const { data, error } = await query.limit(100);
     if (error || !data) return [];
-    return data.reverse();
+    return data.reverse().map((m: any) => ({
+      ...m,
+      media_path: normalizeMediaUrl(m.media_path),
+      media_url: normalizeMediaUrl(m.media_url),
+    }));
   } catch {
     return [];
   }

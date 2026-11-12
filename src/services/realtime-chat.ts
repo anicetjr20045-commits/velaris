@@ -100,6 +100,25 @@ export function resolvePaymentInfoByPhone(phone: string): CountryPaymentInfo {
  */
 export async function updateConversationAiMode(conversationId: string, aiEnabled: boolean): Promise<boolean> {
   if (!conversationId) return false;
+  // 1. Relais direct vers le moteur de contrôle VPS (avec clé de service pour contourner la RLS anon)
+  try {
+    const res = await fetch('/api/control-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId,
+        mode: aiEnabled ? 'ai' : 'human',
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.ok) return true;
+    }
+  } catch {
+    // repli
+  }
+
+  // 2. Repli Supabase direct
   try {
     const { error } = await supabase
       .from('conversations')
