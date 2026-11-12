@@ -1120,7 +1120,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     getLiveConversations,
     EMPTY_CONVERSATIONS,
     ['conversations', 'messages'],
-    [user?.id]
+    []
   );
   const readState = useReadState();
   const conversations = useMemo(
@@ -1157,7 +1157,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
   const [receiptAnalysis, setReceiptAnalysis] = useState<ReceiptAnalysisResult | null>(null);
 
-  const link = useWahaHeartbeat(sessionName, { autoReconnect: !!user });
+  const link = useWahaHeartbeat(sessionName, { autoReconnect: true });
 
   const threadRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -1297,11 +1297,11 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeId, user, selectedConv?.phone, sessionName]);
+  }, [activeId, selectedConv?.phone, sessionName]);
 
   const history: ThreadMessage[] = useMemo(() => {
     if (!selectedConv) return [];
-    if (user && (liveMessages.length > 0 || instantStreamedMessages.length > 0)) {
+    if (liveMessages.length > 0 || instantStreamedMessages.length > 0) {
       const base: ThreadMessage[] = liveMessages.map((m) => ({
         id: m.id,
         inbound: m.direction === 'inbound',
@@ -1323,7 +1323,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
       });
     }
     return [{ id: 'default-1', inbound: true, body: selectedConv.fullMessage || selectedConv.preview, createdAt: selectedConv.lastExchange }];
-  }, [selectedConv, user, liveMessages, instantStreamedMessages]);
+  }, [selectedConv, liveMessages, instantStreamedMessages]);
 
   /* Un envoi local disparaît dès que Supabase le renvoie (même corps sortant) */
   const pending = (outgoing[activeId] || []).filter(
@@ -1382,21 +1382,17 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const markRead = (conv: ConversationItem) => {
     if (!conv.unread) return;
     setConversationUnread(conv, false);
-    if (user) {
-      updateConversationReadStatus(conv.id, false);
-      if (conv.phone) markWahaChatSeen(conv.phone, sessionName);
-    }
+    updateConversationReadStatus(conv.id, false);
+    if (conv.phone) markWahaChatSeen(conv.phone, sessionName);
   };
 
   const toggleUnread = (conv: ConversationItem, e?: MouseEvent) => {
     e?.stopPropagation();
     const nextUnread = !conv.unread;
     setConversationUnread(conv, nextUnread);
-    if (user) {
-      updateConversationReadStatus(conv.id, nextUnread);
-      if (!nextUnread && conv.phone) {
-        markWahaChatSeen(conv.phone, sessionName);
-      }
+    updateConversationReadStatus(conv.id, nextUnread);
+    if (!nextUnread && conv.phone) {
+      markWahaChatSeen(conv.phone, sessionName);
     }
   };
 
@@ -1405,11 +1401,9 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     const nextArchived = !conv.isArchived;
     setConversationArchived(conv, nextArchived);
 
-    if (user) {
-      updateConversationArchiveStatus(conv.id, nextArchived);
-      if (conv.phone) {
-        setWahaChatArchived(conv.phone, nextArchived, sessionName);
-      }
+    updateConversationArchiveStatus(conv.id, nextArchived);
+    if (conv.phone) {
+      setWahaChatArchived(conv.phone, nextArchived, sessionName);
     }
 
     showFeedback({
@@ -1494,13 +1488,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     });
     setIsSending(true);
     setSendFeedback(null);
-
-    if (!user) {
-      setTimeout(() => patchOutgoing(conv.id, localId, { receipt: 'delivered', sentAt: Date.now() }), 700);
-      setIsSending(false);
-      showFeedback({ success: true, message: `[Mode Démo] ${displayLabel} simulé pour ${conv.phone}.` });
-      return;
-    }
 
     try {
       // Envoi du fichier brut sans aucun titre ni légende
@@ -1806,7 +1793,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
               )}
               {secure && <ShieldCheck className="h-3 w-3 text-neutral-500" strokeWidth={1.75} aria-label="Transport chiffré" />}
             </span>
-            {user && (link.state === 'offline' || link.state === 'scan') && (
+            {(link.state === 'offline' || link.state === 'scan') && (
               <button
                 type="button"
                 onClick={link.reconnect}
