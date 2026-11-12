@@ -25,8 +25,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Novembre 2026 (11:53 UTC)
-- **Statut Opérationnel** : **Jalon 140 Validé — Assainissement Intégral Passerelle WhatsApp & Déblocage QR Code Live Sub-12s (Session `Test`)** :
+- **Dernière mise à jour** : 12 Novembre 2026 (13:08 UTC)
+- **Statut Opérationnel** : **Jalon 141 Validé — Déploiement Production du WhatsApp Super Cockpit (WhatsApp OS) & Bascule Définitive vers le Mode Réel** :
+  1. **Résolution de l'Affichage "Simulateur" vs "Copilot"** :
+     - Cause : Le routage d'URL dans `src/App.tsx` capturait le pathname `/simulateur/` avant de tester le hash `#chat`, redirigeant à tort vers `<PlaygroundView />`.
+     - Correction : Priorité absolue donnée à `isChatRequested` (`#chat`, `#conversations`, `/chat`) qui renvoie directement vers `<ConversationsView />` en plein écran 100vh.
+  2. **Déverrouillage des Envois WhatsApp Réels** :
+     - Élimination des gardes de simulation "Mode Démo" dans `src/components/ConversationsView.tsx`.
+     - Branchement direct des fonctions d'envoi (`sendWahaTextMessage`, `sendWahaVoiceMessage`) sur la session active WAHA `Test` (`+22656240533`, statut `WORKING`).
+     - Ingestion directe temps réel Supabase activée.
+  3. **Build & Déploiement VPS Validés** :
+     - Compilation `npm run build` réussie avec succès (code 0, `index-O00M9CqN.js`).
+     - Fichiers synchronisés sur le VPS de production (`root@162.35.113.220:/root/waha-vps-setup/qrserve/simulateur/`).
+     - Point d'accès en direct : `https://waha.velarisagent.life/qr/chat.html` (ou `https://waha.velarisagent.life/qr/simulateur/index.html#chat`).
+     - Commit Git `e4a39fa` poussé sur `origin/main`.
+- **Jalon Précédent Validé** : **Jalon 140 Validé — Assainissement Intégral Passerelle WhatsApp & Déblocage QR Code Live Sub-12s (Session `Test`)** :
   1. **Purge du Conflit de Proxy Caddy** :
      - Suppression de la directive `handle /api/test/*` qui détournait indûment les requêtes WhatsApp de la session `Test` vers le port 3001 au lieu du port WAHA 3000. Rechargement Caddy validé sans coupure.
   2. **Réactivation du Démon QR Live (`velaris-qr-live.service`)** :
