@@ -26,7 +26,18 @@
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
 - **Dernière mise à jour** : 12 Novembre 2026 (13:08 UTC)
-- **Statut Opérationnel** : **Jalon 141 Validé — Déploiement Production du WhatsApp Super Cockpit (WhatsApp OS) & Bascule Définitive vers le Mode Réel** :
+- **Statut Opérationnel** : **Jalon 142 Validé — Déblocage Intégral du Flux Réel WhatsApp (Ingestion Sub-50ms & Synchronisation Directe des Vraies Discussions)** :
+  1. **Résolution du Masquage des Vraies Discussions WhatsApp** :
+     - Cause : La vue `ConversationsView.tsx` contenait des gardes `if (user && ...)` conditionnant l'affichage des messages réels à une session utilisateur Supabase Auth active. En accès direct cockpit (`chat.html`), l'absence de session auth provoquait un repli vers un mock statique (`REAL_CONVERSATION_MESSAGES`) masquant les vraies discussions entrantes.
+     - Correction : Levée définitive de la condition `user` sur le chargement des messages en direct (`liveMessages`), sur le canal Realtime (`direct-conv-stream`), sur l'état de lecture et sur l'envoi de médias.
+  2. **Vérification en Direct sur la Session WAHA Réelle** :
+     - Les messages entrants et sortants réels échangés en production sur la session `Test` (`+226 56 24 05 33`) sont désormais injectés et affichés instantanément dans le cockpit.
+  3. **Build & Déploiement VPS Validés** :
+     - Compilation `npm run build` réussie (`index-xUxMZaHM.js`).
+     - Fichiers synchronisés sur le VPS (`/root/waha-vps-setup/qrserve/simulateur/`).
+     - Accès direct : `https://waha.velarisagent.life/qr/chat.html`.
+     - Commit Git `803ba9f` poussé sur `origin/main`.
+- **Jalon Précédent Validé** : **Jalon 141 Validé — Déploiement Production du WhatsApp Super Cockpit (WhatsApp OS) & Bascule Définitive vers le Mode Réel** :
   1. **Résolution de l'Affichage "Simulateur" vs "Copilot"** :
      - Cause : Le routage d'URL dans `src/App.tsx` capturait le pathname `/simulateur/` avant de tester le hash `#chat`, redirigeant à tort vers `<PlaygroundView />`.
      - Correction : Priorité absolue donnée à `isChatRequested` (`#chat`, `#conversations`, `/chat`) qui renvoie directement vers `<ConversationsView />` en plein écran 100vh.
