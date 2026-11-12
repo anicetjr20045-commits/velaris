@@ -8,7 +8,6 @@ import {
   Check,
   CheckCheck,
   CheckCircle2,
-  ChevronDown,
   Clock3,
   Download,
   ExternalLink,
@@ -20,9 +19,7 @@ import {
   MessageCircle,
   Mic,
   Minimize2,
-  PanelRightClose,
   Receipt,
-  RefreshCw,
   ScanLine,
   Search,
   ShieldCheck,
@@ -1112,7 +1109,7 @@ const CashOrderModal: FC<CashOrderModalProps> = ({
 const ACK_POLL_MS = 5000;
 const ACK_WATCH_MS = 3 * 60 * 1000;
 
-export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForStudio }) => {
+export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForStudio: _onOpenOrderForStudio }) => {
   const { user } = useAuth();
   const sessionName = wahaSessionNameFor(user?.id);
 
@@ -1716,126 +1713,132 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   return (
     <div className={
       isImmersiveFullScreen
-        ? "fixed inset-0 z-[100] h-screen w-screen bg-[#08090C] overflow-hidden flex flex-col select-none"
+        ? "fixed inset-0 z-[100] h-[100dvh] w-full bg-[#08090C] overflow-hidden flex flex-col select-none"
         : "max-w-7xl mx-auto pb-16 space-y-5 vx-view-enter"
     }>
-      {/* En-tête WhatsApp Web Plein Écran */}
+      {/* 1. Barre Supérieure Unifiée Plein Écran (Haute Couture, Zéro Conflit) */}
       {isImmersiveFullScreen ? (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-[#0A0C10] border-b border-white/[0.08] shrink-0">
+        <header className="h-13 px-3 sm:px-5 bg-[#090B0E] border-b border-white/[0.08] flex items-center justify-between shrink-0 select-none">
+          {/* Gauche : Statut Passerelle & Titre Sobre */}
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-2 font-display text-base font-bold text-white tracking-wide">
-              <MessageCircle className="h-4 w-4 text-emerald-400" />
-              <span>WhatsApp Super Cockpit</span>
-            </span>
-            <span className="h-4 w-px bg-white/[0.1]" />
-            <span title={beatTitle} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11px] text-[#A3A3A3]">
-              <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
-              <span className="text-neutral-200">{linkMeta.label}</span>
-              {link.state === 'online' && link.latencyMs !== null && (
-                <span className="font-mono tabular-nums text-neutral-500">{link.latencyMs} ms</span>
-              )}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <MessageCircle className="h-4 w-4" />
+              </span>
+              <div className="leading-tight">
+                <div className="flex items-center gap-2">
+                  <span className="font-heading text-[13.5px] font-bold text-white tracking-tight">WhatsApp Copilot</span>
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-white/[0.06] bg-white/[0.02] text-[11px] text-neutral-400">
+                    <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
+                    <span className="text-neutral-200">{linkMeta.label}</span>
+                    {link.state === 'online' && link.latencyMs !== null && (
+                      <span className="font-mono text-neutral-500">{link.latencyMs}ms</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Droite : Commandes Rapides (Tablette-Friendly, min 36-40px touch) */}
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-neutral-400 hidden sm:inline">
-              <span className="text-white font-semibold">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
-            </span>
+            {/* Commutateur Pilote Auto vs Mode Manuel */}
+            {selectedConv && (
+              <button
+                type="button"
+                onClick={handleToggleAiPilot}
+                disabled={isLoadingAiMode}
+                title={aiPilotEnabled ? "Désactiver le pilote auto pour répondre manuellement" : "Activer le pilote auto pour laisser l'IA répondre"}
+                className={`inline-flex items-center gap-2 h-8 sm:h-9 px-3 rounded-full text-[11.5px] sm:text-xs font-semibold transition-all cursor-pointer ${
+                  aiPilotEnabled
+                    ? 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                    : 'border border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full ${aiPilotEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="hidden sm:inline">{aiPilotEnabled ? 'Pilote Auto' : 'Manuel'}</span>
+              </button>
+            )}
+
+            {/* Toggle Volet Cockpit (Adapté Tablette) */}
             <button
               type="button"
               onClick={() => setIsSuperCockpitOpen(!isSuperCockpitOpen)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                isSuperCockpitOpen ? 'bg-[#E5B54F]/20 border border-[#E5B54F]/50 text-[#F1DDB4]' : 'border border-white/[0.12] text-neutral-300 hover:text-white'
+              className={`inline-flex items-center gap-2 h-8 sm:h-9 px-3.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                isSuperCockpitOpen
+                  ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.15)]'
+                  : 'border border-white/[0.12] bg-white/[0.03] text-neutral-300 hover:text-white hover:border-white/25'
               }`}
             >
-              <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" />
-              <span>{isSuperCockpitOpen ? 'Masquer Cockpit' : 'Ouvrir Cockpit'}</span>
+              <Sparkles className={`h-3.5 w-3.5 ${isSuperCockpitOpen ? 'text-black' : 'text-neutral-400'}`} />
+              <span className="hidden sm:inline">Cockpit IA</span>
             </button>
+
+            {/* Export JSON */}
+            <button
+              type="button"
+              onClick={handleExport}
+              title="Exporter les discussions"
+              className="flex h-8 sm:h-9 w-8 sm:w-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.03] text-neutral-400 hover:text-white hover:border-white/25 transition-all cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Quitter Plein Écran */}
             <button
               type="button"
               onClick={() => setIsImmersiveFullScreen(false)}
               title="Quitter le plein écran"
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-3 py-1.5 text-xs text-neutral-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
+              className="flex h-8 sm:h-9 w-8 sm:w-9 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.03] text-neutral-400 hover:text-white hover:border-white/25 transition-all cursor-pointer"
             >
               <Minimize2 className="h-3.5 w-3.5" />
-              <span>Sortir Plein Écran</span>
             </button>
           </div>
-        </div>
+        </header>
       ) : (
-        /* En-tête standard */
+        /* En-tête standard dans le site principal */
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Discussions WhatsApp</h1>
             <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed max-w-xl">
-              Répondez aux prospects de vos publicités et pilotez vos ventes avec le Super Cockpit IA en direct.
+              Cockpit commercial en temps réel pour piloter les ventes de votre studio musical.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            {/* Bouton Plein Écran Immédiat */}
             <button
               type="button"
               onClick={() => setIsImmersiveFullScreen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3.5 py-1.5 text-[12.5px] font-semibold text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/50 transition-all cursor-pointer shadow-sm"
+              className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition-all cursor-pointer"
             >
               <Maximize2 className="h-3.5 w-3.5" />
-              <span>Mode WhatsApp Web OS</span>
+              <span>Ouvrir en Plein Écran (Tablette / Web)</span>
             </button>
-
             <span
               title={beatTitle}
-              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]"
+              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12px] text-neutral-400"
             >
               <span className={`h-1.5 w-1.5 rounded-full ${linkMeta.dot}`} />
               <span className="text-neutral-200">{linkMeta.label}</span>
-              {link.state === 'online' && link.latencyMs !== null && (
-                <span className="font-mono tabular-nums text-neutral-500">{link.latencyMs} ms</span>
-              )}
-              {secure && <ShieldCheck className="h-3 w-3 text-neutral-500" strokeWidth={1.75} aria-label="Transport chiffré" />}
+              {secure && <ShieldCheck className="h-3 w-3 text-neutral-500" strokeWidth={1.75} />}
             </span>
-            {(link.state === 'offline' || link.state === 'scan') && (
-              <button
-                type="button"
-                onClick={link.reconnect}
-                className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
-              >
-                <RefreshCw className="h-3 w-3" strokeWidth={2} />
-                Reconnecter
-              </button>
-            )}
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-[12.5px] text-[#A3A3A3]">
-              <span className="font-mono tabular-nums text-white">{unreadTotal}</span> non lu{unreadTotal > 1 ? 's' : ''}
-            </span>
-            <button
-              type="button"
-              onClick={handleExport}
-              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3.5 py-1.5 text-[13px] text-neutral-300 hover:text-white hover:border-white/20 transition-colors duration-200 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
-              <span>Exporter</span>
-            </button>
           </div>
         </div>
       )}
 
-      {/* Boîte WhatsApp Cockpit (2 ou 3 colonnes) */}
+      {/* 2. Conteneur Maître Adapté Tablette (Split-View Épuré) */}
       <div className={
         isImmersiveFullScreen
-          ? `flex-1 grid grid-cols-1 ${
-              isSuperCockpitOpen
-                ? 'lg:grid-cols-[360px_minmax(0,1fr)_380px]'
-                : 'lg:grid-cols-[360px_minmax(0,1fr)]'
-            } overflow-hidden min-h-0 bg-[#08090C]`
-          : `vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden grid grid-cols-1 ${
-              isSuperCockpitOpen
-                ? 'xl:grid-cols-[340px_minmax(0,1fr)_380px] lg:grid-cols-[320px_minmax(0,1fr)]'
-                : 'lg:grid-cols-[340px_minmax(0,1fr)]'
-            } lg:h-[calc(100dvh-13rem)] lg:min-h-[660px]`
+          ? "flex-1 flex flex-row overflow-hidden min-h-0 bg-[#08090C] relative"
+          : `vx-hairline rounded-2xl border border-white/[0.08] bg-[#0B0C10] overflow-hidden flex flex-row relative ${
+              isSuperCockpitOpen ? 'lg:h-[calc(100dvh-13rem)] lg:min-h-[660px]' : 'lg:h-[calc(100dvh-13rem)] lg:min-h-[660px]'
+            }`
       }>
-        {/* Liste */}
-        <div className={`flex-col min-h-0 border-r border-white/[0.08] ${mobileThreadOpen ? 'hidden lg:flex' : 'flex'}`}>
-          {/* Les 2 sections maîtresses : Discussions & Archivées */}
-          <div className="flex border-b border-white/[0.08] p-1.5 gap-1 bg-[#07080B]">
+        {/* Colonne 1 : Liste des Discussions (Largeur fixe confortable sur tablette) */}
+        <aside className={`w-full md:w-[290px] lg:w-[320px] shrink-0 flex-col min-h-0 border-r border-white/[0.08] bg-[#07080B] ${
+          mobileThreadOpen ? 'hidden md:flex' : 'flex'
+        }`}>
+          {/* Onglets Discussions / Archivées */}
+          <div className="flex border-b border-white/[0.08] p-1.5 gap-1 bg-[#090B0E]">
             <button
               type="button"
               onClick={() => setSection('discussions')}
@@ -1845,7 +1848,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <MessageCircle className="h-3.5 w-3.5" />
               <span>Discussions</span>
               {unreadTotal > 0 && (
                 <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-black">
@@ -1862,7 +1864,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Archive className="h-3.5 w-3.5" />
               <span>Archivées</span>
               {archivedConversations.length > 0 && (
                 <span className="font-mono text-[11px] text-neutral-400">
@@ -1872,69 +1873,40 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
             </button>
           </div>
 
-          {/* Recherche & Filtre rapide "Non lus" style WhatsApp */}
-          <div className="p-3 border-b border-white/[0.08] flex items-center gap-2">
+          {/* Recherche & Filtre Non Lus */}
+          <div className="p-2.5 border-b border-white/[0.08] flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500" />
               <input
                 type="text"
-                placeholder={section === 'archived' ? "Chercher dans les archives..." : "Nom, numéro, message..."}
+                placeholder={section === 'archived' ? "Rechercher archives..." : "Nom, numéro..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] pl-9 pr-3 py-2 text-[13px] text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.02] pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-neutral-500 outline-none focus:border-white/20 transition-colors"
               />
             </div>
             {section === 'discussions' && (
               <button
                 type="button"
                 onClick={() => setOnlyUnread(!onlyUnread)}
-                title={onlyUnread ? "Afficher toutes les discussions" : "Filtrer uniquement les messages non lus"}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                title={onlyUnread ? "Afficher toutes les discussions" : "Filtrer non lus"}
+                className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
                   onlyUnread
-                    ? 'bg-emerald-500 text-black border-emerald-400 font-bold'
-                    : 'border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:text-white hover:border-white/20'
+                    ? 'bg-emerald-500 text-black border-emerald-400'
+                    : 'border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:text-white'
                 }`}
               >
                 <span>Non lus</span>
-                {unreadTotal > 0 && (
-                  <span className={`h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                    onlyUnread ? 'bg-black text-emerald-400' : 'bg-emerald-500 text-black'
-                  }`}>
-                    {unreadTotal}
-                  </span>
-                )}
               </button>
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto max-h-[60vh] lg:max-h-none">
+          {/* Liste Scrollable avec touch-scrolling natif */}
+          <div className="flex-1 overflow-y-auto no-scrollbar">
             {filteredConversations.length === 0 ? (
-              <div className="p-10 text-center space-y-2">
-                {section === 'archived' ? (
-                  <>
-                    <Archive className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
-                    <p className="text-[13px] font-medium text-neutral-300">Aucune discussion archivée</p>
-                    <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
-                      Les discussions que vous archivez apparaîtront ici sans encombrer votre boîte principale.
-                    </p>
-                  </>
-                ) : onlyUnread ? (
-                  <>
-                    <CheckCheck className="h-6 w-6 text-emerald-400 mx-auto" strokeWidth={1.5} />
-                    <p className="text-[13px] font-medium text-neutral-300">Tous les messages sont lus</p>
-                    <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
-                      Aucun message non lu en attente.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <MessageCircle className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
-                    <p className="text-[13px] font-medium text-neutral-300">Aucune discussion ici</p>
-                    <p className="text-[12.5px] text-neutral-500 max-w-[220px] mx-auto leading-relaxed">
-                      Dès qu'un client écrit sur votre numéro WhatsApp Studio, sa conversation apparaît dans cette liste.
-                    </p>
-                  </>
-                )}
+              <div className="p-8 text-center space-y-2">
+                <MessageCircle className="h-6 w-6 text-neutral-600 mx-auto" strokeWidth={1.5} />
+                <p className="text-xs font-medium text-neutral-400">Aucune discussion ici</p>
               </div>
             ) : (
               filteredConversations.map((conv, i) => {
@@ -1944,8 +1916,8 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   <div
                     key={conv.id}
                     style={{ '--i': Math.min(i, 8) } as CSSProperties}
-                    className={`vx-stagger group relative border-b border-white/[0.05] transition-colors duration-200 ${
-                      isSelected ? 'bg-white/[0.05]' : 'hover:bg-white/[0.02]'
+                    className={`vx-stagger group relative border-b border-white/[0.04] transition-colors duration-150 ${
+                      isSelected ? 'bg-white/[0.06]' : 'hover:bg-white/[0.02]'
                     }`}
                   >
                     <button
@@ -1953,50 +1925,46 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                       onClick={() => selectConversation(conv)}
                       className="w-full text-left flex gap-3 px-3.5 py-3 cursor-pointer"
                     >
-                      {isSelected && <span className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r bg-white" />}
+                      {isSelected && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-white" />}
                       <Monogram name={conv.name} unread={conv.unread} />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-baseline justify-between gap-2">
-                          <span className={`truncate text-sm ${conv.unread ? 'font-semibold text-white' : 'font-medium text-neutral-200'}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-1.5">
+                          <span className={`truncate text-[13px] ${conv.unread ? 'font-semibold text-white' : 'font-medium text-neutral-200'}`}>
                             {conv.name}
                           </span>
-                          <span className={`font-mono text-[11.5px] shrink-0 ${conv.unread ? 'text-emerald-400 font-semibold' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
-                        </span>
+                          <span className={`font-mono text-[10.5px] shrink-0 ${conv.unread ? 'text-emerald-400 font-medium' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
+                        </div>
                         <div className="mt-1 flex items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-[13px] text-[#A3A3A3] truncate min-w-0">
-                            {voice && <Mic className="h-3 w-3 shrink-0 text-[#E5B54F]" strokeWidth={1.75} />}
+                          <span className="flex items-center gap-1.5 text-xs text-neutral-400 truncate min-w-0">
+                            {voice && <Mic className="h-3 w-3 shrink-0 text-amber-400" strokeWidth={1.75} />}
                             <span className={`truncate ${conv.unread ? 'text-neutral-100 font-medium' : ''}`}>{voice ? 'Note vocale' : conv.preview}</span>
                           </span>
                           {conv.unread && (
-                            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-bold text-black shadow-sm shrink-0">
+                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-black shrink-0">
                               1
                             </span>
                           )}
                         </div>
-                      </span>
+                      </div>
                     </button>
-                    <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
+
+                    {/* Actions au survol / touch */}
+                    <div className="absolute right-2.5 bottom-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         type="button"
                         onClick={(e) => toggleArchive(conv, e)}
-                        title={conv.isArchived ? 'Désarchiver la discussion' : 'Archiver la discussion'}
-                        aria-label={conv.isArchived ? `Désarchiver ${conv.name}` : `Archiver ${conv.name}`}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                        title={conv.isArchived ? "Désarchiver" : "Archiver"}
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors"
                       >
-                        {conv.isArchived ? (
-                          <ArchiveRestore className="h-3.5 w-3.5" strokeWidth={1.6} />
-                        ) : (
-                          <Archive className="h-3.5 w-3.5" strokeWidth={1.6} />
-                        )}
+                        {conv.isArchived ? <ArchiveRestore className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
                       </button>
                       <button
                         type="button"
                         onClick={(e) => toggleUnread(conv, e)}
-                        title={conv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
-                        aria-label={conv.unread ? `Marquer ${conv.name} comme lu` : `Marquer ${conv.name} comme non lu`}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                        title={conv.unread ? "Marquer lu" : "Marquer non lu"}
+                        className="flex h-6 w-6 items-center justify-center rounded-md text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors"
                       >
-                        {conv.unread ? <MailOpen className="h-3.5 w-3.5" strokeWidth={1.6} /> : <Mail className="h-3.5 w-3.5" strokeWidth={1.6} />}
+                        {conv.unread ? <MailOpen className="h-3 w-3" /> : <Mail className="h-3 w-3" />}
                       </button>
                     </div>
                   </div>
@@ -2006,163 +1974,85 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
           </div>
 
           {syncedAt && (
-            <div className="hidden lg:flex items-center gap-1.5 border-t border-white/[0.08] px-3.5 py-2 font-mono text-[11px] text-neutral-600">
+            <div className="hidden md:flex items-center gap-1.5 border-t border-white/[0.08] px-3.5 py-2 font-mono text-[10.5px] text-neutral-500">
               <span className="h-1 w-1 rounded-full bg-emerald-400/70" />
-              Synchro {syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              <span>Synchro {syncedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
             </div>
           )}
-        </div>
+        </aside>
 
-        {/* Fil */}
-        <div className={`flex-col min-h-0 ${mobileThreadOpen ? 'flex' : 'hidden lg:flex'}`}>
+        {/* Colonne 2 : Fil Central de la Discussion (Largeur Royale sur Tablette) */}
+        <main className={`flex-1 min-w-0 flex flex-col h-full bg-[#08090C] overflow-hidden ${
+          mobileThreadOpen ? 'flex' : 'hidden md:flex'
+        }`}>
           {selectedConv ? (
             <>
-              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-[#0B0C10]">
-                <button
-                  type="button"
-                  onClick={() => setMobileThreadOpen(false)}
-                  aria-label="Retour à la liste"
-                  className="lg:hidden -ml-1 p-1.5 rounded-lg text-[#A3A3A3] hover:text-white cursor-pointer"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <Monogram name={selectedConv.name} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-semibold text-white">{selectedConv.name}</span>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] font-mono text-neutral-300 shrink-0">
-                      {paymentInfo.flag} {paymentInfo.countryName}
-                    </span>
+              {/* En-tête de Discussion Épuré (48px, Zéro Bouton Doublon) */}
+              <div className="h-14 px-4 sm:px-5 border-b border-white/[0.08] bg-[#0A0C10] flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setMobileThreadOpen(false)}
+                    aria-label="Retour à la liste"
+                    className="md:hidden -ml-1 p-1.5 rounded-lg text-neutral-400 hover:text-white cursor-pointer"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <Monogram name={selectedConv.name} size="sm" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-white">{selectedConv.name}</span>
+                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-white/[0.06] text-neutral-300 border border-white/[0.08] tracking-wider shrink-0">
+                        {paymentInfo.code}
+                      </span>
+                    </div>
+                    <div className="font-mono text-[11px] text-neutral-500 truncate">{selectedConv.phone}</div>
                   </div>
-                  <div className="font-mono text-[12px] text-neutral-500">{selectedConv.phone}</div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Commutateur Pilote Auto vs Mode Manuel */}
-                  <button
-                    type="button"
-                    onClick={handleToggleAiPilot}
-                    disabled={isLoadingAiMode}
-                    title={aiPilotEnabled ? "Désactiver le pilote auto pour répondre manuellement" : "Activer le pilote auto pour laisser l'IA répondre"}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-all cursor-pointer ${
-                      aiPilotEnabled
-                        ? 'border border-emerald-400/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
-                        : 'border border-amber-400/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
-                    }`}
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${aiPilotEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                    <span className="hidden sm:inline">{aiPilotEnabled ? 'Pilote Auto IA' : 'Mode Manuel'}</span>
-                  </button>
 
-                  {/* Toggle Super Cockpit */}
-                  <button
-                    type="button"
-                    onClick={() => setIsSuperCockpitOpen(!isSuperCockpitOpen)}
-                    title={isSuperCockpitOpen ? "Replier le Cockpit" : "Ouvrir le Super Cockpit"}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-all cursor-pointer ${
-                      isSuperCockpitOpen
-                        ? 'bg-[#E5B54F]/20 border border-[#E5B54F]/50 text-[#F1DDB4]'
-                        : 'border border-white/[0.12] bg-white/[0.04] text-neutral-300 hover:text-white hover:border-white/25'
-                    }`}
-                  >
-                    <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" />
-                    <span className="hidden md:inline">Cockpit</span>
-                  </button>
-
-                  {/* Toggle Plein Écran */}
-                  <button
-                    type="button"
-                    onClick={() => setIsImmersiveFullScreen(!isImmersiveFullScreen)}
-                    title={isImmersiveFullScreen ? "Sortir du plein écran" : "Mode plein écran immersif"}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] px-2.5 py-1 text-[11.5px] text-neutral-300 hover:text-white hover:border-white/30 transition-all cursor-pointer"
-                  >
-                    {isImmersiveFullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                    <span className="hidden xl:inline">{isImmersiveFullScreen ? 'Sortir' : 'Plein Écran'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleArchive(selectedConv)}
-                    title={selectedConv.isArchived ? 'Désarchiver la discussion' : 'Archiver la discussion'}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
-                  >
-                    {selectedConv.isArchived ? (
-                      <ArchiveRestore className="h-3 w-3" strokeWidth={1.5} />
-                    ) : (
-                      <Archive className="h-3 w-3" strokeWidth={1.5} />
-                    )}
-                    <span className="hidden md:inline">{selectedConv.isArchived ? 'Désarchiver' : 'Archiver'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleUnread(selectedConv)}
-                    title={selectedConv.unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200 cursor-pointer"
-                  >
-                    {selectedConv.unread ? <MailOpen className="h-3 w-3" strokeWidth={1.5} /> : <Mail className="h-3 w-3" strokeWidth={1.5} />}
-                    <span className="hidden md:inline">{selectedConv.unread ? 'Marquer lu' : 'Non lu'}</span>
-                  </button>
+                {/* Actions contextuelles sobres */}
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setCashModalOpen(true)}
-                    title="Encaisser la commande (Caisse & Trésorerie)"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12.5px] font-semibold text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/40 transition-colors duration-200 cursor-pointer"
+                    title="Encaisser la commande (Caisse Wave / OM)"
+                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all cursor-pointer"
                   >
-                    <Receipt className="h-3 w-3" strokeWidth={1.5} />
-                    <span>Encaisser</span>
+                    <Receipt className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Encaisser</span>
                   </button>
-                  {onOpenOrderForStudio && (
-                    <button
-                      type="button"
-                      onClick={() => onOpenOrderForStudio(selectedConv.name)}
-                      className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press cursor-pointer"
-                    >
-                      <WandSparkles className="h-3 w-3" />
-                      Ouvrir dans l'Atelier
-                    </button>
-                  )}
+
                   <a
                     href={whatsappDirectUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Ouvrir dans WhatsApp"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] px-3 py-1.5 text-[12.5px] text-neutral-300 hover:text-white hover:border-white/25 transition-colors duration-200"
+                    title="Ouvrir directement dans WhatsApp"
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.02] text-neutral-400 hover:text-white hover:border-white/20 transition-all"
                   >
-                    <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                    <span className="hidden sm:inline">WhatsApp</span>
+                    <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </a>
+
+                  {/* Bouton pour révéler le Cockpit IA sur tablette s'il est masqué */}
+                  <button
+                    type="button"
+                    onClick={() => setIsSuperCockpitOpen(!isSuperCockpitOpen)}
+                    title={isSuperCockpitOpen ? "Fermer le Cockpit" : "Ouvrir le Cockpit"}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-all cursor-pointer ${
+                      isSuperCockpitOpen
+                        ? 'bg-white text-black'
+                        : 'border border-white/[0.1] bg-white/[0.02] text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
 
-              {selectedConv.isArchived && (
-                <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2 border-b border-white/[0.08] bg-white/[0.02] text-[12px] text-neutral-400">
-                  <span className="flex items-center gap-1.5">
-                    <Archive className="h-3.5 w-3.5 text-neutral-500" strokeWidth={1.5} />
-                    Discussion archivée (masquée de la boîte principale)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => toggleArchive(selectedConv)}
-                    className="text-white hover:underline cursor-pointer font-medium"
-                  >
-                    Désarchiver
-                  </button>
-                </div>
-              )}
-
-              {selectedConv.facts && (
-                <div className="flex gap-2.5 px-4 sm:px-5 py-2.5 border-b border-white/[0.08] bg-[#E5B54F]/[0.03]">
-                  <FileText className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[#E5B54F]" strokeWidth={1.5} />
-                  <p className="text-[13px] leading-relaxed text-neutral-300 line-clamp-2">
-                    <span className="text-[#F3CA75]">Brief extrait</span>
-                    <span className="text-neutral-600 mx-1.5">/</span>
-                    {selectedConv.facts}
-                  </p>
-                </div>
-              )}
-
+              {/* Fil de Messages (Aéré, Confortable) */}
               <div
                 ref={threadRef}
                 key={selectedConv.id}
-                className="vx-fade-in flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-2.5 min-h-[320px] max-h-[56vh] lg:max-h-none bg-[radial-gradient(40rem_20rem_at_100%_0%,rgba(255,255,255,0.025),transparent_70%)]"
+                className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-3 bg-[#08090C]"
               >
                 {thread.map((m, idx, all) => {
                   const voiceIn = m.inbound && isVoice(m.body);
@@ -2173,40 +2063,31 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                       {showDay && (
                         <div className="flex items-center gap-3 py-3">
                           <span className="h-px flex-1 bg-white/[0.06]" />
-                          <span className="font-mono text-[11.5px] text-neutral-500">{day}</span>
+                          <span className="font-mono text-[11px] text-neutral-500">{day}</span>
                           <span className="h-px flex-1 bg-white/[0.06]" />
                         </div>
                       )}
                       <div className={`flex ${m.inbound ? 'justify-start' : 'justify-end'} ${idx >= history.length ? 'vx-view-enter' : ''}`}>
                         <div
-                          className={`max-w-[86%] sm:max-w-[72%] rounded-2xl px-3.5 py-2.5 ${
+                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 ${
                             m.inbound
-                              ? `rounded-bl-md border bg-[#0E1015] text-neutral-200 ${voiceIn ? 'border-[#E5B54F]/20 w-[300px] sm:w-[340px]' : 'border-white/[0.08]'}`
-                              : `rounded-br-md bg-white text-black shadow-[0_8px_24px_-12px_rgba(255,255,255,0.25)] ${m.voice ? 'w-[280px] sm:w-[320px]' : ''}`
+                              ? `rounded-bl-sm border bg-[#0E1015] border-white/[0.08] text-neutral-200 ${voiceIn ? 'w-[320px]' : ''}`
+                              : `rounded-br-sm bg-white text-black shadow-sm ${m.voice ? 'w-[320px]' : ''}`
                           }`}
                         >
                           {voiceIn ? (
-                            <div className="space-y-2.5">
+                            <div className="space-y-2">
                               <WaveformPlayer seed={m.id + m.body} durationHint={Math.min(58, Math.max(9, Math.round(stripVoice(m.body).length / 4.5)))} />
-                              <div className="flex gap-2 border-t border-white/[0.08] pt-2">
-                                <FileText className="h-3 w-3 mt-[3px] shrink-0 text-neutral-500" strokeWidth={1.5} />
-                                <p className="text-[12.5px] leading-relaxed text-neutral-300">
-                                  <span className="sr-only">Transcription : </span>
-                                  {stripVoice(m.body)}
-                                </p>
+                              <div className="border-t border-white/[0.08] pt-1.5 text-xs text-neutral-300">
+                                {stripVoice(m.body)}
                               </div>
                             </div>
                           ) : m.voice ? (
                             <WaveformPlayer seed={m.id} src={m.voice.url} peaks={m.voice.peaks} durationHint={m.voice.durationSec} tone="light" />
                           ) : (
-                            <p className="whitespace-pre-line text-sm leading-relaxed">{m.body}</p>
+                            <p className="whitespace-pre-line text-[13.5px] leading-relaxed">{m.body}</p>
                           )}
-                          <div className="mt-1.5 flex items-center justify-end gap-1 font-mono text-[11.5px] text-neutral-500">
-                            {(voiceIn || m.voice) && (
-                              <span className={`mr-auto inline-flex items-center gap-1 ${m.inbound ? 'text-[#E5B54F]' : 'text-[#8A6420]'}`}>
-                                <Mic className="h-2.5 w-2.5" />Note vocale
-                              </span>
-                            )}
+                          <div className="mt-1 flex items-center justify-end gap-1.5 font-mono text-[10.5px] text-neutral-500">
                             <span>{timeOf(m.createdAt)}</span>
                             {!m.inbound && m.receipt && <Ticks receipt={m.receipt} />}
                           </div>
@@ -2217,117 +2098,44 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                 })}
               </div>
 
-              {/* Retour d'envoi */}
+              {/* Feedback d'envoi discret */}
               {sendFeedback && (
-                <div
-                  role="status"
-                  className={`vx-fade-in mx-4 sm:mx-5 mb-2 rounded-xl px-3 py-2 text-[12.5px] flex items-center gap-2 border ${
-                    sendFeedback.success
-                      ? 'border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-300'
-                      : 'border-rose-400/20 bg-rose-400/[0.06] text-rose-300'
-                  }`}
-                >
+                <div className={`mx-4 mb-2 rounded-xl px-3 py-2 text-xs flex items-center gap-2 border ${
+                  sendFeedback.success
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                    : 'border-rose-500/20 bg-rose-500/10 text-rose-300'
+                }`}>
                   {sendFeedback.success ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
                   <span>{sendFeedback.message}</span>
                 </div>
               )}
 
-              {/* Dock de réponses rapides + compositeur */}
-              <div className="border-t border-white/[0.08] bg-[#08090C] p-3 sm:p-4 space-y-2.5">
-                {/* ⚡ Raccourcis WhatsApp & Actions Clés */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5 relative">
-                  <div className="flex items-center gap-1.5 min-w-0 max-w-full">
-                    {/* Défilement horizontal des 5 raccourcis prioritaires */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                      {PRIMARY_SHORTCUTS.map((snip, i) => {
-                        const Icon = snip.icon;
-                        return (
-                          <button
-                            key={snip.id}
-                            type="button"
-                            onClick={(e) => handleShortcutClick(snip, e.shiftKey)}
-                            title={`${snip.text}\n\n• Clic : Envoyer directement sur WhatsApp\n• Maj+Clic (ou Alt+${i + 1}) : Insérer dans le champ pour modifier`}
-                            className="group/snip inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] font-medium text-neutral-300 hover:text-white hover:border-white/20 hover:bg-white/[0.07] active:scale-95 transition-all cursor-pointer"
-                          >
-                            {Icon && <Icon className="h-3.5 w-3.5 text-neutral-400 group-hover/snip:text-white" strokeWidth={1.5} />}
-                            <span>{snip.label}</span>
-                            <span className="hidden xl:inline font-mono text-[10px] text-neutral-600 group-hover/snip:text-neutral-400">{i + 1}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Menu déroulant compact "Autres ▾" - PLACÉ HORS DU CONTENEUR overflow-x-auto */}
-                    <div className="relative shrink-0" ref={moreShortcutsRef}>
-                      <button
-                        type="button"
-                        onClick={() => setMoreShortcutsOpen((prev) => !prev)}
-                        title="Autres réponses fréquentes & messages types"
-                        className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-all cursor-pointer ${
-                          moreShortcutsOpen
-                            ? 'border-white/30 bg-white/10 text-white'
-                            : 'border-white/[0.08] bg-white/[0.03] text-neutral-400 hover:text-neutral-200 hover:border-white/20 hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <span>Autres</span>
-                        <ChevronDown className={`h-3 w-3 transition-transform duration-150 ${moreShortcutsOpen ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {moreShortcutsOpen && (
-                        <div className="absolute bottom-full left-0 mb-2 w-72 sm:w-80 rounded-xl border border-white/[0.12] bg-[#0E1015] p-1.5 shadow-2xl z-[70] vx-fade-in space-y-0.5 max-h-72 overflow-y-auto no-scrollbar">
-                          <div className="px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-neutral-500 border-b border-white/[0.06] mb-1">
-                            Raccourcis Fréquents (Clic = Envoi direct)
-                          </div>
-                          {MORE_SHORTCUTS.map((snip) => (
-                            <button
-                              key={snip.id}
-                              type="button"
-                              onClick={(e) => {
-                                handleShortcutClick(snip, e.shiftKey);
-                                setMoreShortcutsOpen(false);
-                              }}
-                              title={`${snip.text}\n\n• Clic : Envoyer\n• Maj+Clic : Insérer dans le champ`}
-                              className="w-full text-left flex items-start justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[12px] text-neutral-300 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer group"
-                            >
-                              <div className="flex-1 truncate">
-                                <span className="font-medium text-neutral-200 group-hover:text-white">{snip.label}</span>
-                                <p className="text-[11px] text-neutral-500 truncate group-hover:text-neutral-400">{snip.text}</p>
-                              </div>
-                              {snip.category && (
-                                <span className="text-[9.5px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-neutral-500 shrink-0">
-                                  {snip.category}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+              {/* Barre de Saisie & Actions Rapides (Ergonomie Tablette Touch) */}
+              <div className="border-t border-white/[0.08] bg-[#0A0C10] p-3 sm:p-4 space-y-2.5">
+                {/* Raccourcis Clés en carrousel tactile horizontal fluide */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                  {[...PRIMARY_SHORTCUTS, ...MORE_SHORTCUTS].map((snip) => (
                     <button
+                      key={snip.id}
                       type="button"
-                      onClick={handleGenerateLyricsForChat}
-                      title="Générer automatiquement le texte des paroles et le placer dans la boîte de saisie"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5B54F]/30 bg-[#E5B54F]/10 px-3 py-1.5 text-[12px] font-semibold text-[#F1DDB4] hover:bg-[#E5B54F]/20 hover:border-[#E5B54F]/50 active:scale-95 transition-all cursor-pointer shrink-0"
+                      onClick={(e) => handleShortcutClick(snip, e.shiftKey)}
+                      title={`${snip.text}\n• Clic : Envoyer direct\n• Maj+Clic : Insérer`}
+                      className="inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-lg border border-white/[0.08] bg-white/[0.03] text-xs font-medium text-neutral-300 hover:text-white hover:border-white/20 active:scale-95 transition-all cursor-pointer"
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" strokeWidth={2} />
-                      <span>Générer le texte</span>
+                      <span>{snip.label}</span>
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setCashModalOpen(true)}
-                      title="Encaisser la commande (Caisse Wave / Orange Money / Moov)"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[12px] font-semibold text-emerald-300 hover:bg-emerald-400/20 hover:border-emerald-400/50 active:scale-95 transition-all cursor-pointer shrink-0"
-                    >
-                      <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      <span>Encaisser</span>
-                    </button>
-                  </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleGenerateLyricsForChat}
+                    className="inline-flex shrink-0 items-center gap-1.5 h-8 px-3 rounded-lg border border-white/[0.15] bg-white/[0.06] text-xs font-medium text-white hover:bg-white/[0.1] active:scale-95 transition-all cursor-pointer"
+                  >
+                    <WandSparkles className="h-3.5 w-3.5 text-neutral-300" />
+                    <span>Générer texte</span>
+                  </button>
                 </div>
 
+                {/* Champ de saisie tactile */}
                 {recorderOpen ? (
                   <VoiceNoteRecorder
                     autoStart
@@ -2336,11 +2144,11 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                     onCancel={() => setRecorderOpen(false)}
                   />
                 ) : (
-                  <div className="flex items-end gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-1.5 pl-4 focus-within:border-white/25 transition-colors duration-200">
+                  <div className="flex items-end gap-2 rounded-2xl border border-white/[0.08] bg-[#0E1015] p-1.5 pl-4 focus-within:border-white/25 transition-colors">
                     <textarea
                       ref={composerRef}
                       rows={1}
-                      placeholder={`Répondre à ${selectedConv.name}`}
+                      placeholder={`Répondre à ${selectedConv.name}...`}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => {
@@ -2349,16 +2157,14 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                           sendText(replyText);
                         }
                       }}
-                      aria-label="Rédiger une réponse"
-                      className="flex-1 resize-none bg-transparent py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none max-h-28"
+                      className="flex-1 resize-none bg-transparent py-2.5 text-[14px] text-white placeholder:text-neutral-500 outline-none max-h-28"
                     />
                     {replyText.trim() ? (
                       <button
                         type="button"
                         onClick={() => sendText(replyText)}
                         disabled={isSending}
-                        aria-label="Envoyer le message"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all duration-150 ease-press cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black hover:bg-neutral-200 active:scale-95 transition-all cursor-pointer disabled:opacity-30"
                       >
                         {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" strokeWidth={2} />}
                       </button>
@@ -2366,9 +2172,8 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                       <button
                         type="button"
                         onClick={() => setRecorderOpen(true)}
-                        aria-label="Enregistrer une note vocale WhatsApp"
-                        title="Note vocale WhatsApp"
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E5B54F] text-[#050608] hover:bg-[#F0C068] active:scale-95 transition-all duration-150 ease-press cursor-pointer"
+                        title="Enregistrer note vocale"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.08] text-white hover:bg-white/[0.15] active:scale-95 transition-all cursor-pointer"
                       >
                         <Mic className="h-4 w-4" strokeWidth={2} />
                       </button>
@@ -2379,405 +2184,344 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-              <MessageCircle className="h-7 w-7 text-neutral-600 mb-3" strokeWidth={1.5} />
-              <p className="text-sm text-neutral-300">Choisissez une discussion</p>
-              <p className="text-[13px] text-neutral-500 mt-1">Le fil complet et le brief extrait s'affichent ici.</p>
+              <MessageCircle className="h-8 w-8 text-neutral-600 mb-3" strokeWidth={1.5} />
+              <p className="text-sm font-medium text-neutral-300">Sélectionnez une discussion</p>
+              <p className="text-xs text-neutral-500 mt-1">Vos échanges WhatsApp réels s'affichent ici.</p>
             </div>
           )}
-        </div>
+        </main>
 
-        {/* 3e Colonne : Le Super Cockpit Métier */}
+        {/* 3. Volet Super Cockpit : Drawer Coulissant Élégant sur Tablette (Ne compresse jamais le chat !) */}
         {isSuperCockpitOpen && selectedConv && (
-          <aside className="border-l border-white/[0.08] bg-[#07080B] flex flex-col h-full overflow-hidden select-none">
-            {/* En-tête du Cockpit avec 4 onglets */}
-            <div className="p-3 border-b border-white/[0.08] bg-[#0A0C10] shrink-0">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#E5B54F]" />
-                  <span className="font-heading font-semibold text-xs tracking-wider uppercase text-white">Super Cockpit</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[10.5px] px-2 py-0.5 rounded-full bg-white/[0.04] text-neutral-400 border border-white/[0.06]">
-                    {paymentInfo.code}
+          <>
+            {/* Backdrop sombre tactile sur tablette & mobile pour fermer d'un clic */}
+            <div
+              onClick={() => setIsSuperCockpitOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm 2xl:hidden transition-opacity"
+            />
+
+            <aside className="fixed inset-y-0 right-0 z-50 w-[360px] max-w-[88vw] 2xl:static 2xl:w-[350px] 2xl:z-auto bg-[#090B0E] border-l border-white/[0.08] flex flex-col h-full shadow-2xl 2xl:shadow-none select-none vx-view-enter">
+              {/* En-tête du volet avec les 4 onglets */}
+              <div className="p-3 border-b border-white/[0.08] bg-[#0B0D12] shrink-0">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="font-heading font-semibold text-xs tracking-wider uppercase text-white flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-neutral-300" />
+                    <span>Copilote Commercial</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsSuperCockpitOpen(false)}
-                    title="Masquer le panneau"
-                    className="p-1 rounded-lg text-neutral-500 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
                   >
-                    <PanelRightClose className="h-3.5 w-3.5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
+
+                <div className="grid grid-cols-4 gap-1 p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  {[
+                    { id: 'ghostwriter', label: 'Copilote' },
+                    { id: 'crm', label: 'Brief' },
+                    { id: 'actions', label: 'Actions' },
+                    { id: 'ocr', label: 'Reçu' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        setCockpitTab(tab.id as any);
+                        if (tab.id === 'ocr') handleAnalyzeLastReceipt();
+                      }}
+                      className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
+                        cockpitTab === tab.id ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-1 p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => setCockpitTab('ghostwriter')}
-                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
-                    cockpitTab === 'ghostwriter' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  Copilote
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCockpitTab('crm')}
-                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
-                    cockpitTab === 'crm' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  Brief
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCockpitTab('actions')}
-                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
-                    cockpitTab === 'actions' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  Actions
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCockpitTab('ocr');
-                    handleAnalyzeLastReceipt();
-                  }}
-                  className={`py-1.5 px-1.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer text-center ${
-                    cockpitTab === 'ocr' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  Reçu
-                </button>
-              </div>
-            </div>
+              {/* Corps du volet */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                {/* ONGLET 1 : GHOSTWRITER */}
+                {cockpitTab === 'ghostwriter' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                      <span>Étape : <strong className="text-white">{nextStep?.stageBadge || 'Accueil'}</strong></span>
+                      <span className="text-emerald-400 font-mono text-[10.5px]">Direct</span>
+                    </div>
 
-            {/* Corps du Cockpit */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
-              {/* ONGLET 1 : GHOSTWRITER */}
-              {cockpitTab === 'ghostwriter' && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                    <span>Étape : <strong className="text-white">{nextStep?.stageBadge || 'En discussion'}</strong></span>
-                    <span>Intention : <span className="text-emerald-400">{nextStep?.detectedIntent || 'Générale'}</span></span>
-                  </div>
-
-                  {/* 3 Variantes de réponses */}
-                  <div className="space-y-2">
-                    {[ghostwriter.variantDirect, ghostwriter.variantWarm, ghostwriter.variantConcise].map((v, i) => (
-                      <div key={i} className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:border-white/20 transition-all space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-xs text-white flex items-center gap-1.5">
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#E5B54F]" />
-                            {v.label}
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-neutral-400">{v.tag}</span>
+                    {/* 3 Variantes de réponses soignées */}
+                    <div className="space-y-2.5">
+                      {[ghostwriter.variantDirect, ghostwriter.variantWarm, ghostwriter.variantConcise].map((v, i) => (
+                        <div key={i} className="p-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:border-white/20 transition-all space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-xs text-white">{v.label}</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-neutral-400">{v.tag}</span>
+                          </div>
+                          <p className="text-xs text-neutral-300 leading-relaxed whitespace-pre-line">{v.text}</p>
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyText(v.text);
+                                if (composerRef.current) composerRef.current.focus();
+                              }}
+                              className="h-7 px-2.5 rounded-lg text-[11px] font-medium border border-white/[0.08] text-neutral-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                            >
+                              Insérer
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => sendText(v.text)}
+                              className="h-7 px-3 rounded-lg text-[11px] font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer"
+                            >
+                              Envoyer
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-[12px] text-neutral-300 leading-relaxed whitespace-pre-line">{v.text}</p>
-                        <div className="flex items-center justify-end gap-1.5 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyText(v.text);
-                              if (composerRef.current) composerRef.current.focus();
-                            }}
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-white/[0.08] hover:bg-white/[0.08] text-neutral-300 hover:text-white transition-all cursor-pointer"
-                          >
-                            Insérer
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => sendText(v.text)}
-                            className="px-3 py-1 rounded-lg text-[11px] font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer"
-                          >
-                            Envoyer
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Tonalité */}
-                  <div className="pt-2 border-t border-white/[0.08] space-y-1.5">
-                    <span className="text-[11px] text-neutral-400">Ajuster le message rédigé :</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleApplyTone('shorter')}
-                        className="px-2.5 py-1 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-300 hover:text-white transition-all cursor-pointer"
-                      >
-                        Raccourcir
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyTone('warmer')}
-                        className="px-2.5 py-1 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-300 hover:text-white transition-all cursor-pointer"
-                      >
-                        Plus chaleureux
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyTone('action')}
-                        className="px-2.5 py-1 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-neutral-300 hover:text-white transition-all cursor-pointer"
-                      >
-                        Demander capture
-                      </button>
+                      ))}
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {/* ONGLET 2 : BRIEF & CRM */}
-              {cockpitTab === 'crm' && (
-                <div className="space-y-3.5">
-                  {/* Fiche contact */}
-                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white">{selectedConv.name}</span>
-                      <span className="text-xs">{paymentInfo.flag}</span>
-                    </div>
-                    <div className="text-[11.5px] font-mono text-neutral-400">{selectedConv.phone}</div>
-                    <div className="text-[11.5px] text-neutral-400">
-                      Pays détecté : <strong className="text-neutral-200">{paymentInfo.countryName}</strong>
-                    </div>
-                  </div>
-
-                  {/* Les 4 repères extraits */}
-                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Brief Chanson</span>
-                    <div className="space-y-1.5 text-[12px]">
-                      <div>
-                        <span className="text-neutral-500">Destinataire : </span>
-                        <span className="font-semibold text-white">{orderScope?.recipientName || 'Non précisé'}</span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-500">Occasion : </span>
-                        <span className="text-emerald-400 font-medium">{orderScope?.detectedOccasion || 'Non précisée'}</span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-500">Souvenirs : </span>
-                        <span className="text-neutral-300">
-                          {orderScope?.memories && orderScope.memories.length > 0 ? orderScope.memories.join(' · ') : 'En attente des détails'}
-                        </span>
+                    {/* Ajustement Tonalité */}
+                    <div className="pt-2 border-t border-white/[0.08] space-y-2">
+                      <span className="text-[11px] text-neutral-400">Ajuster la tonalité :</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleApplyTone('shorter')}
+                          className="h-7 px-2.5 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                        >
+                          Raccourcir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyTone('warmer')}
+                          className="h-7 px-2.5 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                        >
+                          Plus chaleureux
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyTone('action')}
+                          className="h-7 px-2.5 rounded-lg text-[11px] border border-white/[0.08] bg-white/[0.02] text-neutral-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                        >
+                          Demander capture
+                        </button>
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {/* Note interne privée */}
-                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                        <StickyNote className="h-3 w-3" />
-                        Note Privée (Confidentiel)
-                      </span>
-                    </div>
-                    <textarea
-                      rows={3}
-                      placeholder="Ex: Doit payer à 17h après la banque..."
-                      value={privateNote}
-                      onChange={(e) => setPrivateNote(e.target.value)}
-                      className="w-full rounded-lg border border-white/[0.08] bg-black/40 p-2 text-xs text-white placeholder:text-neutral-600 outline-none resize-none focus:border-amber-400/40"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSavePrivateNote}
-                      disabled={isSavingNote || !privateNote.trim()}
-                      className="w-full py-1.5 rounded-lg text-xs font-semibold bg-amber-400 text-black hover:bg-amber-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-                    >
-                      {isSavingNote ? 'Enregistrement...' : 'Enregistrer la note'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* ONGLET 3 : ACTIONS 1-CLIC */}
-              {cockpitTab === 'actions' && (
-                <div className="space-y-3">
-                  {/* Carte Paiement Pays */}
-                  <div className="p-3 rounded-xl border border-emerald-400/30 bg-emerald-400/[0.04] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
-                        <span>{paymentInfo.flag}</span>
-                        <span>{paymentInfo.primaryMethod}</span>
-                      </span>
-                      <span className="font-mono text-[10px] text-emerald-400">{paymentInfo.accountNumber}</span>
-                    </div>
-                    <p className="text-[11.5px] text-neutral-300 leading-relaxed">{paymentInfo.instructions}</p>
-                    <button
-                      type="button"
-                      onClick={() => sendText(paymentInfo.formattedBubble)}
-                      className="w-full py-2 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <Receipt className="h-3.5 w-3.5" />
-                      <span>Envoyer coordonnées ({paymentInfo.primaryMethod})</span>
-                    </button>
-                  </div>
-
-                  {/* Raccourcis Officiels 1-Clic */}
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Médias & Vocaux Studio</span>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'procedure_voice');
-                          if (shortcut) handleShortcutClick(shortcut, false);
-                        }}
-                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Mic className="h-3.5 w-3.5 text-[#E5B54F]" />
-                          <span>Vocal de procédure (33s)</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-500">Audio PTT</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'video_demo');
-                          if (shortcut) handleShortcutClick(shortcut, false);
-                        }}
-                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Video className="h-3.5 w-3.5 text-sky-400" />
-                          <span>Exemple vidéo démo</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-500">Vidéo MP4</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'tarifs');
-                          if (shortcut) handleShortcutClick(shortcut, false);
-                        }}
-                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Tag className="h-3.5 w-3.5 text-neutral-300" />
-                          <span>Grille tarifs (1 200 F / 3 000 F)</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-500">Texte</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Paroles & Caisse */}
-                  <div className="space-y-1.5 pt-2 border-t border-white/[0.08]">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Atelier Studio</span>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      <button
-                        type="button"
-                        onClick={handleGenerateLyricsForChat}
-                        className="p-2.5 rounded-xl border border-[#E5B54F]/30 bg-[#E5B54F]/10 hover:bg-[#E5B54F]/20 text-left text-xs font-semibold text-[#F1DDB4] flex items-center justify-between transition-all cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Sparkles className="h-3.5 w-3.5 text-[#E5B54F]" />
-                          <span>Générer les Paroles d'Or</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-[#E5B54F]">Studio AI</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setCashModalOpen(true)}
-                        className="p-2.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Receipt className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>Encaisser dans la Caisse</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-500">Trésorerie</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ONGLET 4 : SCANNER OCR REÇU */}
-              {cockpitTab === 'ocr' && (
-                <div className="space-y-3.5">
-                  <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                        <ScanLine className="h-3.5 w-3.5 text-sky-400" />
-                        Scanner de Quittance Mobile Money
-                      </span>
-                    </div>
-                    <p className="text-[11.5px] text-neutral-400 leading-relaxed">
-                      Analyse la dernière capture ou message reçu pour extraire le montant et vérifier si le transfert est authentique.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleAnalyzeLastReceipt}
-                      className="w-full py-2 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer"
-                    >
-                      Lancer l'analyse du dernier message
-                    </button>
-                  </div>
-
-                  {receiptAnalysis && (
-                    <div className={`p-3 rounded-xl border space-y-2 ${
-                      receiptAnalysis.status === 'verified'
-                        ? 'border-emerald-400/40 bg-emerald-500/[0.06]'
-                        : receiptAnalysis.status === 'suspect'
-                        ? 'border-amber-400/40 bg-amber-500/[0.06]'
-                        : 'border-white/[0.08] bg-white/[0.02]'
-                    }`}>
+                {/* ONGLET 2 : BRIEF & CRM */}
+                {cockpitTab === 'crm' && (
+                  <div className="space-y-3.5">
+                    <div className="p-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className={`text-xs font-bold ${
-                          receiptAnalysis.status === 'verified' ? 'text-emerald-400' : receiptAnalysis.status === 'suspect' ? 'text-amber-400' : 'text-neutral-400'
-                        }`}>
-                          {receiptAnalysis.status === 'verified' ? 'Reçu Authentique Détecté' : receiptAnalysis.status === 'suspect' ? 'Quittance Suspecte' : 'Non reconnu comme reçu'}
-                        </span>
-                        {receiptAnalysis.provider && (
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.08] text-white">
-                            {receiptAnalysis.provider}
+                        <span className="text-xs font-semibold text-white">{selectedConv.name}</span>
+                        <span className="font-mono text-[10.5px] px-2 py-0.5 rounded bg-white/[0.06] text-white">{paymentInfo.code}</span>
+                      </div>
+                      <div className="text-xs font-mono text-neutral-400">{selectedConv.phone}</div>
+                      <div className="text-xs text-neutral-400">
+                        Pays : <strong className="text-white">{paymentInfo.countryName}</strong>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Brief Chanson</span>
+                      <div className="space-y-1.5 text-xs">
+                        <div>
+                          <span className="text-neutral-500">Destinataire : </span>
+                          <span className="font-semibold text-white">{orderScope?.recipientName || 'Non précisé'}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Occasion : </span>
+                          <span className="text-emerald-400 font-medium">{orderScope?.detectedOccasion || 'Non précisée'}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Souvenirs : </span>
+                          <span className="text-neutral-300">
+                            {orderScope?.memories && orderScope.memories.length > 0 ? orderScope.memories.join(' · ') : 'En attente'}
                           </span>
-                        )}
+                        </div>
                       </div>
+                    </div>
 
-                      <div className="text-[12px] text-neutral-300 space-y-1">
-                        {receiptAnalysis.amount && (
-                          <div>Montant : <strong className="text-white">{receiptAnalysis.amount.toLocaleString('fr-FR')} F CFA</strong></div>
-                        )}
-                        {receiptAnalysis.transactionRef && (
-                          <div className="font-mono text-[11px] text-neutral-400">Réf : {receiptAnalysis.transactionRef}</div>
-                        )}
-                        <p className="text-[11.5px] text-neutral-400 pt-1 leading-relaxed">{receiptAnalysis.summary}</p>
+                    <div className="p-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
+                        <StickyNote className="h-3 w-3" />
+                        Note Interne Privée
+                      </span>
+                      <textarea
+                        rows={3}
+                        placeholder="Ex: Rappeler ce soir pour valider..."
+                        value={privateNote}
+                        onChange={(e) => setPrivateNote(e.target.value)}
+                        className="w-full rounded-lg border border-white/[0.08] bg-black/40 p-2.5 text-xs text-white placeholder:text-neutral-600 outline-none resize-none focus:border-white/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSavePrivateNote}
+                        disabled={isSavingNote || !privateNote.trim()}
+                        className="w-full h-8 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 disabled:opacity-30 transition-all cursor-pointer"
+                      >
+                        {isSavingNote ? 'Enregistrement...' : 'Enregistrer la note'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ONGLET 3 : ACTIONS 1-CLIC */}
+                {cockpitTab === 'actions' && (
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.04] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-emerald-300">
+                          {paymentInfo.primaryMethod}
+                        </span>
+                        <span className="font-mono text-xs text-emerald-400 font-bold">{paymentInfo.accountNumber}</span>
                       </div>
+                      <p className="text-xs text-neutral-300 leading-relaxed">{paymentInfo.instructions}</p>
+                      <button
+                        type="button"
+                        onClick={() => sendText(paymentInfo.formattedBubble)}
+                        className="w-full h-9 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Receipt className="h-3.5 w-3.5" />
+                        <span>Envoyer coordonnées ({paymentInfo.primaryMethod})</span>
+                      </button>
+                    </div>
 
-                      {receiptAnalysis.status === 'verified' && (
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">Médias & Vocaux Officiels</span>
+                      <div className="grid grid-cols-1 gap-2">
                         <button
                           type="button"
                           onClick={() => {
-                            handleConfirmCashOrder({
-                              amount: receiptAnalysis.amount || 1200,
-                              paymentMethod: receiptAnalysis.provider || 'Wave',
-                              recipientName: orderScope?.recipientName || 'Client',
-                              occasion: orderScope?.detectedOccasion || 'Anniversaire',
-                              sendConfirmWhatsApp: true,
-                            });
+                            const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'procedure_voice');
+                            if (shortcut) handleShortcutClick(shortcut, false);
                           }}
-                          className="w-full mt-2 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 transition-all cursor-pointer"
+                          className="h-10 px-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
                         >
-                          Confirmer l'encaissement et lancer en Studio
+                          <span className="flex items-center gap-2">
+                            <Mic className="h-3.5 w-3.5 text-neutral-300" />
+                            <span>Vocal de procédure (33s)</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500">Audio OGG</span>
                         </button>
-                      )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'video_demo');
+                            if (shortcut) handleShortcutClick(shortcut, false);
+                          }}
+                          className="h-10 px-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Video className="h-3.5 w-3.5 text-neutral-300" />
+                            <span>Exemple vidéo démo</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500">Vidéo MP4</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'tarifs');
+                            if (shortcut) handleShortcutClick(shortcut, false);
+                          }}
+                          className="h-10 px-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Tag className="h-3.5 w-3.5 text-neutral-300" />
+                            <span>Grille tarifs (1 200 F / 3 000 F)</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500">Texte</span>
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </aside>
+                  </div>
+                )}
+
+                {/* ONGLET 4 : SCANNER OCR */}
+                {cockpitTab === 'ocr' && (
+                  <div className="space-y-3.5">
+                    <div className="p-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2.5">
+                      <span className="text-xs font-semibold text-white flex items-center gap-2">
+                        <ScanLine className="h-3.5 w-3.5 text-neutral-300" />
+                        Vérificateur de Quittance
+                      </span>
+                      <p className="text-xs text-neutral-400 leading-relaxed">
+                        Analyse instantanée du dernier message reçu pour certifier le paiement Wave ou Orange Money.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleAnalyzeLastReceipt}
+                        className="w-full h-8 rounded-lg text-xs font-semibold bg-white text-black hover:bg-neutral-200 transition-all cursor-pointer"
+                      >
+                        Lancer l'analyse OCR
+                      </button>
+                    </div>
+
+                    {receiptAnalysis && (
+                      <div className={`p-3.5 rounded-xl border space-y-2 ${
+                        receiptAnalysis.status === 'verified'
+                          ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
+                          : receiptAnalysis.status === 'suspect'
+                          ? 'border-amber-500/30 bg-amber-500/[0.06]'
+                          : 'border-white/[0.08] bg-white/[0.02]'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-bold ${
+                            receiptAnalysis.status === 'verified' ? 'text-emerald-400' : receiptAnalysis.status === 'suspect' ? 'text-amber-400' : 'text-neutral-400'
+                          }`}>
+                            {receiptAnalysis.status === 'verified' ? 'Quittance Certifiée' : receiptAnalysis.status === 'suspect' ? 'Reçu Douteux' : 'Non reconnu'}
+                          </span>
+                          {receiptAnalysis.provider && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.08] text-white">
+                              {receiptAnalysis.provider}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-neutral-300 space-y-1">
+                          {receiptAnalysis.amount && (
+                            <div>Montant : <strong className="text-white">{receiptAnalysis.amount.toLocaleString('fr-FR')} F CFA</strong></div>
+                          )}
+                          {receiptAnalysis.transactionRef && (
+                            <div className="font-mono text-[11px] text-neutral-400">Réf : {receiptAnalysis.transactionRef}</div>
+                          )}
+                        </div>
+
+                        {receiptAnalysis.status === 'verified' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleConfirmCashOrder({
+                                amount: receiptAnalysis.amount || 1200,
+                                paymentMethod: receiptAnalysis.provider || 'Wave',
+                                recipientName: orderScope?.recipientName || 'Client',
+                                occasion: orderScope?.detectedOccasion || 'Anniversaire',
+                                sendConfirmWhatsApp: true,
+                              });
+                            }}
+                            className="w-full mt-2 h-8 rounded-lg text-xs font-semibold bg-emerald-500 text-black hover:bg-emerald-400 transition-all cursor-pointer"
+                          >
+                            Valider l'encaissement
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </aside>
+          </>
         )}
       </div>
 
-      {/* Modal d'Encaissement Direct (Caisse & Trésorerie) */}
+      {/* Modal d'Encaissement Direct */}
       <CashOrderModal
         isOpen={cashModalOpen}
         onClose={() => setCashModalOpen(false)}
