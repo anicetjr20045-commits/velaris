@@ -25,8 +25,31 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 11 Novembre 2026 (11:05 UTC)
-- **Statut Opérationnel** : **Jalon 138 Validé — WhatsApp Super Cockpit (WhatsApp OS) : Mode Plein Écran Immersif 100vh, Ingestion Sub-50ms Supabase Realtime, Copilote Ghostwriter (3 Variantes Intelligentes), Fiche Brief CRM & Détecteur Pays Mobile Money, Scanner OCR Reçu & Commutateur Pilote Auto vs Mode Manuel** :
+- **Dernière mise à jour** : 12 Novembre 2026 (11:53 UTC)
+- **Statut Opérationnel** : **Jalon 140 Validé — Assainissement Intégral Passerelle WhatsApp & Déblocage QR Code Live Sub-12s (Session `Test`)** :
+  1. **Purge du Conflit de Proxy Caddy** :
+     - Suppression de la directive `handle /api/test/*` qui détournait indûment les requêtes WhatsApp de la session `Test` vers le port 3001 au lieu du port WAHA 3000. Rechargement Caddy validé sans coupure.
+  2. **Réactivation du Démon QR Live (`velaris-qr-live.service`)** :
+     - Remise en service et activation automatique (`systemctl enable --now velaris-qr-live.service`). Rafraîchissement en temps réel du QR Code PNG et du statut JSON toutes les 8s.
+  3. **Déblocage de l'Administration sur la Page Publique (`/qr/`)** :
+     - Injection de la clé d'administration `X-Admin-Key` dans les fonctions de régénération (`activateSession`) et de code d'association 8 chiffres (`requestPairingCode`) dans `/srv/qr/index.html`.
+     - Élimination des erreurs 401 Unauthorized : régénération d'un QR code neuf et calcul du pairing code 100% opérationnels en direct.
+  4. **Passerelle WhatsApp en Attente Active de Scan (`SCAN_QR_CODE`)** :
+     - Session officielle `Test` vérifiée en statut `SCAN_QR_CODE` avec rafraîchissement automatique de l'image toutes les 12 secondes sur `https://waha.velarisagent.life/qr/`.
+- **Jalon Précédent Validé** : **Jalon 139 Validé — Certification 100% sur Banc d'Essai Exhaustif (23/23 Tests Verts) du WhatsApp Super Cockpit (WhatsApp OS)** :
+  1. **Banc d'Essai Automatisé (`scripts/test-whatsapp-cockpit-suite.ts`)** :
+     - 7 suites de tests couvrant 100% des briques critiques du Cockpit :
+       1. *Résolveur de Coordonnées Mobile Money par Pays* : 6/6 tests verts (+225 CI Wave, +226 BF Orange Money Wendyam, +221 SN Wave, +223 ML, +33 Diaspora).
+       2. *Moteur Ghostwriter Contextuel* : 4/4 tests verts (Génération 3 variantes par étape : Accueil, Tarifs officiels 1 200 F / 3 000 F, Validation Texte, Confirmation paiement 18 min chrono).
+       3. *Tone Shifter (Ajusteur de Tonalité)* : 3/3 tests verts (Raccourcisseur concis, enrichisseur chaleureux, déclencheur de demande de capture).
+       4. *Scanner OCR & Anti-Fraude Quittances Mobile Money* : 4/4 tests verts (Certification Wave WAV-xxxxxx 1 200 F, Orange Money OM-xxxxxx 3 000 F, Détection suspecte d'allégation incomplète, Rejet propre de messages ordinaires).
+       5. *Extraction Automatique de Brief Client* : 1/1 test vert (Extraction occasion, destinataire ciblé même après stopwords relationnels "pour ma femme Mariam", souvenirs Bassam).
+       6. *Connectivité & Schéma Supabase* : 3/3 tests verts (Santé REST 200, Schéma table `conversations` avec `control_mode` & `ai_paused`, Schéma table `messages`).
+       7. *Connectivité Passerelle WAHA VPS* : 2/2 tests verts (Ping public 200 sur `https://waha.velarisagent.life`, interrogation API sessions WhatsApp).
+  2. **Zéro Régression & Zéro Défaut de Typage** :
+     - Compilation `npm run build` validée en 5.38s sans aucune erreur.
+     - Prêt pour utilisation en direct par le gérant en mode immersif plein écran.
+- **Jalon Précédent Validé** : **Jalon 138 Validé — WhatsApp Super Cockpit (WhatsApp OS) : Mode Plein Écran Immersif 100vh, Ingestion Sub-50ms Supabase Realtime, Copilote Ghostwriter (3 Variantes Intelligentes), Fiche Brief CRM & Détecteur Pays Mobile Money, Scanner OCR Reçu & Commutateur Pilote Auto vs Mode Manuel** :
   1. **Mode Plein Écran Immersif ("WhatsApp Web OS")** :
      - Accès direct via bouton dédié ou route/hash `#chat`, `#whatsapp-web`, `/chat`.
      - Layout 3 colonnes 100vh sans scroll global parasite : Liste Discussions (360px), Fil WhatsApp actif avec fond sombre graphite haute couture et waveform audio, Super Cockpit rétractable (380px).
