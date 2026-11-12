@@ -26,7 +26,20 @@
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
 - **Dernière mise à jour** : 12 Novembre 2026 (13:08 UTC)
-- **Statut Opérationnel** : **Jalon 142 Validé — Déblocage Intégral du Flux Réel WhatsApp (Ingestion Sub-50ms & Synchronisation Directe des Vraies Discussions)** :
+- **Statut Opérationnel** : **Jalon 143 Validé — Refonte Ergonomique Tablette (iPad / Android Tablet), Split-View Fluide & Volet Coulissant Craft UI** :
+  1. **Architecture Tablet-First (768px - 1194px+)** :
+     - Élimination de l'effet d'écrasement 3 colonnes : Split-View 2 colonnes majestueux (Liste 290-320px + Fil de discussion spacieux et aéré prenant toute la largeur disponible).
+     - Le Super Cockpit (Ghostwriter, Brief CRM, Actions, OCR) se déploie désormais sous la forme d'un **volet coulissant haute couture (Slide-over Sheet)** avec flou d'arrière-plan tactile fermable d'un simple toucher.
+     - Cibles tactiles calibrées pour les doigts sur tablette (36-44px), élimination des micro-boutons de bureau.
+  2. **Nettoyage & Épuration Craft UI Radicale (Zéro Slop, Zéro Émojis)** :
+     - Fusion des deux barres d'en-tête concurrentes en une seule barre supérieure monochrome fine (48px) avec indicateur WAHA feutré et commutateur Pilote Auto / Manuel.
+     - Suppression de tous les émojis dans l'interface (drapeaux remplacés par des badges ISO pays `CI`, `BF`, `SN`, `FR` en typographie monospace).
+     - Raccourcis WhatsApp tactiles en défilement horizontal fluide direct au-dessus du clavier sans masquage.
+  3. **Build & Déploiement VPS Validés** :
+     - Compilation `npm run build` réussie avec bundle allégé (`index-Bp0--DTI.js`).
+     - Fichiers synchronisés en direct sur le VPS (`/root/waha-vps-setup/qrserve/simulateur/`).
+     - Commit Git `6559475` poussé sur `origin/main`.
+- **Jalon Précédent Validé** : **Jalon 142 Validé — Déblocage Intégral du Flux Réel WhatsApp (Ingestion Sub-50ms & Synchronisation Directe des Vraies Discussions)** :
   1. **Résolution du Masquage des Vraies Discussions WhatsApp** :
      - Cause : La vue `ConversationsView.tsx` contenait des gardes `if (user && ...)` conditionnant l'affichage des messages réels à une session utilisateur Supabase Auth active. En accès direct cockpit (`chat.html`), l'absence de session auth provoquait un repli vers un mock statique (`REAL_CONVERSATION_MESSAGES`) masquant les vraies discussions entrantes.
      - Correction : Levée définitive de la condition `user` sur le chargement des messages en direct (`liveMessages`), sur le canal Realtime (`direct-conv-stream`), sur l'état de lecture et sur l'envoi de médias.
