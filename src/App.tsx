@@ -18,6 +18,7 @@ import { ProtectedStreamView, type ProtectedShareData } from './components/Prote
 import { getSharedTrackById } from './services/shared-tracks';
 import { ShieldCheck } from 'lucide-react';
 import { PlaygroundView } from './components/PlaygroundView';
+import { ConversationsView } from './components/ConversationsView';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
@@ -469,14 +470,32 @@ export function App() {
     );
   }
 
-  // Mode Simulateur Indépendant 100% Plein Écran (Zéro wrapper, zéro sidebar, zéro navbar de site)
+  // 1. Mode WhatsApp Super Cockpit (WhatsApp Web OS) 100% Plein Écran
+  const isChatRequested =
+    studioSubTab === 'conversations' ||
+    (typeof window !== 'undefined' &&
+      (window.location.hash.toLowerCase().includes('chat') ||
+        window.location.hash.toLowerCase().includes('whatsapp-web') ||
+        window.location.hash.toLowerCase().includes('conversations') ||
+        window.location.hash.toLowerCase().includes('cockpit-chat') ||
+        window.location.pathname.endsWith('/chat')));
+
+  if (isChatRequested) {
+    return (
+      <div className="fixed inset-0 w-full h-[100dvh] bg-[#08090C] text-white overflow-hidden z-50">
+        <ConversationsView />
+      </div>
+    );
+  }
+
+  // 2. Mode Simulateur Indépendant 100% Plein Écran (uniquement si explicitement demandé et sans hash chat)
   if (
     studioSubTab === 'playground' ||
     (typeof window !== 'undefined' &&
       (window.location.hash.toLowerCase().includes('playground') ||
         window.location.hash.toLowerCase().includes('simulateur') ||
         window.location.hash.toLowerCase().includes('play') ||
-        window.location.pathname.includes('simulateur')))
+        (window.location.pathname.includes('simulateur') && !window.location.hash)))
   ) {
     return (
       <div className="fixed inset-0 w-full h-[100dvh] bg-[#050608] text-white overflow-hidden z-50">

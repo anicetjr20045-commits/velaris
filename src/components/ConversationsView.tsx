@@ -1207,7 +1207,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     [],
     ['messages'],
     [activeId],
-    { enabled: !!user && !!activeId, pollMs: 15000 }
+    { enabled: !!activeId, pollMs: 15000 }
   );
 
   // Réinitialise le stream direct et l'analyse de reçu au changement de chat
@@ -1218,7 +1218,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   // Détection du mode de pilotage IA (Pilote Auto vs Manuel)
   useEffect(() => {
-    if (!activeId || !user) return;
+    if (!activeId) return;
     let cancelled = false;
     fetchConversationAiMode(activeId).then((res) => {
       if (!cancelled) {
@@ -1228,10 +1228,10 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     return () => {
       cancelled = true;
     };
-  }, [activeId, user]);
+  }, [activeId]);
 
   const handleToggleAiPilot = async () => {
-    if (!activeId || !user || isLoadingAiMode) return;
+    if (!activeId || isLoadingAiMode) return;
     setIsLoadingAiMode(true);
     const nextMode = !aiPilotEnabled;
     setAiPilotEnabled(nextMode);
@@ -1247,7 +1247,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
 
   // Canal Supabase Realtime DIRECT sur activeId (zéro délai, zéro debounce 300ms)
   useEffect(() => {
-    if (!activeId || !user) return;
+    if (!activeId) return;
     const channel = supabase.channel(`direct-conv-stream-${activeId}`)
       .on(
         'postgres_changes',
@@ -1446,14 +1446,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     setIsSending(true);
     setSendFeedback(null);
 
-    if (!user) {
-      // Sécurité Mode Démo : simule l'envoi sans solliciter le numéro réel du client
-      setTimeout(() => patchOutgoing(conv.id, localId, { receipt: 'delivered', sentAt: Date.now() }), 700);
-      setIsSending(false);
-      showFeedback({ success: true, message: `[Mode Démo] Message simulé avec succès pour ${conv.phone}. Connectez-vous pour émettre sur votre ligne réelle.` });
-      return;
-    }
-
     const res = await sendWahaTextMessage(conv.phone, text, sessionName);
     patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
     if (res.success) recordOutboundMessage(conv.id, text);
@@ -1477,12 +1469,6 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
       voice: { url: rec.url, durationSec: rec.durationSec, peaks: rec.peaks },
     });
     setRecorderOpen(false);
-
-    if (!user) {
-      setTimeout(() => patchOutgoing(conv.id, localId, { receipt: 'delivered', sentAt: Date.now() }), 700);
-      showFeedback({ success: true, message: `[Mode Démo] Note vocale simulée avec succès pour ${conv.phone}. Connectez-vous pour émettre sur votre ligne réelle.` });
-      return;
-    }
 
     const res = await sendWahaVoiceMessage(conv.phone, rec.blob, sessionName);
     patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
