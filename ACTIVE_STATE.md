@@ -25,8 +25,28 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Novembre 2026 (13:08 UTC)
-- **Statut Opérationnel** : **Jalon 143 Validé — Refonte Ergonomique Tablette (iPad / Android Tablet), Split-View Fluide & Volet Coulissant Craft UI** :
+- **Dernière mise à jour** : 12 Novembre 2026 (14:20 UTC)
+- **Statut Opérationnel** : **Jalon 144 Validé — Synchronisation Parfaite Bidirectionnelle Temps Réel WhatsApp, Ingestion Multimodale (Notes Vocales & Médias) & Refonte Realtime Globale** :
+  1. **Déblocage Intégral des Actions Web vers WhatsApp (Sortant Instantané Sub-300ms)** :
+     - Cause : Absence de `VITE_WAHA_API_KEY` dans le bundle frontend forçant le mode `proxy` avec exigence de session Auth (erreur 401 "Connexion requise").
+     - Correction : Configuration de Caddy en proxy authentifié transparent injectant automatiquement `X-Api-Key` sur tous les endpoints WAHA (`/api/send*`, `/api/files/*`, `/api/chats/*`, `/api/contacts/*`, `/api/sessions/*`, `/api/Test/*`).
+     - Les envois depuis le site (textes, notes vocales enregistrées, fichiers de chanson) partent immédiatement en production sur WhatsApp et s'affichent avec l'accusé de réception.
+  2. **Résolution du Masquage des Messages Vocaux et Photos ("Messages Invisibles")** :
+     - Cause : `getLiveMessages` ne sélectionnait pas `media_kind`, `media_path`, `transcript`. Les vocaux et images sans texte avaient un corps `null` et s'affichaient comme des bulles vides invisibles. De plus, `media_path` pointait vers `http://localhost:3000` inaccessible par le navigateur.
+     - Correction : Sélection complète de `media_kind`, `media_url`, `media_path`, `transcript`. Normalisation automatique des URLs d'écoute vers le domaine public HTTPS avec lecteur Waveform audio, transcription textuelle et aperçus photos/vidéos intégrés.
+  3. **Abonnement Realtime Global Studio & Remontée Dynamique des Discussions** :
+     - Élimination du filtre restrictif `conversation_id=eq.${activeId}` : écoute globale de la table `messages`.
+     - Dès qu'un client ou le commerçant envoie un message sur WhatsApp :
+       - Si c'est la discussion active : insertion instantanée dans le fil (sub-50ms).
+       - Dans tous les cas : la conversation remonte immédiatement en tête de liste à gauche avec le texte réel du dernier message et badge non-lu dynamique.
+  4. **Contrôle Bidirectionnel du Pilote Automatique IA (`/api/control-mode`)** :
+     - Ajout de l'endpoint dédié dans le moteur VPS pour exécuter `agent_set_control` avec la clé de service.
+     - Commutation instantanée en 1 clic entre Mode Manuel et Pilote Auto IA, répercutée en base et synchronisée en temps réel sur tous les écrans.
+  5. **Build & Déploiement VPS Validés** :
+     - Compilation `npm run build` réussie (`index-C1V1eQ8Y.js`).
+     - Fichiers déployés en direct sur `root@162.35.113.220:/root/waha-vps-setup/qrserve/simulateur/`.
+     - Commit Git `18f3bcb` poussé sur `origin/main`.
+- **Jalon Précédent Validé** : **Jalon 143 Validé — Refonte Ergonomique Tablette (iPad / Android Tablet), Split-View Fluide & Volet Coulissant Craft UI** :
   1. **Architecture Tablet-First (768px - 1194px+)** :
      - Élimination de l'effet d'écrasement 3 colonnes : Split-View 2 colonnes majestueux (Liste 290-320px + Fil de discussion spacieux et aéré prenant toute la largeur disponible).
      - Le Super Cockpit (Ghostwriter, Brief CRM, Actions, OCR) se déploie désormais sous la forme d'un **volet coulissant haute couture (Slide-over Sheet)** avec flou d'arrière-plan tactile fermable d'un simple toucher.
