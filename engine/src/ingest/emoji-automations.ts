@@ -53,11 +53,11 @@ https://www.facebook.com/share/v/1DWErPGbXx/`,
     label: 'Validation des paroles',
     content: `Merci de me donner votre retour sur le texte. Une fois la validation faite, la chanson sera finalisée et aucune modification ne pourra être apportée.`,
   },
-  // 7. ☺️ — Message vocal WhatsApp prise de commande
+  // 7. ☺️ — Message vocal WhatsApp prise de commande (Voix féminine clonée)
   [cleanEmoji('☺️')]: {
     type: 'voice',
     label: 'Vocal prise de commande',
-    url: 'https://waha.velarisagent.life/qr/assets/AUD-20261021-WA0007.opus',
+    url: 'https://waha.velarisagent.life/qr/assets/vocal_commande_soeur.opus',
   },
   // 8. 🎥 — Vidéo démo
   [cleanEmoji('🎥')]: {
@@ -65,11 +65,11 @@ https://www.facebook.com/share/v/1DWErPGbXx/`,
     label: 'Vidéo démo',
     url: 'https://waha.velarisagent.life/qr/assets/324048.mp4',
   },
-  // 9. 🎵 — Message vocal WhatsApp procédure
+  // 9. 🎵 — Message vocal WhatsApp procédure (Voix féminine clonée)
   [cleanEmoji('🎵')]: {
     type: 'voice',
     label: 'Vocal procédure',
-    url: 'https://waha.velarisagent.life/qr/assets/AUD-20261026-WA0046.opus',
+    url: 'https://waha.velarisagent.life/qr/assets/vocal_procedure_soeur.opus',
   },
 };
 

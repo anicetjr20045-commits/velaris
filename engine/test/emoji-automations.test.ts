@@ -63,7 +63,7 @@ test('Exécution simulée : action vocale déclenche bien sendVoice', async () =
   assert.equal(res.action, 'Vocal procédure');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].content.kind, 'voice');
-  assert.ok(sent[0].content.url.includes('AUD-20261026-WA0046.opus'));
+  assert.ok(sent[0].content.url.includes('vocal_procedure_soeur.opus'));
 });
 
 test('Exécution simulée : action vidéo déclenche bien sendVideo', async () => {
