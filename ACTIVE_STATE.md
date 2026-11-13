@@ -26,7 +26,35 @@
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
 - **Dernière mise à jour** : 13 Novembre 2026 (15:25 UTC)
-- **Statut Opérationnel** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
+- **Statut Opérationnel** : **Jalon 147 Validé — Clonage Vocal Ultra-Réaliste Fish Audio (Voix Sœur TikTok), Régénération Complète des Vocaux Officiels (Procédure & Prise de Commande) & Déploiement Production** :
+  1. **Extraction & Nettoyage de l'Audio Source TikTok (`https://vm.tiktok.com/ZSpCAswBj/`)** :
+     - Téléchargement audio haute fidélité (7m16s).
+     - Transcription intégrale minutée au millième de seconde via `faster_whisper`.
+     - Découpage chirurgical des segments mono à haute clarté acoustique (82s -> 96s : remerciements et expressions chaleureuses sans bruit de fond).
+  2. **Clonage Vocal Fish Audio Zero-Shot (Modèle `s2.1-pro-free`)** :
+     - Utilisation du modèle `s2.1-pro-free` (100% gratuit, 0 quota de modèles consommés, bypass du slot limit 5/0).
+     - Sérialisation binaire MsgPack via le SDK officiel `fish-audio-sdk`.
+     - Synthèse directe au format natif WhatsApp OGG/Opus PTT (`format: "opus"`).
+  3. **Régénération des Vocaux Officiels du Système** :
+     - **Note Vocale Officielle de Procédure** (`vocal_procedure_soeur.opus`, 24.8s) :
+       *"Coucou ! C'est très simple : pour composer la chanson, j'ai juste besoin de quelques détails sur la personne : son prénom, ce qu'elle représente pour vous, ses qualités, et les petits souvenirs marquants que vous voulez entendre dans le texte. Ensuite, je m'occupe de tout vous écrire !"*
+     - **Note Vocale Officielle de Prise de Commande** (`vocal_commande_soeur.opus`, 22.0s) :
+       *"Parfait ! Votre commande est bien enregistrée. On passe directement à l'écriture de votre texte personnalisé. Je prépare tout avec grand soin et je reviens vers vous très vite !"*
+     - **Échantillon de test de salutation** (`sister_cloned_output.opus`, 8.1s).
+  4. **Hébergement Haute Disponibilité & URLs Publiques VPS** :
+     - Déposés dans `/srv/qr/assets/` (`/root/waha-vps-setup/qrserve/assets/`) sur le VPS `162.35.113.220` servis par Caddy en HTTPS :
+       - `https://waha.velarisagent.life/qr/assets/vocal_procedure_soeur.opus`
+       - `https://waha.velarisagent.life/qr/assets/vocal_commande_soeur.opus`
+       - `https://waha.velarisagent.life/qr/assets/sister_cloned_output.opus`
+  5. **Câblage dans le Moteur Velaris & Tests Unitaires** :
+     - Mise à jour de `engine/src/ingest/emoji-automations.ts` pour brancher `☺️` sur `vocal_commande_soeur.opus` et `🎵` sur `vocal_procedure_soeur.opus`.
+     - Intégration du fallback base64 dans `engine/src/assets/procedure-voice.ts`.
+     - Validation de la suite complète de tests Jest : 210/210 tests passés (39 suites).
+  6. **Déploiement Conteneurisé en Production & Git** :
+     - Build Docker `velaris-engine:latest` (ID `3aacf53a37ec`) et redémarrage du conteneur VPS sur le port `3001` (healthy).
+     - Commit et push sur `origin/main` (`d6c1aad`).
+
+- **Jalon Précédent Validé** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
   1. **Déclenchement Instantané par Réaction ⭐ (`confirm_and_produce`)** :
      - Assignation de l'émoji `⭐` dans `studio_personas.reaction_commands` et `run-turn.ts` pour déclencher la production de chanson sur Suno V6 via Kie.ai.
      - L'émoji `🎵` reste 100% dédié à la note vocale de procédure (`AUD-20261026-WA0046.opus`) sans conflit de commande.
