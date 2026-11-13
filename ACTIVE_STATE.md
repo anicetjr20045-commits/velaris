@@ -55,10 +55,10 @@
      - **Assets Publics** : `/root/projets/velaris/public/assets/` (`procedure_voice.ogg`, `order_voice.ogg`, `vocal_procedure_soeur.opus`, `vocal_commande_soeur.opus`) synchronisés.
   6. **Validation Globale & Déploiement Production** :
      - 210/210 tests unitaires et d'intégration validés sans aucune régression.
-     - Build frontend Vite 8 validé en 6.96s.
-     - **Résolution Incident Compilation VPS** : `dist/` étant dans `.gitignore`, la compilation TypeScript n'avait pas été rejouée sur le VPS avant le build Docker. Compilation `tsc -p tsconfig.json` effectuée sur le VPS, image `velaris-engine:latest` reconstruite avec `emoji-automations.js` embarqué, conteneur relancé.
-     - **Automatisation Déploiement VPS** : Script `engine/scripts/deploy-vps.sh` créé pour garantir que toute recompilation TypeScript est obligatoirement exécutée avant le build Docker.
-     - **Test Réel Direct In-Container Validé** : Exécution de `executeEmojiAutomation` pour `🎵` (procédure) et `☺️` (commande) vers `159085924233267@lid` validée avec envoi effectif des deux notes vocales PTT sur WhatsApp.
+     - **Catalogue Étendu de Styles Suno V6 (20+ Genres Calibrés)** : Zouglou/Wôyô, Kizomba/Semba, Afro-Pop, Rap/Drill/Trap, Afro-Soul/R&B, Highlife, Makossa, Mbalax, Kompa, Pop Acoustique Française, Salsa/Latino, Bossa Nova/Jazz, Pop-Rock, Slam/Poésie, Zouk, Reggae, Gospel, Mandingue, Goumbé, Amapiano, Ballade.
+     - **Enrichisseur Dynamique Universel** : Tout genre personnalisé inconnu reçoit un prompt mastering studio haute définition 24-bit avec BPM calibré, balance stéréo et voix en avant.
+     - **Filtres de Modération & Copyright Renforcés** : Neutralisation de `skank` et remplacement transparent de plus de 20 noms d'artistes protégés (Burna Boy, Fally Ipupa, Magic System, DJ Arafat, Aya Nakamura, Dadju, Tayc, etc.).
+     - Script de déploiement `engine/scripts/deploy-vps.sh` exécuté avec succès en production sur le VPS.
      - Dépôt GitHub synchronisé sur `main`.
 
 - **Jalon Précédent Validé** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
