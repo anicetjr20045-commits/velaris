@@ -56,8 +56,10 @@
   6. **Validation Globale & Déploiement Production** :
      - 210/210 tests unitaires et d'intégration validés sans aucune régression.
      - Build frontend Vite 8 validé en 6.96s.
-     - Conteneur Docker `velaris-engine` reconstruit et relancé sur le VPS port 3001 (listening, status healthy).
-     - Dépôt GitHub synchronisé sur `main` (`614bed6`).
+     - Conteneur Docker `velaris-engine` réorchestré dans le réseau Docker `waha-vps-setup_default` avec l'alias `waha-bridge:3001` (correction de l'erreur `ENOTFOUND waha-bridge`).
+     - Validation end-to-end de la passerelle de webhook WAHA vers `velaris-engine` (HTTP 200).
+     - Test de délivrance réelle d'un vocal PTT WhatsApp (24s) exécuté avec succès sur le numéro `+226 56 24 05 33`.
+     - Dépôt GitHub synchronisé sur `main`.
 
 - **Jalon Précédent Validé** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
   1. **Déclenchement Instantané par Réaction ⭐ (`confirm_and_produce`)** :
