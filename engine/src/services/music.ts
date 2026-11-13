@@ -414,6 +414,34 @@ export function optimizeSunoStylePrompt(
   ) {
     // STYLE 4 : High-energy Ivorian Coupé-Décalé (128-132 BPM)
     prompt = `High-energy Ivorian Coupé-Décalé fused with Afro Drill and stadium anthem vibes. Fast tempo (128–132 BPM), explosive percussion, driving kick, groovy bassline, rhythmic chants, crowd shouts, whistles, claps, and call-and-response vocals. Bright African synths, powerful brass stabs, and infectious dance grooves that create a festive football atmosphere. ${vocalDesc} The production should feel triumphant, motivational, and made for a packed stadium, with dynamic builds, massive choruses, and nonstop dance energy from start to finish.`;
+  } else if (s.includes('zouglou') || s.includes('woyo') || s.includes('wôyô')) {
+    prompt = `Authentic Ivorian Zouglou and acoustic Wôyô celebration, 108–114 BPM. Driving acoustic guitar rhythm, organic calabash, tom-tom and djembe percussion, expressive shaker grooves, melodic bassline. ${vocalDesc} Vibrant call-and-response choir, joyous communal storytelling, festive yet conscious West African atmosphere with an instantly memorable chorus.`;
+  } else if (s.includes('kizomba') || s.includes('semba') || s.includes('cabo') || s.includes('tarraxinha')) {
+    prompt = `Sensual Kizomba and Lusophone Afro-Groove, 86–92 BPM. Warm electric piano chords, nylon guitar arpeggios, smooth 808 sub-bass, delicate syncopated kick, and seductive tropical percussion. ${vocalDesc} Intimate, romantic, deeply hypnotic atmosphere with lush harmonies in the chorus.`;
+  } else if (s.includes('afropop') || s.includes('afro pop') || s.includes('naija pop')) {
+    prompt = `Modern polished Afro-Pop, 104–112 BPM. Crisp kick, punchy snares, infectious acoustic guitar loops, bright modern synths, and smooth bouncy bassline. ${vocalDesc} Ultra-catchy melodic chorus, radio-ready production, uplifting, joyous and universally appealing.`;
+  } else if (s.includes('rap') || s.includes('hip hop') || s.includes('hip-hop') || s.includes('drill') || s.includes('trap')) {
+    prompt = `Modern Melodic Afro-Trap and Hip-Hop, 96–105 BPM. Deep sliding 808 bass, crisp rolling hi-hats, emotive acoustic guitar or melancholic piano loop, and punchy snare. ${vocalDesc} Confident flow with melodic singing in the chorus, expressive, powerful and emotionally resonant.`;
+  } else if (s.includes('slow') || s.includes('r&b') || s.includes('rnb') || s.includes('soul') || s.includes('afro-soul') || s.includes('afrosoul') || s.includes('blues')) {
+    prompt = `Emotional Afro-Soul and Contemporary R&B, 74–82 BPM. Warm Rhodes electric piano, lush string pads, expressive acoustic guitar, gentle live drums, and deep soulful bassline. ${vocalDesc} Heartfelt vocal ad-libs, rich vocal harmonies in the chorus, romantic, soothing and timeless intimacy.`;
+  } else if (s.includes('highlife') || s.includes('palm wine') || s.includes('palm-wine') || s.includes('ghana')) {
+    prompt = `Classic West African Highlife, 102–108 BPM. Sweet interlocking electric and acoustic guitars, rhythmic brass section, melodic walking bassline, congas, claves, and live drums. ${vocalDesc} Joyous call-and-response harmonies, elegant vintage West African celebration.`;
+  } else if (s.includes('makossa') || s.includes('bikutsi') || s.includes('cameroun') || s.includes('douala')) {
+    prompt = `High-energy Cameroonian Makossa, 118–125 BPM. Virtuosic funky bassline, bright horn stabs, interlocking rhythm guitars, and syncopated snare grooves. ${vocalDesc} Celebratory, dynamic, and irresistible dance rhythm.`;
+  } else if (s.includes('mbalax') || s.includes('sabar') || s.includes('senegal') || s.includes('dakar')) {
+    prompt = `Authentic Senegalese Mbalax, 115–124 BPM. Electrifying sabar drum polyrhythms, tama talking drum fills, bright funky guitar chops, and driving bass. ${vocalDesc} Powerful griot-inspired vocal delivery with soaring uplifting chorus.`;
+  } else if (s.includes('kompa') || s.includes('compas') || s.includes('haiti') || s.includes('antillais') || s.includes('caraïbe')) {
+    prompt = `Smooth Caribbean Kompa Love, 94–100 BPM. Characteristic syncopated hi-hat pattern, lush synthesizer chords, melodic saxophone lines, melodic bass, and sweet guitar solos. ${vocalDesc} Sensual, elegant, and deeply romantic dance groove.`;
+  } else if (s.includes('pop') || s.includes('variété') || s.includes('chanson française')) {
+    prompt = `Refined Acoustic French Pop, 88–95 BPM. Richly recorded grand piano, warm acoustic nylon and steel guitars, gentle cello accents, subtle ambient percussion. ${vocalDesc} Poetic, crystal-clear vocal prominence, elegant, timeless and emotionally touching.`;
+  } else if (s.includes('salsa') || s.includes('merengue') || s.includes('bachata') || s.includes('latin') || s.includes('latino')) {
+    prompt = `Vibrant Latin and Afro-Cuban Fusion, 98–105 BPM. Syncopated piano montuno, authentic congas, bongos, güiro, warm acoustic bass, and bright trumpet/brass accents. ${vocalDesc} Passionate and festive dance atmosphere with catchy chorus.`;
+  } else if (s.includes('bossa') || s.includes('bossa nova') || s.includes('jazz')) {
+    prompt = `Sophisticated Bossa Nova and Afro-Jazz, 84–90 BPM. Nylon fingerpicked guitar syncopation, soft brushed drums, warm acoustic upright bass, delicate flute or muted trumpet fills. ${vocalDesc} Smooth, elegant, and timelessly intimate.`;
+  } else if (s.includes('rock') || s.includes('pop rock') || s.includes('pop-rock')) {
+    prompt = `Dynamic Melodic Pop-Rock, 110–120 BPM. Clean to overdriven electric rhythm guitars, driving live drums with solid kick and snare, warm melodic bass. ${vocalDesc} Passionate, powerful vocal delivery with soaring melodic chorus.`;
+  } else if (s.includes('slam') || s.includes('poésie') || s.includes('poeme') || s.includes('poème') || s.includes('spoken word')) {
+    prompt = `Intimate Cinematic Spoken Word and Acoustic Ambience, 72–80 BPM. Soft minimal piano chords, subtle cello, gentle atmospheric pads, and minimal heartbeat percussion. ${vocalDesc} Clear, expressive, and deeply moving poetic delivery.`;
   } else if (s.includes('zouk')) {
     prompt = `Sensual Zouk Love with modern Afro-Caribbean production, 88–94 BPM. Lush electric piano, warm nylon guitar, smooth 808 sub-bass, delicate percussion, and seductive tropical rhythm. ${vocalDesc} Romantic, warm, and deeply melodic chorus.`;
   } else if (s.includes('reggae')) {
@@ -429,7 +457,7 @@ export function optimizeSunoStylePrompt(
   } else if (s.includes('ballade') || s.includes('acoustique') || s.includes('guitare')) {
     prompt = `Intimate Acoustic Ballad — raw emotion and purity, 78–85 BPM. Solo acoustic fingerpicked guitar, soft grand piano, warm subtle cello, and gentle room ambience. ${vocalDesc} Pure, heartfelt intimacy.`;
   } else if (rawStyle && rawStyle.trim().length > 2 && !rawStyle.toLowerCase().includes('auto') && !rawStyle.toLowerCase().includes('défaut')) {
-    prompt = `${rawStyle.trim()} with authentic West African acoustic groove and modern studio production. Balanced mix, warm acoustic guitar, melodic bassline, organic percussion, around 92–100 BPM. ${vocalDesc} Catchy and emotional chorus.`;
+    prompt = `${rawStyle.trim()} with professional modern studio production. Crystal-clear 24-bit audio mastering, warm acoustic and electric instruments, melodic bassline, dynamic drums around 94–104 BPM. ${vocalDesc} Balanced stereo imaging, vocal upfront, with a beautiful and memorable chorus.`;
   } else {
     // Style par défaut : Afro-Love
     prompt = `Style: Emotional Afro-Love with a Warm African Groove\nCreate a beautiful, soulful Afro-Love song with a gentle, rhythmic African groove, around 90–98 BPM. Use warm acoustic guitar, soft piano, subtle African percussion, smooth bass, and delicate strings to create a heartfelt, uplifting atmosphere. ${vocalDesc} Add soft backing vocals and rich harmonies in the chorus to make it memorable and moving. Keep the vocals upfront and the instrumental balanced so every word of the lyrics is clearly heard and understood. The overall feeling should be intimate, grateful, loving, and deeply touching, with a beautiful, melodic chorus that stays in the listener’s heart.`;
@@ -443,12 +471,26 @@ export function optimizeSunoStylePrompt(
   const ARTIST_REPLACEMENTS: [RegExp, string][] = [
     [/burna\s*boy/gi, 'modern Afropop star sound'],
     [/wizkid/gi, 'smooth Afrobeats sound'],
+    [/davido/gi, 'uplifting Afropop anthem sound'],
+    [/rema/gi, 'Afrorave melodic sound'],
+    [/asake/gi, 'Fuji-infused energetic Afrobeats sound'],
     [/fally\s*ipupa/gi, 'modern Congolese rumba style'],
+    [/koffi\s*olomide/gi, 'Tcha-Tcho rumba style'],
     [/magic\s*system/gi, 'festive Zouglou style'],
     [/dj\s*arafat/gi, 'high-energy Coupé-Décalé style'],
+    [/serge\s*beynaud/gi, 'melodic Coupé-Décalé dance sound'],
+    [/didi\s*b/gi, 'Ivorian Afro-Rap drill style'],
+    [/josey/gi, 'soulful Ivorian Afro-Love sound'],
+    [/meiway/gi, 'Zoblazo festive rhythm style'],
     [/bob\s*marley/gi, 'classic roots reggae style'],
-    [/koffi\s*olomide/gi, 'Tcha-Tcho rumba style'],
+    [/alpha\s*blondy/gi, 'African roots reggae style'],
+    [/tiken\s*jah(?:\s*fakoly)?/gi, 'conscious West African reggae style'],
     [/sidiki\s*diabat[eé]/gi, 'Manding kora pop style'],
+    [/salif\s*keita/gi, 'golden voice Manding acoustic sound'],
+    [/youssou\s*n'?dour/gi, 'Sabar Mbalax vocal legend style'],
+    [/aya\s*nakamura/gi, 'modern French Afro-R&B pop sound'],
+    [/dadju/gi, 'smooth French Afro-Love sound'],
+    [/tayc/gi, 'sensual Afro-Lov acoustic sound'],
   ];
   for (const [re, repl] of ARTIST_REPLACEMENTS) {
     cleaned = cleaned.replace(re, repl);

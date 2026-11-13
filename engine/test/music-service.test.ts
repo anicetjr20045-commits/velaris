@@ -131,11 +131,26 @@ C'est le 1er jour de bonheur !`;
     assert.ok(coupe.includes('128–132 BPM'), 'Doit inclure 128-132 BPM');
     assert.ok(coupe.includes('male lead vocal'), 'Doit inclure la voix masculine');
 
-    // Sanitization modération Suno
-    const reggae = optimizeSunoStylePrompt('Reggae skank like Bob Marley', 'male');
+    // 5. Zouglou / Wôyô
+    const zouglou = optimizeSunoStylePrompt('Zouglou woyo', 'male');
+    assert.ok(zouglou.includes('Authentic Ivorian Zouglou'), 'Doit inclure le template Zouglou');
+    assert.ok(zouglou.includes('108–114 BPM'), 'Doit inclure 108-114 BPM');
+
+    // 6. Kizomba
+    const kizomba = optimizeSunoStylePrompt('Kizomba sensual', 'female');
+    assert.ok(kizomba.includes('Sensual Kizomba'), 'Doit inclure le template Kizomba');
+    assert.ok(kizomba.includes('86–92 BPM'), 'Doit inclure 86-92 BPM');
+
+    // 7. Kompa
+    const kompa = optimizeSunoStylePrompt('Kompa antillais', 'duo');
+    assert.ok(kompa.includes('Smooth Caribbean Kompa Love'), 'Doit inclure le template Kompa');
+
+    // Sanitization modération Suno & artistes copyright
+    const reggae = optimizeSunoStylePrompt('Reggae skank like Bob Marley and Aya Nakamura', 'male');
     assert.ok(!reggae.includes('skank'), 'Le mot skank doit être assaini');
     assert.ok(reggae.includes('upbeat offbeat guitar chops'), 'Skank doit être remplacé par upbeat offbeat guitar chops');
-    assert.ok(!reggae.includes('Bob Marley'), 'Le nom d’artiste direct doit être assaini');
+    assert.ok(!reggae.includes('Bob Marley'), 'Le nom Bob Marley doit être assaini');
+    assert.ok(!reggae.includes('Aya Nakamura'), 'Le nom Aya Nakamura doit être assaini');
   });
 
   it('generateKieSong envoie les paramètres attendus par Kie Suno V6 avec style optimisé', async () => {
