@@ -24,6 +24,8 @@ export interface EngineConfig {
    */
   sttUrl: string;
   kieApiKey: string | null;
+  fishApiKey: string;
+  enableAiAutoReply: boolean;
   spoolDir: string;
   senderConcurrencyPerSession: number;
 }
@@ -77,6 +79,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
     // lui passer une clé DeepSeek directe (non-Kie) causait des 401 sur toutes les transcriptions.
     sttUrl: env.STT_URL?.trim() || "http://stt-whisper:5001",
     kieApiKey: kieApiKey || null,
+    fishApiKey: env.FISH_API_KEY?.trim() || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w',
+    enableAiAutoReply: env.ENABLE_AI_AUTO_REPLY === 'true',
     spoolDir: env.SPOOL_DIR?.trim() || './spool',
     senderConcurrencyPerSession: Number(env.SENDER_CONCURRENCY_PER_SESSION ?? 2),
   };

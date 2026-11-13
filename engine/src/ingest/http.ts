@@ -20,6 +20,7 @@ import { runCopilotBrain } from '../llm/copilot-brain.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
 import { resetTestClient } from '../services/reset-client.js';
 import type { RestDb } from '../db/rest.js';
+import type { VoiceClonerService, DraftClonerManager } from '../services/voice-cloner.js';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -31,6 +32,8 @@ export interface IngestServerDeps extends ProcessDeps {
   log: (line: string, data?: Record<string, unknown>) => void;
   waha?: WahaClient;
   llmProvider?: DeepSeekProvider;
+  voiceCloner?: VoiceClonerService;
+  draftManager?: DraftClonerManager;
 }
 
 function readBody(req: IncomingMessage): Promise<Buffer> {
@@ -158,6 +161,18 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
         }
         await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: 'magic_reset' });
         deps.log('magic reset executed via whatsapp', { chatId: ev.chatId, result: resetRes });
+        return;
+      }
+    }
+
+    // 3. Mode Brouillon Studio & Clonage Vocal (Voix Féminine Sœur)
+    // Permet au gérant (dans son chat brouillon / note à soi-même) de transformer
+    // instantanément tout texte ou vocal en note vocale WhatsApp avec la voix de la sœur.
+    if (deps.draftManager && ev.kind === 'message' && (!ev.fromMe || ev.source !== 'api')) {
+      const draftRes = await deps.draftManager.handleDraftMessage(ev, deps.waha, deps.transcriber);
+      if (draftRes.handled) {
+        await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: draftRes.outcome ?? 'draft_handled' });
+        deps.log('draft cloner handled event', { chatId: ev.chatId, outcome: draftRes.outcome });
         return;
       }
     }

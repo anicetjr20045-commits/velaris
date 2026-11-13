@@ -18,6 +18,7 @@ export interface TurnWorkerDeps {
   concurrency?: number;
   transcriber?: AudioTranscriber | undefined;
   kieApiKey?: string | null | undefined;
+  enableAiAutoReply?: boolean | undefined;
   protectedSessions?: readonly string[] | undefined;
   log: (line: string, data?: Record<string, unknown>) => void;
 }
@@ -40,6 +41,7 @@ export class TurnWorker {
   }
 
   async tick(): Promise<number> {
+    if (this.deps.enableAiAutoReply === false) return 0;
     if (this.activeCount >= this.concurrency) return 0;
 
     let claimed: ClaimedTurn[] | null = null;

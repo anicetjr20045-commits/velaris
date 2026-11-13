@@ -21,6 +21,7 @@ import { OutboxSender } from './send/outbox.js';
 import { createMediaSigner } from './send/storage.js';
 import { WahaClient } from './send/waha-client.js';
 import { AudioTranscriber } from './services/transcribe.js';
+import { VoiceClonerService, DraftClonerManager } from './services/voice-cloner.js';
 
 if (existsSync('.env.local')) process.loadEnvFile('.env.local');
 const config = loadConfig();
@@ -54,6 +55,22 @@ if (!transcriber) {
   log('WARNING: Service STT non configuré — transcription des notes vocales DÉSACTIVÉE');
 }
 
+const voiceCloner = new VoiceClonerService({
+  apiKey: config.fishApiKey,
+  log,
+});
+
+const draftManager = new DraftClonerManager({
+  cloner: voiceCloner,
+  storagePath: `${config.spoolDir}/armed-drafts.json`,
+  log,
+});
+
+if (!config.enableAiAutoReply) {
+  log('Mode Pilote Auto Commercial DÉSACTIVÉ (mode 100% gérant humain — aucune réponse auto aux clients)');
+}
+log('Mode Brouillon Studio & Clonage Vocal Sœur ACTIVÉ (/vocal, /on, /stop, /off)');
+
 const ingestDeps: IngestServerDeps = {
   db,
   spool,
@@ -64,6 +81,8 @@ const ingestDeps: IngestServerDeps = {
   waha,
   llmProvider,
   transcriber,
+  voiceCloner,
+  draftManager,
 };
 
 const sender = new OutboxSender({
@@ -82,6 +101,7 @@ const turnWorker = new TurnWorker({
   concurrency: 2,
   transcriber,
   kieApiKey: config.kieApiKey ?? undefined,
+  enableAiAutoReply: config.enableAiAutoReply,
   protectedSessions: config.protectedSessions,
   log,
 });
