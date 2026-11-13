@@ -20,14 +20,21 @@ import type { NormalizedEvent } from '../ingest/normalize.js';
 export interface VoiceClonerOpts {
   apiKey?: string | undefined;
   referencePath?: string | undefined;
+  referenceText?: string | undefined;
+  referenceId?: string | undefined;
   model?: string | undefined;
   fetchImpl?: typeof fetch | undefined;
   log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
 }
 
+export const SISTER_TIKTOK_REFERENCE_TEXT =
+  "Donc je voulais vous dire merci pour vos commentaires, vos likes, vos partages à tous, ça me fait plaisir. Et puis quand vous m'envoyez des messages là, on me parle comme votre amie et tout, c'est un plaisir sincèrement, j'adore !";
+
 export class VoiceClonerService {
   private readonly apiKey: string;
   private referenceBuffer: Buffer;
+  private readonly referenceText: string;
+  private readonly referenceId?: string | undefined;
   private readonly model: string;
   private readonly fetchImpl: typeof fetch;
   private readonly log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
@@ -35,6 +42,8 @@ export class VoiceClonerService {
   constructor(opts: VoiceClonerOpts = {}) {
     this.apiKey = opts.apiKey || process.env.FISH_API_KEY || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
     this.model = opts.model || 's2.1-pro-free';
+    this.referenceText = opts.referenceText || SISTER_TIKTOK_REFERENCE_TEXT;
+    this.referenceId = opts.referenceId || process.env.FISH_REFERENCE_ID || undefined;
     this.fetchImpl = opts.fetchImpl || fetch;
     this.log = opts.log;
 
@@ -76,6 +85,34 @@ export class VoiceClonerService {
     if (!cleanText) {
       throw new Error('Texte vide pour la synthèse vocale');
     }
+
+    // 1. Si un referenceId direct est configuré (ex: modèle entraîné sur Fish Audio)
+    if (this.referenceId) {
+      const res = await this.fetchImpl('https://api.fish.audio/v1/tts', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          model: this.model,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: cleanText,
+          reference_id: this.referenceId,
+          format: 'opus',
+        }),
+        signal: AbortSignal.timeout(35_000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Fish Audio TTS reference_id HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      }
+
+      const arrayBuf = await res.arrayBuffer();
+      return Buffer.from(arrayBuf);
+    }
+
+    // 2. Sinon, clonage zero-shot fidèle avec l'audio de référence de la sœur ET la transcription exacte
     if (!this.referenceBuffer || this.referenceBuffer.length === 0) {
       throw new Error('Fichier audio de référence introuvable');
     }
@@ -85,7 +122,7 @@ export class VoiceClonerService {
       references: [
         {
           audio: new Uint8Array(this.referenceBuffer),
-          text: '',
+          text: this.referenceText,
         },
       ],
       format: 'opus',
