@@ -25,14 +25,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 13 Novembre 2026 (14:30 UTC)
+- **Dernière mise à jour** : 13 Novembre 2026 (15:25 UTC)
 - **Statut Opérationnel** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
   1. **Déclenchement Instantané par Réaction ⭐ (`confirm_and_produce`)** :
      - Assignation de l'émoji `⭐` dans `studio_personas.reaction_commands` et `run-turn.ts` pour déclencher la production de chanson sur Suno V6 via Kie.ai.
      - L'émoji `🎵` reste 100% dédié à la note vocale de procédure (`AUD-20261026-WA0046.opus`) sans conflit de commande.
   2. **Extraction Déterministe de l'En-Tête Musical (`parseLyricsHeader`)** :
-     - Analyse chirurgicale en 0ms : extrait le style, la voix normalisée (`male`, `female`, `duo`) et le titre depuis la ligne d'en-tête (ex: `[Style: Afro-love doux | Voix: Masculine]`, `Style: Coupé-décalé / Voix: Femme`, `[Titre: ...]`).
-     - Nettoyage instantané des paroles : supprime les métadonnées pour ne laisser que le texte poétique brut.
+     - Analyse chirurgicale en 0ms : extrait le style, la voix normalisée (`male`, `female`, `duo`) et le titre depuis la ligne d'en-tête (ex: `[Style: Afro-love doux | Voix: Masculine]`, `Style: Coupé-décalé / Voix: Femme`, `Style: Zouk - Voix: Duo`, `[Titre: ...]`).
+     - Prise en charge universelle des séparateurs (`|`, `;`, `,`, `/`, `•`, et ` - ` entouré d'espaces).
+     - Nettoyage automatique des mentions résiduelles de voix dans le champ style pour éviter toute pollution du prompt Suno.
+     - Nettoyage instantané des paroles : supprime les métadonnées pour ne laisser que le texte poétique brut chanté.
   3. **Moteur d'Optimisation des Prompts Suno V6 (`optimizeSunoStylePrompt`)** :
      - Les 4 templates calibrés de référence intégrés fidèlement :
        - **Doux / Afro-Love** (90–98 BPM) : guitare acoustique, piano doux, percussions africaines, basse ronde, cordes intimes.
@@ -43,7 +45,7 @@
      - **Voix dynamique** : injection du timbre précis (`male lead vocal`, `female lead vocal`, `male and female duet`) avec consigne d'élocution française naturelle.
      - **Sécurité modération Suno** : assainissement préventif (remplacement de `skank` par `upbeat offbeat guitar chops`, neutralisation des noms d'artistes protégés par le droit d'auteur).
   4. **Optimisation Phonétique Audio pour le Chant Français (`formatLyricsForSuno`)** :
-     - **Numéros de téléphone** : lecture décomposée 2 par 2 avec virgules pour une diction naturelle du chanteur (ex: `5506` ➔ `cinquante-cinq, zéro six` ; `2837` ➔ `vingt-huit, trente-sept` ; `0510` ➔ `zéro cinq, dix` ; `+226 56 24 05 33` ➔ `cinquante-six, vingt-quatre, zéro cinq, trente-trois`).
+     - **Numéros de téléphone** : lecture décomposée 2 par 2 avec virgules pour une diction naturelle du chanteur (ex: `5506` ➔ `cinquante-cinq, zéro six` ; `2837` ➔ `vingt-huit, trente-sept` ; `0510` ➔ `zéro cinq, dix` ; numéros 8 chiffres Burkina Faso `56 24 05 33` ; numéros 10 chiffres Côte d'Ivoire `07 08 09 10 11` ; indicatifs internationaux `+226`, `+225`).
      - **Dates complètes et courtes** : transcrites en toutes lettres (ex: `12/05/2024` ➔ `douze mai deux mille vingt-quatre`).
      - **Chiffres et ordinaux** : `20 ans` ➔ `vingt ans`, `1er` ➔ `premier`, `100%` ➔ `cent pour cent`, `50000 FCFA` ➔ `cinquante mille francs CFA`.
      - **Sigles articulés** : `PDG` ➔ `P-D-G`, `VIP` ➔ `V-I-P`, `DG` ➔ `D-G`, `USA` ➔ `U-S-A`, `ONG` ➔ `O-N-G`.
@@ -51,9 +53,14 @@
   5. **Isolation Étanche Multi-Textes et Multi-Commandes** :
      - Verrouillage par `lyrics_message_id = reactedId` : chaque réaction lie le texte exact à une commande dédiée.
      - Si le gérant réagit sur 2 textes dans la même discussion, l'Order 1 et l'Order 2 restent strictement cloisonnés avec leurs styles et audios respectifs, sans risque de mélange avec d'anciennes commandes.
-  6. **Validation et Déploiement** :
-     - 210 tests unitaires et d'intégration validés sans erreur (`npm test` 210/210 pass).
-     - Image Docker reconstruite et redéployée en production sur le VPS `162.35.113.220` (port 3001). Commit GitHub `344302a`.
+  6. **Double Envoi Régulé en Livraison Finale** :
+     - Dès que Suno / Kie.ai finalise la chanson :
+       1. Message texte officiel d'annonce de livraison en boîte d'envoi (`song_delivery_text_*`).
+       2. Fichier audio de la chanson envoyé sous forme de note vocale WhatsApp native (`song_delivery_audio_*`).
+     - Concurrence régulée par discussion : le texte part en premier, puis l'audio suit immédiatement sans chevauchement.
+  7. **Validation et Déploiement** :
+     - 210 tests unitaires et d'intégration validés sans erreur (`npm test` 210/210 pass, 0 échec).
+     - Image Docker reconstruite et redéployée en production sur le VPS `162.35.113.220` (port 3001, conteneur sain `velaris-engine`). Commits GitHub `344302a`, `71fc3cf`, `23fa65a`.
        - `🎥` ➔ Vidéo de démonstration officielle (`324048.mp4`).
        - `🎵` ➔ Note vocale WhatsApp native procédure officielle (`AUD-20261026-WA0046.opus`).
   2. **Hébergement Haute Performance & Dédoublonnage Anti-Spam** :
