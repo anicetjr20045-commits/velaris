@@ -25,13 +25,33 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 13 Novembre 2026 (19:37 UTC)
-- **Statut Opérationnel** : **ARRET D'URGENCE DE L'IA EFFECTUÉ — Contrôle Humain Intégral 100% Actif** :
-  1. Conteneur `velaris-engine` stoppé immédiatement (`docker stop velaris-engine`).
-  2. File d'attente sortante purgée : tous les messages en statut `pending` ou `sending` annulés (`status = 'cancelled'`).
-  3. Toutes les conversations WhatsApp basculées en `control_mode = 'human'` et `ai_paused = true`.
-  4. Session WAHA `Test` désactivée du moteur (`engine_owner = 'none'`).
-  5. L'IA ne répond plus à aucun client : le gérant a la main exclusive et totale sur WhatsApp.
+- **Dernière mise à jour** : 13 Novembre 2026 (22:15 UTC)
+- **Statut Opérationnel** : **Studio Voice Cloner WhatsApp Opérationnel & Contrôle Humain Intégral Préservé** :
+  1. Conteneur `velaris-engine` redémarré avec succès en production sur le VPS (`162.35.113.220`).
+  2. `ENABLE_AI_AUTO_REPLY=false` configuré par défaut : l'IA ne répond à AUCUN client automatiquement, le gérant conserve 100% du contrôle commercial.
+  3. **Système de Brouillon Studio & Clonage Vocal Actif** :
+     - `/vocal` ou `/on` ➔ Active le mode studio dans la conversation brouillon / note à soi-même.
+     - `/stop` ou `/off` ➔ Désactive le mode studio, le brouillon redevient une conversation normale.
+     - `/vocal <texte>` ➔ Synthèse vocale one-shot directe sans armement préalable.
+     - En mode activé : tout message texte ou note vocale micro est immédiatement converti et renvoyé dans le brouillon sous forme de note vocale WhatsApp native (`audio/ogg; codecs=opus`) avec la voix de la sœur d'Anicet.
+     - Le gérant peut écouter la note vocale en privé, puis la transférer (Forward) en 1 seconde à n'importe quel client.
+
+- **Jalon 147 Validé — Système de Brouillon Studio WhatsApp & Clonage Vocal Déterministe Fish Audio (Voix Sœur Zero-Shot `s2.1-pro-free`, Mode Armé `/vocal`, Audio PTT Natif & Verrouillage Anti-Auto-Reply)** :
+  1. **Moteur de Clonage Vocal Zéro Dépendance Externe (`VoiceClonerService`)** :
+     - Synthèse native Node.js via sérialisation binaire MsgPack (`@msgpack/msgpack`) et modèle `s2.1-pro-free` (100% gratuit, zéro quota de modèles).
+     - Rendu direct au format natif WhatsApp OGG Opus PTT (`audio/ogg; codecs=opus`) avec waveform.
+  2. **Gestionnaire Déterministe de Conversation Brouillon (`DraftClonerManager`)** :
+     - Détection des commandes `/vocal`, `/on`, `/stop`, `/off`, `/vocal <texte>`, `/statut`.
+     - Persistance de l'état d'armement dans `/app/data/spool/armed-drafts.json` pour résister aux redémarrages.
+     - Support multimodal : texte ➔ synthèse directe ; vocal entrant ➔ transcription automatique (Whisper) puis synthèse vocale.
+  3. **Verrouillage Étanche du Pilote Auto Commercial (`enableAiAutoReply: false`)** :
+     - `TurnWorker.tick()` court-circuité dès le début : aucune réclamation de tour commercial auprès de la base.
+     - Protection absolue contre toute réponse inattendue aux clients sur WhatsApp.
+  4. **Validation Unitaire & Déploiement Production** :
+     - Suite de tests unitaire dédiée [`engine/test/voice-cloner.test.ts`](file:///root/projets/velaris/engine/test/voice-cloner.test.ts) validée à 100% (8/8 pass).
+     - 218 tests de l'engine tous verts sans aucune régression.
+     - Image Docker reconstruite (`velaris-engine:latest`) et déployée sur le VPS Contabo.
+     - Validation end-to-end sur les événements réels : `/statut`, `/vocal <texte>`, armement `/vocal`, conversion automatique de texte, et désarmement `/stop`.
   1. **Extraction & Nettoyage de l'Audio Source TikTok (`https://vm.tiktok.com/ZSpCAswBj/`)** :
      - Téléchargement audio haute fidélité (7m16s).
      - Transcription intégrale minutée au millième de seconde via `faster_whisper`.
