@@ -404,7 +404,7 @@ Pour toujours…`;
  * Analyse l'ADN de la plume maison.
  */
 export function getHouseStyleDnaNote(): string {
-  return `🧬 ADN DE STYLE MAISON (Plume Fondatrice du Studio Velaris) :
+  return `[ADN DE STYLE MAISON] Plume Fondatrice du Studio Velaris :
 1. LONGUEUR OBLIGATOIRE (RÈGLE ABSOLUE : PAS DE TEXTE COURT) :
    - Minimum strict : 32 à 48 vers utiles.
    - Longueur totale : entre 1 800 et 3 200 caractères.
@@ -427,5 +427,62 @@ export function getHouseStyleDnaNote(): string {
 4. GARDE-FOUS STRICTS :
    - N'invente AUCUN fait qui ne figure pas dans le brief du client.
    - Les prénoms et anecdotes des exemples appartiennent à d'autres clients : NE JAMAIS les recopier.`;
+}
+
+/**
+ * Génère une ou deux chansons selon l'intention de commande (1 vs 2 chansons).
+ * Si 2 chansons / 2 personnes sont demandées, produit deux œuvres distinctes
+ * structurées et étiquetées pour Suno :
+ * === CHANSON 1 / 2 : [TITRE 1] ===
+ * ...
+ * ==================================================
+ * === CHANSON 2 / 2 : [TITRE 2] ===
+ * ...
+ */
+export function generateHouseStyleSongs(args: {
+  recipient: string;
+  occasion: string;
+  style?: string | null;
+  memories?: string[];
+  senderName?: string | null;
+  wantsMulti?: boolean;
+  recipient2?: string;
+  occasion2?: string;
+}): { isMulti: boolean; output: string; songs: Array<{ title: string; lyrics: string; lineCount: number }> } {
+  const song1 = generateHouseStyleSong({
+    recipient: args.recipient,
+    occasion: args.occasion,
+    style: args.style,
+    memories: args.memories,
+    senderName: args.senderName,
+  });
+
+  const isMulti = Boolean(args.wantsMulti || (args.recipient2 && args.recipient2 !== args.recipient));
+  if (!isMulti) {
+    return {
+      isMulti: false,
+      output: `*${song1.title}*\n\n${song1.lyrics}`,
+      songs: [song1],
+    };
+  }
+
+  const name2 = args.recipient2?.trim() || `${args.recipient} (Deuxième version)`;
+  const occ2 = args.occasion2 || args.occasion;
+  const song2 = generateHouseStyleSong({
+    recipient: name2,
+    occasion: occ2,
+    style: args.style ? `${args.style} (Rythmé)` : 'Afrobeats acoustique entraînante',
+    memories: args.memories && args.memories.length > 1 ? args.memories.slice(1) : args.memories,
+    senderName: args.senderName,
+  });
+
+  const divider = '==================================================';
+  const output = `=== CHANSON 1 / 2 : ${song1.title.toUpperCase()} ===\n\n${song1.lyrics}\n\n${divider}\n\n=== CHANSON 2 / 2 : ${song2.title.toUpperCase()} ===\n\n${song2.lyrics}`;
+
+  return {
+    isMulti: true,
+    output,
+    songs: [song1, song2],
+  };
 }
 

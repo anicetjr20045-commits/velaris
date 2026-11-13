@@ -36,7 +36,7 @@ export function resolvePaymentInfoByPhone(phone: string): CountryPaymentInfo {
       recipientName: 'Wendyam Anicet junior Sekongo',
       accountNumber: '+226 05 77 73 08',
       instructions: 'Paiement direct Wave vers le numéro Burkinabé (sans frais internationaux).',
-      formattedBubble: `Vous pouvez donc passer au paiement Wave au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nNos clients de Côte d'Ivoire nous payent par Wave sans aucun problème ! Svp une capture d'écran dès que c'est fait pour lancer la confection au studio 🙏`,
+      formattedBubble: `Vous pouvez donc passer au paiement Wave au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nNos clients de Côte d'Ivoire nous payent par Wave sans aucun problème ! Svp une capture d'écran dès que c'est fait pour lancer la confection au studio.`,
     };
   }
 
@@ -50,7 +50,7 @@ export function resolvePaymentInfoByPhone(phone: string): CountryPaymentInfo {
       recipientName: 'Wendyam Anicet junior Sekongo',
       accountNumber: '+226 05 77 73 08',
       instructions: 'Paiement Wave direct.',
-      formattedBubble: `Vous pouvez effectuer le règlement par Wave direct au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nMerci de m'envoyer la capture d'écran du transfert dès validation 🙏`,
+      formattedBubble: `Vous pouvez effectuer le règlement par Wave direct au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nMerci de m'envoyer la capture d'écran du transfert dès validation.`,
     };
   }
 
@@ -64,7 +64,7 @@ export function resolvePaymentInfoByPhone(phone: string): CountryPaymentInfo {
       recipientName: 'Wendyam Anicet junior Sekongo',
       accountNumber: '+226 05 77 73 08',
       instructions: 'Transfert d\'argent vers le Burkina Faso.',
-      formattedBubble: `Vous pouvez effectuer le transfert Orange Money ou Wave vers le Burkina Faso au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nSvp une capture pour confirmer et lancer la production au studio 🙏`,
+      formattedBubble: `Vous pouvez effectuer le transfert Orange Money ou Wave vers le Burkina Faso au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nSvp une capture pour confirmer et lancer la production au studio.`,
     };
   }
 
@@ -78,7 +78,7 @@ export function resolvePaymentInfoByPhone(phone: string): CountryPaymentInfo {
       recipientName: 'Wendyam Anicet junior Sekongo',
       accountNumber: '+226 05 77 73 08',
       instructions: 'TapTap Send, Sendwave ou Wave vers le Burkina Faso.',
-      formattedBubble: `Pour la diaspora, vous pouvez transférer facilement via l'application TapTap Send, Sendwave ou Wave vers le Burkina Faso au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nEnvoyez-moi la quittance dès que c'est validé pour lancer l'enregistrement immédiat 🙏`,
+      formattedBubble: `Pour la diaspora, vous pouvez transférer facilement via l'application TapTap Send, Sendwave ou Wave vers le Burkina Faso au +226 05 77 73 08 (Wendyam Anicet junior Sekongo).\nEnvoyez-moi la quittance dès que c'est validé pour lancer l'enregistrement immédiat.`,
     };
   }
 
@@ -91,7 +91,7 @@ export function resolvePaymentInfoByPhone(phone: string): CountryPaymentInfo {
     recipientName: 'Wendyam Anicet junior Sekongo',
     accountNumber: '+226 05 77 73 08',
     instructions: 'Dépôt Orange Money ou Wave direct.',
-    formattedBubble: `Vous pouvez donc passer au paiement +226 05 77 73 08 Wendyam Anicet junior Sekongo (Orange Money ou Wave) svp une capture pour vérifier le paiement et lancer la fabrication au studio 🙏`,
+    formattedBubble: `Vous pouvez donc passer au paiement +226 05 77 73 08 Wendyam Anicet junior Sekongo (Orange Money ou Wave) svp une capture pour vérifier le paiement et lancer la fabrication au studio.`,
   };
 }
 

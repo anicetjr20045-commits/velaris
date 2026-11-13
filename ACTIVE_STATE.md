@@ -26,7 +26,7 @@
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
 - **Dernière mise à jour** : 13 Novembre 2026 (15:25 UTC)
-- **Statut Opérationnel** : **Jalon 147 Validé — Clonage Vocal Ultra-Réaliste Fish Audio (Voix Sœur TikTok), Régénération Complète des Vocaux Officiels (Procédure & Prise de Commande) & Déploiement Production** :
+- **Statut Opérationnel** : **Jalon 147 Validé — Remplacement Intégral et Officiel des Messages Vocaux par la Voix Féminine Clonée (Fish Audio TikTok), Déploiement Multi-Projets (Velaris, Velaris-Agent, Cockpit, Bot Baileys & VPS)** :
   1. **Extraction & Nettoyage de l'Audio Source TikTok (`https://vm.tiktok.com/ZSpCAswBj/`)** :
      - Téléchargement audio haute fidélité (7m16s).
      - Transcription intégrale minutée au millième de seconde via `faster_whisper`.
@@ -35,24 +35,29 @@
      - Utilisation du modèle `s2.1-pro-free` (100% gratuit, 0 quota de modèles consommés, bypass du slot limit 5/0).
      - Sérialisation binaire MsgPack via le SDK officiel `fish-audio-sdk`.
      - Synthèse directe au format natif WhatsApp OGG/Opus PTT (`format: "opus"`).
-  3. **Régénération des Vocaux Officiels du Système** :
+  3. **Régénération Complète des Vocaux Officiels** :
      - **Note Vocale Officielle de Procédure** (`vocal_procedure_soeur.opus`, 24.8s) :
        *"Coucou ! C'est très simple : pour composer la chanson, j'ai juste besoin de quelques détails sur la personne : son prénom, ce qu'elle représente pour vous, ses qualités, et les petits souvenirs marquants que vous voulez entendre dans le texte. Ensuite, je m'occupe de tout vous écrire !"*
      - **Note Vocale Officielle de Prise de Commande** (`vocal_commande_soeur.opus`, 22.0s) :
        *"Parfait ! Votre commande est bien enregistrée. On passe directement à l'écriture de votre texte personnalisé. Je prépare tout avec grand soin et je reviens vers vous très vite !"*
      - **Échantillon de test de salutation** (`sister_cloned_output.opus`, 8.1s).
-  4. **Hébergement Haute Disponibilité & URLs Publiques VPS** :
-     - Déposés dans `/srv/qr/assets/` (`/root/waha-vps-setup/qrserve/assets/`) sur le VPS `162.35.113.220` servis par Caddy en HTTPS :
+  4. **Remplacement Systématique sur l'Ensemble de l'Infrastructure & VPS** :
+     - Déposés dans `/srv/qr/assets/` et `/root/waha-vps-setup/qrserve/assets/` sur le VPS `162.35.113.220` servis par Caddy en HTTPS direct :
        - `https://waha.velarisagent.life/qr/assets/vocal_procedure_soeur.opus`
        - `https://waha.velarisagent.life/qr/assets/vocal_commande_soeur.opus`
        - `https://waha.velarisagent.life/qr/assets/sister_cloned_output.opus`
-  5. **Câblage dans le Moteur Velaris & Tests Unitaires** :
-     - Mise à jour de `engine/src/ingest/emoji-automations.ts` pour brancher `☺️` sur `vocal_commande_soeur.opus` et `🎵` sur `vocal_procedure_soeur.opus`.
-     - Intégration du fallback base64 dans `engine/src/assets/procedure-voice.ts`.
-     - Validation de la suite complète de tests Jest : 210/210 tests passés (39 suites).
-  6. **Déploiement Conteneurisé en Production & Git** :
-     - Build Docker `velaris-engine:latest` (ID `3aacf53a37ec`) et redémarrage du conteneur VPS sur le port `3001` (healthy).
-     - Commit et push sur `origin/main` (`d6c1aad`).
+       - Remplacement miroir des anciens fichiers `AUD-20261021-WA0007.opus` et `AUD-20261026-WA0046.opus` pour garantir que tout appel historique serve la voix de la sœur.
+  5. **Mise à Jour Multi-Projets (Velaris, Velaris-Agent & WA-Pairing)** :
+     - **Velaris Engine** : `engine/src/ingest/emoji-automations.ts` (`☺️` ➔ `vocal_commande_soeur.opus`, `🎵` ➔ `vocal_procedure_soeur.opus`) et `engine/src/assets/procedure-voice.ts` (base64 embarqué).
+     - **Velaris Agent (Lovable)** : `src/lib/ai/procedure-voice.server.ts` synchronisé avec le nouveau base64, tests vitest validés (11/11 pass), auto-sync post-commit exécuté sur `main` et `lovable-sync`.
+     - **Cockpit UI Velaris** : `src/components/ConversationsView.tsx` mis à jour avec les boutons d'action rapide dédiés « Vocal de procédure (25s) » et « Vocal prise de commande (22s) ».
+     - **Bot Baileys Local** : `/root/wa-pairing/server.js` et `/root/wa-pairing/assets/` mis à jour avec les nouveaux fichiers vocaux.
+     - **Assets Publics** : `/root/projets/velaris/public/assets/` (`procedure_voice.ogg`, `order_voice.ogg`, `vocal_procedure_soeur.opus`, `vocal_commande_soeur.opus`) synchronisés.
+  6. **Validation Globale & Déploiement Production** :
+     - 210/210 tests unitaires et d'intégration validés sans aucune régression.
+     - Build frontend Vite 8 validé en 6.96s.
+     - Conteneur Docker `velaris-engine` reconstruit et relancé sur le VPS port 3001 (listening, status healthy).
+     - Dépôt GitHub synchronisé sur `main` (`614bed6`).
 
 - **Jalon Précédent Validé** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
   1. **Déclenchement Instantané par Réaction ⭐ (`confirm_and_produce`)** :

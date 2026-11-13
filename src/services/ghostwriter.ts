@@ -103,7 +103,7 @@ export function generateGhostwriterVariants(
       return {
         variantDirect: {
           label: 'Clôture & Paiement',
-          text: `Super, merci pour votre validation ! Vous pouvez donc passer au paiement Wave ou Orange Money svp une capture pour lancer la fabrication au studio 🙏`,
+          text: `Super, merci pour votre validation ! Vous pouvez donc passer au paiement Wave ou Orange Money svp une capture pour lancer la fabrication au studio.`,
           tag: 'Clôture',
         },
         variantWarm: {

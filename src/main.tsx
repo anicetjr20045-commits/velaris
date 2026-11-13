@@ -11,3 +11,12 @@ createRoot(document.getElementById('root')!).render(
     </AuthProvider>
   </StrictMode>,
 )
+
+// Enregistrement du Service Worker PWA (Progressive Web App)
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Ignorer silencieusement si non supporté ou bloqué
+    });
+  });
+}

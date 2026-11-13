@@ -16,7 +16,18 @@ import { generateGhostwriterVariants, shiftTextTone } from '../src/services/ghos
 import { analyzeReceiptText } from '../src/services/receipt-ocr';
 import { extractActiveOrderScope } from '../src/components/ConversationsView';
 import { checkSupabaseHealth, supabase } from '../src/services/supabase';
-import { pingWaha, fetchWahaSessions, WAHA_CONFIG } from '../src/services/waha';
+import {
+  pingWaha,
+  fetchWahaSessions,
+  fetchWahaContact,
+  fetchWahaProfilePicture,
+  sendWahaVoiceUrl,
+  sendWahaVideoMessage,
+  WAHA_CONFIG
+} from '../src/services/waha';
+import { generateHouseStyleSongs } from '../src/services/lyricsCorpus';
+import fs from 'fs';
+import path from 'path';
 
 interface TestResult {
   suite: string;
@@ -241,6 +252,122 @@ async function runTestSuite() {
     'Interrogation des sessions WhatsApp enregistrées sur le VPS',
     `Nombre de sessions trouvées: ${sessions.length}`
   );
+
+  // --------------------------------------------------------------------------
+  // TEST 8 : Génération Intelligente de Paroles 1 vs 2 Chansons
+  // --------------------------------------------------------------------------
+  console.log('\n🎵 [TEST 8/10] Génération de Paroles 1 vs 2 Chansons & Format Double Œuvre...');
+
+  // 8.1 Chanson Unique Standard
+  const singleSongResult = generateHouseStyleSongs({
+    recipient: 'Awa',
+    occasion: 'Anniversaire',
+    memories: ['Toujours le sourire aux lèvres à Treichville'],
+    wantsMulti: false,
+  });
+  assert(
+    singleSongResult.isMulti === false &&
+    singleSongResult.songs.length === 1 &&
+    singleSongResult.songs[0].lyrics.includes('[Refrain]') &&
+    singleSongResult.songs[0].lineCount >= 32,
+    'Paroles 1 vs 2',
+    'Génération chanson unique standard (format Suno 32-48 vers)',
+    `Titre: ${singleSongResult.songs[0].title}`
+  );
+
+  // 8.2 Détection et Génération 2 Chansons Distinctes
+  const doubleSongResult = generateHouseStyleSongs({
+    recipient: 'Marie',
+    occasion: 'Anniversaire',
+    wantsMulti: true,
+    recipient2: 'Joseph',
+    occasion2: 'Hommage',
+    memories: ['Le marché de Bouaké', 'La maison familiale'],
+  });
+  const hasDivider = doubleSongResult.output.includes('==================================================');
+  const hasChanson1Header = doubleSongResult.output.includes('=== CHANSON 1 / 2 :');
+  const hasChanson2Header = doubleSongResult.output.includes('=== CHANSON 2 / 2 :');
+  assert(
+    doubleSongResult.isMulti === true &&
+    doubleSongResult.songs.length === 2 &&
+    hasDivider &&
+    hasChanson1Header &&
+    hasChanson2Header,
+    'Paroles 1 vs 2',
+    'Format double chanson === CHANSON 1 / 2 === et === CHANSON 2 / 2 ===',
+    `Chanson 1: ${doubleSongResult.songs[0].title} | Chanson 2: ${doubleSongResult.songs[1].title}`
+  );
+
+  // 8.3 Extraction Brief avec Détection Multi-Destinataires
+  const multiThread = [
+    { id: '1', inbound: true, body: 'Bonjour, je veux deux chansons pour mes parents : une pour mon père Joseph et une pour ma mère Marie.', createdAt: '2026-11-12T14:00:00Z' },
+  ];
+  const multiBrief = extractActiveOrderScope(multiThread as any, 'Client');
+  assert(
+    multiBrief.wantsMulti === true &&
+    (multiBrief.recipientName.includes('Joseph') || multiBrief.recipientName2?.includes('Marie')),
+    'Paroles 1 vs 2',
+    'Extraction brief avec détection double commande et 2 prénoms',
+    `wantsMulti: ${multiBrief.wantsMulti}, P1: ${multiBrief.recipientName}, P2: ${multiBrief.recipientName2}`
+  );
+
+  // --------------------------------------------------------------------------
+  // TEST 9 : Endpoints Médias & Profils WhatsApp WAHA
+  // --------------------------------------------------------------------------
+  console.log('\n📱 [TEST 9/10] Fonctions Médias & Profils WhatsApp WAHA...');
+
+  assert(
+    typeof sendWahaVoiceUrl === 'function' && typeof sendWahaVideoMessage === 'function',
+    'WAHA Médias',
+    'Disponibilité des méthodes sendWahaVoiceUrl et sendWahaVideoMessage',
+    'Méthodes certifiées'
+  );
+
+  const contactProfile = await fetchWahaContact('22656240533@c.us', 'Test');
+  assert(
+    contactProfile !== null && (contactProfile.pushname || contactProfile.name) !== undefined,
+    'WAHA Profils',
+    'Extraction pushname et nom de contact WhatsApp via /api/contacts',
+    `Pushname: ${contactProfile?.pushname || contactProfile?.name}`
+  );
+
+  const picResult = await fetchWahaProfilePicture('22656240533@c.us', 'Test');
+  assert(
+    picResult === null || typeof picResult === 'string',
+    'WAHA Profils',
+    'Interrogation photo de profil via /api/contacts/profile-picture (URL ou null de confidentialité)',
+    picResult ? `Photo trouvée: ${picResult.slice(0, 45)}...` : 'Photo restreinte par confidentialité'
+  );
+
+  // --------------------------------------------------------------------------
+  // TEST 10 : Configuration Progressive Web App (PWA)
+  // --------------------------------------------------------------------------
+  console.log('\n📲 [TEST 10/10] Certification Progressive Web App (PWA)...');
+
+  const manifestPath = path.resolve('/root/projets/velaris/public/manifest.json');
+  const swPath = path.resolve('/root/projets/velaris/public/sw.js');
+  const htmlPath = path.resolve('/root/projets/velaris/index.html');
+
+  const manifestExists = fs.existsSync(manifestPath);
+  let manifestValid = false;
+  if (manifestExists) {
+    const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    manifestValid = raw.display === 'standalone' && raw.start_url === '/#chat' && Array.isArray(raw.icons);
+  }
+  assert(manifestExists && manifestValid, 'PWA Manifest', 'Fichier public/manifest.json valide (standalone, /#chat, icônes)', manifestExists ? 'Manifest OK' : 'Fichier absent');
+
+  const swExists = fs.existsSync(swPath);
+  let swValid = false;
+  if (swExists) {
+    const swContent = fs.readFileSync(swPath, 'utf8');
+    swValid = swContent.includes('install') && swContent.includes('fetch');
+  }
+  assert(swExists && swValid, 'PWA Service Worker', 'Service worker public/sw.js actif avec cache-first/network-first', swExists ? 'Service Worker OK' : 'Fichier absent');
+
+  const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+  const hasManifestLink = htmlContent.includes('rel="manifest"');
+  const hasAppleMeta = htmlContent.includes('apple-mobile-web-app-capable');
+  assert(hasManifestLink && hasAppleMeta, 'PWA HTML Shell', 'Balises meta Apple & lien manifeste dans index.html', 'Balises vérifiées');
 
   // --------------------------------------------------------------------------
   // RAPPORT FINAL
