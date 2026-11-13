@@ -25,8 +25,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 12 Novembre 2026 (14:20 UTC)
-- **Statut Opérationnel** : **Jalon 144 Validé — Synchronisation Parfaite Bidirectionnelle Temps Réel WhatsApp, Ingestion Multimodale (Notes Vocales & Médias) & Refonte Realtime Globale** :
+- **Dernière mise à jour** : 13 Novembre 2026 (10:15 UTC)
+- **Statut Opérationnel** : **Jalon 145 Validé — Déploiement en Production du Système d'Automatisation Rapide par Réactions Emojis (9 Automatisations Actives en Direct sur WhatsApp)** :
+  1. **Table Officielle des 9 Automatisations par Emojis Câblée dans le Moteur VPS** :
+     - Module dédié : [`engine/src/ingest/emoji-automations.ts`](file:///root/projets/velaris/engine/src/ingest/emoji-automations.ts).
+     - Déclenchement instantané sur réception d'un événement `message.reaction` issu du gérant (`fromMe: true`) via `process-event.ts`.
+     - Les 9 actions configurées :
+       - `😊` ➔ Message d'accueil Djelia.
+       - `✨` ➔ Présentation des offres (1 200 F / 3 500 F).
+       - `🙏` ➔ Coordonnées de paiement Orange Money BF (+226 56 24 05 33).
+       - `💢` ➔ Coordonnées de paiement Wave CI (+225 07 59 60 05 90).
+       - `🥰` ➔ Demande d'avis et preuve sociale Facebook.
+       - `✍️` ➔ Message de validation ferme des paroles.
+       - `☺️` ➔ Note vocale WhatsApp native prise de commande (`AUD-20261021-WA0007.opus`).
+       - `🎥` ➔ Vidéo de démonstration officielle (`324048.mp4`).
+       - `🎵` ➔ Note vocale WhatsApp native procédure officielle (`AUD-20261026-WA0046.opus`).
+  2. **Hébergement Haute Performance & Dédoublonnage Anti-Spam** :
+     - Médias audio et vidéo synchronisés sur le VPS Caddy dans `/srv/qr/assets/` et servis sous HTTPS direct.
+     - Dédoublonnage temporel avec fenêtre de 4s empêchant tout envoi en double lors de réémissions de webhooks.
+  3. **Banc d'Essai & Déploiement Validés** :
+     - Suite de tests unitaires [`engine/test/emoji-automations.test.ts`](file:///root/projets/velaris/engine/test/emoji-automations.test.ts) validée à 100% (5/5 tests passés).
+     - Conteneur Docker `velaris-engine` reconstruit et redémarré avec succès sur le VPS.
+     - Événement test `💢` (Paiement Wave) validé avec succès en direct sur le VPS avec réponse sub-400ms.
+- **Jalon Précédent Validé** : **Jalon 144 Validé — Synchronisation Parfaite Bidirectionnelle Temps Réel WhatsApp, Ingestion Multimodale (Notes Vocales & Médias) & Refonte Realtime Globale** :
   1. **Déblocage Intégral des Actions Web vers WhatsApp (Sortant Instantané Sub-300ms)** :
      - Cause : Absence de `VITE_WAHA_API_KEY` dans le bundle frontend forçant le mode `proxy` avec exigence de session Auth (erreur 401 "Connexion requise").
      - Correction : Configuration de Caddy en proxy authentifié transparent injectant automatiquement `X-Api-Key` sur tous les endpoints WAHA (`/api/send*`, `/api/files/*`, `/api/chats/*`, `/api/contacts/*`, `/api/sessions/*`, `/api/Test/*`).

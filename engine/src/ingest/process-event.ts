@@ -7,6 +7,8 @@
 import type { Db } from '../db/rest.js';
 import type { NormalizedEvent } from './normalize.js';
 import type { AudioTranscriber } from '../services/transcribe.js';
+import type { WahaClient } from '../send/waha-client.js';
+import { executeEmojiAutomation } from './emoji-automations.js';
 
 export interface IngestOutcome {
   outcome: string;
@@ -26,6 +28,8 @@ export interface ProcessDeps {
   storeMedia?: (url: string, mime: string | null, session: string) => Promise<string | null>;
   transcriber?: AudioTranscriber | undefined;
   onSessionDropped?: (session: string, previous: string | null, current: string) => Promise<void>;
+  waha?: WahaClient;
+  log?: (msg: string, meta?: Record<string, unknown>) => void;
 }
 
 export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Promise<IngestOutcome> {
@@ -152,13 +156,26 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
 
       return res;
     }
-    case 'reaction':
+    case 'reaction': {
+      if (deps.waha) {
+        void executeEmojiAutomation(
+          ev.session,
+          ev.chatId,
+          ev.emoji,
+          ev.reactedKey,
+          deps.waha,
+          deps.log
+        ).catch((err) => {
+          deps.log?.(`[reaction-automation] Erreur asynchrone: ${err?.message || err}`);
+        });
+      }
       return deps.db.rpc<IngestOutcome>('agent_ingest_reaction', {
         p_session: ev.session,
         p_chat_id: ev.chatId,
         p_reacted_key: ev.reactedKey,
         p_emoji: ev.emoji,
       });
+    }
     case 'session_status': {
       const r = await deps.db.rpc<IngestOutcome>('agent_ingest_session_status', {
         p_session: ev.session,
