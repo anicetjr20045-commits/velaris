@@ -46,10 +46,12 @@ export interface WahaSendTextResponse {
 }
 
 /**
- * Nom de session WAHA isolé par studio (multi-tenant) ; 'Test' en démo
+ * Nom de session WAHA : 'Test' en production active, ou session personnalisée si définie
  */
-export function wahaSessionNameFor(userId?: string | null): string {
-  return userId ? `studio_${userId.slice(0, 8)}` : WAHA_CONFIG.defaultSession;
+export function wahaSessionNameFor(_userId?: string | null): string {
+  const custom = typeof window !== 'undefined' ? localStorage.getItem('waha_session') : null;
+  if (custom) return custom;
+  return WAHA_CONFIG.defaultSession || 'Test';
 }
 
 /**
@@ -345,6 +347,13 @@ async function postSend(path: string, body: Record<string, unknown>): Promise<Wa
         const res = await wahaFetch(path, { method: 'POST', body: JSON.stringify(body) }, 30000);
         const data = await res.json().catch(() => ({}));
         if (res.ok) return { success: true, messageId: extractMessageId(data) };
+        // Fallback session to 'Test' if studio session is unprovisioned
+        if (res.status === 404 && body.session !== 'Test') {
+          const fallbackBody = { ...body, session: 'Test' };
+          const fallbackRes = await wahaFetch(path, { method: 'POST', body: JSON.stringify(fallbackBody) }, 30000);
+          const fallbackData = await fallbackRes.json().catch(() => ({}));
+          if (fallbackRes.ok) return { success: true, messageId: extractMessageId(fallbackData) };
+        }
         // 429 / 502 / 503 : le message n'a pas été accepté, on peut retenter sans doublon
         if (RETRYABLE.has(res.status) && attempt < 2) {
           await new Promise(r => setTimeout(r, 800 * 2 ** attempt + Math.random() * 400));
@@ -431,6 +440,54 @@ export async function sendWahaFileMessage(
 }
 
 /**
+ * Envoie une note vocale native WhatsApp (PTT) à partir d'une URL hébergée (ex: Supabase Storage).
+ * Utilise POST /api/sendVoice avec audio/ogg; codecs=opus pour afficher une onde sonore verte interactive.
+ */
+export async function sendWahaVoiceUrl(
+  chatId: string,
+  url: string,
+  sessionName: string = WAHA_CONFIG.defaultSession
+): Promise<WahaSendTextResponse> {
+  const session = sessionName || WAHA_CONFIG.defaultSession;
+  const filename = url.split('/').pop() || 'voice.ogg';
+  return postSend('/api/sendVoice', {
+    session,
+    chatId: toChatId(chatId),
+    file: {
+      url,
+      mimetype: 'audio/ogg; codecs=opus',
+      filename,
+    },
+  });
+}
+
+/**
+ * Envoie un message vidéo WhatsApp à partir d'une URL hébergée via POST /api/sendVideo.
+ * Intègre nativement la vidéo dans le lecteur de médias WhatsApp.
+ */
+export async function sendWahaVideoMessage(
+  chatId: string,
+  url: string,
+  sessionName: string = WAHA_CONFIG.defaultSession,
+  options?: { caption?: string; filename?: string }
+): Promise<WahaSendTextResponse> {
+  const session = sessionName || WAHA_CONFIG.defaultSession;
+  const payload: Record<string, unknown> = {
+    session,
+    chatId: toChatId(chatId),
+    file: {
+      url,
+      mimetype: 'video/mp4',
+      filename: options?.filename || 'video-demo.mp4',
+    },
+  };
+  if (options?.caption?.trim()) {
+    payload.caption = options.caption.trim();
+  }
+  return postSend('/api/sendVideo', payload);
+}
+
+/**
  * Marque la discussion comme lue côté WhatsApp (coches bleues chez le client)
  */
 export async function markWahaChatSeen(chatId: string, sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
@@ -512,6 +569,71 @@ export async function fetchWahaMessageAcks(
     return acks;
   } catch {
     return {};
+  }
+}
+
+/**
+ * Récupère les informations réelles d'un contact WhatsApp (pushname, name, number) depuis WAHA.
+ */
+export async function fetchWahaContact(
+  chatId: string,
+  sessionName: string = WAHA_CONFIG.defaultSession
+): Promise<{ pushname?: string; name?: string; number?: string } | null> {
+  const session = sessionName || WAHA_CONFIG.defaultSession || 'Test';
+  const targetId = encodeURIComponent(toChatId(chatId));
+  try {
+    const res = await wahaFetch(`/api/contacts?contactId=${targetId}&session=${encodeURIComponent(session)}`, {}, 8000);
+    if (!res.ok) {
+      if (session !== 'Test') {
+        const retry = await wahaFetch(`/api/contacts?contactId=${targetId}&session=Test`, {}, 8000);
+        if (retry.ok) {
+          const data = await retry.json();
+          return {
+            pushname: data?.pushname || data?.notifyName || undefined,
+            name: data?.name || undefined,
+            number: data?.number || undefined,
+          };
+        }
+      }
+      return null;
+    }
+    const data = await res.json();
+    return {
+      pushname: data?.pushname || data?.notifyName || undefined,
+      name: data?.name || undefined,
+      number: data?.number || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Récupère l'URL de la photo de profil d'un contact WhatsApp via WAHA.
+ * Retourne null si le contact n'a pas de photo ou la restreint.
+ */
+export async function fetchWahaProfilePicture(
+  chatId: string,
+  sessionName: string = WAHA_CONFIG.defaultSession
+): Promise<string | null> {
+  const session = sessionName || WAHA_CONFIG.defaultSession || 'Test';
+  const targetId = encodeURIComponent(toChatId(chatId));
+  try {
+    const res = await wahaFetch(`/api/contacts/profile-picture?contactId=${targetId}&session=${encodeURIComponent(session)}`, {}, 8000);
+    if (!res.ok) {
+      if (session !== 'Test') {
+        const retry = await wahaFetch(`/api/contacts/profile-picture?contactId=${targetId}&session=Test`, {}, 8000);
+        if (retry.ok) {
+          const data = await retry.json();
+          return data?.profilePictureURL || null;
+        }
+      }
+      return null;
+    }
+    const data = await res.json();
+    return data?.profilePictureURL || null;
+  } catch {
+    return null;
   }
 }
 

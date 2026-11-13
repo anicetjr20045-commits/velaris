@@ -8,6 +8,8 @@ import {
   Check,
   CheckCheck,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   Download,
   ExternalLink,
@@ -52,11 +54,15 @@ import {
 const EMPTY_CONVERSATIONS: ConversationItem[] = [];
 import {
   WAHA_CONFIG,
+  fetchWahaContact,
+  fetchWahaProfilePicture,
   fetchWahaMessageAcks,
   markWahaChatSeen,
   setWahaChatArchived,
   sendWahaTextMessage,
   sendWahaVoiceMessage,
+  sendWahaVoiceUrl,
+  sendWahaVideoMessage,
   sendWahaFileMessage,
   wahaSessionNameFor,
   type WahaAck,
@@ -75,7 +81,7 @@ import {
   updateConversationReadStatus
 } from '../services/supabase';
 import { applyReadState, setConversationUnread, setConversationArchived, useReadState } from '../services/readState';
-import { generateHouseStyleSong } from '../services/lyricsCorpus';
+import { generateHouseStyleSongs } from '../services/lyricsCorpus';
 import { WaveformPlayer } from './WaveformPlayer';
 import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 
@@ -104,16 +110,90 @@ const stampOf = (d: Date) =>
 const dayOf = (createdAt: string) => createdAt.replace(/,?\s*\d{1,2}:\d{2}$/, '').trim();
 const timeOf = (createdAt: string) => createdAt.match(/\d{1,2}:\d{2}$/)?.[0] ?? createdAt;
 
-const Monogram: FC<{ name: string; unread?: boolean; size?: 'sm' | 'md' }> = ({ name, unread, size = 'md' }) => (
-  <span
-    className={`relative flex shrink-0 items-center justify-center rounded-full border font-heading font-semibold tracking-tight ${
-      size === 'sm' ? 'h-9 w-9 text-[12.5px]' : 'h-10 w-10 text-[13px]'
-    } ${unread ? 'border-[#E5B54F]/50 bg-[#E5B54F]/[0.08] text-[#F1DDB4]' : 'border-white/[0.12] bg-white/[0.03] text-neutral-300'}`}
-  >
-    {initials(name)}
-    {unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0B0C10] bg-emerald-400" />}
-  </span>
-);
+interface ContactAvatarProps {
+  name: string;
+  photoUrl?: string | null;
+  unread?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const ContactAvatar: FC<ContactAvatarProps> = ({ name, photoUrl, unread, size = 'md' }) => {
+  const [imgError, setImgError] = useState(false);
+  const sizeClasses = {
+    sm: 'h-9 w-9 text-[12.5px]',
+    md: 'h-10 w-10 text-[13px]',
+    lg: 'h-12 w-12 text-[14px]',
+  }[size];
+
+  return (
+    <span
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border font-heading font-semibold tracking-tight ${sizeClasses} ${
+        unread ? 'border-[#E5B54F]/50 bg-[#E5B54F]/[0.08] text-[#F1DDB4]' : 'border-white/[0.12] bg-white/[0.03] text-neutral-300'
+      }`}
+    >
+      {photoUrl && !imgError ? (
+        <img
+          src={photoUrl}
+          alt={name}
+          onError={() => setImgError(true)}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        initials(name)
+      )}
+      {unread && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#0B0C10] bg-emerald-400" />}
+    </span>
+  );
+};
+
+interface VoiceTranscriptionAccordionProps {
+  transcript: string;
+  inbound?: boolean;
+}
+
+const VoiceTranscriptionAccordion: FC<VoiceTranscriptionAccordionProps> = ({ transcript, inbound }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const text = transcript.trim();
+  if (!text) return null;
+
+  const words = text.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  const preview = words.slice(0, 8).join(' ') + (words.length > 8 ? '…' : '');
+
+  return (
+    <div className={`mt-1.5 overflow-hidden rounded-lg border transition-all duration-200 ${
+      inbound 
+        ? 'border-white/[0.08] bg-black/20 text-neutral-300' 
+        : 'border-black/10 bg-black/[0.03] text-neutral-800'
+    }`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between px-2.5 py-1.5 text-left text-[11px] font-medium transition-colors hover:bg-white/[0.04] cursor-pointer"
+      >
+        <span className="flex items-center gap-1.5 truncate">
+          <span className="text-[10px] uppercase tracking-wider opacity-70">
+            {isOpen ? 'Transcription vocale' : preview}
+          </span>
+          <span className="shrink-0 text-[9.5px] tabular-nums opacity-50">
+            ({wordCount} {wordCount > 1 ? 'mots' : 'mot'})
+          </span>
+        </span>
+        <span className="ml-2 shrink-0 opacity-70">
+          {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </span>
+      </button>
+      {isOpen && (
+        <div className={`border-t px-2.5 py-2 text-xs leading-relaxed select-text ${
+          inbound ? 'border-white/[0.06] text-neutral-200' : 'border-black/10 text-neutral-700'
+        }`}>
+          {text}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Accusés de lecture WhatsApp                                        */
@@ -199,19 +279,28 @@ const PRIMARY_SHORTCUTS: QuickShortcut[] = [
     id: 'procedure_voice',
     label: 'Vocal procédure',
     icon: Mic,
-    text: "https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3",
-    mediaUrl: 'https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/procedure-vocal.mp3',
+    text: "https://waha.velarisagent.life/qr/assets/vocal_procedure_soeur.opus",
+    mediaUrl: 'https://waha.velarisagent.life/qr/assets/vocal_procedure_soeur.opus',
     mediaType: 'audio',
-    mediaFilename: 'procedure-vocal.mp3',
+    mediaFilename: 'vocal_procedure_soeur.opus',
+  },
+  {
+    id: 'order_voice',
+    label: 'Vocal commande',
+    icon: Mic,
+    text: "https://waha.velarisagent.life/qr/assets/vocal_commande_soeur.opus",
+    mediaUrl: 'https://waha.velarisagent.life/qr/assets/vocal_commande_soeur.opus',
+    mediaType: 'audio',
+    mediaFilename: 'vocal_commande_soeur.opus',
   },
   {
     id: 'video_demo',
     label: 'Exemple vidéo',
     icon: Video,
-    text: "https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4",
-    mediaUrl: 'https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4',
+    text: "https://waha.velarisagent.life/qr/assets/324048.mp4",
+    mediaUrl: 'https://waha.velarisagent.life/qr/assets/324048.mp4',
     mediaType: 'video',
-    mediaFilename: 'video-demo.mp4',
+    mediaFilename: '324048.mp4',
   },
   {
     id: 'brief',
@@ -262,13 +351,13 @@ const MORE_SHORTCUTS: QuickShortcut[] = [
     id: 'validation_texte',
     label: 'Avis & Validation définitive texte (1er envoi)',
     category: 'Validation',
-    text: "Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée 🙏",
+    text: "Merci de me donner votre avis sur le texte. Aucune modification ne pourra être faite une fois la chanson validée.",
   },
   {
     id: 'validation_texte_revision',
     label: 'Avis texte modifié (retouche)',
     category: 'Validation',
-    text: "Qu'en pensez-vous ? 🙏",
+    text: "Qu'en pensez-vous ?",
   },
   {
     id: 'delai_20m',
@@ -315,6 +404,9 @@ export interface ActiveOrderScope {
   recipientName: string;
   memories: string[];
   isRepeatCustomer: boolean;
+  wantsMulti?: boolean;
+  recipientName2?: string;
+  detectedOccasion2?: string;
 }
 
 export function extractActiveOrderScope(thread: ThreadMessage[], clientName: string): ActiveOrderScope {
@@ -439,6 +531,32 @@ export function extractActiveOrderScope(thread: ThreadMessage[], clientName: str
     }
   }
 
+  // Détection 1 vs 2 chansons / double commande (multi-destinataires)
+  const wantsMultiPattern = /(les\s+deux|les\s+2|deux\s+textes|deux\s+chansons|tous\s+les\s+textes|deux\s+commandes|deux\s+versions|double\s+commande|2\s+chansons|2\s+textes|chacun\s+sa\s+chanson|chacune\s+sa\s+chanson)/i;
+  let wantsMulti = wantsMultiPattern.test(allInboundText);
+
+  // Recherche d'un second prénom explicite
+  let recipientName2 = '';
+  let detectedOccasion2 = detectedOccasion;
+  const multiTargetMatch = allInboundText.match(/(?:et\s+une\s+pour|et\s+pour|puis\s+pour)\s+(?:mon|ma|son|sa)?\s*(?:femme|mari|mère|mere|maman|père|pere|papa|fille|fils|frère|frere|soeur|sœur|ami|amie|collègue|collegue)?\s*([a-zà-ÿ-]{2,18})/i);
+  const deuxPrenomsMatch = allInboundText.match(/\bpour\s+([a-zà-ÿ-]{2,18})\s+et\s+(?:pour\s+)?([a-zà-ÿ-]{2,18})/i);
+
+  if (multiTargetMatch && testNameCandidate(multiTargetMatch[1])) {
+    const candidate2 = testNameCandidate(multiTargetMatch[1]);
+    if (candidate2 && candidate2.toLowerCase() !== recipientName.toLowerCase()) {
+      recipientName2 = candidate2;
+      wantsMulti = true;
+    }
+  } else if (deuxPrenomsMatch) {
+    const c1 = testNameCandidate(deuxPrenomsMatch[1]);
+    const c2 = testNameCandidate(deuxPrenomsMatch[2]);
+    if (c1 && c2 && c1.toLowerCase() !== c2.toLowerCase()) {
+      if (!recipientName) recipientName = c1;
+      recipientName2 = c2;
+      wantsMulti = true;
+    }
+  }
+
   return {
     activeMessages,
     allInboundText,
@@ -446,6 +564,9 @@ export function extractActiveOrderScope(thread: ThreadMessage[], clientName: str
     recipientName: recipientName || (clientName.startsWith('+') ? 'Destinataire' : clientName.split(' ')[0]),
     memories: memories.slice(0, 3),
     isRepeatCustomer: hasPastDelivery,
+    wantsMulti,
+    recipientName2: recipientName2 || undefined,
+    detectedOccasion2,
   };
 }
 
@@ -580,7 +701,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Validation du texte par le client',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Super, merci pour votre validation ! Vous pouvez donc passer au paiement +226 05 77 73 08 Wendyam Anicet junior Sekongo (Wave ou Orange Money) svp une capture pour vérifier le paiement 🙏`,
+      recommendedReply: `Super, merci pour votre validation ! Vous pouvez donc passer au paiement +226 05 77 73 08 Wendyam Anicet junior Sekongo (Wave ou Orange Money) svp une capture pour vérifier le paiement.`,
       actionKind: 'cash',
     };
   }
@@ -597,7 +718,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Choix de formule par le client',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis 🙏`,
+      recommendedReply: `Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis.`,
       actionKind: 'lyrics',
     };
   }
@@ -617,7 +738,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Procédure validée par le client',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous 😊`,
+      recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous.`,
       actionKind: 'reply',
     };
   }
@@ -671,7 +792,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
         detectedIntent: 'Demande de moyen de paiement avant texte',
         detectedOccasion,
         recipientName,
-        recommendedReply: `Le paiement se fait par Wave ou Orange Money (+226 05 77 73 08), mais vous ne réglez qu'après avoir validé le texte de votre chanson 😊. Pour commencer, c'est pour quelle occasion ou pour qui ?`,
+        recommendedReply: `Le paiement se fait par Wave ou Orange Money (+226 05 77 73 08), mais vous ne réglez qu'après avoir validé le texte de votre chanson. Pour commencer, c'est pour quelle occasion ou pour qui ?`,
         actionKind: 'reply',
       };
     }
@@ -683,7 +804,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande de tarifs en début de prise de commande',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F 😊. C'est pour quelle occasion ou pour qui ?`,
+      recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. C'est pour quelle occasion ou pour qui ?`,
       actionKind: 'reply',
     };
   }
@@ -697,7 +818,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande d\'écoute ou de démonstration',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Voici un extrait pour vous donner une idée : https://wueqerxytasbcebopjaf.supabase.co/storage/v1/object/public/audio-assets/video-demo.mp4\nDites-moi ce que vous en pensez !`,
+      recommendedReply: `Voici un extrait pour vous donner une idée : https://dnwlqgsftauqsyjwhoza.supabase.co/storage/v1/object/public/product-files/assets/montage_sample.mp4\nDites-moi ce que vous en pensez !`,
       actionKind: 'reply',
     };
   }
@@ -780,7 +901,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
         detectedIntent: 'Procédure validée - Présentation des offres',
         detectedOccasion,
         recipientName,
-        recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous 😊`,
+        recommendedReply: `Nous faisons la chanson à 1 200 F (texte seul). On a aussi un autre modèle vidéo avec photos à 3 000 F. Tout dépend de vous.`,
         actionKind: 'reply',
       };
     }
@@ -791,7 +912,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: `Prêt pour l'écriture pour ${recipientName} (${detectedOccasion})`,
       detectedOccasion,
       recipientName,
-      recommendedReply: `Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis 🙏`,
+      recommendedReply: `Parfait, notre studio prépare votre texte tout de suite ! Je vous l'envoie dès qu'il est prêt pour recueillir votre avis.`,
       actionKind: 'lyrics',
     };
   }
@@ -1158,6 +1279,18 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   const [cashModalOpen, setCashModalOpen] = useState(false);
   const [isCashing, setIsCashing] = useState(false);
   const [moreShortcutsOpen, setMoreShortcutsOpen] = useState(false);
+  const [profileMap, setProfileMap] = useState<Record<string, { pushname?: string; photoUrl?: string | null }>>({});
+
+  const getDisplayName = (conv: ConversationItem | null) => {
+    if (!conv) return '';
+    const cached = profileMap[conv.phone];
+    if (cached?.pushname) {
+      if (!conv.name || conv.name.includes('Client WhatsApp') || conv.name.startsWith('+')) {
+        return cached.pushname;
+      }
+    }
+    return conv.name;
+  };
 
   // Super Cockpit & Temps Réel Sub-50ms
   const [instantStreamedMessages, setInstantStreamedMessages] = useState<ThreadMessage[]>([]);
@@ -1288,7 +1421,75 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     };
   };
 
-  // Canal Supabase Realtime GLOBAL pour tout le studio (zéro délai, synchro instantanée de toutes les discussions)
+  const activeIdRef = useRef(activeId);
+  const selectedConvRef = useRef(selectedConv);
+  const sessionNameRef = useRef(sessionName);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+    selectedConvRef.current = selectedConv;
+    sessionNameRef.current = sessionName;
+  }, [activeId, selectedConv, sessionName]);
+
+  // Synchronisation du profil WhatsApp (pushname + photo de profil)
+  useEffect(() => {
+    if (!selectedConv?.phone) return;
+    const currentPhone = selectedConv.phone;
+    if (profileMap[currentPhone]) return;
+
+    let cancelled = false;
+    const loadProfile = async () => {
+      try {
+        const [contact, photoUrl] = await Promise.all([
+          fetchWahaContact(currentPhone, sessionName),
+          fetchWahaProfilePicture(currentPhone, sessionName),
+        ]);
+        if (!cancelled && (contact || photoUrl)) {
+          setProfileMap((prev) => ({
+            ...prev,
+            [currentPhone]: {
+              pushname: contact?.pushname || undefined,
+              photoUrl: photoUrl || undefined,
+            },
+          }));
+        }
+      } catch {
+        // Ignorer silencieusement
+      }
+    };
+
+    loadProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedConv?.phone, sessionName, profileMap]);
+
+  // Préchargement discret des profils pour la liste visible
+  useEffect(() => {
+    if (!filteredConversations || filteredConversations.length === 0) return;
+    const candidates = filteredConversations.slice(0, 8);
+    candidates.forEach((c) => {
+      if (!c.phone || profileMap[c.phone]) return;
+      fetchWahaContact(c.phone, sessionName).then((contact) => {
+        if (contact?.pushname) {
+          setProfileMap((prev) => ({
+            ...prev,
+            [c.phone]: { ...prev[c.phone], pushname: contact.pushname },
+          }));
+        }
+      }).catch(() => {});
+      fetchWahaProfilePicture(c.phone, sessionName).then((url) => {
+        if (url) {
+          setProfileMap((prev) => ({
+            ...prev,
+            [c.phone]: { ...prev[c.phone], photoUrl: url },
+          }));
+        }
+      }).catch(() => {});
+    });
+  }, [filteredConversations, sessionName]);
+
+  // Canal Supabase Realtime GLOBAL et STABLE (zéro reconnexion lors de la sélection de chat)
   useEffect(() => {
     const channel = supabase.channel(`studio-global-stream-${Date.now()}`)
       .on(
@@ -1302,16 +1503,17 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
           const m = payload.new as any;
           if (!m || !m.id) return;
           const msgConvId = m.conversation_id;
+          const currentActiveId = activeIdRef.current;
 
           // 1. Si ce message concerne la discussion actuellement affichée, l'injecter immédiatement dans le fil
-          if (msgConvId === activeId) {
+          if (msgConvId === currentActiveId) {
             const newMsg = mapRawMessageToThreadMessage(m);
             setInstantStreamedMessages((prev) => {
               if (prev.some((x) => x.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
-            if (m.direction === 'inbound' && selectedConv?.phone) {
-              markWahaChatSeen(selectedConv.phone, sessionName);
+            if (m.direction === 'inbound' && selectedConvRef.current?.phone) {
+              markWahaChatSeen(selectedConvRef.current.phone, sessionNameRef.current);
             }
           }
 
@@ -1331,7 +1533,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
             [msgConvId]: {
               preview: prefix + (textPreview.length > 70 ? textPreview.slice(0, 70) + '...' : textPreview),
               lastExchange: nowStr,
-              unread: msgConvId === activeId ? false : m.direction === 'inbound',
+              unread: msgConvId === currentActiveId ? false : m.direction === 'inbound',
               timestamp: Date.now(),
             },
           }));
@@ -1347,7 +1549,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
         (payload) => {
           const m = payload.new as any;
           if (!m || !m.id) return;
-          if (m.conversation_id === activeId) {
+          if (m.conversation_id === activeIdRef.current) {
             setInstantStreamedMessages((prev) =>
               prev.map((x) => (x.id === m.id ? { ...x, body: m.body || m.transcript || x.body } : x))
             );
@@ -1364,7 +1566,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
         (payload) => {
           const c = payload.new as any;
           if (!c || !c.id) return;
-          if (c.id === activeId) {
+          if (c.id === activeIdRef.current) {
             setAiPilotEnabled(!c.ai_paused && c.control_mode === 'ai');
           }
         }
@@ -1374,7 +1576,7 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeId, selectedConv?.phone, sessionName]);
+  }, []);
 
   const history: ThreadMessage[] = useMemo(() => {
     if (!selectedConv) return [];
@@ -1396,10 +1598,33 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     return [{ id: 'default-1', inbound: true, body: selectedConv.fullMessage || selectedConv.preview, createdAt: selectedConv.lastExchange }];
   }, [selectedConv, liveMessages, instantStreamedMessages]);
 
-  /* Un envoi local disparaît dès que Supabase le renvoie (même corps sortant) */
-  const pending = (outgoing[activeId] || []).filter(
-    o => o.voice || !history.some(h => !h.inbound && h.body === o.body)
-  );
+  /* Un envoi local disparaît dès que Supabase le renvoie ou qu'il est synchronisé */
+  const pending = (outgoing[activeId] || []).filter(o => {
+    // Si déjà dans l'historique par identifiant
+    if (o.waId && history.some(h => (h as any).waId === o.waId || h.id === o.waId)) {
+      return false;
+    }
+    // Si texte identique trouvé dans l'historique récent sortant
+    if (!o.voice && o.body && history.some(h => !h.inbound && (h.body === o.body || (o.mediaUrl && h.body === o.mediaUrl)))) {
+      return false;
+    }
+    // Pour les médias (labels 'Exemple vidéo', 'Vocal procédure', etc.) : si l'historique a reçu l'URL correspondante
+    if (o.mediaUrl && history.some(h => !h.inbound && (h.body === o.mediaUrl || h.mediaUrl === o.mediaUrl))) {
+      return false;
+    }
+    // Pour les vocaux sortants : disparaît si un vocal récent sortant est présent dans history ou s'il a été transmis
+    if (o.voice) {
+      const hasRecentOutboundVoice = history.some(h => !h.inbound && (h.voice || (h.body && isVoice(h.body))));
+      if (hasRecentOutboundVoice && o.receipt === 'sent') return false;
+    }
+    // Conserver en cas d'échec pour afficher l'erreur à l'opérateur
+    if (o.receipt === 'failed') return true;
+    // Purge de sécurité après 60s si confirmé envoyé
+    if (o.sentAt && Date.now() - o.sentAt > 60000 && o.receipt === 'sent') {
+      return false;
+    }
+    return true;
+  });
   const thread = [...history, ...pending];
 
   useEffect(() => {
@@ -1544,15 +1769,16 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     );
   };
 
-  const sendFileMedia = async (url: string, mimetype?: string, filename?: string) => {
+  const sendFileMedia = async (url: string, mimetype?: string, filename?: string, shortcutId?: string) => {
     if (!selectedConv || isSending) return;
     const conv = selectedConv;
     const localId = `media-${Date.now()}`;
-    const displayLabel = filename?.includes('video') ? 'Exemple vidéo' : filename?.includes('vocal') ? 'Vocal procédure' : 'Fichier';
+    const displayLabel = filename?.includes('video') ? 'Exemple vidéo' : (shortcutId === 'order_voice') ? 'Vocal commande' : (filename?.includes('vocal') || filename?.includes('voice') || shortcutId === 'procedure_voice') ? 'Vocal procédure' : 'Fichier';
     pushOutgoing(conv.id, {
       id: localId,
       inbound: false,
       body: displayLabel,
+      mediaUrl: url,
       createdAt: stampOf(new Date()),
       receipt: 'pending',
       sentAt: Date.now(),
@@ -1561,8 +1787,15 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     setSendFeedback(null);
 
     try {
-      // Envoi du fichier brut sans aucun titre ni légende
-      const res = await sendWahaFileMessage(conv.phone, url, sessionName, { mimetype, filename });
+      let res: { success: boolean; messageId?: string; error?: string };
+      if (shortcutId === 'procedure_voice' || shortcutId === 'order_voice' || (mimetype && mimetype.includes('audio'))) {
+        res = await sendWahaVoiceUrl(conv.phone, url, sessionName);
+      } else if (shortcutId === 'video_demo' || (mimetype && mimetype.includes('video'))) {
+        res = await sendWahaVideoMessage(conv.phone, url, sessionName, { filename });
+      } else {
+        res = await sendWahaFileMessage(conv.phone, url, sessionName, { mimetype, filename });
+      }
+
       patchOutgoing(conv.id, localId, { receipt: res.success ? 'sent' : 'failed', waId: res.messageId, sentAt: Date.now() });
       if (res.success) {
         recordOutboundMessage(conv.id, url);
@@ -1584,20 +1817,25 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
   };
 
   const handleShortcutClick = (shortcut: QuickShortcut, isShift: boolean) => {
+    let textToSend = shortcut.text;
+    if (shortcut.id === 'paiement_om' || shortcut.id === 'paiement_wave') {
+      textToSend = paymentInfo.formattedBubble || shortcut.text;
+    }
     if (isShift) {
-      insertSnippet(shortcut.text);
+      insertSnippet(textToSend);
       return;
     }
     if (shortcut.mediaUrl) {
-      // Envoi strict du fichier pur : AUCUN titre ni légende
+      // Envoi direct via WAHA avec protocole adapté (voice PTT ou vidéo native)
       sendFileMedia(
         shortcut.mediaUrl,
-        shortcut.mediaType === 'audio' ? 'audio/mpeg' : 'video/mp4',
-        shortcut.mediaFilename
+        shortcut.mediaType === 'audio' ? 'audio/ogg; codecs=opus' : 'video/mp4',
+        shortcut.mediaFilename,
+        shortcut.id
       );
       return;
     }
-    sendText(shortcut.text);
+    sendText(textToSend);
   };
 
   /* Insère le snippet au curseur ; Maj+clic l'envoie directement */
@@ -1710,19 +1948,25 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     const occ = orderScope.detectedOccasion || nextStep?.detectedOccasion || 'Anniversaire';
     const rawName = orderScope.recipientName || nextStep?.recipientName || (selectedConv.name.startsWith('+') ? 'Destinataire' : selectedConv.name.split(' ')[0]);
     const name = rawName || 'Destinataire';
-    const song = generateHouseStyleSong({
+
+    const result = generateHouseStyleSongs({
       recipient: name,
       occasion: occ,
       memories: orderScope.memories,
+      wantsMulti: orderScope.wantsMulti,
+      recipient2: orderScope.recipientName2,
+      occasion2: orderScope.detectedOccasion2,
     });
-    const formatted = `*${song.title}*\n\n${song.lyrics}`;
-    setReplyText(formatted);
+
+    setReplyText(result.output);
     if (composerRef.current) {
       composerRef.current.focus();
     }
     showFeedback({
       success: true,
-      message: `Texte généré pour ${name} (${occ}${orderScope.isRepeatCustomer ? ' - Nouvelle commande isolée' : ''}) ! Vous avez juste à relire et cliquer sur Envoyer.`,
+      message: result.isMulti
+        ? `Double chanson générée pour ${name} et ${orderScope.recipientName2 || 'Version 2'} (2 chansons distinctes) !`
+        : `Texte généré pour ${name} (${occ}${orderScope.isRepeatCustomer ? ' - Nouvelle commande isolée' : ''}) ! Vous avez juste à relire et cliquer sur Envoyer.`,
     });
   };
 
@@ -2000,11 +2244,11 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                       className="w-full text-left flex gap-3 px-3.5 py-3 cursor-pointer"
                     >
                       {isSelected && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-r bg-white" />}
-                      <Monogram name={conv.name} unread={conv.unread} />
+                      <ContactAvatar name={getDisplayName(conv)} photoUrl={profileMap[conv.phone]?.photoUrl} unread={conv.unread} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-1.5">
                           <span className={`truncate text-[13px] ${conv.unread ? 'font-semibold text-white' : 'font-medium text-neutral-200'}`}>
-                            {conv.name}
+                            {getDisplayName(conv)}
                           </span>
                           <span className={`font-mono text-[10.5px] shrink-0 ${conv.unread ? 'text-emerald-400 font-medium' : 'text-neutral-500'}`}>{conv.lastExchange}</span>
                         </div>
@@ -2072,10 +2316,15 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                   >
                     <ArrowLeft className="h-4 w-4" />
                   </button>
-                  <Monogram name={selectedConv.name} size="sm" />
+                  <ContactAvatar name={getDisplayName(selectedConv)} photoUrl={profileMap[selectedConv.phone]?.photoUrl} size="sm" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-white">{selectedConv.name}</span>
+                      <span className="truncate text-sm font-semibold text-white">{getDisplayName(selectedConv)}</span>
+                      {profileMap[selectedConv.phone]?.pushname && profileMap[selectedConv.phone]?.pushname !== selectedConv.name && (
+                        <span className="text-[11px] text-neutral-400 truncate">
+                          ({profileMap[selectedConv.phone]?.pushname})
+                        </span>
+                      )}
                       <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-white/[0.06] text-neutral-300 border border-white/[0.08] tracking-wider shrink-0">
                         {paymentInfo.code}
                       </span>
@@ -2161,9 +2410,10 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                                 tone={m.inbound ? 'dark' : 'light'}
                               />
                               {(m.transcript || (m.body && !/\.(m4a|mp3|ogg|wav)$/i.test(m.body))) && (
-                                <div className={`border-t pt-1.5 text-xs ${m.inbound ? 'border-white/[0.08] text-neutral-300' : 'border-black/10 text-neutral-700'}`}>
-                                  {m.transcript || stripVoice(m.body)}
-                                </div>
+                                <VoiceTranscriptionAccordion
+                                  transcript={m.transcript || stripVoice(m.body)}
+                                  inbound={m.inbound}
+                                />
                               )}
                             </div>
                           ) : isImage && m.mediaUrl ? (
@@ -2503,7 +2753,22 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
                         >
                           <span className="flex items-center gap-2">
                             <Mic className="h-3.5 w-3.5 text-neutral-300" />
-                            <span>Vocal de procédure (33s)</span>
+                            <span>Vocal de procédure (25s)</span>
+                          </span>
+                          <span className="text-[10px] font-mono text-neutral-500">Audio OGG</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const shortcut = PRIMARY_SHORTCUTS.find(s => s.id === 'order_voice');
+                            if (shortcut) handleShortcutClick(shortcut, false);
+                          }}
+                          className="h-10 px-3.5 rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-left text-xs font-medium text-white flex items-center justify-between transition-all cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Mic className="h-3.5 w-3.5 text-neutral-300" />
+                            <span>Vocal prise de commande (22s)</span>
                           </span>
                           <span className="text-[10px] font-mono text-neutral-500">Audio OGG</span>
                         </button>
