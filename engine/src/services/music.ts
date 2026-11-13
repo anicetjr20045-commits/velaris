@@ -62,18 +62,23 @@ export function parseLyricsHeader(raw: string): ParsedLyricsHeader {
     // Enlever crochets ou parenthèses extérieurs si présents : "[Style: ...]" ou "(Style: ...)"
     const unbracketed = trimmed.replace(/^[\[\(](.*)[\]\)]$/, '$1').trim();
 
-    // Détection des métadonnées (Style, Voix, Voice, Titre, Title)
+    // Détection des métadonnées (Style, Voix, Voice, Titre, Title) avec séparateurs (| , ; / • ou tiret entouré d'espaces)
     if (
       /^(?:style|voix|voice|titre|title)\s*[:=]/i.test(unbracketed) ||
-      /[|;,]\s*(?:voix|voice|style|titre|title)\s*[:=]/i.test(unbracketed)
+      /(?:[|;,\/•]|\s+-\s+)\s*(?:voix|voice|style|titre|title)\s*[:=]/i.test(unbracketed)
     ) {
-      const segments = unbracketed.split(/[|;,]/);
+      const segments = unbracketed.split(/[|;,\/•]|\s+-\s+/);
       for (const seg of segments) {
         const s = seg.trim();
         const sm = s.match(/^style\s*[:=]\s*(.+)$/i);
         const vm = s.match(/^(?:voix|voice)\s*[:=]\s*(.+)$/i);
         const tm = s.match(/^(?:titre|title)\s*[:=]\s*(.+)$/i);
-        if (sm && sm[1]) style = sm[1].trim();
+        if (sm && sm[1]) {
+          style = sm[1].trim();
+          // Nettoyer si le style se termine par une mention de voix (ex: "Afro-love doux (voix femme)")
+          const cleaned = style.replace(/\s*[\(\/\-]?\s*(?:voix|voice)\s*[:=]?\s*(?:femme|féminine|homme|masculin|masculine|duo|duet|mixte)\s*[\)]?$/i, '').trim();
+          if (cleaned.length > 0) style = cleaned;
+        }
         if (vm && vm[1]) voice = vm[1].trim();
         if (tm && tm[1]) title = tm[1].trim();
       }
@@ -263,16 +268,27 @@ export function formatLyricsForSuno(raw: string): string {
     },
   );
 
-  // 5. Numéros de téléphone internationaux (+226 56 24 05 33)
+  // 5. Numéros de téléphone internationaux (+226 ou +225...)
   text = replaceOutsideTags(
     text,
-    /\+226\s*(\d{2})\s*(\d{2})\s*(\d{2})\s*(\d{2})\b/g,
-    (_m, a: string, b: string, c: string, d: string) => {
-      return [a, b, c, d].map((p) => twoDigitsToFrench(p, true)).join(', ');
+    /\+(?:226|225)\s*(\d{2})\s*(\d{2})\s*(\d{2})\s*(\d{2})(?:\s*(\d{2}))?\b/g,
+    (_m, a: string, b: string, c: string, d: string, e?: string) => {
+      const parts = [a, b, c, d];
+      if (e) parts.push(e);
+      return parts.map((p) => twoDigitsToFrench(p, true)).join(', ');
     },
   );
 
-  // 6. Numéros de téléphone à 8 chiffres (56 24 05 33 ou 56240533)
+  // 6. Numéros de téléphone à 10 chiffres (Côte d'Ivoire ex: 07 08 09 10 11)
+  text = replaceOutsideTags(
+    text,
+    /\b(\d{2})\s*(\d{2})\s*(\d{2})\s*(\d{2})\s*(\d{2})\b/g,
+    (_m, a: string, b: string, c: string, d: string, e: string) => {
+      return [a, b, c, d, e].map((p) => twoDigitsToFrench(p, true)).join(', ');
+    },
+  );
+
+  // 7. Numéros de téléphone à 8 chiffres (56 24 05 33 ou 56240533)
   text = replaceOutsideTags(
     text,
     /\b(\d{2})\s*(\d{2})\s*(\d{2})\s*(\d{2})\b/g,
@@ -281,7 +297,7 @@ export function formatLyricsForSuno(raw: string): string {
     },
   );
 
-  // 7. Numéros à 4 chiffres (5506 -> cinquante-cinq, zéro six ; 2837 -> vingt-huit, trente-sept ; 0510 -> zéro cinq, dix)
+  // 8. Numéros à 4 chiffres (5506 -> cinquante-cinq, zéro six ; 2837 -> vingt-huit, trente-sept ; 0510 -> zéro cinq, dix)
   // Ne pas transformer les années précédées de prépositions temporelles (en 2024, depuis 1995)
   text = replaceOutsideTags(
     text,
