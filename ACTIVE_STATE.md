@@ -25,16 +25,38 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 13 Novembre 2026 (22:15 UTC)
-- **Statut Opérationnel** : **Studio Voice Cloner WhatsApp Opérationnel & Contrôle Humain Intégral Préservé** :
+- **Dernière mise à jour** : 13 Novembre 2026 (22:45 UTC)
+- **Statut Opérationnel** : **Livraison Musicale Différée 12-15 Min & Double Version Chantée Suno V6 Opérationnels en Production** :
   1. Conteneur `velaris-engine` redémarré avec succès en production sur le VPS (`162.35.113.220`).
-  2. `ENABLE_AI_AUTO_REPLY=false` configuré par défaut : l'IA ne répond à AUCUN client automatiquement, le gérant conserve 100% du contrôle commercial.
-  3. **Système de Brouillon Studio & Clonage Vocal Actif** :
-     - `/vocal` ou `/on` ➔ Active le mode studio dans la conversation brouillon / note à soi-même.
-     - `/stop` ou `/off` ➔ Désactive le mode studio, le brouillon redevient une conversation normale.
-     - `/vocal <texte>` ➔ Synthèse vocale one-shot directe sans armement préalable.
-     - En mode activé : tout message texte ou note vocale micro est immédiatement converti et renvoyé dans le brouillon sous forme de note vocale WhatsApp native (`audio/ogg; codecs=opus`) avec la voix de la sœur d'Anicet.
-     - Le gérant peut écouter la note vocale en privé, puis la transférer (Forward) en 1 seconde à n'importe quel client.
+  2. `ENABLE_AI_AUTO_REPLY=false` maintenu : l'IA ne répond à AUCUN client automatiquement, le gérant conserve 100% du contrôle.
+  3. **Double Version Chantée Suno V6 (Version 1 & Version 2)** :
+     - Kie.ai Suno V6 produit systématiquement 2 versions par génération (`sunoData[0]` et `sunoData[1]`).
+     - Le service extrait désormais les 2 flux audio et les livre tous les deux au client, honorant la promesse de la voix de procédure (*« on vous prépare deux versions chantées au choix »*).
+  4. **Délai Artisanal Résilient 12 à 15 Minutes (`outbound_messages.not_before`)** :
+     - La livraison est programmée avec un délai de 12 à 14.5 minutes (avec jitter réaliste) après le déclenchement initial par ⭐.
+     - L'ordonnancement est 100% durable en base PostgreSQL (`not_before` dans `agent_enqueue_outbox` et `agent_pending_outbox`), résistant aux redémarrages serveur/conteneur et isolant parfaitement les commandes concurrentes.
+     - Séquençage soigné : annonce texte à T, Version 1 à T + 4s, Version 2 à T + 9s.
+  5. **Système de Brouillon Studio & Clonage Vocal Actif** :
+     - `/vocal` ou `/on` ➔ Active le mode studio dans la conversation brouillon.
+     - `/stop` ou `/off` ➔ Désactive le mode studio.
+     - `/vocal <texte>` ➔ Synthèse vocale one-shot directe.
+
+- **Jalon 148 Validé — Double Version Chantée Suno V6 & Livraison Différée 12–15 Min par File PostgreSQL Déterministe (`not_before`, Isolation Multi-Générations & Zero-Leak Anti-Auto-Reply)** :
+  1. **Extraction Dual-Track Suno V6 (`pollKieSongStatus`)** :
+     - Interface `KiePollResponse` étendue avec `audioUrls: string[]`.
+     - Récupération systématique de tous les tracks disponibles dans `sunoData` (`sunoData[0]` et `sunoData[1]`).
+  2. **Planification Durable Crash-Proof en Base (`outbound_messages.not_before`)** :
+     - Utilisation native de `p_not_before` de PostgreSQL dans `agent_enqueue_outbox`.
+     - Même en cas de redémarrage complet du VPS ou du conteneur, aucun message n'est perdu ni envoyé prématurément : `agent_pending_outbox` filtre strictement avec `WHERE not_before <= now()`.
+     - Isolation étanche entre clients : chaque commande possède ses clés d'idempotence uniques (`song_delivery_text_*`, `song_delivery_audio_v1_*`, `song_delivery_audio_v2_*`), garantissant une concurrence sans faille pour plusieurs générations simultanées.
+  3. **Chorégraphie de Livraison Haute Fidélité Client** :
+     - **Annonce texte** (à T = 12-15 min) : annonce le titre, le style, et détaille que la 1ère note vocale correspond à la Version 1 et la 2ème à la Version 2.
+     - **Version 1** (à T + 4s) : note vocale WhatsApp PTT native avec légende *« Version 1 — « [Titre] » »*.
+     - **Version 2** (à T + 9s) : note vocale WhatsApp PTT native avec légende *« Version 2 — « [Titre] » »*.
+  4. **Validation Unitaire & Déploiement VPS** :
+     - Nouveaux tests unitaires complets dans [`engine/test/music-service.test.ts`](file:///root/projets/velaris/engine/test/music-service.test.ts) (10/10 pass) validant le dual-track, la planification temporelle et l'isolation multi-commandes concurrentes.
+     - 221 tests de la suite engine validés avec succès (0 échec).
+     - Déployé et validé sur le conteneur Docker `velaris-engine` du VPS `162.35.113.220`.
 
 - **Jalon 147 Validé — Système de Brouillon Studio WhatsApp & Clonage Vocal Déterministe Fish Audio (Voix Sœur Zero-Shot `s2.1-pro-free`, Mode Armé `/vocal`, Audio PTT Natif & Verrouillage Anti-Auto-Reply)** :
   1. **Moteur de Clonage Vocal Zéro Dépendance Externe (`VoiceClonerService`)** :
