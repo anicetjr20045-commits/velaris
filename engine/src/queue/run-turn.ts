@@ -440,7 +440,12 @@ async function handleMerchantReaction(
             m.text.length > 50 &&
             (/couplet|refrain|verse|chorus/i.test(m.text) || m.text.split('\n').length >= 3),
         );
-        if (candidate?.text) lyrics = candidate.text.trim();
+        if (candidate?.text) {
+          lyrics = candidate.text.trim();
+          if (!reactedId && (candidate as any).id) {
+            reactedId = String((candidate as any).id);
+          }
+        }
       }
 
       if (!lyrics) {
@@ -450,7 +455,9 @@ async function handleMerchantReaction(
 
       // 1. Ciblage intelligent de la commande (support multi-textes & multi-générations étanche)
       let targetOrderId: string | null = null;
-      const alreadyLinked = rraw.orders.find((o) => (o as any).lyrics_message_id === reactedId);
+      const alreadyLinked = reactedId
+        ? rraw.orders.find((o) => Boolean((o as any).lyrics_message_id) && (o as any).lyrics_message_id === reactedId)
+        : null;
       if (alreadyLinked) {
         targetOrderId = alreadyLinked.id;
       } else if (rfocusOrderId) {

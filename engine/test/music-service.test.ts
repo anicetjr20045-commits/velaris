@@ -38,12 +38,27 @@ Kinshasa la nuit`);
     assert.equal(r3.style, 'Authentique Rumba congolaise');
     assert.equal(r3.voice, 'duo');
 
-    // Cas 4 : Coupé-décalé avec voix homme
-    const r4 = parseLyricsHeader(`[Style: Coupé-décalé | Voix: Homme]
+    // Cas 4 : Coupé-décalé avec virgule
+    const r4 = parseLyricsHeader(`[Style: Coupé-décalé , Voix: Homme]
 Couplet 1
 On s'enjaille`);
     assert.equal(r4.style, 'Coupé-décalé');
     assert.equal(r4.voice, 'male');
+
+    // Cas 5 : Avec parenthèses
+    const r5 = parseLyricsHeader(`(Style: Dansant)
+(Voix: Féminine)
+Refrain
+Danse`);
+    assert.equal(r5.style, 'Dansant');
+    assert.equal(r5.voice, 'female');
+
+    // Cas 6 : Voix en premier puis style
+    const r6 = parseLyricsHeader(`[Voix: Duo | Style: Rumba congolaise]
+Couplet 1
+Amour`);
+    assert.equal(r6.style, 'Rumba congolaise');
+    assert.equal(r6.voice, 'duo');
   });
 
   it('twoDigitsToFrench et numberToFrenchWords convertissent fidèlement les chiffres', () => {

@@ -59,15 +59,15 @@ export function parseLyricsHeader(raw: string): ParsedLyricsHeader {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    // Enlever crochets extérieurs si présents : "[Style: ...]" -> "Style: ..."
-    const unbracketed = trimmed.replace(/^\[(.*)\]$/, '$1').trim();
+    // Enlever crochets ou parenthèses extérieurs si présents : "[Style: ...]" ou "(Style: ...)"
+    const unbracketed = trimmed.replace(/^[\[\(](.*)[\]\)]$/, '$1').trim();
 
     // Détection des métadonnées (Style, Voix, Voice, Titre, Title)
     if (
       /^(?:style|voix|voice|titre|title)\s*[:=]/i.test(unbracketed) ||
-      /\|\s*(?:voix|voice|style|titre|title)\s*[:=]/i.test(unbracketed)
+      /[|;,]\s*(?:voix|voice|style|titre|title)\s*[:=]/i.test(unbracketed)
     ) {
-      const segments = unbracketed.split(/[|;]/);
+      const segments = unbracketed.split(/[|;,]/);
       for (const seg of segments) {
         const s = seg.trim();
         const sm = s.match(/^style\s*[:=]\s*(.+)$/i);
@@ -605,7 +605,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
         const duration = pollRes.duration || 180;
         log('🎵 Kie generation SUCCEEDED!', { orderId, taskId, audioUrl, duration });
 
-        // A. Avancer la commande vers delivered
+        // A. Avancer la commande vers delivered (avec autorité marchande issue de la réaction ⭐)
         const currentOrders = await db.queryTable?.<Array<{ version: number; stage: string }>>(
           'orders',
           `id=eq.${orderId}&select=version,stage&limit=1`,
@@ -617,7 +617,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
             p_expected_version: curOrder.version,
             p_track: 'creative',
             p_event: 'delivery_sent',
-            p_actor: 'system',
+            p_actor: 'merchant',
             p_turn: null,
             p_data: { via: 'kie_music_completion', taskId, audioUrl },
             p_inferred: false,
@@ -641,6 +641,28 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
 
         const bodyHash = createHash('sha256').update(caption || '').digest('hex');
 
+        // 1. Message texte officiel de livraison
+        await db.rpc('agent_enqueue_outbox', {
+          p_user: userId,
+          p_conversation: conversationId,
+          p_order: orderId,
+          p_turn: null,
+          p_origin: 'delivery',
+          p_kind: 'text',
+          p_purpose: 'song',
+          p_is_relay: false,
+          p_session: sessionName,
+          p_chat_id: chatId,
+          p_body: caption,
+          p_media_path: null,
+          p_caption: null,
+          p_body_hash: bodyHash,
+          p_idempotency_key: `song_delivery_text_${orderId}_${taskId}`,
+          p_lock_token: 0,
+          p_status: 'pending',
+        }).catch((e) => log('failed to enqueue text delivery announcement', { error: (e as Error).message }));
+
+        // 2. Chanson audio livrée en note vocale native WhatsApp
         await db.rpc('agent_enqueue_outbox', {
           p_user: userId,
           p_conversation: conversationId,
