@@ -131,11 +131,44 @@ describe('OutboxSender', () => {
     assert.equal(humanDelayMs({ kind: 'text', body: 'x'.repeat(1000) }), 11_000);
     assert.equal(humanDelayMs({ kind: 'voice', body: null }), 1_500);
 
-    // Pause de réflexion (20s par défaut pour texte agent, direct pour gérant/relais)
+    // Pause de réflexion (20s par défaut pour texte agent, direct pour gérant/relais/livraison)
     assert.equal(readingPauseMs({ kind: 'text', origin: 'agent', purpose: 'chat' }), 20_000);
     assert.equal(readingPauseMs({ kind: 'text', origin: 'merchant_ui', purpose: 'chat' }), 300);
+    assert.equal(readingPauseMs({ kind: 'text', origin: 'delivery', purpose: 'song' }), 300);
     assert.equal(readingPauseMs({ kind: 'text', origin: 'agent', purpose: 'handoff_ack' }), 800);
     assert.equal(readingPauseMs({ kind: 'voice', origin: 'agent', purpose: 'procedure_voice' }), 1_500);
+    assert.equal(readingPauseMs({ kind: 'voice', origin: 'delivery', purpose: 'song' }), 300);
+  });
+
+  test('livraison de chanson (origin: delivery) : passe à travers le contrôle humain sans être annulée', async () => {
+    const h = harness({ controlMode: 'human' });
+    // Même si le gérant a pris la main (control_mode = human), la livraison de chanson programmée doit partir !
+    await h.sender.sendOne(row({
+      id: 'deliv_txt',
+      origin: 'delivery',
+      kind: 'text',
+      purpose: 'song',
+      body: 'Votre chanson personnalisée vient de sortir du studio ! 🎵',
+    }));
+    assert.equal(h.sends.length, 1);
+    assert.equal(h.sends[0]!.content.kind, 'text');
+
+    // Chanson audio livrée en URL distante Kie.ai
+    await h.sender.sendOne(row({
+      id: 'deliv_audio',
+      origin: 'delivery',
+      kind: 'voice',
+      purpose: 'song',
+      body: null,
+      media_path: 'https://cdn.kie.ai/audio/suno_v1.mp3',
+      caption: 'Version 1 — « Pour Mariam »',
+    }));
+    assert.equal(h.sends.length, 2);
+    assert.deepEqual(h.sends[1]!.content, {
+      kind: 'voice',
+      url: 'https://cdn.kie.ai/audio/suno_v1.mp3',
+      mimetype: 'audio/mpeg',
+    });
   });
 
   test('intervention gérant pendant le délai humain (statut annulé) → WAHA jamais appelé', async () => {
