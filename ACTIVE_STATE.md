@@ -56,9 +56,9 @@
   6. **Validation Globale & Déploiement Production** :
      - 210/210 tests unitaires et d'intégration validés sans aucune régression.
      - Build frontend Vite 8 validé en 6.96s.
-     - Conteneur Docker `velaris-engine` réorchestré dans le réseau Docker `waha-vps-setup_default` avec l'alias `waha-bridge:3001` (correction de l'erreur `ENOTFOUND waha-bridge`).
-     - Validation end-to-end de la passerelle de webhook WAHA vers `velaris-engine` (HTTP 200).
-     - Test de délivrance réelle d'un vocal PTT WhatsApp (24s) exécuté avec succès sur le numéro `+226 56 24 05 33`.
+     - **Résolution Incident Compilation VPS** : `dist/` étant dans `.gitignore`, la compilation TypeScript n'avait pas été rejouée sur le VPS avant le build Docker. Compilation `tsc -p tsconfig.json` effectuée sur le VPS, image `velaris-engine:latest` reconstruite avec `emoji-automations.js` embarqué, conteneur relancé.
+     - **Automatisation Déploiement VPS** : Script `engine/scripts/deploy-vps.sh` créé pour garantir que toute recompilation TypeScript est obligatoirement exécutée avant le build Docker.
+     - **Test Réel Direct In-Container Validé** : Exécution de `executeEmojiAutomation` pour `🎵` (procédure) et `☺️` (commande) vers `159085924233267@lid` validée avec envoi effectif des deux notes vocales PTT sur WhatsApp.
      - Dépôt GitHub synchronisé sur `main`.
 
 - **Jalon Précédent Validé** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
