@@ -32,7 +32,7 @@ import { generateSalesReply, cataloguePrices, type SalesBrainOutcome } from '../
 import { renderOutputItem, type RenderContext, type RenderedMessage } from './render.js';
 
 import type { AudioTranscriber } from '../services/transcribe.js';
-import { startBackgroundProduction } from '../services/music.js';
+import { startBackgroundProduction, parseLyricsHeader } from '../services/music.js';
 
 export interface TurnRef {
   turnId: string;
@@ -357,8 +357,10 @@ async function handleMerchantReaction(
   const rtd = rraw.turn.trigger_data || {};
   const rcommand = String(rtd.command || '');
   const remoji = String(rtd.emoji || '');
+  const normEmoji = remoji.replace(/\uFE0F/g, '');
   const rreactedKey = String(rtd.reacted_key || '');
-  rtrace.push(`merchant_reaction: ${remoji} -> ${rcommand}`);
+  const effectiveCommand = (normEmoji === '⭐' && rcommand !== 'mark_returning') ? 'confirm_and_produce' : rcommand;
+  rtrace.push(`merchant_reaction: ${remoji} -> ${effectiveCommand}`);
 
   let reactedBody: string | null = null;
   let reactedId: string | null = null;
@@ -377,7 +379,7 @@ async function handleMerchantReaction(
 
   const rfocusOrderId: string | null = rraw.conversation.focus_order_id ?? null;
 
-  switch (rcommand) {
+  switch (effectiveCommand) {
     case 'resume_ai': {
       rtrace.push('merchant_reaction: resume_ai received');
 
@@ -489,37 +491,48 @@ async function handleMerchantReaction(
         return finish('reaction_no_order');
       }
 
-      // 2. Extraction parfaite et isolée de la voix et du style depuis le texte ciblé uniquement
+      // 2. Extraction parfaite et isolée de la voix, du style et du titre depuis l'en-tête du texte
       let extractedVoice: string | null = null;
       let extractedStyle: string | null = null;
+      let extractedTitle: string | null = null;
       let normalizedVoice: 'male' | 'female' | 'duo' | null = null;
 
-      try {
-        const res = await rdeps.llmProvider.completeJson({
-          system:
-            'Tu analyses EXCLUSIVEMENT le texte de chanson fourni. Ne prends en compte AUCUNE information extérieure ni ancienne commande.\n' +
-            'Le créateur indique clairement la voix et le style en haut du texte ou dans les annotations (ex: "Voix : Homme / Femme / Masculine / Féminine", "Style : Afropop / Doux / Acoustique / Mandingue / Gospel / Zouk").\n' +
-            'Extrais fidèlement :\n' +
-            '- "voice": la voix exacte mentionnée ("masculine", "féminine", "homme", "femme", "duo") ou le timbre déduit du texte.\n' +
-            '- "style": le style musical exact indiqué (ex: "Afropop", "Afropop doux", "Acoustique mandingue", "Gospel", etc.) ou déduit du texte.\n' +
-            'Réponds en JSON strict : {"voice": "<voix>", "style": "<style>"}.',
-          messages: [{ role: 'user', content: lyrics.slice(0, 2500) }],
-          temperature: 0.1,
-          maxTokens: 150,
-        });
-        const d = res.data as { voice?: string; style?: string } | undefined;
-        if (d?.voice) {
-          extractedVoice = String(d.voice).trim();
-          const vLower = extractedVoice.toLowerCase();
-          if (vLower.includes('fem') || vLower.includes('femme')) normalizedVoice = 'female';
-          else if (vLower.includes('masc') || vLower.includes('homme')) normalizedVoice = 'male';
-          else if (vLower.includes('duo')) normalizedVoice = 'duo';
+      const header = parseLyricsHeader(lyrics);
+      if (header.style) extractedStyle = header.style;
+      if (header.voice) normalizedVoice = header.voice;
+      if (header.rawVoice) extractedVoice = header.rawVoice;
+      if (header.title) extractedTitle = header.title;
+      if (header.lyrics) lyrics = header.lyrics;
+
+      // Si le style ou la voix n'ont pas été spécifiés dans l'en-tête, extraction LLM de secours
+      if (!extractedStyle || !normalizedVoice) {
+        try {
+          const res = await rdeps.llmProvider.completeJson({
+            system:
+              'Tu analyses EXCLUSIVEMENT le texte de chanson fourni. Ne prends en compte AUCUNE information extérieure ni ancienne commande.\n' +
+              'Le créateur indique clairement la voix et le style en haut du texte ou dans les annotations (ex: "Voix : Homme / Femme / Masculine / Féminine", "Style : Afropop / Doux / Acoustique / Mandingue / Gospel / Zouk").\n' +
+              'Extrais fidèlement :\n' +
+              '- "voice": la voix exacte mentionnée ("masculine", "féminine", "homme", "femme", "duo") ou le timbre déduit du texte.\n' +
+              '- "style": le style musical exact indiqué (ex: "Afropop", "Afropop doux", "Acoustique mandingue", "Gospel", etc.) ou déduit du texte.\n' +
+              'Réponds en JSON strict : {"voice": "<voix>", "style": "<style>"}.',
+            messages: [{ role: 'user', content: lyrics.slice(0, 2500) }],
+            temperature: 0.1,
+            maxTokens: 150,
+          });
+          const d = res.data as { voice?: string; style?: string } | undefined;
+          if (!normalizedVoice && d?.voice) {
+            extractedVoice = String(d.voice).trim();
+            const vLower = extractedVoice.toLowerCase();
+            if (vLower.includes('fem') || vLower.includes('femme')) normalizedVoice = 'female';
+            else if (vLower.includes('masc') || vLower.includes('homme')) normalizedVoice = 'male';
+            else if (vLower.includes('duo')) normalizedVoice = 'duo';
+          }
+          if (!extractedStyle && d?.style) {
+            extractedStyle = String(d.style).trim();
+          }
+        } catch (e) {
+          rdeps.log('merchant_reaction: voice/style extraction failed', { error: (e as Error).message });
         }
-        if (d?.style) {
-          extractedStyle = String(d.style).trim();
-        }
-      } catch (e) {
-        rdeps.log('merchant_reaction: voice/style extraction failed', { error: (e as Error).message });
       }
 
       // 3. Enregistrement des paroles et caractéristiques musicales sur la commande
@@ -563,12 +576,13 @@ async function handleMerchantReaction(
       // 5. Lancement de la production musicale Suno V6 via Kie.ai et livraison automatique
       if (rdeps.kieApiKey) {
         rtrace.push(`merchant_reaction: launching Kie.ai Suno V6 production for order ${targetOrderId}`);
-        let prodTitle = 'Chanson personnalisée';
-        if (targetOrderObj?.recipient_name) {
+        let prodTitle = extractedTitle || 'Chanson personnalisée';
+        if (!extractedTitle && targetOrderObj?.recipient_name) {
           prodTitle = `Chanson pour ${targetOrderObj.recipient_name}`;
         }
         const firstLineCandidate = lyrics.split('\n').map((l) => l.trim()).filter(Boolean)[0];
         if (
+          !extractedTitle &&
           firstLineCandidate &&
           !firstLineCandidate.startsWith('[') &&
           !/^(couplet|refrain|pont|intro|outro)/i.test(firstLineCandidate) &&
