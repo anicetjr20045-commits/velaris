@@ -25,8 +25,13 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 13 Novembre 2026 (15:25 UTC)
-- **Statut Opérationnel** : **Jalon 147 Validé — Remplacement Intégral et Officiel des Messages Vocaux par la Voix Féminine Clonée (Fish Audio TikTok), Déploiement Multi-Projets (Velaris, Velaris-Agent, Cockpit, Bot Baileys & VPS)** :
+- **Dernière mise à jour** : 13 Novembre 2026 (19:37 UTC)
+- **Statut Opérationnel** : **ARRET D'URGENCE DE L'IA EFFECTUÉ — Contrôle Humain Intégral 100% Actif** :
+  1. Conteneur `velaris-engine` stoppé immédiatement (`docker stop velaris-engine`).
+  2. File d'attente sortante purgée : tous les messages en statut `pending` ou `sending` annulés (`status = 'cancelled'`).
+  3. Toutes les conversations WhatsApp basculées en `control_mode = 'human'` et `ai_paused = true`.
+  4. Session WAHA `Test` désactivée du moteur (`engine_owner = 'none'`).
+  5. L'IA ne répond plus à aucun client : le gérant a la main exclusive et totale sur WhatsApp.
   1. **Extraction & Nettoyage de l'Audio Source TikTok (`https://vm.tiktok.com/ZSpCAswBj/`)** :
      - Téléchargement audio haute fidélité (7m16s).
      - Transcription intégrale minutée au millième de seconde via `faster_whisper`.
