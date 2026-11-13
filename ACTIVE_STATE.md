@@ -25,19 +25,35 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 13 Novembre 2026 (10:15 UTC)
-- **Statut Opérationnel** : **Jalon 145 Validé — Déploiement en Production du Système d'Automatisation Rapide par Réactions Emojis (9 Automatisations Actives en Direct sur WhatsApp)** :
-  1. **Table Officielle des 9 Automatisations par Emojis Câblée dans le Moteur VPS** :
-     - Module dédié : [`engine/src/ingest/emoji-automations.ts`](file:///root/projets/velaris/engine/src/ingest/emoji-automations.ts).
-     - Déclenchement instantané sur réception d'un événement `message.reaction` issu du gérant (`fromMe: true`) via `process-event.ts`.
-     - Les 9 actions configurées :
-       - `😊` ➔ Message d'accueil Djelia.
-       - `✨` ➔ Présentation des offres (1 200 F / 3 500 F).
-       - `🙏` ➔ Coordonnées de paiement Orange Money BF (+226 56 24 05 33).
-       - `💢` ➔ Coordonnées de paiement Wave CI (+225 07 59 60 05 90).
-       - `🥰` ➔ Demande d'avis et preuve sociale Facebook.
-       - `✍️` ➔ Message de validation ferme des paroles.
-       - `☺️` ➔ Note vocale WhatsApp native prise de commande (`AUD-20261021-WA0007.opus`).
+- **Dernière mise à jour** : 13 Novembre 2026 (14:30 UTC)
+- **Statut Opérationnel** : **Jalon 146 Validé — Système de Production Musicale Suno V6 par Réaction ⭐ (Extraction d'En-tête, Optimisation Phonétique Audio & Isolation Multi-Commandes)** :
+  1. **Déclenchement Instantané par Réaction ⭐ (`confirm_and_produce`)** :
+     - Assignation de l'émoji `⭐` dans `studio_personas.reaction_commands` et `run-turn.ts` pour déclencher la production de chanson sur Suno V6 via Kie.ai.
+     - L'émoji `🎵` reste 100% dédié à la note vocale de procédure (`AUD-20261026-WA0046.opus`) sans conflit de commande.
+  2. **Extraction Déterministe de l'En-Tête Musical (`parseLyricsHeader`)** :
+     - Analyse chirurgicale en 0ms : extrait le style, la voix normalisée (`male`, `female`, `duo`) et le titre depuis la ligne d'en-tête (ex: `[Style: Afro-love doux | Voix: Masculine]`, `Style: Coupé-décalé / Voix: Femme`, `[Titre: ...]`).
+     - Nettoyage instantané des paroles : supprime les métadonnées pour ne laisser que le texte poétique brut.
+  3. **Moteur d'Optimisation des Prompts Suno V6 (`optimizeSunoStylePrompt`)** :
+     - Les 4 templates calibrés de référence intégrés fidèlement :
+       - **Doux / Afro-Love** (90–98 BPM) : guitare acoustique, piano doux, percussions africaines, basse ronde, cordes intimes.
+       - **Dansant / Afrobeats** (120–130 BPM) : kick lourd, caisse claire snappy, congas, djembé, shakers, synth leads et guitares highlife.
+       - **Rumba / Roomba Congolaise** (95–105 BPM) : arpèges de guitare électrique claire, basse mélodique, congas, bongos, soliste expressif.
+       - **Coupé-Décalé** (128–132 BPM) : percussions explosives, afro drill, chants rythmés, sifflets, cuivres puissants, ambiance stade.
+       - Autres styles pris en charge avec le même niveau d'excellence (Zouk Love, Roots Reggae, Gospel africain, Mandingue moderne, Goumbé, Amapiano, Ballade acoustique).
+     - **Voix dynamique** : injection du timbre précis (`male lead vocal`, `female lead vocal`, `male and female duet`) avec consigne d'élocution française naturelle.
+     - **Sécurité modération Suno** : assainissement préventif (remplacement de `skank` par `upbeat offbeat guitar chops`, neutralisation des noms d'artistes protégés par le droit d'auteur).
+  4. **Optimisation Phonétique Audio pour le Chant Français (`formatLyricsForSuno`)** :
+     - **Numéros de téléphone** : lecture décomposée 2 par 2 avec virgules pour une diction naturelle du chanteur (ex: `5506` ➔ `cinquante-cinq, zéro six` ; `2837` ➔ `vingt-huit, trente-sept` ; `0510` ➔ `zéro cinq, dix` ; `+226 56 24 05 33` ➔ `cinquante-six, vingt-quatre, zéro cinq, trente-trois`).
+     - **Dates complètes et courtes** : transcrites en toutes lettres (ex: `12/05/2024` ➔ `douze mai deux mille vingt-quatre`).
+     - **Chiffres et ordinaux** : `20 ans` ➔ `vingt ans`, `1er` ➔ `premier`, `100%` ➔ `cent pour cent`, `50000 FCFA` ➔ `cinquante mille francs CFA`.
+     - **Sigles articulés** : `PDG` ➔ `P-D-G`, `VIP` ➔ `V-I-P`, `DG` ➔ `D-G`, `USA` ➔ `U-S-A`, `ONG` ➔ `O-N-G`.
+     - **Balises de structure** : `(Couplet 1)` ➔ `[Verse 1]`, `(Refrain)` ➔ `[Chorus]`, `(Pont)` ➔ `[Bridge]`.
+  5. **Isolation Étanche Multi-Textes et Multi-Commandes** :
+     - Verrouillage par `lyrics_message_id = reactedId` : chaque réaction lie le texte exact à une commande dédiée.
+     - Si le gérant réagit sur 2 textes dans la même discussion, l'Order 1 et l'Order 2 restent strictement cloisonnés avec leurs styles et audios respectifs, sans risque de mélange avec d'anciennes commandes.
+  6. **Validation et Déploiement** :
+     - 210 tests unitaires et d'intégration validés sans erreur (`npm test` 210/210 pass).
+     - Image Docker reconstruite et redéployée en production sur le VPS `162.35.113.220` (port 3001). Commit GitHub `344302a`.
        - `🎥` ➔ Vidéo de démonstration officielle (`324048.mp4`).
        - `🎵` ➔ Note vocale WhatsApp native procédure officielle (`AUD-20261026-WA0046.opus`).
   2. **Hébergement Haute Performance & Dédoublonnage Anti-Spam** :
