@@ -33,6 +33,7 @@ export interface KieGenerateResponse {
 export interface KiePollResponse {
   status: 'pending' | 'running' | 'success' | 'failed';
   audioUrl?: string | undefined;
+  audioUrls?: string[] | undefined;
   duration?: number | undefined;
   error?: string | undefined;
 }
@@ -584,10 +585,18 @@ export async function pollKieSongStatus(
     const sunoData = data.response?.sunoData || data.sunoData || [];
 
     if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE') {
-      const firstTrack = Array.isArray(sunoData) && sunoData.length > 0 ? sunoData[0] : null;
-      const audioUrl = firstTrack?.audioUrl || firstTrack?.audio_url || firstTrack?.streamAudioUrl;
+      const tracks = Array.isArray(sunoData) ? sunoData : [];
+      const audioUrls: string[] = [];
+      for (const track of tracks) {
+        const u = track?.audioUrl || track?.audio_url || track?.streamAudioUrl;
+        if (u && typeof u === 'string' && u.trim().length > 0) {
+          audioUrls.push(u.trim());
+        }
+      }
+      const firstTrack = tracks[0] ?? null;
+      const audioUrl = audioUrls[0] || undefined;
       const duration = firstTrack?.duration ? Math.round(Number(firstTrack.duration)) : 180;
-      return { status: 'success', audioUrl: audioUrl || undefined, duration };
+      return { status: 'success', audioUrl, audioUrls, duration };
     }
 
     if (rawStatus === 'FAILED' || rawStatus === 'ERROR') {
@@ -613,6 +622,9 @@ export interface BackgroundProductionOpts {
   voice?: string | null | undefined;
   lyrics: string;
   protectedSessions?: readonly string[] | undefined;
+  targetDeliveryDelayMinutes?: number | undefined;
+  fetchImpl?: typeof fetch | undefined;
+  pollIntervalMs?: number | undefined;
   log: (line: string, data?: Record<string, unknown>) => void;
 }
 
@@ -621,10 +633,25 @@ export interface BackgroundProductionOpts {
  */
 export async function startBackgroundProduction(opts: BackgroundProductionOpts): Promise<void> {
   const { apiKey, db, orderId, userId, conversationId, sessionName, chatId, title, style, voice, lyrics, protectedSessions = [], log } = opts;
+  const productionStartTime = Date.now();
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const pollIntervalMs = opts.pollIntervalMs ?? 10_000;
 
-  log('🎵 starting music production via Kie.ai Suno V6', { orderId, style, voice });
+  // Délai de livraison artisanal : 12 à 15 minutes (12 à 14.5 min avec jitter réaliste, ou configuré via env/opts)
+  const configuredDelayMin = opts.targetDeliveryDelayMinutes ??
+    (process.env.SONG_DELIVERY_DELAY_MINUTES ? Number(process.env.SONG_DELIVERY_DELAY_MINUTES) : NaN);
+  const delayMinutes = Number.isFinite(configuredDelayMin) && configuredDelayMin >= 0
+    ? configuredDelayMin
+    : 12 + Math.random() * 2.5;
 
-  const gen = await generateKieSong(apiKey, { lyrics, voice, style, title, orderId });
+  log('🎵 starting music production via Kie.ai Suno V6', {
+    orderId,
+    style,
+    voice,
+    targetDelayMinutes: Math.round(delayMinutes * 10) / 10,
+  });
+
+  const gen = await generateKieSong(apiKey, { lyrics, voice, style, title, orderId }, fetchImpl);
   if (!gen.success || !gen.taskId) {
     log('🎵 Kie music generation launch failed', { orderId, error: gen.error });
     return;
@@ -646,7 +673,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
     }
 
     try {
-      const pollRes = await pollKieSongStatus(apiKey, taskId);
+      const pollRes = await pollKieSongStatus(apiKey, taskId, fetchImpl);
       if (pollRes.status === 'running' || pollRes.status === 'pending') {
         return; // continue polling
       }
@@ -658,10 +685,26 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
         return;
       }
 
-      if (pollRes.status === 'success' && pollRes.audioUrl) {
-        const audioUrl = pollRes.audioUrl;
+      const audioUrls = (pollRes.audioUrls && pollRes.audioUrls.length > 0)
+        ? pollRes.audioUrls
+        : (pollRes.audioUrl ? [pollRes.audioUrl] : []);
+
+      if (pollRes.status === 'success' && audioUrls.length > 0) {
+        const primaryAudioUrl = audioUrls[0]!;
         const duration = pollRes.duration || 180;
-        log('🎵 Kie generation SUCCEEDED!', { orderId, taskId, audioUrl, duration });
+        log('🎵 Kie generation SUCCEEDED!', { orderId, taskId, tracksCount: audioUrls.length, duration });
+
+        // Calcul déterministe de l'heure de livraison programmée (12 à 15 minutes depuis le déclenchement initial)
+        const targetDeliveryMs = productionStartTime + Math.round(delayMinutes * 60 * 1000);
+        const scheduledTimeMs = Math.max(Date.now(), targetDeliveryMs);
+        const scheduledIso = new Date(scheduledTimeMs).toISOString();
+
+        log('🎵 Scheduling 12-15m delayed delivery', {
+          orderId,
+          delayMinutes: Math.round(delayMinutes * 10) / 10,
+          scheduledAt: scheduledIso,
+          tracksCount: audioUrls.length,
+        });
 
         // A. Avancer la commande vers delivered (avec autorité marchande issue de la réaction ⭐)
         const currentOrders = await db.queryTable?.<Array<{ version: number; stage: string }>>(
@@ -677,7 +720,14 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
             p_event: 'delivery_sent',
             p_actor: 'merchant',
             p_turn: null,
-            p_data: { via: 'kie_music_completion', taskId, audioUrl },
+            p_data: {
+              via: 'kie_music_completion',
+              taskId,
+              audioUrl: primaryAudioUrl,
+              audioUrls,
+              scheduledDelivery: scheduledIso,
+              delayMinutes: Math.round(delayMinutes * 10) / 10,
+            },
             p_inferred: false,
           }).catch(() => undefined);
         }
@@ -688,18 +738,21 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
           return;
         }
 
-        const caption = `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! Bonne écoute 🎵`;
-
-        // Sauvegarder l'identifiant de génération Suno / Kie sur la commande
-        if (db.updateRows) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId);
+        if (isUuid && db.updateRows) {
           await db.updateRows('orders', `id=eq.${orderId}`, {
             song_generation_id: taskId,
           }).catch(() => undefined);
         }
 
-        const bodyHash = createHash('sha256').update(caption || '').digest('hex');
+        const isDual = audioUrls.length > 1;
+        const announcementText = isDual
+          ? `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! 🎵\n\nVoici vos 2 versions chantées au choix :\n• 1ère note vocale : Version 1\n• 2ème note vocale : Version 2\n\nÉcoutez-les et dites-nous celle que vous préférez !`
+          : `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! Bonne écoute 🎵`;
 
-        // 1. Message texte officiel de livraison
+        const textHash = createHash('sha256').update(announcementText).digest('hex');
+
+        // 1. Message texte officiel d'annonce (programmé pour H + 12-15 min)
         await db.rpc('agent_enqueue_outbox', {
           p_user: userId,
           p_conversation: conversationId,
@@ -711,16 +764,20 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
           p_is_relay: false,
           p_session: sessionName,
           p_chat_id: chatId,
-          p_body: caption,
+          p_body: announcementText,
           p_media_path: null,
           p_caption: null,
-          p_body_hash: bodyHash,
+          p_body_hash: textHash,
           p_idempotency_key: `song_delivery_text_${orderId}_${taskId}`,
           p_lock_token: 0,
           p_status: 'pending',
+          p_not_before: scheduledIso,
         }).catch((e) => log('failed to enqueue text delivery announcement', { error: (e as Error).message }));
 
-        // 2. Chanson audio livrée en note vocale native WhatsApp
+        // 2. Chanson audio Version 1 (programmée 4 secondes après le texte)
+        const v1Iso = new Date(scheduledTimeMs + 4_000).toISOString();
+        const v1Caption = isDual ? `Version 1 — « *${title}* »` : `« *${title}* »`;
+        const v1Hash = createHash('sha256').update(v1Caption).digest('hex');
         await db.rpc('agent_enqueue_outbox', {
           p_user: userId,
           p_conversation: conversationId,
@@ -733,18 +790,51 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
           p_session: sessionName,
           p_chat_id: chatId,
           p_body: null,
-          p_media_path: audioUrl,
-          p_caption: caption,
-          p_body_hash: bodyHash,
-          p_idempotency_key: `song_delivery_audio_${orderId}_${taskId}`,
+          p_media_path: audioUrls[0],
+          p_caption: v1Caption,
+          p_body_hash: v1Hash,
+          p_idempotency_key: `song_delivery_audio_v1_${orderId}_${taskId}`,
           p_lock_token: 0,
           p_status: 'pending',
-        }).catch((e) => log('failed to enqueue audio delivery', { error: (e as Error).message }));
+          p_not_before: v1Iso,
+        }).catch((e) => log('failed to enqueue audio delivery v1', { error: (e as Error).message }));
 
-        log('🎵 song delivery enqueued to outbox', { orderId, chatId });
+        // 3. Chanson audio Version 2 (si disponible, programmée 9 secondes après le texte)
+        if (isDual && audioUrls[1]) {
+          const v2Iso = new Date(scheduledTimeMs + 9_000).toISOString();
+          const v2Caption = `Version 2 — « *${title}* »`;
+          const v2Hash = createHash('sha256').update(v2Caption).digest('hex');
+          await db.rpc('agent_enqueue_outbox', {
+            p_user: userId,
+            p_conversation: conversationId,
+            p_order: orderId,
+            p_turn: null,
+            p_origin: 'delivery',
+            p_kind: 'voice',
+            p_purpose: 'song',
+            p_is_relay: false,
+            p_session: sessionName,
+            p_chat_id: chatId,
+            p_body: null,
+            p_media_path: audioUrls[1],
+            p_caption: v2Caption,
+            p_body_hash: v2Hash,
+            p_idempotency_key: `song_delivery_audio_v2_${orderId}_${taskId}`,
+            p_lock_token: 0,
+            p_status: 'pending',
+            p_not_before: v2Iso,
+          }).catch((e) => log('failed to enqueue audio delivery v2', { error: (e as Error).message }));
+        }
+
+        log('🎵 song delivery enqueued to outbox (scheduled for 12-15m)', {
+          orderId,
+          chatId,
+          scheduledAt: scheduledIso,
+          versionsCount: audioUrls.length,
+        });
       }
     } catch (err) {
       log('🎵 error in polling tick', { error: (err as Error).message });
     }
-  }, 10_000);
+  }, pollIntervalMs);
 }

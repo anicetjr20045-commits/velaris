@@ -202,7 +202,249 @@ C'est le 1er jour de bonheur !`;
     const res = await pollKieSongStatus('fake_key_123', 'task_suno_test_999', mockFetch);
     assert.equal(res.status, 'success');
     assert.equal(res.audioUrl, 'https://cdn.kie.ai/audio/suno_test.mp3');
+    assert.deepEqual(res.audioUrls, ['https://cdn.kie.ai/audio/suno_test.mp3']);
     assert.equal(res.duration, 185);
+  });
+
+  it('pollKieSongStatus extrait les 2 versions audio (Version 1 & Version 2) fournies par Suno V6', async () => {
+    const mockFetch = (async () => {
+      return new Response(JSON.stringify({
+        code: 200,
+        msg: 'success',
+        data: {
+          status: 'SUCCESS',
+          response: {
+            sunoData: [
+              {
+                audioUrl: 'https://cdn.kie.ai/audio/track_v1.mp3',
+                duration: 180,
+              },
+              {
+                audioUrl: 'https://cdn.kie.ai/audio/track_v2.mp3',
+                duration: 185,
+              },
+            ],
+          },
+        },
+      }), { status: 200 });
+    }) as typeof fetch;
+
+    const res = await pollKieSongStatus('fake_key_123', 'task_suno_dual_track', mockFetch);
+    assert.equal(res.status, 'success');
+    assert.equal(res.audioUrl, 'https://cdn.kie.ai/audio/track_v1.mp3');
+    assert.deepEqual(res.audioUrls, [
+      'https://cdn.kie.ai/audio/track_v1.mp3',
+      'https://cdn.kie.ai/audio/track_v2.mp3',
+    ]);
+  });
+
+  it('startBackgroundProduction programme la livraison des 2 versions à 12-15 minutes avec not_before PostgreSQL', async () => {
+    const enqueuedCalls: any[] = [];
+    const transitionCalls: any[] = [];
+    const logs: string[] = [];
+
+    const mockDb: any = {
+      queryTable: async () => [{ version: 2, stage: 'in_production' }],
+      rpc: async (fn: string, params: any) => {
+        if (fn === 'agent_enqueue_outbox') {
+          enqueuedCalls.push(params);
+          return 'outbox_uuid_test';
+        }
+        if (fn === 'agent_transition_order') {
+          transitionCalls.push(params);
+          return 'ok';
+        }
+        return null;
+      },
+      updateRows: async () => [{ id: 'order_test_uuid' }],
+    };
+
+    const mockFetch = (async (url: string) => {
+      if (url.includes('/generate/record-info')) {
+        return new Response(JSON.stringify({
+          code: 200,
+          msg: 'success',
+          data: {
+            status: 'SUCCESS',
+            response: {
+              sunoData: [
+                { audioUrl: 'https://cdn.kie.ai/audio/version1.mp3', duration: 180 },
+                { audioUrl: 'https://cdn.kie.ai/audio/version2.mp3', duration: 182 },
+              ],
+            },
+          },
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({
+        code: 200,
+        msg: 'success',
+        data: { taskId: 'task_suno_dual_123' },
+      }), { status: 200 });
+    }) as typeof fetch;
+
+    const { startBackgroundProduction } = await import('../src/services/music.js');
+
+    const startTime = Date.now();
+    // Test avec délai fixé à 13 minutes
+    await startBackgroundProduction({
+      apiKey: 'test_key',
+      db: mockDb,
+      orderId: 'b7c25a1e-97f6-4d74-a038-f86a2e4e1122',
+      userId: 'user_test_uuid',
+      conversationId: 'conv_test_uuid',
+      sessionName: 'Test',
+      chatId: '22656240533@c.us',
+      title: 'Pour Mariam',
+      style: 'Afro-love doux',
+      lyrics: '[Verse 1]\nParoles pour Mariam',
+      targetDeliveryDelayMinutes: 13,
+      pollIntervalMs: 20,
+      fetchImpl: mockFetch,
+      log: (line, data) => logs.push(`${line} ${JSON.stringify(data ?? {})}`),
+    });
+
+    // Attendre l'exécution de la boucle de polling
+    await new Promise((r) => setTimeout(r, 60));
+
+    // 1. Vérifier la transition d'état
+    assert.equal(transitionCalls.length, 1);
+    assert.equal(transitionCalls[0].p_event, 'delivery_sent');
+    assert.equal(transitionCalls[0].p_actor, 'merchant');
+    assert.equal(transitionCalls[0].p_data.taskId, 'task_suno_dual_123');
+    assert.deepEqual(transitionCalls[0].p_data.audioUrls, [
+      'https://cdn.kie.ai/audio/version1.mp3',
+      'https://cdn.kie.ai/audio/version2.mp3',
+    ]);
+
+    // 2. Vérifier les 3 messages en boîte d'envoi (Annonce texte + Version 1 + Version 2)
+    assert.equal(enqueuedCalls.length, 3, 'Doit enfiler le texte d annonce + Version 1 + Version 2');
+
+    // Message 1 : Annonce texte
+    const msgText = enqueuedCalls[0];
+    assert.equal(msgText.p_kind, 'text');
+    assert.equal(msgText.p_idempotency_key, 'song_delivery_text_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');
+    assert.ok(msgText.p_body.includes('Votre chanson personnalisée « *Pour Mariam* »'));
+    assert.ok(msgText.p_body.includes('1ère note vocale : Version 1'));
+    assert.ok(msgText.p_body.includes('2ème note vocale : Version 2'));
+    const scheduledTextTime = new Date(msgText.p_not_before).getTime();
+    const delayFromStartMin = (scheduledTextTime - startTime) / (60 * 1000);
+    assert.ok(delayFromStartMin >= 12.8 && delayFromStartMin <= 13.2, `Le texte doit être planifié à 13 min (reçu: ${delayFromStartMin.toFixed(2)} min)`);
+
+    // Message 2 : Version 1 Audio
+    const msgV1 = enqueuedCalls[1];
+    assert.equal(msgV1.p_kind, 'voice');
+    assert.equal(msgV1.p_media_path, 'https://cdn.kie.ai/audio/version1.mp3');
+    assert.equal(msgV1.p_caption, 'Version 1 — « *Pour Mariam* »');
+    assert.equal(msgV1.p_idempotency_key, 'song_delivery_audio_v1_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');
+    const scheduledV1Time = new Date(msgV1.p_not_before).getTime();
+    assert.equal(scheduledV1Time - scheduledTextTime, 4000, 'Version 1 doit être programmée 4s après le texte');
+
+    // Message 3 : Version 2 Audio
+    const msgV2 = enqueuedCalls[2];
+    assert.equal(msgV2.p_kind, 'voice');
+    assert.equal(msgV2.p_media_path, 'https://cdn.kie.ai/audio/version2.mp3');
+    assert.equal(msgV2.p_caption, 'Version 2 — « *Pour Mariam* »');
+    assert.equal(msgV2.p_idempotency_key, 'song_delivery_audio_v2_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');
+    const scheduledV2Time = new Date(msgV2.p_not_before).getTime();
+    assert.equal(scheduledV2Time - scheduledTextTime, 9000, 'Version 2 doit être programmée 9s après le texte');
+  });
+
+  it('startBackgroundProduction isole strictement plusieurs générations concurrentes sans collision', async () => {
+    const enqueuedMap = new Map<string, any[]>();
+
+    const mockDbFor = (orderId: string): any => ({
+      queryTable: async () => [{ version: 1, stage: 'in_production' }],
+      rpc: async (fn: string, params: any) => {
+        if (fn === 'agent_enqueue_outbox') {
+          const list = enqueuedMap.get(orderId) ?? [];
+          list.push(params);
+          enqueuedMap.set(orderId, list);
+          return 'outbox_uuid';
+        }
+        return 'ok';
+      },
+      updateRows: async () => [],
+    });
+
+    const createMockFetch = (taskId: string, prefix: string): typeof fetch => {
+      return (async (url: string) => {
+        if (url.includes('/generate/record-info')) {
+          return new Response(JSON.stringify({
+            code: 200,
+            msg: 'success',
+            data: {
+              status: 'SUCCESS',
+              response: {
+                sunoData: [
+                  { audioUrl: `https://cdn.kie.ai/audio/${prefix}_v1.mp3`, duration: 180 },
+                  { audioUrl: `https://cdn.kie.ai/audio/${prefix}_v2.mp3`, duration: 185 },
+                ],
+              },
+            },
+          }), { status: 200 });
+        }
+        return new Response(JSON.stringify({
+          code: 200,
+          msg: 'success',
+          data: { taskId },
+        }), { status: 200 });
+      }) as typeof fetch;
+    };
+
+    const { startBackgroundProduction } = await import('../src/services/music.js');
+
+    // Lancer 2 productions en parallèle pour 2 clients distincts
+    const p1 = startBackgroundProduction({
+      apiKey: 'key',
+      db: mockDbFor('order_client_A'),
+      orderId: 'order_client_A',
+      userId: 'user1',
+      conversationId: 'conv1',
+      sessionName: 'Test',
+      chatId: '22650000001@c.us',
+      title: 'Chanson Client A',
+      style: 'Afro-love',
+      lyrics: '[Verse 1]\nA',
+      targetDeliveryDelayMinutes: 12,
+      pollIntervalMs: 20,
+      fetchImpl: createMockFetch('task_A', 'clientA'),
+      log: () => {},
+    });
+
+    const p2 = startBackgroundProduction({
+      apiKey: 'key',
+      db: mockDbFor('order_client_B'),
+      orderId: 'order_client_B',
+      userId: 'user2',
+      conversationId: 'conv2',
+      sessionName: 'Test',
+      chatId: '22650000002@c.us',
+      title: 'Chanson Client B',
+      style: 'Dansant',
+      lyrics: '[Verse 1]\nB',
+      targetDeliveryDelayMinutes: 14,
+      pollIntervalMs: 20,
+      fetchImpl: createMockFetch('task_B', 'clientB'),
+      log: () => {},
+    });
+
+    await Promise.all([p1, p2]);
+    await new Promise((r) => setTimeout(r, 60));
+
+    const msgsA = enqueuedMap.get('order_client_A') ?? [];
+    const msgsB = enqueuedMap.get('order_client_B') ?? [];
+
+    assert.equal(msgsA.length, 3, 'Client A doit recevoir 3 messages');
+    assert.equal(msgsB.length, 3, 'Client B doit recevoir 3 messages');
+
+    // Vérifier l'isolation totale
+    assert.ok(msgsA[0].p_body.includes('Chanson Client A'));
+    assert.equal(msgsA[1].p_media_path, 'https://cdn.kie.ai/audio/clientA_v1.mp3');
+    assert.equal(msgsA[2].p_media_path, 'https://cdn.kie.ai/audio/clientA_v2.mp3');
+
+    assert.ok(msgsB[0].p_body.includes('Chanson Client B'));
+    assert.equal(msgsB[1].p_media_path, 'https://cdn.kie.ai/audio/clientB_v1.mp3');
+    assert.equal(msgsB[2].p_media_path, 'https://cdn.kie.ai/audio/clientB_v2.mp3');
   });
 
   it('pollKieSongStatus rapporte l’échec quand le statut est FAILED', async () => {
