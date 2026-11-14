@@ -746,9 +746,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
         }
 
         const isDual = audioUrls.length > 1;
-        const announcementText = isDual
-          ? `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! 🎵\n\nVoici vos 2 versions chantées au choix :\n• 1ère version : Version 1\n• 2ème version : Version 2\n\nÉcoutez-les et dites-nous celle que vous préférez !`
-          : `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! Bonne écoute 🎵`;
+        const announcementText = isDual ? 'Vos chansons' : 'Votre chanson';
 
         const textHash = createHash('sha256').update(announcementText).digest('hex');
 

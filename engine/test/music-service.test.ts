@@ -323,9 +323,7 @@ C'est le 1er jour de bonheur !`;
     const msgText = enqueuedCalls[0];
     assert.equal(msgText.p_kind, 'text');
     assert.equal(msgText.p_idempotency_key, 'song_delivery_text_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');
-    assert.ok(msgText.p_body.includes('Votre chanson personnalisée « *Pour Mariam* »'));
-    assert.ok(msgText.p_body.includes('1ère version : Version 1'));
-    assert.ok(msgText.p_body.includes('2ème version : Version 2'));
+    assert.equal(msgText.p_body, 'Vos chansons');
     const scheduledTextTime = new Date(msgText.p_not_before).getTime();
     const delayFromStartMin = (scheduledTextTime - startTime) / (60 * 1000);
     assert.ok(delayFromStartMin >= 12.8 && delayFromStartMin <= 13.2, `Le texte doit être planifié à 13 min (reçu: ${delayFromStartMin.toFixed(2)} min)`);
@@ -438,11 +436,13 @@ C'est le 1er jour de bonheur !`;
     assert.equal(msgsB.length, 3, 'Client B doit recevoir 3 messages');
 
     // Vérifier l'isolation totale
-    assert.ok(msgsA[0].p_body.includes('Chanson Client A'));
+    assert.equal(msgsA[0].p_body, 'Vos chansons');
+    assert.ok(msgsA[1].p_caption.includes('Chanson Client A'));
     assert.equal(msgsA[1].p_media_path, 'https://cdn.kie.ai/audio/clientA_v1.mp3');
     assert.equal(msgsA[2].p_media_path, 'https://cdn.kie.ai/audio/clientA_v2.mp3');
 
-    assert.ok(msgsB[0].p_body.includes('Chanson Client B'));
+    assert.equal(msgsB[0].p_body, 'Vos chansons');
+    assert.ok(msgsB[1].p_caption.includes('Chanson Client B'));
     assert.equal(msgsB[1].p_media_path, 'https://cdn.kie.ai/audio/clientB_v1.mp3');
     assert.equal(msgsB[2].p_media_path, 'https://cdn.kie.ai/audio/clientB_v2.mp3');
   });

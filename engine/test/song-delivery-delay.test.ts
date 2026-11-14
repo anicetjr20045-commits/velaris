@@ -190,9 +190,7 @@ describe('🧪 Validation Rigoureuse : Double Version Suno V6 & Livraison Diffé
     const sentMariam13 = sentDeliveries.filter((s) => s.chatId === '22650000001@c.us');
     assert.equal(sentMariam13.length, 1, 'À T+13m pile, seul le texte d annonce de Mariam part');
     assert.equal(sentMariam13[0]!.kind, 'text');
-    assert.ok(sentMariam13[0]!.body?.includes('Pour Mariam'));
-    assert.ok(sentMariam13[0]!.body?.includes('1ère version : Version 1'));
-    assert.ok(sentMariam13[0]!.body?.includes('2ème version : Version 2'));
+    assert.equal(sentMariam13[0]!.body, 'Vos chansons');
 
     // Aucun message pour Ibrahim n'est parti
     const sentIbrahim13 = sentDeliveries.filter((s) => s.chatId === '22650000002@c.us');
@@ -240,7 +238,7 @@ describe('🧪 Validation Rigoureuse : Double Version Suno V6 & Livraison Diffé
     const sentIbrahimComplete = sentDeliveries.filter((s) => s.chatId === '22650000002@c.us');
     assert.equal(sentIbrahimComplete.length, 3, 'Les 3 messages d Ibrahim sont intégralement livrés');
     assert.equal(sentIbrahimComplete[0]!.kind, 'text');
-    assert.ok(sentIbrahimComplete[0]!.body?.includes('Pour Ibrahim'));
+    assert.equal(sentIbrahimComplete[0]!.body, 'Vos chansons');
     assert.equal(sentIbrahimComplete[1]!.media, 'https://cdn.kie.ai/audio/ibrahim_v1.mp3');
     assert.equal(sentIbrahimComplete[2]!.media, 'https://cdn.kie.ai/audio/ibrahim_v2.mp3');
 
