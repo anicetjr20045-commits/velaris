@@ -18,12 +18,12 @@ import {
 export interface ComposeLyricsInput {
   recipientName: string;
   occasion: string;
-  recipientRelation?: string | null;
-  senderName?: string | null;
-  style?: string | null;
-  language?: string | null;
-  memories?: readonly string[];
-  studioName?: string;
+  recipientRelation?: string | null | undefined;
+  senderName?: string | null | undefined;
+  style?: string | null | undefined;
+  language?: string | null | undefined;
+  memories?: readonly string[] | undefined;
+  studioName?: string | undefined;
 }
 
 export interface ReviseLyricsInput {
@@ -31,12 +31,152 @@ export interface ReviseLyricsInput {
   changeRequest: string;
   recipientName: string;
   occasion: string;
-  studioName?: string;
+  studioName?: string | undefined;
 }
 
 export interface LyricsResult {
   title: string;
   lyrics: string;
+}
+
+export interface ChatMessageForBrief {
+  role: 'client' | 'agent' | 'merchant';
+  text: string;
+  createdAt?: string;
+  isVoice?: boolean;
+}
+
+export interface ExtractLyricsBriefInput {
+  messages: readonly ChatMessageForBrief[];
+  reactedText?: string | null;
+  studioName?: string;
+}
+
+export interface SongBriefTarget {
+  recipientName: string;
+  recipientRelation?: string | null;
+  senderName?: string | null;
+  occasion: string;
+  style?: string | null;
+  language?: string | null;
+  memories: string[];
+  explanation?: string | null;
+}
+
+export interface ExtractLyricsBriefResult {
+  briefs: SongBriefTarget[];
+  isMultiSong: boolean;
+  notes?: string;
+}
+
+/**
+ * Extrait avec précision le ou les briefs de chanson à partir de l'historique d'une discussion.
+ * Résout les rôles complexes (intermédiaire vs narrateur vs destinataire) et sépare les commandes multiples.
+ */
+export async function extractLyricsBriefFromChat(
+  llm: LlmProvider,
+  input: ExtractLyricsBriefInput,
+): Promise<ExtractLyricsBriefResult> {
+  const formattedChat = input.messages
+    .filter((m) => m.text && m.text.trim().length > 0)
+    .map((m) => {
+      const tag = m.role === 'client' ? 'Client' : m.role === 'merchant' ? 'Gérant' : 'Studio';
+      const voiceTag = m.isVoice ? ' [Note vocale transcrite]' : '';
+      return `${tag}${voiceTag}: ${m.text.trim()}`;
+    })
+    .join('\n');
+
+  const reactedAnchor = input.reactedText
+    ? `\n\nANCRE PARTICULIÈRE (Message ciblé par la réaction du gérant) :\n"${input.reactedText.trim()}"`
+    : '';
+
+  const systemPrompt = `Tu es le directeur artistique et analyste en chef d'élite du studio ${input.studioName ?? 'Velaris Studio'}.
+Ta mission est d'extraire avec une rigueur absolue toutes les informations nécessaires à la rédaction de paroles de chansons personnalisées à partir de l'historique d'une conversation WhatsApp (incluant les messages écrits et les transcriptions des notes vocales).
+
+DÉFIS MAJEURS ET RÈGLES STRICTES D'ANALYSE :
+
+1. RÉSOLUTION DES RÔLES (QUI CHANTE À QUI ?) :
+   - En Afrique de l'Ouest et dans les commandes de studio, il arrive très fréquemment qu'une personne WhatsApp soit un INTERMÉDIAIRE qui passe commande pour le compte de quelqu'un d'autre (ex: une amie qui commande pour sa copine Fatou afin de l'offrir au mari de sa copine).
+   - "senderName" (Expéditeur / Voix narrative de la chanson) : Doit impérativement être la personne AU NOM DE QUI la chanson s'exprime (dans l'exemple, c'est l'épouse Fatou, et NON l'amie intermédiaire WhatsApp !). Si le client commande directement pour son propre proche, "senderName" est le prénom ou statut du client.
+   - "recipientName" (Destinataire) : La personne fêtée / honorée par la chanson (dans l'exemple, c'est le mari).
+   - "recipientRelation" : Le lien entre la voix narrative et le destinataire (ex: époux, épouse, mère, père, ami d'enfance, mentor...).
+
+2. COMMANDES MULTIPLES / MULTI-TEXTES :
+   - Si le client demande 2 chansons différentes (ex: une pour sa mère Awa et une pour son père Moussa), sépare STRICTEMENT les deux fiches dans le tableau "briefs" et mets "isMultiSong": true.
+   - Chaque fiche doit contenir uniquement les souvenirs, prénoms et qualités qui lui appartiennent.
+   - Si le client ne commande qu'une seule chanson, renvoie un tableau "briefs" avec un seul élément et "isMultiSong": false.
+
+3. SOUVENIRS, QUALITÉS & ANECDOTES :
+   - Extraire tous les détails concrets disséminés dans la conversation (surnoms, dates, années d'épreuves, qualités morales, expressions, remerciements, prières ou vœux).
+   - Conserver les vrais mots du client, sans inventer des faits non mentionnés.
+
+4. OCCASION & STYLE :
+   - Identifier précisément l'occasion (anniversaire, mariage, déclaration d'amour, hommage, naissance, etc.).
+   - Si un style musical est suggéré par le client (ex: "un truc doux", "afrobeat", "zouk", "acoustique"), le noter. Sinon, laisser null.
+
+Format JSON strict obligatoire :
+{
+  "isMultiSong": boolean,
+  "briefs": [
+    {
+      "recipientName": "Prénom du destinataire",
+      "recipientRelation": "Lien de relation",
+      "senderName": "Personne au nom de qui la chanson parle",
+      "occasion": "Occasion exacte",
+      "style": "Style musical ou null",
+      "language": "Français",
+      "memories": ["Anecdote 1", "Qualité 2"],
+      "explanation": "Explication de la dynamique des rôles"
+    }
+  ]
+}`;
+
+  const userPrompt = `Voici la discussion avec le client :
+${formattedChat || '(discussion vide)'}
+${reactedAnchor}
+
+Analyse la discussion, résous les rôles, extrais les détails clés et renvoie le JSON pur.`;
+
+  const res = await llm.completeJson({
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
+    maxTokens: 2000,
+    temperature: 0.1,
+  });
+
+  const data = res.data as any;
+  const isMultiSong = Boolean(data.isMultiSong);
+  const rawBriefs = Array.isArray(data.briefs) ? data.briefs : [];
+
+  const briefs: SongBriefTarget[] = rawBriefs.map((b: any) => ({
+    recipientName: typeof b.recipientName === 'string' && b.recipientName.trim() ? b.recipientName.trim() : 'Mon Proche',
+    recipientRelation: typeof b.recipientRelation === 'string' ? b.recipientRelation.trim() : null,
+    senderName: typeof b.senderName === 'string' ? b.senderName.trim() : null,
+    occasion: typeof b.occasion === 'string' && b.occasion.trim() ? b.occasion.trim() : 'Chanson personnalisée',
+    style: typeof b.style === 'string' ? b.style.trim() : null,
+    language: typeof b.language === 'string' ? b.language.trim() : 'Français',
+    memories: Array.isArray(b.memories) ? b.memories.map((m: any) => String(m).trim()).filter(Boolean) : [],
+    explanation: typeof b.explanation === 'string' ? b.explanation.trim() : null,
+  }));
+
+  // Fallback si la liste est vide mais qu'on a du texte
+  if (briefs.length === 0) {
+    briefs.push({
+      recipientName: 'Mon Proche',
+      recipientRelation: 'Proche',
+      senderName: null,
+      occasion: 'Chanson personnalisée',
+      style: 'Afro-pop acoustique douce',
+      language: 'Français',
+      memories: [],
+      explanation: 'Extraction par défaut',
+    });
+  }
+
+  return {
+    briefs,
+    isMultiSong,
+  };
 }
 
 export async function composeLyrics(

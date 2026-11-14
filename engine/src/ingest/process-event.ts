@@ -8,6 +8,7 @@ import type { Db } from '../db/rest.js';
 import type { NormalizedEvent } from './normalize.js';
 import type { AudioTranscriber } from '../services/transcribe.js';
 import type { WahaClient } from '../send/waha-client.js';
+import type { DeepSeekProvider } from '../llm/deepseek.js';
 import { executeEmojiAutomation } from './emoji-automations.js';
 
 export interface IngestOutcome {
@@ -30,6 +31,7 @@ export interface ProcessDeps {
   onSessionDropped?: (session: string, previous: string | null, current: string) => Promise<void>;
   waha?: WahaClient;
   log?: (msg: string, meta?: Record<string, unknown>) => void;
+  llmProvider?: DeepSeekProvider | undefined;
 }
 
 export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Promise<IngestOutcome> {
@@ -163,7 +165,12 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
           ev.chatId,
           ev.emoji,
           ev.reactedKey,
-          deps.waha,
+          {
+            waha: deps.waha,
+            db: deps.db,
+            ...(deps.llmProvider !== undefined ? { llmProvider: deps.llmProvider } : {}),
+            ...(deps.log !== undefined ? { log: deps.log } : {}),
+          },
           deps.log
         ).catch((err) => {
           deps.log?.(`[reaction-automation] Erreur asynchrone: ${err?.message || err}`);

@@ -13,7 +13,7 @@ import {
   checkLyricsQuality,
   buildLyricsRetryFeedback,
 } from '../src/llm/lyrics-corpus.js';
-import { composeLyrics, reviseLyrics } from '../src/llm/lyrics-composer.js';
+import { composeLyrics, reviseLyrics, extractLyricsBriefFromChat } from '../src/llm/lyrics-composer.js';
 import type { LlmProvider, JsonCompletionRequest, JsonCompletion } from '../src/llm/provider.js';
 
 describe('lyrics-corpus: détection des occasions', () => {
@@ -345,5 +345,105 @@ Bénie soit ta vie pour l'éternité
 
     assert.equal(res.title, 'Chanson pour Fatou');
     assert.ok(res.lyrics.includes('Fatou'));
+  });
+
+  test('extractLyricsBriefFromChat résout correctement les rôles complexes (intermédiaire vs narrateur)', async () => {
+    const fakeLlm: LlmProvider = {
+      name: 'deepseek-chat',
+      async completeJson(req: JsonCompletionRequest): Promise<JsonCompletion> {
+        assert.ok(req.system.includes('RÉSOLUTION DES RÔLES'));
+        return {
+          data: {
+            isMultiSong: false,
+            briefs: [
+              {
+                recipientName: 'Moussa',
+                recipientRelation: 'mari',
+                senderName: 'Fatou',
+                occasion: 'Anniversaire de mariage',
+                style: 'Afro-love acoustique',
+                language: 'Français',
+                memories: ['10 ans de mariage', 'toujours là pour elle', 'son roc dans les épreuves'],
+                explanation: "L'amie WhatsApp commande pour son amie Fatou qui déclare son amour à son mari Moussa",
+              },
+            ],
+          },
+          model: 'deepseek-chat',
+          usage: { promptTokens: 300, completionTokens: 150, cacheHitTokens: 0 },
+          latencyMs: 120,
+          attempts: 1,
+          reasoningDiscarded: false,
+        };
+      },
+    };
+
+    const res = await extractLyricsBriefFromChat(fakeLlm, {
+      messages: [
+        { role: 'client', text: "Bonjour, c'est mon amie Fatou qui m'a envoyé pour faire une chanson pour son mari Moussa." },
+        { role: 'merchant', text: "C'est noté ! Quelles sont les qualités de Moussa et l'occasion ?" },
+        { role: 'client', text: "C'est pour leurs 10 ans de mariage. Fatou dit qu'il est son roc et qu'il a toujours été là pour elle.", isVoice: true },
+      ],
+    });
+
+    assert.equal(res.isMultiSong, false);
+    assert.equal(res.briefs.length, 1);
+    const brief = res.briefs[0]!;
+    assert.equal(brief.recipientName, 'Moussa');
+    assert.equal(brief.senderName, 'Fatou');
+    assert.equal(brief.recipientRelation, 'mari');
+    assert.ok(brief.memories.includes('10 ans de mariage'));
+  });
+
+  test('extractLyricsBriefFromChat sépare nettement une commande double en 2 briefs distincts', async () => {
+    const fakeLlm: LlmProvider = {
+      name: 'deepseek-chat',
+      async completeJson(_req: JsonCompletionRequest): Promise<JsonCompletion> {
+        return {
+          data: {
+            isMultiSong: true,
+            briefs: [
+              {
+                recipientName: 'Maman Awa',
+                recipientRelation: 'mère',
+                senderName: 'Ibrahim',
+                occasion: 'Fête des mères',
+                style: 'Afro-pop douce',
+                language: 'Français',
+                memories: ['ses sacrifices pour les enfants', 'sa cuisine chaleureuse'],
+                explanation: 'Chanson 1 dédiée à la maman',
+              },
+              {
+                recipientName: 'Papa Moussa',
+                recipientRelation: 'père',
+                senderName: 'Ibrahim',
+                occasion: 'Anniversaire',
+                style: 'Mandé acoustique',
+                language: 'Français',
+                memories: ['sa sagesse', 'son honnêteté légendaire'],
+                explanation: 'Chanson 2 dédiée au papa',
+              },
+            ],
+          },
+          model: 'deepseek-chat',
+          usage: { promptTokens: 400, completionTokens: 200, cacheHitTokens: 0 },
+          latencyMs: 150,
+          attempts: 1,
+          reasoningDiscarded: false,
+        };
+      },
+    };
+
+    const res = await extractLyricsBriefFromChat(fakeLlm, {
+      messages: [
+        { role: 'client', text: "Je voudrais 2 chansons différentes : une pour ma mère Awa et une pour mon père Moussa." },
+      ],
+    });
+
+    assert.equal(res.isMultiSong, true);
+    assert.equal(res.briefs.length, 2);
+    assert.equal(res.briefs[0]?.recipientName, 'Maman Awa');
+    assert.equal(res.briefs[1]?.recipientName, 'Papa Moussa');
+    assert.ok(res.briefs[0]?.memories.includes('ses sacrifices pour les enfants'));
+    assert.ok(res.briefs[1]?.memories.includes('sa sagesse'));
   });
 });
