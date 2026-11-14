@@ -25,10 +25,13 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 14 Novembre 2026 (17:25 UTC)
+- **Dernière mise à jour** : 14 Novembre 2026 (18:30 UTC)
 - **Statut Opérationnel** : **Livraison Chansons en Format Document Audio (.mp3) Déployée & 100% Opérationnelle en Production** :
   1. Conteneur `velaris-engine` reconstruit et redémarré avec succès en production sur le VPS (`162.35.113.220`).
-  2. **Format Document Audio (.mp3) Déployé au Moteur** :
+  2. **Intervention Coupe-Circuit Réussie (18:28 UTC)** :
+     - Une génération accidentelle déclenchée par erreur vers `22671045352@c.us` (ordre `9fce34c4-a1da-46e2-9c3f-dad31aae400d`) a été immédiatement interceptée et coupée en base avant l'échéance différée de 12 min. Les messages en attente ont été passés à `status = 'cancelled'`. **Zéro message ni audio n'a été envoyé à ce contact**.
+     - La génération pour **YACOU** (`22675759872@c.us`, ordre `3d8e7c02-ea52-4c9f-87b2-7d8a5cbdf769`) est parfaitement intacte avec ses 3 messages programmés pour 18:37 UTC.
+  3. **Format Document Audio (.mp3) Déployé au Moteur** :
      - Les chansons générées sont désormais envoyées en tant que documents audio natifs WhatsApp (`p_kind: 'file'`, `mimetype: 'audio/mpeg'`) et non en notes vocales micro (PTT).
      - Le client peut écouter, télécharger, transférer et conserver la chanson avec son titre comme un véritable fichier musical.
      - `OutboxSender` dérive dynamiquement le nom du fichier `.mp3` à partir du titre et de la légende (ex: `Version 1 — Pour Mariam.mp3`).
