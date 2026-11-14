@@ -25,10 +25,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 14 Novembre 2026 (18:46 UTC)
-- **Statut Opérationnel** : **Livraison Chansons en Format Document Audio (.mp3) Déployée & 100% Opérationnelle en Production** :
+- **Dernière mise à jour** : 14 Novembre 2026 (19:05 UTC)
+- **Statut Opérationnel** : **Détection Robuste du Style & de la Voix (Masculine / Féminine) Déployée & 100% Opérationnelle** :
   1. Conteneur `velaris-engine` reconstruit et redémarré avec succès en production sur le VPS (`162.35.113.220`).
-  2. **Texte d'Annonce Épuré** :
+  2. **Correction Majeure Détection Style & Voix** :
+     - `parseLyricsHeader` n'exige plus de deux-points stricts (`:`) : il gère désormais parfaitement `Style Afrobeat Nigerian, voix masculine`, `Voix homme, style coupé décalé`, `Voix d'homme`, etc.
+     - L'extraction des paroles isole proprement ces lignes de métadonnées pour ne pas qu'elles soient chantées dans les couplets.
+     - Fallback contextuel automatique : si le style ou la voix ne sont pas dans le message réagi, le moteur scanne la commande et les 25 derniers messages de la discussion.
+     - Détection du genre dans `extractLyricsBriefFromChat` : si un homme commande pour lui-même (`YACOU Le Roi`), l'IA assigne automatiquement `voice = 'male'`.
+     - Correction du bug `lyrics_title` dans PostgreSQL : les colonnes `style`, `voice`, `lyrics` sont désormais correctement persistées dans `orders`.
+  3. **Texte d'Annonce Épuré** :
      - Remplacement du texte verbeux par un message direct, sobre et humain : **« Vos chansons »** (ou « Votre chanson » si version unique), sans blabla marketing ni emojis superflus.
   3. **Intervention Coupe-Circuit Réussie (18:28 UTC)** :
      - Une génération accidentelle déclenchée par erreur vers `22671045352@c.us` (ordre `9fce34c4-a1da-46e2-9c3f-dad31aae400d`) a été immédiatement interceptée et coupée en base avant l'échéance différée de 12 min. Les messages en attente ont été passés à `status = 'cancelled'`. **Zéro message ni audio n'a été envoyé à ce contact**.
