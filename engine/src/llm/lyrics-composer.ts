@@ -21,6 +21,7 @@ export interface ComposeLyricsInput {
   recipientRelation?: string | null | undefined;
   senderName?: string | null | undefined;
   style?: string | null | undefined;
+  voice?: 'male' | 'female' | 'duo' | string | null | undefined;
   language?: string | null | undefined;
   memories?: readonly string[] | undefined;
   studioName?: string | undefined;
@@ -58,6 +59,7 @@ export interface SongBriefTarget {
   senderName?: string | null;
   occasion: string;
   style?: string | null;
+  voice?: 'male' | 'female' | 'duo' | null;
   language?: string | null;
   memories: string[];
   explanation?: string | null;
@@ -110,9 +112,14 @@ DÉFIS MAJEURS ET RÈGLES STRICTES D'ANALYSE :
    - Extraire tous les détails concrets disséminés dans la conversation (surnoms, dates, années d'épreuves, qualités morales, expressions, remerciements, prières ou vœux).
    - Conserver les vrais mots du client, sans inventer des faits non mentionnés.
 
-4. OCCASION & STYLE :
+4. OCCASION, STYLE & VOIX SOUHAITÉE :
    - Identifier précisément l'occasion (anniversaire, mariage, déclaration d'amour, hommage, naissance, etc.).
-   - Si un style musical est suggéré par le client (ex: "un truc doux", "afrobeat", "zouk", "acoustique"), le noter. Sinon, laisser null.
+   - Si un style musical est suggéré par le client ou le gérant (ex: "un truc doux", "afrobeat", "zouk", "acoustique", "dansant"), le noter fidèlement. Sinon, laisser null.
+   - "voice" ("male" | "female" | "duo" | null) : Identifier la voix appropriée.
+     * Si mention explicite ("voix homme", "voix masculine", "chanteur") -> "male".
+     * Si mention explicite ("voix femme", "voix féminine", "chanteuse") -> "female".
+     * Si un homme commande pour lui-même (ex: "chanson pour moi-même YACOU Le Roi") -> "male".
+     * Si une femme commande pour son mari/fiancé sans précision de voix -> "female" (chanteuse qui porte sa voix) ou selon le contexte.
 
 Format JSON strict obligatoire :
 {
@@ -124,6 +131,7 @@ Format JSON strict obligatoire :
       "senderName": "Personne au nom de qui la chanson parle",
       "occasion": "Occasion exacte",
       "style": "Style musical ou null",
+      "voice": "male" | "female" | "duo" | null,
       "language": "Français",
       "memories": ["Anecdote 1", "Qualité 2"],
       "explanation": "Explication de la dynamique des rôles"
@@ -148,16 +156,27 @@ Analyse la discussion, résous les rôles, extrais les détails clés et renvoie
   const isMultiSong = Boolean(data.isMultiSong);
   const rawBriefs = Array.isArray(data.briefs) ? data.briefs : [];
 
-  const briefs: SongBriefTarget[] = rawBriefs.map((b: any) => ({
-    recipientName: typeof b.recipientName === 'string' && b.recipientName.trim() ? b.recipientName.trim() : 'Mon Proche',
-    recipientRelation: typeof b.recipientRelation === 'string' ? b.recipientRelation.trim() : null,
-    senderName: typeof b.senderName === 'string' ? b.senderName.trim() : null,
-    occasion: typeof b.occasion === 'string' && b.occasion.trim() ? b.occasion.trim() : 'Chanson personnalisée',
-    style: typeof b.style === 'string' ? b.style.trim() : null,
-    language: typeof b.language === 'string' ? b.language.trim() : 'Français',
-    memories: Array.isArray(b.memories) ? b.memories.map((m: any) => String(m).trim()).filter(Boolean) : [],
-    explanation: typeof b.explanation === 'string' ? b.explanation.trim() : null,
-  }));
+  const briefs: SongBriefTarget[] = rawBriefs.map((b: any) => {
+    let rawVoice: 'male' | 'female' | 'duo' | null = null;
+    if (typeof b.voice === 'string') {
+      const vl = b.voice.toLowerCase();
+      if (vl.includes('masc') || vl.includes('homme') || vl.includes('male')) rawVoice = 'male';
+      else if (vl.includes('fem') || vl.includes('female')) rawVoice = 'female';
+      else if (vl.includes('duo') || vl.includes('duet') || vl.includes('mixte')) rawVoice = 'duo';
+    }
+
+    return {
+      recipientName: typeof b.recipientName === 'string' && b.recipientName.trim() ? b.recipientName.trim() : 'Mon Proche',
+      recipientRelation: typeof b.recipientRelation === 'string' ? b.recipientRelation.trim() : null,
+      senderName: typeof b.senderName === 'string' ? b.senderName.trim() : null,
+      occasion: typeof b.occasion === 'string' && b.occasion.trim() ? b.occasion.trim() : 'Chanson personnalisée',
+      style: typeof b.style === 'string' ? b.style.trim() : null,
+      voice: rawVoice,
+      language: typeof b.language === 'string' ? b.language.trim() : 'Français',
+      memories: Array.isArray(b.memories) ? b.memories.map((m: any) => String(m).trim()).filter(Boolean) : [],
+      explanation: typeof b.explanation === 'string' ? b.explanation.trim() : null,
+    };
+  });
 
   // Fallback si la liste est vide mais qu'on a du texte
   if (briefs.length === 0) {
@@ -213,7 +232,7 @@ RÈGLES D'OR DE COMPOSITION DU STUDIO :
    - Ne résume jamais, ne tronque aucune section.
    - Les couplets doivent être riches (6 à 8 vers chacun), le pont profond (4 à 6 vers), l'outro soignée.
 2. Structure Suno obligatoire avec balises :
-   [Style: ${input.style || 'Afro-pop acoustique douce et entraînante'}]
+   [Style: ${input.style || 'Afro-pop acoustique douce et entraînante'} | Voix: ${input.voice === 'male' ? 'masculine' : input.voice === 'duo' ? 'duo' : 'féminine'}]
    [Intro] (3 à 5 vers posant l'atmosphère chaleureuse avec « … »)
    [Couplet 1] (6 à 8 vers posant le décor avec mention claire du prénom ${input.recipientName})
    [Pré-Refrain] (2 à 4 vers de montée d'énergie)
@@ -243,6 +262,7 @@ Réponds obligatoirement par un objet JSON pur :
 - Occasion : ${input.occasion}
 - De la part de : ${input.senderName || "une personne qui l'aime profondément"}
 - Style musical souhaité : ${input.style || 'Afro-pop acoustique douce'}
+- Voix souhaitée : ${input.voice === 'male' ? 'voix masculine (chanteur)' : input.voice === 'duo' ? 'voix duo mixte' : 'voix féminine (chanteuse)'}
 - Langue : ${input.language || 'Français'}
 - Souvenirs, qualités et anecdotes à intégrer :
 ${memoriesText}

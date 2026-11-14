@@ -59,6 +59,33 @@ Couplet 1
 Amour`);
     assert.equal(r6.style, 'Rumba congolaise');
     assert.equal(r6.voice, 'duo');
+
+    // Cas 7 : Format réel gérant (sans deux-points, titre entre guillemets)
+    const r7 = parseLyricsHeader(`*« LE ROI DU 5 AVRIL »*
+
+Style Afrobeat Nigerian, voix masculine 
+
+[Intro]
+Le cinq avril…`);
+    assert.equal(r7.title, 'LE ROI DU 5 AVRIL');
+    assert.equal(r7.style, 'Afrobeat Nigerian');
+    assert.equal(r7.voice, 'male');
+    assert.ok(r7.lyrics.startsWith('[Intro]'));
+
+    // Cas 8 : Voix homme sans style puis style dansant
+    const r8 = parseLyricsHeader(`Voix d'homme
+Style dansant
+[Verse 1]
+Chant`);
+    assert.equal(r8.voice, 'male');
+    assert.equal(r8.style, 'dansant');
+
+    // Cas 9 : Style et voix sur une seule ligne libre
+    const r9 = parseLyricsHeader(`Afro-love doux, voix de femme
+[Intro]
+Bonjour`);
+    assert.equal(r9.voice, 'female');
+    assert.equal(r9.style, 'Afro-love doux');
   });
 
   it('twoDigitsToFrench et numberToFrenchWords convertissent fidèlement les chiffres', () => {

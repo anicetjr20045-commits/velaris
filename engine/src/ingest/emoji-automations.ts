@@ -249,14 +249,19 @@ async function handleAutonomousLyricsGenerationAndDelivery(
         senderName: brief.senderName,
         occasion: brief.occasion,
         style: brief.style,
+        voice: brief.voice,
         language: brief.language,
         memories: brief.memories,
         studioName: 'Velaris Studio',
       });
 
-      // Bulle 1 : Le texte intégral de la chanson
+      // Bulle 1 : Le texte intégral de la chanson avec en-tête structuré
       const multiLabel = extracted.briefs.length > 1 ? ` (Option ${i + 1}/${extracted.briefs.length})` : '';
-      const lyricsMessage = `*« ${composed.title.toUpperCase()} »*${multiLabel}\n\n${composed.lyrics}`;
+      const voiceLabel = brief.voice === 'male' ? 'voix masculine' : brief.voice === 'duo' ? 'voix duo' : 'voix féminine';
+      const metaHeader = `Style : ${brief.style || 'Afro-pop acoustique douce'} | Voix : ${voiceLabel}`;
+      const hasHeaderAlready = /\[\s*style\b/i.test(composed.lyrics) || /style\s*[:=\s]/i.test(composed.lyrics);
+      const lyricsWithHeader = hasHeaderAlready ? composed.lyrics : `${metaHeader}\n\n${composed.lyrics}`;
+      const lyricsMessage = `*« ${composed.title.toUpperCase()} »*${multiLabel}\n\n${lyricsWithHeader}`;
       await ctx.waha.send(session, chatId, {
         kind: 'text',
         text: lyricsMessage,
@@ -288,7 +293,8 @@ async function handleAutonomousLyricsGenerationAndDelivery(
           `id=eq.${orderId}`,
           {
             lyrics: composed.lyrics,
-            lyrics_title: composed.title,
+            style: brief.style || null,
+            voice: brief.voice || null,
             lyrics_source: 'ai_autonomous_composer',
           },
         ).catch(() => undefined);
@@ -526,8 +532,67 @@ async function handleConfirmAndProduceSong(
     // 4. Analyse de l'en-tête (style, voix, titre)
     const header = parseLyricsHeader(lyrics);
     const cleanedLyrics = header.lyrics || lyrics;
-    const style = header.style || 'Afro-pop acoustique douce';
-    const voice = header.voice || 'female';
+    let style = header.style;
+    let voice = header.voice;
+
+    // Si le style ou la voix ne sont pas indiqués dans le message de paroles,
+    // interroger la commande existante et les derniers messages de la discussion
+    if (!style || !voice) {
+      if (conv.focus_order_id) {
+        const orderRows = await ctx.db.queryTable?.<Array<{ style: string | null; voice: string | null }>>(
+          'orders',
+          `id=eq.${conv.focus_order_id}&select=style,voice&limit=1`,
+        ).catch(() => []);
+        if (orderRows?.[0]) {
+          if (!style && orderRows[0].style) style = orderRows[0].style;
+          if (!voice && orderRows[0].voice) {
+            const v = orderRows[0].voice.toLowerCase();
+            if (v.includes('fem')) voice = 'female';
+            else if (v.includes('masc') || v.includes('homme')) voice = 'male';
+            else if (v.includes('duo')) voice = 'duo';
+          }
+        }
+      }
+
+      const recentMsgs = await ctx.db.queryTable?.<Array<{ body: string | null; transcript: string | null; direction: string }>>(
+        'messages',
+        `conversation_id=eq.${conv.id}&order=created_at.desc&limit=25&select=body,transcript,direction`,
+      ).catch(() => []);
+
+      for (const m of (recentMsgs || [])) {
+        const text = (m.transcript || m.body || '').trim();
+        if (!text) continue;
+
+        if (!voice) {
+          if (/\b(?:voix\s*(?:d'homme|homme|masculin(?:e)?)|chanteur|voix\s*male)\b/i.test(text)) {
+            voice = 'male';
+          } else if (/\b(?:voix\s*(?:de\s*femme|femme|féminin(?:e)?)|chanteuse|voix\s*female)\b/i.test(text)) {
+            voice = 'female';
+          } else if (/\b(?:duo|duet|mixte)\b/i.test(text)) {
+            voice = 'duo';
+          }
+        }
+
+        if (!style) {
+          const styleMatch = text.match(/(?:style|rythme|genre)\s*[:=\s-]\s*([a-zA-ZÀ-ÿ0-9\s\-]+)/i);
+          if (styleMatch && styleMatch[1]) {
+            const cs = styleMatch[1].trim();
+            if (cs.length >= 3 && !/^(?:oui|non|ok|merci|svp|doux|dansant)\b/i.test(cs)) {
+              style = cs;
+            }
+          }
+          if (!style) {
+            const genreMatch = text.match(/\b(afrobeat(?:\s+nigerian)?|afro-love|amapiano|rumba(?:\s+congolaise)?|zouk|gospel|reggae|coupé-décalé|highlife)\b/i);
+            if (genreMatch && genreMatch[1]) {
+              style = genreMatch[1];
+            }
+          }
+        }
+      }
+    }
+
+    const finalStyle = style || 'Afro-pop acoustique douce';
+    const finalVoice = voice || 'female';
 
     // Trouver le titre
     let title = header.title;
@@ -563,17 +628,16 @@ async function handleConfirmAndProduceSong(
         `id=eq.${orderId}`,
         {
           lyrics: cleanedLyrics,
-          lyrics_title: title,
           lyrics_message_id: reactedId,
           lyrics_source: 'merchant_reaction_star',
-          style,
-          voice,
+          style: finalStyle,
+          voice: finalVoice,
           stage: 'lyrics_validated',
         },
       ).catch(() => undefined);
     }
 
-    log(`🎵 [LANCEMENT PRODUCTION SUNO V6] Titre : "${title}" | Voix : ${voice} | Style : ${style} | Commande : ${orderId || 'sans_id'}`);
+    log(`🎵 [LANCEMENT PRODUCTION SUNO V6] Titre : "${title}" | Voix : ${finalVoice} | Style : ${finalStyle} | Commande : ${orderId || 'sans_id'}`);
 
     // 6. Lancer la production en arrière-plan (génération Kie + polling + enfilage différé 12-15m)
     void startBackgroundProduction({
@@ -585,8 +649,8 @@ async function handleConfirmAndProduceSong(
       sessionName: session,
       chatId,
       title,
-      style,
-      voice,
+      style: finalStyle,
+      voice: finalVoice,
       lyrics: cleanedLyrics,
       protectedSessions: ['anicet2'],
       log,

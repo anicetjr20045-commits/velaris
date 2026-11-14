@@ -57,31 +57,92 @@ export function parseLyricsHeader(raw: string): ParsedLyricsHeader {
   let title: string | null = null;
   const lines = raw.split('\n');
   const lyricsLines: string[] = [];
+  let inLyricsBody = false;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
     const trimmed = line.trim();
-    // Enlever crochets ou parenthèses extérieurs si présents : "[Style: ...]" ou "(Style: ...)"
+    if (!trimmed) {
+      if (inLyricsBody) lyricsLines.push(line);
+      continue;
+    }
+
+    // Dès qu'on rencontre une balise musicale ([Intro], [Couplet], [Verse], [Refrain]...),
+    // tout ce qui suit fait partie intégrante du corps chanté
+    if (/^\[\s*(?:intro|couplet|verse|refrain|chorus|pont|bridge|pre-refrain|pré-refrain|outro)\b/i.test(trimmed)) {
+      inLyricsBody = true;
+      lyricsLines.push(line);
+      continue;
+    }
+
+    if (inLyricsBody) {
+      lyricsLines.push(line);
+      continue;
+    }
+
+    // Retirer les crochets ou parenthèses englobantes : "[Style: ...]" ou "(Style ...)"
     const unbracketed = trimmed.replace(/^[\[\(](.*)[\]\)]$/, '$1').trim();
 
-    // Détection des métadonnées (Style, Voix, Voice, Titre, Title) avec séparateurs (| , ; / • ou tiret entouré d'espaces)
-    if (
-      /^(?:style|voix|voice|titre|title)\s*[:=]/i.test(unbracketed) ||
-      /(?:[|;,\/•]|\s+-\s+)\s*(?:voix|voice|style|titre|title)\s*[:=]/i.test(unbracketed)
-    ) {
+    // 1. Détection du titre en début de message (ex: *« LE ROI DU 5 AVRIL »* ou "Titre: ...")
+    const explicitTitle = unbracketed.match(/^(?:titre|title)\s*[:=\-]?\s*(.+)$/i);
+    let matchedTitleStr: string | null = null;
+    if (explicitTitle && explicitTitle[1]) {
+      matchedTitleStr = explicitTitle[1].trim();
+    } else if (!title && /^[*_«"]+(.+?)[*_»"]+$/.test(unbracketed)) {
+      matchedTitleStr = unbracketed.replace(/^[*_«"\s]+|[*_»"\s]+$/g, '').trim();
+    }
+
+    if (matchedTitleStr) {
+      if (!/^(?:style|voix|voice|genre|rythme)\b/i.test(matchedTitleStr)) {
+        title = matchedTitleStr;
+        continue;
+      }
+    }
+
+    // 2. Détection des métadonnées de style et de voix (avec ou sans deux-points/égal)
+    const hasMetaKeyword = /(?:^|[|;,\/•]|\s+-\s+)\s*(?:style|genre|rythme|tempo|voix|voice)\b/i.test(unbracketed);
+    const hasVoiceMention = /\b(?:voix\s*(?:masculine|féminine|femme|homme|d'homme|de\s*femme)|voix\s*[:=\s-]|voice\s*[:=\s-]|male\s*voice|female\s*voice|chanteur|chanteuse)\b/i.test(unbracketed);
+
+    if (hasMetaKeyword || hasVoiceMention) {
       const segments = unbracketed.split(/[|;,\/•]|\s+-\s+/);
       for (const seg of segments) {
         const s = seg.trim();
-        const sm = s.match(/^style\s*[:=]\s*(.+)$/i);
-        const vm = s.match(/^(?:voix|voice)\s*[:=]\s*(.+)$/i);
-        const tm = s.match(/^(?:titre|title)\s*[:=]\s*(.+)$/i);
-        if (sm && sm[1]) {
-          style = sm[1].trim();
-          // Nettoyer si le style se termine par une mention de voix (ex: "Afro-love doux (voix femme)")
-          const cleaned = style.replace(/\s*[\(\/\-]?\s*(?:voix|voice)\s*[:=]?\s*(?:femme|féminine|homme|masculin|masculine|duo|duet|mixte)\s*[\)]?$/i, '').trim();
-          if (cleaned.length > 0) style = cleaned;
+        if (!s) continue;
+
+        // Détection de la voix
+        const vm = s.match(/^(?:voix|voice)\s*[:=\s-]?\s*(.+)$/i);
+        if (vm && vm[1]) {
+          voice = vm[1].trim();
+        } else if (/\b(?:voix\s*)?(?:masculin(?:e)?|homme|d'homme|male)\b/i.test(s)) {
+          voice = 'male';
+        } else if (/\b(?:voix\s*)?(?:féminin(?:e)?|femme|de\s*femme|female)\b/i.test(s)) {
+          voice = 'female';
+        } else if (/\b(?:duo|duet|mixte)\b/i.test(s)) {
+          voice = 'duo';
         }
-        if (vm && vm[1]) voice = vm[1].trim();
-        if (tm && tm[1]) title = tm[1].trim();
+
+        // Détection du style
+        const sm = s.match(/^(?:style|genre|rythme)\s*[:=\s-]?\s*(.+)$/i);
+        if (sm && sm[1]) {
+          let candidateStyle = sm[1].trim();
+          // Si la mention de voix est imbriquée dans le style (ex: "Afrobeat Nigerian, voix masculine")
+          if (/\b(?:voix\s*)?(?:masculin(?:e)?|homme|d'homme|male)\b/i.test(candidateStyle)) {
+            if (!voice) voice = 'male';
+            candidateStyle = candidateStyle.replace(/,?\s*(?:voix\s*)?(?:masculin(?:e)?|homme|d'homme|male)\b/gi, '').trim();
+          } else if (/\b(?:voix\s*)?(?:féminin(?:e)?|femme|de\s*femme|female)\b/i.test(candidateStyle)) {
+            if (!voice) voice = 'female';
+            candidateStyle = candidateStyle.replace(/,?\s*(?:voix\s*)?(?:féminin(?:e)?|femme|de\s*femme|female)\b/gi, '').trim();
+          } else if (/\b(?:duo|duet|mixte)\b/i.test(candidateStyle)) {
+            if (!voice) voice = 'duo';
+            candidateStyle = candidateStyle.replace(/,?\s*(?:duo|duet|mixte)\b/gi, '').trim();
+          }
+          if (candidateStyle) style = candidateStyle;
+        } else if (!style && !/^(?:titre|title)\b/i.test(s) && s.length >= 3) {
+          if (/(?:afro|rumba|zouk|gospel|reggae|pop|acoustique|dansant|doux|rap|drill|amapiano|highlife|coupé-décalé)/i.test(s)) {
+            // Nettoyer si la voix était collée
+            style = s.replace(/,?\s*(?:voix\s*)?(?:masculin(?:e)?|homme|d'homme|féminin(?:e)?|femme|de\s*femme)\b/gi, '').trim();
+          }
+        }
       }
       continue;
     }
@@ -93,11 +154,11 @@ export function parseLyricsHeader(raw: string): ParsedLyricsHeader {
   if (voice) {
     const v = voice.toLowerCase();
     if (v.includes('fem') || v.includes('femme') || v.includes('fémin')) normalizedVoice = 'female';
-    else if (v.includes('masc') || v.includes('homme')) normalizedVoice = 'male';
+    else if (v.includes('masc') || v.includes('homme') || v.includes('male') || v.includes('garçon')) normalizedVoice = 'male';
     else if (v.includes('duo') || v.includes('duet') || v.includes('mixte')) normalizedVoice = 'duo';
   }
 
-  // Si le style mentionne aussi la voix (ex: "Style: Afro-love voix femme")
+  // Si le style mentionne encore la voix
   if (!normalizedVoice && style) {
     const s = style.toLowerCase();
     if (s.includes('femme') || s.includes('féminine') || s.includes('voix femme') || s.includes('voix féminine')) {
