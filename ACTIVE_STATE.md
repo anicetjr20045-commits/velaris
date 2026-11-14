@@ -25,11 +25,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 14 Novembre 2026 (12:35 UTC)
-- **Statut Opérationnel** : **Génération & Livraison Autonome de Paroles via ✍️ & Clôture Déterministe via 🎉 Déployés en Production** :
+- **Dernière mise à jour** : 14 Novembre 2026 (17:05 UTC)
+- **Statut Opérationnel** : **Génération & Livraison Autonome de Paroles via ✍️, Production Suno V6 Directe via ⭐ & Clôture via 🎉 100% Opérationnels en Production** :
   1. Conteneur `velaris-engine` reconstruit et redémarré avec succès en production sur le VPS (`162.35.113.220`).
   2. `ENABLE_AI_AUTO_REPLY=false` maintenu : contrôle gérant 100% préservé, seules les réactions d'autorité du gérant (`✍️`, `⭐`, `🎉`, etc.) déclenchent des actions.
-  3. **Génération Autonome & Livraison Directe Paroles (Option B via ✍️)** :
+  3. **Production Musicale Suno V6 Déclenchée Directement par ⭐ (`handleConfirmAndProduceSong`)** :
+     - Raccordement direct dans `EMOJI_AUTOMATIONS` (exécute immédiatement dès réception du webhook WAHA, sans dépendre du tour-worker).
+     - Extraction automatique du style (ex: *« doux »*), de la voix (*« feminine »* ou *« masculine »*) et du titre depuis l'en-tête des paroles.
+     - Envoi à l'API Kie.ai Suno V6 et extraction dual-track (Version 1 & Version 2).
+     - Session WAHA `Test` réalignée en base sur `engine_owner = 'velaris_engine'`.
+     - Production réelle validée en direct : Chanson pour Séverine (*« SÉVERINE, PLUIE DE BÉNÉDICTIONS »*, taskId `b8901ae53cb417946ec9474cd784dd86`) lancée avec succès.
+  4. **Génération Autonome & Livraison Directe Paroles (Option B via ✍️)** :
      - Réaction `✍️` sur un message du client déclenche l'analyse intégrale des messages écrits et notes vocales transcrites.
      - Résolution sémantique des rôles (Narrateur réel vs Destinataire vs Intermédiaire WhatsApp).
      - Détection multi-commandes (séparation nette en 2 chansons si deux personnes différentes).
@@ -37,13 +43,11 @@
      - Composition poétique d'élite (Golden Hits, 32-48 vers, balises Suno complètes).
      - Expédition directe sur WhatsApp en 2 bulles : Bulle 1 (Paroles complètes) + Bulle 2 (Invitation cordiale à valider).
      - Persistance en base PostgreSQL (`orders.lyrics`, `orders.lyrics_title`, stage `lyrics_sent`).
-  4. **Clôture Déterministe de Commande & Inscription Client Fidèle (via 🎉)** :
-     - Réaction `🎉` clôture officiellement la commande ouverte (`delivered` / `closed`).
+  5. **Clôture Déterministe de Commande & Inscription Client Fidèle (via 🎉)** :
+     - Réaction `🎉` clôture officiellement la commande ouverte (`delivered` / `closed`) avec horodatage frontière exact.
      - Contact inscrit comme client fidèle (`is_returning = true`).
      - Scellage étanche de la frontière de conversation (zéro mélange avec les futures commandes).
      - Zéro message parasite envoyé au client (silence radio préservé).
-  5. **Double Version Chantée Suno V6 & Délai 12-15 Min via ⭐** :
-     - Toujours actif pour lancer la fabrication musicale dès que le client valide le texte.
 
 - **Jalon 149 Validé — Génération Autonome & Livraison Directe de Paroles via ✍️ (Option B) & Clôture Déterministe via 🎉 (`extractLyricsBriefFromChat`, `composeLyrics`, Golden Hits & 0 Régression sur 228 Tests)** :
   1. **Extracteur Sémantique Multi-Commandes & Résolution des Rôles (`extractLyricsBriefFromChat`)** :
