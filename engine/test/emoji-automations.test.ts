@@ -4,8 +4,8 @@ import { EMOJI_AUTOMATIONS, cleanEmoji, shouldProcessReaction, executeEmojiAutom
 import { normalizeEmoji } from '../src/ingest/wa-ids.js';
 import type { LlmProvider, JsonCompletionRequest, JsonCompletion } from '../src/llm/provider.js';
 
-test('Table des 10 automatisations : détection exacte de chaque emoji dont ✍️ et 🎉', () => {
-  const emojis = ['😊', '✨', '🙏', '💢', '🥰', '✍️', '☺️', '🎥', '🎵', '🎉'];
+test('Table des 11 automatisations : détection exacte de chaque emoji dont ✍️, 🎉 et ⭐', () => {
+  const emojis = ['😊', '✨', '🙏', '💢', '🥰', '✍️', '☺️', '🎥', '🎵', '🎉', '⭐'];
   const expectedLabels = [
     'Accueil Djelia',
     'Présentation des offres',
@@ -17,6 +17,7 @@ test('Table des 10 automatisations : détection exacte de chaque emoji dont ✍�
     'Vidéo démo',
     'Vocal procédure',
     'Confirmation livraison & clôture commande',
+    'Production musicale Suno V6',
   ];
 
   emojis.forEach((e, idx) => {

@@ -6,6 +6,7 @@ import {
   composeLyrics,
   type ChatMessageForBrief,
 } from '../llm/lyrics-composer.js';
+import { startBackgroundProduction, parseLyricsHeader } from '../services/music.js';
 
 export interface EmojiAutomationContext {
   waha?: WahaClient | undefined;
@@ -99,6 +100,13 @@ https://www.facebook.com/share/v/1DWErPGbXx/`,
     label: 'Confirmation livraison & clôture commande',
     execute: async (ctx, session, chatId, reactedKey) =>
       handleMarkDelivered(ctx, session, chatId, reactedKey),
+  },
+  // 11. ⭐ — Lancer la production musicale Suno V6 (avec délai de livraison différé 12-15 min)
+  [cleanEmoji('⭐')]: {
+    type: 'custom',
+    label: 'Production musicale Suno V6',
+    execute: async (ctx, session, chatId, reactedKey) =>
+      handleConfirmAndProduceSong(ctx, session, chatId, reactedKey),
   },
 };
 
@@ -424,6 +432,170 @@ async function handleMarkDelivered(
   } catch (err: any) {
     const errorMsg = err?.message || String(err);
     log(`❌ Erreur dans handleMarkDelivered: ${errorMsg}`);
+    return { executed: false, error: errorMsg };
+  }
+}
+
+/**
+ * Traite la réaction ⭐ : extrait les paroles, le style et la voix,
+ * et lance la production musicale Suno V6 en arrière-plan avec livraison différée 12-15 min.
+ */
+async function handleConfirmAndProduceSong(
+  ctx: EmojiAutomationContext,
+  session: string,
+  chatId: string,
+  reactedKey: string,
+): Promise<{ executed: boolean; action?: string; error?: string }> {
+  const log = ctx.log ?? console.log;
+  const apiKey = process.env.KIE_API_KEY || '';
+
+  if (!apiKey) {
+    log('❌ KIE_API_KEY manquante pour la production musicale ⭐');
+    return { executed: false, error: 'missing_kie_api_key' };
+  }
+
+  if (!ctx.db) {
+    log('❌ Base de données manquante pour la production musicale ⭐');
+    return { executed: false, error: 'missing_db' };
+  }
+
+  log(`⭐ [RÉACTION PRODUCTION MUSICALE] Traitement pour ${chatId} (clé réagie : ${reactedKey || 'aucune'})`);
+
+  try {
+    // 1. Trouver le contact
+    const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
+      'contacts',
+      `wa_jid=eq.${encodeURIComponent(chatId)}&select=id,user_id&limit=1`,
+    ).catch(() => []);
+    const contact = contacts?.[0];
+    if (!contact) {
+      log(`⭐ Contact introuvable pour ${chatId}`);
+      return { executed: false, error: 'contact_not_found' };
+    }
+
+    // 2. Trouver la conversation
+    const convs = await ctx.db.queryTable?.<Array<{ id: string; user_id: string; focus_order_id: string | null }>>(
+      'conversations',
+      `contact_id=eq.${contact.id}&order=created_at.desc&limit=1`,
+    ).catch(() => []);
+    const conv = convs?.[0];
+    if (!conv) {
+      log(`⭐ Conversation introuvable pour ${chatId}`);
+      return { executed: false, error: 'conversation_not_found' };
+    }
+
+    // 3. Récupérer le message réagi (ou chercher un message de paroles récent)
+    let lyrics: string | null = null;
+    let reactedId: string | null = null;
+
+    if (reactedKey) {
+      const msgRows = await ctx.db.queryTable?.<Array<{ id: string; body: string | null; transcript: string | null }>>(
+        'messages',
+        `wa_message_key=eq.${encodeURIComponent(reactedKey)}&select=id,body,transcript&limit=1`,
+      ).catch(() => []);
+      if (msgRows?.[0]) {
+        lyrics = msgRows[0].transcript || msgRows[0].body || null;
+        reactedId = msgRows[0].id;
+      }
+    }
+
+    // Si pas de message ciblé ou corps trop court, chercher le dernier message contenant des paroles
+    if (!lyrics || lyrics.length < 50) {
+      const recentMsgs = await ctx.db.queryTable?.<Array<{ id: string; body: string | null; transcript: string | null }>>(
+        'messages',
+        `conversation_id=eq.${conv.id}&order=created_at.desc&limit=15&select=id,body,transcript`,
+      ).catch(() => []);
+      const candidate = (recentMsgs || []).find((m) => {
+        const text = m.transcript || m.body || '';
+        return (
+          text.length > 50 &&
+          (/couplet|refrain|verse|chorus|\[intro\]/i.test(text) || text.split('\n').length >= 4)
+        );
+      });
+      if (candidate) {
+        lyrics = candidate.transcript || candidate.body || null;
+        reactedId = candidate.id;
+      }
+    }
+
+    if (!lyrics) {
+      log(`⭐ Aucune parole trouvée pour lancer la production musicale vers ${chatId}`);
+      return { executed: false, error: 'lyrics_not_found' };
+    }
+
+    // 4. Analyse de l'en-tête (style, voix, titre)
+    const header = parseLyricsHeader(lyrics);
+    const cleanedLyrics = header.lyrics || lyrics;
+    const style = header.style || 'Afro-pop acoustique douce';
+    const voice = header.voice || 'female';
+
+    // Trouver le titre
+    let title = header.title;
+    if (!title) {
+      const firstLine = cleanedLyrics.split('\n').map((l) => l.trim()).filter(Boolean)[0];
+      if (firstLine && !firstLine.startsWith('[') && firstLine.length <= 80) {
+        title = firstLine.replace(/^[#*«»_"\s]+|[#*«»_"\s]+$/g, '');
+      } else {
+        title = 'Chanson personnalisée';
+      }
+    }
+
+    // 5. Trouver ou créer la commande cible
+    let orderId = conv.focus_order_id;
+    if (!orderId) {
+      const openOrders = await ctx.db.queryTable?.<Array<{ id: string }>>(
+        'orders',
+        `conversation_id=eq.${conv.id}&stage=not.in.(delivered,closed,cancelled)&order=created_at.desc&limit=1`,
+      ).catch(() => []);
+      orderId = openOrders?.[0]?.id || null;
+    }
+    if (!orderId) {
+      try {
+        orderId = await ctx.db.rpc<string>('agent_open_order', { p_conversation: conv.id });
+      } catch {
+        // ignore
+      }
+    }
+
+    if (orderId) {
+      await ctx.db.updateRows?.(
+        'orders',
+        `id=eq.${orderId}`,
+        {
+          lyrics: cleanedLyrics,
+          lyrics_title: title,
+          lyrics_message_id: reactedId,
+          lyrics_source: 'merchant_reaction_star',
+          style,
+          voice,
+          stage: 'lyrics_validated',
+        },
+      ).catch(() => undefined);
+    }
+
+    log(`🎵 [LANCEMENT PRODUCTION SUNO V6] Titre : "${title}" | Voix : ${voice} | Style : ${style} | Commande : ${orderId || 'sans_id'}`);
+
+    // 6. Lancer la production en arrière-plan (génération Kie + polling + enfilage différé 12-15m)
+    void startBackgroundProduction({
+      apiKey,
+      db: ctx.db,
+      orderId: orderId || conv.id,
+      userId: conv.user_id,
+      conversationId: conv.id,
+      sessionName: session,
+      chatId,
+      title,
+      style,
+      voice,
+      lyrics: cleanedLyrics,
+      protectedSessions: ['anicet2'],
+      log,
+    });
+
+    return { executed: true, action: `Production musicale lancée : "${title}" (⭐)` };
+  } catch (err: any) {
+    const errorMsg = err?.message || String(err);
+    log(`❌ Erreur dans handleConfirmAndProduceSong: ${errorMsg}`);
     return { executed: false, error: errorMsg };
   }
 }
