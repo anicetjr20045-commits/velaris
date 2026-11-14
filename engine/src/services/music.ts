@@ -747,7 +747,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
 
         const isDual = audioUrls.length > 1;
         const announcementText = isDual
-          ? `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! 🎵\n\nVoici vos 2 versions chantées au choix :\n• 1ère note vocale : Version 1\n• 2ème note vocale : Version 2\n\nÉcoutez-les et dites-nous celle que vous préférez !`
+          ? `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! 🎵\n\nVoici vos 2 versions chantées au choix :\n• 1ère version : Version 1\n• 2ème version : Version 2\n\nÉcoutez-les et dites-nous celle que vous préférez !`
           : `Votre chanson personnalisée « *${title}* » (${style}) vient de sortir du studio ! Bonne écoute 🎵`;
 
         const textHash = createHash('sha256').update(announcementText).digest('hex');
@@ -784,7 +784,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
           p_order: orderId,
           p_turn: null,
           p_origin: 'delivery',
-          p_kind: 'voice',
+          p_kind: 'file',
           p_purpose: 'song',
           p_is_relay: false,
           p_session: sessionName,
@@ -810,7 +810,7 @@ export async function startBackgroundProduction(opts: BackgroundProductionOpts):
             p_order: orderId,
             p_turn: null,
             p_origin: 'delivery',
-            p_kind: 'voice',
+            p_kind: 'file',
             p_purpose: 'song',
             p_is_relay: false,
             p_session: sessionName,

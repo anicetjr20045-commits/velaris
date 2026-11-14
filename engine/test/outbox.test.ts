@@ -118,6 +118,24 @@ describe('OutboxSender', () => {
     assert.deepEqual(h.sends[0]!.content, { kind: 'video', url: 'https://x/assets/montage_sample.mp4', mimetype: 'audio/ogg', filename: 'v.ogg' });
   });
 
+  test('fichier document chanson : URL directe avec filename dérivé du caption', async () => {
+    const h = harness();
+    await h.sender.sendOne(row({
+      kind: 'file',
+      body: null,
+      media_path: 'https://cdn.kie.ai/audio/sample.mp3',
+      caption: 'Version 1 — « *Pour Mariam* »',
+      purpose: 'song',
+    }));
+    assert.deepEqual(h.sends[0]!.content, {
+      kind: 'file',
+      url: 'https://cdn.kie.ai/audio/sample.mp3',
+      mimetype: 'audio/mpeg',
+      filename: 'Version 1 — Pour Mariam.mp3',
+      caption: 'Version 1 — « *Pour Mariam* »',
+    });
+  });
+
   test('régulation : un seul envoi à la fois par discussion', async () => {
     const h = harness({ pending: [row({ id: 'a' }), row({ id: 'b' }), row({ id: 'c', chat_id: '227@c.us' })] });
     const started = await h.sender.tick();

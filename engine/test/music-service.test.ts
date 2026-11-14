@@ -324,15 +324,15 @@ C'est le 1er jour de bonheur !`;
     assert.equal(msgText.p_kind, 'text');
     assert.equal(msgText.p_idempotency_key, 'song_delivery_text_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');
     assert.ok(msgText.p_body.includes('Votre chanson personnalisée « *Pour Mariam* »'));
-    assert.ok(msgText.p_body.includes('1ère note vocale : Version 1'));
-    assert.ok(msgText.p_body.includes('2ème note vocale : Version 2'));
+    assert.ok(msgText.p_body.includes('1ère version : Version 1'));
+    assert.ok(msgText.p_body.includes('2ème version : Version 2'));
     const scheduledTextTime = new Date(msgText.p_not_before).getTime();
     const delayFromStartMin = (scheduledTextTime - startTime) / (60 * 1000);
     assert.ok(delayFromStartMin >= 12.8 && delayFromStartMin <= 13.2, `Le texte doit être planifié à 13 min (reçu: ${delayFromStartMin.toFixed(2)} min)`);
 
     // Message 2 : Version 1 Audio
     const msgV1 = enqueuedCalls[1];
-    assert.equal(msgV1.p_kind, 'voice');
+    assert.equal(msgV1.p_kind, 'file');
     assert.equal(msgV1.p_media_path, 'https://cdn.kie.ai/audio/version1.mp3');
     assert.equal(msgV1.p_caption, 'Version 1 — « *Pour Mariam* »');
     assert.equal(msgV1.p_idempotency_key, 'song_delivery_audio_v1_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');
@@ -341,7 +341,7 @@ C'est le 1er jour de bonheur !`;
 
     // Message 3 : Version 2 Audio
     const msgV2 = enqueuedCalls[2];
-    assert.equal(msgV2.p_kind, 'voice');
+    assert.equal(msgV2.p_kind, 'file');
     assert.equal(msgV2.p_media_path, 'https://cdn.kie.ai/audio/version2.mp3');
     assert.equal(msgV2.p_caption, 'Version 2 — « *Pour Mariam* »');
     assert.equal(msgV2.p_idempotency_key, 'song_delivery_audio_v2_b7c25a1e-97f6-4d74-a038-f86a2e4e1122_task_suno_dual_123');

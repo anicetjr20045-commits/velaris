@@ -270,10 +270,13 @@ export class OutboxSender {
         case 'image':
           return caption === undefined ? { kind: 'image', url: row.media_path, mimetype: 'image/jpeg' } : { kind: 'image', url: row.media_path, mimetype: 'image/jpeg', caption };
         case 'file':
-        case 'video':
+        case 'video': {
+          const rawName = row.caption ? row.caption.replace(/[*«»]/g, '').replace(/\s+/g, ' ').trim() : 'chanson';
+          const filename = row.kind === 'video' ? 'video.mp4' : (rawName.toLowerCase().endsWith('.mp3') ? rawName : `${rawName}.mp3`);
           return caption === undefined
-            ? { kind: row.kind, url: row.media_path, mimetype: row.kind === 'video' ? 'video/mp4' : 'audio/mpeg', filename: 'chanson.mp3' }
-            : { kind: row.kind, url: row.media_path, mimetype: row.kind === 'video' ? 'video/mp4' : 'audio/mpeg', filename: 'chanson.mp3', caption };
+            ? { kind: row.kind, url: row.media_path, mimetype: row.kind === 'video' ? 'video/mp4' : 'audio/mpeg', filename }
+            : { kind: row.kind, url: row.media_path, mimetype: row.kind === 'video' ? 'video/mp4' : 'audio/mpeg', filename, caption };
+        }
       }
     }
     const m = await this.deps.signMedia(row.media_path);
@@ -282,10 +285,13 @@ export class OutboxSender {
       case 'image':
         return caption === undefined ? { kind: 'image', url: m.url, mimetype: m.mimetype } : { kind: 'image', url: m.url, mimetype: m.mimetype, caption };
       case 'file':
-      case 'video':
+      case 'video': {
+        const rawName = row.caption ? row.caption.replace(/[*«»]/g, '').replace(/\s+/g, ' ').trim() : (m.filename ?? 'chanson');
+        const filename = row.kind === 'video' ? (m.filename ?? 'video.mp4') : (rawName.toLowerCase().endsWith('.mp3') ? rawName : `${rawName}.mp3`);
         return caption === undefined
-          ? { kind: row.kind, url: m.url, mimetype: m.mimetype, filename: m.filename }
-          : { kind: row.kind, url: m.url, mimetype: m.mimetype, filename: m.filename, caption };
+          ? { kind: row.kind, url: m.url, mimetype: m.mimetype, filename }
+          : { kind: row.kind, url: m.url, mimetype: m.mimetype, filename, caption };
+      }
     }
   }
 }

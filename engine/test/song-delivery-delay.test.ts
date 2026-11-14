@@ -191,33 +191,33 @@ describe('🧪 Validation Rigoureuse : Double Version Suno V6 & Livraison Diffé
     assert.equal(sentMariam13.length, 1, 'À T+13m pile, seul le texte d annonce de Mariam part');
     assert.equal(sentMariam13[0]!.kind, 'text');
     assert.ok(sentMariam13[0]!.body?.includes('Pour Mariam'));
-    assert.ok(sentMariam13[0]!.body?.includes('1ère note vocale : Version 1'));
-    assert.ok(sentMariam13[0]!.body?.includes('2ème note vocale : Version 2'));
+    assert.ok(sentMariam13[0]!.body?.includes('1ère version : Version 1'));
+    assert.ok(sentMariam13[0]!.body?.includes('2ème version : Version 2'));
 
     // Aucun message pour Ibrahim n'est parti
     const sentIbrahim13 = sentDeliveries.filter((s) => s.chatId === '22650000002@c.us');
     assert.equal(sentIbrahim13.length, 0, 'Ibrahim n a rien reçu à T+13m');
 
     // 5. À T + 13 minutes + 4 secondes :
-    // La note vocale Version 1 de Mariam arrive !
+    // Le fichier audio Version 1 de Mariam arrive !
     simulatedNow = mariamDeliveryStart + 4_000;
     const tick13mV1 = await mockSender.tick();
     await Promise.all(tick13mV1);
 
     const sentMariamV1 = sentDeliveries.filter((s) => s.chatId === '22650000001@c.us');
     assert.equal(sentMariamV1.length, 2, 'Version 1 de Mariam doit être expédiée à T+13m4s');
-    assert.equal(sentMariamV1[1]!.kind, 'voice');
+    assert.equal(sentMariamV1[1]!.kind, 'file');
     assert.equal(sentMariamV1[1]!.media, 'https://cdn.kie.ai/audio/mariam_v1.mp3');
 
     // 6. À T + 13 minutes + 9 secondes :
-    // La note vocale Version 2 de Mariam arrive !
+    // Le fichier audio Version 2 de Mariam arrive !
     simulatedNow = mariamDeliveryStart + 9_000;
     const tick13mV2 = await mockSender.tick();
     await Promise.all(tick13mV2);
 
     const sentMariamComplete = sentDeliveries.filter((s) => s.chatId === '22650000001@c.us');
     assert.equal(sentMariamComplete.length, 3, 'Les 3 messages de Mariam sont intégralement livrés');
-    assert.equal(sentMariamComplete[2]!.kind, 'voice');
+    assert.equal(sentMariamComplete[2]!.kind, 'file');
     assert.equal(sentMariamComplete[2]!.media, 'https://cdn.kie.ai/audio/mariam_v2.mp3');
 
     // Ibrahim toujours rien reçu
