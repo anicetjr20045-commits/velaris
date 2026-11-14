@@ -362,28 +362,54 @@ async function handleMarkDelivered(
     ).catch(() => []);
     const orderToClose = openOrders?.[0];
 
+    // Calcul de la frontière temporelle exacte : si réagi sur un message précis,
+    // on utilise la date exacte de ce message comme frontière absolue
+    let boundaryTimestamp = new Date().toISOString();
+    if (_reactedKey) {
+      const reactedRows = await ctx.db.queryTable?.<Array<{ created_at: string }>>(
+        'messages',
+        `wa_message_key=eq.${encodeURIComponent(_reactedKey)}&select=created_at&limit=1`,
+      ).catch(() => []);
+      if (reactedRows?.[0]?.created_at) {
+        boundaryTimestamp = reactedRows[0].created_at;
+      }
+    }
+
     if (orderToClose) {
       // Tenter la transition officielle
-      const tr = await ctx.db.rpc<string>('agent_transition_order', {
+      await ctx.db.rpc<string>('agent_transition_order', {
         p_order: orderToClose.id,
         p_expected_version: orderToClose.version,
         p_track: 'creative',
         p_event: 'delivery_sent',
         p_actor: 'merchant',
-        p_data: { via: 'emoji_automation_tada', emoji: '🎉' },
+        p_data: { via: 'emoji_automation_tada', emoji: '🎉', reacted_key: _reactedKey },
         p_inferred: false,
       }).catch(() => null);
 
-      // Si la transition par événement n'était pas permise depuis ce stage précis, forcer proprement la clôture
-      if (tr !== 'ok') {
+      // Sceller la frontière exacte sur la commande
+      await ctx.db.updateRows?.(
+        'orders',
+        `id=eq.${orderToClose.id}`,
+        { stage: 'delivered', updated_at: boundaryTimestamp },
+      ).catch(() => undefined);
+
+      log(`🎉 Commande ${orderToClose.id} passée au statut livré/terminé (date frontière : ${boundaryTimestamp})`);
+    } else {
+      // Si la commande était déjà passée en livraison (ex: via le délai Suno),
+      // ancrer la frontière exacte sur la commande la plus récente
+      const recentOrders = await ctx.db.queryTable?.<Array<{ id: string }>>(
+        'orders',
+        `conversation_id=eq.${conv.id}&order=created_at.desc&limit=1`,
+      ).catch(() => []);
+      if (recentOrders?.[0]?.id) {
         await ctx.db.updateRows?.(
           'orders',
-          `id=eq.${orderToClose.id}`,
-          { stage: 'delivered', updated_at: new Date().toISOString() },
+          `id=eq.${recentOrders[0].id}`,
+          { stage: 'delivered', updated_at: boundaryTimestamp },
         ).catch(() => undefined);
+        log(`🎉 Commande récente ${recentOrders[0].id} scellée avec la date frontière ${boundaryTimestamp}`);
       }
-
-      log(`🎉 Commande ${orderToClose.id} passée au statut livré/terminé`);
     }
 
     // 4. Inscrire le contact comme client fidèle (is_returning = true)
