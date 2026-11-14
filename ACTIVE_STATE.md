@@ -25,21 +25,40 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 13 Novembre 2026 (22:45 UTC)
-- **Statut Opérationnel** : **Livraison Musicale Différée 12-15 Min & Double Version Chantée Suno V6 Opérationnels en Production** :
-  1. Conteneur `velaris-engine` redémarré avec succès en production sur le VPS (`162.35.113.220`).
-  2. `ENABLE_AI_AUTO_REPLY=false` maintenu : l'IA ne répond à AUCUN client automatiquement, le gérant conserve 100% du contrôle.
-  3. **Double Version Chantée Suno V6 (Version 1 & Version 2)** :
-     - Kie.ai Suno V6 produit systématiquement 2 versions par génération (`sunoData[0]` et `sunoData[1]`).
-     - Le service extrait désormais les 2 flux audio et les livre tous les deux au client, honorant la promesse de la voix de procédure (*« on vous prépare deux versions chantées au choix »*).
-  4. **Délai Artisanal Résilient 12 à 15 Minutes (`outbound_messages.not_before`)** :
-     - La livraison est programmée avec un délai de 12 à 14.5 minutes (avec jitter réaliste) après le déclenchement initial par ⭐.
-     - L'ordonnancement est 100% durable en base PostgreSQL (`not_before` dans `agent_enqueue_outbox` et `agent_pending_outbox`), résistant aux redémarrages serveur/conteneur et isolant parfaitement les commandes concurrentes.
-     - Séquençage soigné : annonce texte à T, Version 1 à T + 4s, Version 2 à T + 9s.
-  5. **Système de Brouillon Studio & Clonage Vocal Actif** :
-     - `/vocal` ou `/on` ➔ Active le mode studio dans la conversation brouillon.
-     - `/stop` ou `/off` ➔ Désactive le mode studio.
-     - `/vocal <texte>` ➔ Synthèse vocale one-shot directe.
+- **Dernière mise à jour** : 14 Novembre 2026 (12:35 UTC)
+- **Statut Opérationnel** : **Génération & Livraison Autonome de Paroles via ✍️ & Clôture Déterministe via 🎉 Déployés en Production** :
+  1. Conteneur `velaris-engine` reconstruit et redémarré avec succès en production sur le VPS (`162.35.113.220`).
+  2. `ENABLE_AI_AUTO_REPLY=false` maintenu : contrôle gérant 100% préservé, seules les réactions d'autorité du gérant (`✍️`, `⭐`, `🎉`, etc.) déclenchent des actions.
+  3. **Génération Autonome & Livraison Directe Paroles (Option B via ✍️)** :
+     - Réaction `✍️` sur un message du client déclenche l'analyse intégrale des messages écrits et notes vocales transcrites.
+     - Résolution sémantique des rôles (Narrateur réel vs Destinataire vs Intermédiaire WhatsApp).
+     - Détection multi-commandes (séparation nette en 2 chansons si deux personnes différentes).
+     - Fenêtrage temporel déterministe isolant la commande en cours de l'historique antérieur fermé.
+     - Composition poétique d'élite (Golden Hits, 32-48 vers, balises Suno complètes).
+     - Expédition directe sur WhatsApp en 2 bulles : Bulle 1 (Paroles complètes) + Bulle 2 (Invitation cordiale à valider).
+     - Persistance en base PostgreSQL (`orders.lyrics`, `orders.lyrics_title`, stage `lyrics_sent`).
+  4. **Clôture Déterministe de Commande & Inscription Client Fidèle (via 🎉)** :
+     - Réaction `🎉` clôture officiellement la commande ouverte (`delivered` / `closed`).
+     - Contact inscrit comme client fidèle (`is_returning = true`).
+     - Scellage étanche de la frontière de conversation (zéro mélange avec les futures commandes).
+     - Zéro message parasite envoyé au client (silence radio préservé).
+  5. **Double Version Chantée Suno V6 & Délai 12-15 Min via ⭐** :
+     - Toujours actif pour lancer la fabrication musicale dès que le client valide le texte.
+
+- **Jalon 149 Validé — Génération Autonome & Livraison Directe de Paroles via ✍️ (Option B) & Clôture Déterministe via 🎉 (`extractLyricsBriefFromChat`, `composeLyrics`, Golden Hits & 0 Régression sur 228 Tests)** :
+  1. **Extracteur Sémantique Multi-Commandes & Résolution des Rôles (`extractLyricsBriefFromChat`)** :
+     - Analyse de la discussion complète combinant les textes écrits et les notes vocales transcrites en base.
+     - Résout les scénarios relationnels complexes (ex: une amie qui commande pour sa copine Fatou afin de l'offrir à son mari Moussa -> `senderName: 'Fatou'`, `recipientName: 'Moussa'`, `recipientRelation: 'mari'`).
+     - Supporte les doubles commandes (ex: mère et père) en produisant 2 fiches de brief hermétiques avec leurs souvenirs dédiés.
+  2. **Pipeline de Composition & Double Bulle WhatsApp (`handleAutonomousLyricsGenerationAndDelivery`)** :
+     - Modèle de composition Suno complet (32 à 48 vers minimum) fondé sur les Golden Hits du studio.
+     - Envoi séquentiel : Bulle 1 avec titre majuscule et balises Suno, suivie de la Bulle 2 d'invitation à la validation.
+     - Rattachement automatique à la commande en base et avancement vers `lyrics_sent`.
+  3. **Signal de Clôture Déterministe (`handleMarkDelivered` via 🎉)** :
+     - Transition de la commande en `delivered`, horodatage et mise à jour de `contacts.is_returning = true`.
+  4. **Validation de la Suite de Tests & Déploiement VPS** :
+     - 228 tests unitaires de la suite engine validés avec succès (0 échec).
+     - Déployé, recompilé et testé avec succès sur le conteneur `velaris-engine` du VPS `162.35.113.220`.
 
 - **Jalon 148 Validé — Double Version Chantée Suno V6 & Livraison Différée 12–15 Min par File PostgreSQL Déterministe (`not_before`, Isolation Multi-Générations & Zero-Leak Anti-Auto-Reply)** :
   1. **Extraction Dual-Track Suno V6 (`pollKieSongStatus`)** :
