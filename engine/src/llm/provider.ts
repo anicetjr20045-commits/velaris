@@ -14,6 +14,8 @@ export interface JsonCompletionRequest {
   maxTokens: number;
   /** 0 par défaut : la compréhension doit être reproductible. */
   temperature?: number;
+  /** Délai d'attente personnalisé en ms pour cette requête spécifique. */
+  timeoutMs?: number;
 }
 
 export interface LlmUsage {

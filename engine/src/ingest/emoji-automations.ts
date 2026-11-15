@@ -175,29 +175,19 @@ async function handleAutonomousLyricsGenerationAndDelivery(
       return { executed: false, error: 'conversation_not_found' };
     }
 
-    // 3. Fenêtrage temporel déterministe (Ancienne commande vs Nouvelle commande)
-    const closedOrders = await ctx.db.queryTable?.<Array<{ id: string; updated_at: string }>>(
-      'orders',
-      `conversation_id=eq.${conv.id}&stage=in.(delivered,closed)&order=updated_at.desc&limit=1`,
-    ).catch(() => []);
-    const lastClosed = closedOrders?.[0];
-
-    let messageFilter = `conversation_id=eq.${conv.id}&order=created_at.desc&limit=40`;
-    if (lastClosed?.updated_at) {
-      messageFilter += `&created_at=gt.${encodeURIComponent(lastClosed.updated_at)}`;
-    }
-
+    // 3. Récupération des messages récents pour analyse du brief
     const rawMessages = await ctx.db.queryTable?.<
       Array<{
         id: string;
-        from_me: boolean;
+        direction?: string | null;
+        role?: string | null;
         body: string | null;
         transcript: string | null;
         media_kind: string | null;
         wa_message_key: string | null;
         created_at: string;
       }>
-    >('messages', messageFilter).catch(() => []);
+    >('messages', `conversation_id=eq.${conv.id}&order=created_at.desc&limit=50`).catch(() => []);
 
     const messages = (rawMessages || []).reverse();
 
@@ -212,12 +202,15 @@ async function handleAutonomousLyricsGenerationAndDelivery(
 
     // 5. Préparer les messages pour l'extracteur
     const chatForBrief: ChatMessageForBrief[] = messages
-      .map((m) => ({
-        role: m.from_me ? ('merchant' as const) : ('client' as const),
-        text: (m.transcript || m.body || '').trim(),
-        createdAt: m.created_at,
-        isVoice: m.media_kind === 'audio' || Boolean(m.transcript),
-      }))
+      .map((m) => {
+        const isMerchant = m.direction === 'outbound' || m.role === 'merchant' || m.role === 'agent';
+        return {
+          role: isMerchant ? ('merchant' as const) : ('client' as const),
+          text: (m.transcript || m.body || '').trim(),
+          createdAt: m.created_at,
+          isVoice: m.media_kind === 'audio' || Boolean(m.transcript),
+        };
+      })
       .filter((m) => m.text.length > 0);
 
     log(`✍️ Analyse de ${chatForBrief.length} messages (textes et vocaux transcrits)...`);
@@ -315,15 +308,6 @@ async function handleAutonomousLyricsGenerationAndDelivery(
   } catch (err: any) {
     const errorMsg = err?.message || String(err);
     log(`❌ Erreur dans handleAutonomousLyricsGenerationAndDelivery: ${errorMsg}`);
-    // En cas d'erreur inattendue de génération, assurer l'envoi du message de politesse pour ne pas laisser le client sans réponse
-    try {
-      await ctx.waha.send(session, chatId, {
-        kind: 'text',
-        text: EMOJI_AUTOMATIONS[cleanEmoji('✍️')]?.content || 'Merci de me donner votre retour sur le texte.',
-      });
-    } catch {
-      // ignore
-    }
     return { executed: false, error: errorMsg };
   }
 }

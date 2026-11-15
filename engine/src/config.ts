@@ -73,7 +73,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
       apiKey,
       baseUrl,
       model,
-      timeoutMs: Number(env.DEEPSEEK_TIMEOUT_MS ?? 15_000),
+      timeoutMs: Number(env.DEEPSEEK_TIMEOUT_MS ?? 30_000),
     },
     // CORRECTIF (M8) : la clé Kie est exposée séparément. Le transcripteur appelle api.kie.ai ;
     // lui passer une clé DeepSeek directe (non-Kie) causait des 401 sur toutes les transcriptions.

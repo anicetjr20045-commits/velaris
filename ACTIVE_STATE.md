@@ -25,7 +25,11 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 14 Novembre 2026 (19:05 UTC)
+- **Dernière mise à jour** : 15 Novembre 2026 (09:45 UTC)
+- **Session WhatsApp ("Test") Rétablie & Vérifiée** :
+  - Session WAHA `"Test"` (+22656240533) reconnectée avec succès (`status: WORKING`, `engine.state: CONNECTED`).
+  - Webhooks opérationnels et testés en temps réel : réaction `😊` ("Accueil Djelia") déclenchée et envoyée avec succès vers `22993387922@c.us` (09:43:22Z, ack confirmé).
+  - Page de scan et surveillance automatique opérationnelle sur `https://waha.velarisagent.life/qr/`.
 - **Statut Opérationnel** : **Détection Robuste du Style & de la Voix (Masculine / Féminine) Déployée & 100% Opérationnelle** :
   1. Conteneur `velaris-engine` reconstruit et redémarré avec succès en production sur le VPS (`162.35.113.220`).
   2. **Correction Majeure Détection Style & Voix** :

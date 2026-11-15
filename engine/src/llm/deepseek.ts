@@ -131,10 +131,11 @@ export class DeepSeekProvider implements LlmProvider {
     }
 
     const started = this.now();
+    const effectiveTimeoutMs = req.timeoutMs ?? this.timeoutMs;
     let last: LlmError | null = null;
     for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
       try {
-        const out = await this.once(body);
+        const out = await this.once(body, effectiveTimeoutMs);
         return { ...out, latencyMs: this.now() - started, attempts: attempt };
       } catch (err) {
         last = err instanceof LlmError ? err : new LlmError('network', String(err), true);
@@ -145,7 +146,7 @@ export class DeepSeekProvider implements LlmProvider {
     throw last ?? new LlmError('network', 'échec inconnu', false);
   }
 
-  private async once(body: unknown): Promise<Omit<JsonCompletion, 'latencyMs' | 'attempts'>> {
+  private async once(body: unknown, timeoutMs: number): Promise<Omit<JsonCompletion, 'latencyMs' | 'attempts'>> {
     const endpoint = this.isKie
       ? (this.baseUrl.includes('/openai/v1') ? `${this.baseUrl}/responses` : `${this.baseUrl}/openai/v1/responses`)
       : `${this.baseUrl}/chat/completions`;
@@ -160,7 +161,7 @@ export class DeepSeekProvider implements LlmProvider {
           Accept: 'application/json',
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
       const name = (err as Error).name;

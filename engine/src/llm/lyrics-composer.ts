@@ -150,6 +150,7 @@ Analyse la discussion, résous les rôles, extrais les détails clés et renvoie
     messages: [{ role: 'user', content: userPrompt }],
     maxTokens: 2000,
     temperature: 0.1,
+    timeoutMs: 45_000,
   });
 
   const data = res.data as any;
@@ -274,6 +275,7 @@ Rédige les paroles complètes et généreuses (longueur patron : 32 à 48 vers)
     messages: [{ role: 'user', content: userPrompt }],
     maxTokens: 2500,
     temperature: 0.3,
+    timeoutMs: 65_000,
   });
 
   let title =
@@ -308,6 +310,7 @@ Rédige les paroles complètes et généreuses (longueur patron : 32 à 48 vers)
         ],
         maxTokens: 2500,
         temperature: 0.25,
+        timeoutMs: 65_000,
       });
 
       const retryTitle =
@@ -369,6 +372,7 @@ Applique les modifications chirurgicales en préservant l'intégralité de la lo
     messages: [{ role: 'user', content: userPrompt }],
     maxTokens: 2500,
     temperature: 0.2,
+    timeoutMs: 50_000,
   });
 
   const title =
