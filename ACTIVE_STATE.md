@@ -25,19 +25,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 15 Novembre 2026 (11:38 UTC)
-- **Correctif Majeur Génération Autonome des Paroles (✍️)** :
-  1. **Diagnostic de l'échec précédent (Aimée / Kassoum)** :
-     - La génération de paroles complètes (32 à 48 vers) dépassait le timeout par défaut de 15s de DeepSeek (`délai dépassé` après 30s sur 2 essais).
-     - Le bloc d'erreur rattrapait l'exception et envoyait par réflexe le message de relance ("Merci de me donner votre retour...") sans avoir envoyé les paroles.
-     - Le fenêtrage temporel excluait les messages précédents si une ancienne commande était marquée `delivered`.
-     - `m.from_me` était `undefined` (la colonne SQL étant `direction` et `role`), ce qui faussait l'attribution des messages.
-  2. **Correctifs Déployés & Validés (100% des 229 tests unitaires réussis)** :
-     - `JsonCompletionRequest.timeoutMs` paramétrable par requête : 65s allouées pour la rédaction de paroles d'élite (`composeLyrics`) et 45s pour l'extraction de brief. Timeout global DeepSeek porté à 30s.
-     - Analyse de brief étendue aux 50 derniers messages de la discussion avec détection exacte des rôles via `direction` et `role`.
-     - Suppression de l'envoi du message de relance fantôme en cas d'erreur.
-     - Conteneur `velaris-engine` reconstruit et redémarré en production sur le VPS.
-- **Session WhatsApp ("Test") Rétablie & Vérifiée** :
+- **Dernière mise à jour** : 15 Novembre 2026 (14:30 UTC)
+- **Déploiement Effectif Re-création Conteneur & Timeout 65s Validé** :
+  1. **Cause racine de la récidive à 14:24 UTC** :
+     - Le conteneur Docker `velaris-engine` n'avait été que redémarré (`docker restart`) et tournait encore sur l'ancienne image du 14 novembre.
+     - De plus, `/root/waha-vps-setup/docker-compose.yml` écrasait le timeout avec la variable d'environnement explicite `DEEPSEEK_TIMEOUT_MS=15000`.
+  2. **Résolution définitive appliquée** :
+     - Variable d'environnement mise à jour à `DEEPSEEK_TIMEOUT_MS=65000` dans `docker-compose.yml`.
+     - Code TypeScript durci avec un plancher absolu `Math.max(45_000, ...)`.
+     - Image `velaris-engine:latest` reconstruite proprement (`docker build --no-cache`).
+     - Conteneur complètement **recréé** (`docker compose up -d --force-recreate velaris-engine`) et validé à 14:27:59 UTC avec `DEEPSEEK_TIMEOUT_MS=65000`.
+- **Statut Opérationnel** : **Détection Robuste du Style & de la Voix (Masculine / Féminine) Déployée & 100% Opérationnelle** :
   - Session WAHA `"Test"` (+22656240533) reconnectée avec succès (`status: WORKING`, `engine.state: CONNECTED`).
   - Webhooks opérationnels et testés en temps réel : réaction `😊` ("Accueil Djelia") déclenchée et envoyée avec succès vers `22993387922@c.us` (09:43:22Z, ack confirmé).
   - Page de scan et surveillance automatique opérationnelle sur `https://waha.velarisagent.life/qr/`.
