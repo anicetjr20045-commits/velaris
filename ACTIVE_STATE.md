@@ -25,8 +25,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (17:25 UTC)
-- **Durcissement Extrême Concierge WhatsApp Djélia 24/7 Web-First (Cameroun 🇨🇲, Côte d'Ivoire 🇨🇮, Afrique de l'Ouest & Centrale)** :
+- **Dernière mise à jour** : 17 Novembre 2026 (18:05 UTC)
+- **Validation Intégrale & Audit de Perfection du Concierge Djélia 24/7 (Déployé Production VPS)** :
+  1. **Audit Schéma PostgreSQL & Résolution de Requête Supabase** :
+     - Détection et correction chirurgicale de la clause `select` de `contacts` : remplacement des champs inexistants par les colonnes réelles `id,user_id,name,phone,wa_jid,created_at`.
+     - Ajout d'un fallback déterministe par `chat_id` sur la table `conversations`.
+     - Élimination définitive de l'erreur HTTP 400 PostgREST (`contacts.is_returning does not exist`).
+  2. **Banc d'Essai Réel Validé (10 Scénarios Clients en Conditions Réelles avec DeepSeek)** :
+     - Scénario 1 (Cameroun, Douala, Orange Money) : réponse immédiate validant Orange Money Cameroun sur Chariow et renvoyant vers le studio.
+     - Scénario 2 (Côte d'Ivoire, anniversaire maman) : 1 200 F CFA, 2 versions MP3 en 15-20 min, étapes claires.
+     - Scénario 3 (Burkina Faso, validation paroles) : confirme la lecture et retouche gratuite des paroles avant paiement.
+     - Scénario 4 (Bloqué sur les souvenirs) : conseil bienveillant et concret pour débloquer l'inspiration.
+     - Scénario 5 (Capture d'écran paiement Chariow) : guidage pas-à-pas sur le champ du numéro de téléphone.
+     - Scénarios 6 à 10 (Livraison, humain, réduction, diaspora CB Paris, programme partenaire 20%) : 100% de réponses parfaites, dignes, concises, zéro émoji.
+  3. **Vérification In Situ sur le Conteneur VPS (`162.35.113.220`)** :
+     - Test client historique réel (`22671045352@c.us`) : bloqué instantanément avec `reason: 'conversation_human_control'` (Silence absolu garanti).
+     - Test nouveau lead simulé (`23769999999@c.us`) : pack d'accueil déclenché avec succès (`action: 'onboarding_pack_sent'`).
+     - Tous les 11 tests unitaires validés au vert (`npm test`).
   1. **Vidéo Tutoriel Mobile Ultra-Légère (4.4 Mo au lieu de 14.4 Mo) & Lecture Vidéo WhatsApp Native** :
      - Re-compression optimale de `djelia_tuto_mobile.mp4` : passage de 14.38 Mo à 4.41 Mo (-70% de bande passante).
      - Format d'encodage H.264 Main Profile 3.1, Pix_Fmt YUV420P, audio AAC 64k, résolution 720x1280 (verticale HD).
