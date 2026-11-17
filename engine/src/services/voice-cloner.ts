@@ -19,6 +19,7 @@ import type { NormalizedEvent } from '../ingest/normalize.js';
 
 export interface VoiceClonerOpts {
   apiKey?: string | undefined;
+  voiceProfile?: 'sister' | 'male' | 'user' | undefined;
   referencePath?: string | undefined;
   referenceText?: string | undefined;
   referenceId?: string | undefined;
@@ -29,6 +30,9 @@ export interface VoiceClonerOpts {
 
 export const SISTER_TIKTOK_REFERENCE_TEXT =
   "Donc je voulais vous dire merci pour vos commentaires, vos likes, vos partages à tous, ça me fait plaisir. Et puis quand vous m'envoyez des messages là, on me parle comme votre amie et tout, c'est un plaisir sincèrement, j'adore !";
+
+export const MALE_USER_REFERENCE_TEXT =
+  "Que vous pouvez bien sûr télécharger. En plus de cela, nous vous donnons la possibilité de pouvoir vous faire de l'argent aussi en cliquant directement ici pour devenir partenaire Djélia. Vous créez votre compte et vous pouvez partager pour que tous ceux qui commandent directement de votre lien, vous puissiez toucher une commission de 20% sur leur commande.";
 
 export class VoiceClonerService {
   private readonly apiKey: string;
@@ -42,23 +46,25 @@ export class VoiceClonerService {
   constructor(opts: VoiceClonerOpts = {}) {
     this.apiKey = opts.apiKey || process.env.FISH_API_KEY || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
     this.model = opts.model || 's2.1-pro-free';
-    this.referenceText = opts.referenceText || SISTER_TIKTOK_REFERENCE_TEXT;
+    const isMale = opts.voiceProfile === 'male' || opts.voiceProfile === 'user';
+    this.referenceText = opts.referenceText || (isMale ? MALE_USER_REFERENCE_TEXT : SISTER_TIKTOK_REFERENCE_TEXT);
     this.referenceId = opts.referenceId || process.env.FISH_REFERENCE_ID || undefined;
     this.fetchImpl = opts.fetchImpl || fetch;
     this.log = opts.log;
 
     this.referenceBuffer = Buffer.alloc(0);
-    this.loadReferenceAudio(opts.referencePath);
+    this.loadReferenceAudio(opts.referencePath, isMale);
   }
 
-  private loadReferenceAudio(customPath?: string): void {
+  private loadReferenceAudio(customPath?: string, isMale?: boolean): void {
+    const defaultFile = isMale ? 'sample_male_user_reference.mp3' : 'sample_sister_reference.mp3';
     const candidates = [
       customPath,
-      path.resolve(process.cwd(), 'src/assets/sample_sister_reference.mp3'),
-      path.resolve(process.cwd(), 'dist/src/assets/sample_sister_reference.mp3'),
-      '/root/projets/velaris/engine/src/assets/sample_sister_reference.mp3',
-      '/app/src/assets/sample_sister_reference.mp3',
-      '/srv/qr/assets/sample_sister_reference.mp3',
+      path.resolve(process.cwd(), 'src/assets', defaultFile),
+      path.resolve(process.cwd(), 'dist/src/assets', defaultFile),
+      path.resolve('/root/projets/velaris/engine/src/assets', defaultFile),
+      path.resolve('/app/src/assets', defaultFile),
+      path.resolve('/srv/qr/assets', defaultFile),
     ].filter((p): p is string => Boolean(p));
 
     for (const cand of candidates) {

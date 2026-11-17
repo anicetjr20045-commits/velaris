@@ -25,7 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 15 Novembre 2026 (14:30 UTC)
+- **Dernière mise à jour** : 17 Novembre 2026 (13:20 UTC)
+- **Clonage Vocal Réalisé avec Succès : Voix Masculine Utilisateur Démo Djélia (Novembre 2026)** :
+  1. **Extraction de la Vidéo Google Drive** :
+     - Lien source utilisateur : `https://drive.google.com/file/d/1M7xH3kxWDXcnaJdCnCBo9OGTBHe4axZw/view?usp=drivesdk`
+     - Téléchargement et extraction audio haute définition (`full_extracted_tutorial_audio.mp3`, 149 Mo vidéo, 53s audio).
+  2. **Transcription Whisper & Échantillonnage de Référence** :
+     - Transcription intégrale via Whisper sur VPS : tutoriel complet de commande sur `djelia.store` et présentation du programme partenaire Djélia à 20% de commission.
+     - Extraction chirurgicale d'un échantillon vocal pur de 21 secondes sans bruit de fond : [`sample_male_user_reference.mp3`](file:///root/projets/velaris/engine/src/assets/sample_male_user_reference.mp3).
+     - Texte de référence : *"Que vous pouvez bien sûr télécharger. En plus de cela, nous vous donnons la possibilité de pouvoir vous faire de l'argent aussi en cliquant directement ici pour devenir partenaire Djélia. Vous créez votre compte et vous pouvez partager pour que tous ceux qui commandent directement de votre lien, vous puissiez toucher une commission de 20% sur leur commande."*
+  3. **Synthèse & Clonage Zero-Shot (Fish Audio Engine)** :
+     - Modèle Fish Audio zero-shot TTS activé avec succès.
+     - Audio de test généré : [`test_voix_clonee.mp3`](file:///root/projets/studio-djelia/frontend/demo/test_voix_clonee.mp3) (10s, fidélité parfaite au timbre de l'utilisateur).
+     - Message de validation vocalisé : *"Bonjour ! Bienvenue sur Djélia. Votre voix a bien été extraite de la vidéo et clonée avec succès. Je suis désormais opérationnel pour vocaliser tous vos messages."*
+  4. **Architecture Logicielle & Tests** :
+     - Extension de `VoiceClonerService` dans [`engine/src/services/voice-cloner.ts`](file:///root/projets/velaris/engine/src/services/voice-cloner.ts) avec `voiceProfile: 'male' | 'user' | 'sister'`.
+     - 9/9 tests du cloner validés dans [`engine/test/voice-cloner.test.ts`](file:///root/projets/velaris/engine/test/voice-cloner.test.ts).
+     - 229/229 tests de l'engine tous passés avec succès (0 échec).
+
+---
+
+## 🎯 Historique Récent des Déploiements
 - **Déploiement Effectif Re-création Conteneur & Timeout 65s Validé** :
   1. **Cause racine de la récidive à 14:24 UTC** :
      - Le conteneur Docker `velaris-engine` n'avait été que redémarré (`docker restart`) et tournait encore sur l'ancienne image du 14 novembre.

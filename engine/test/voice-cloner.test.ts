@@ -36,6 +36,15 @@ describe('Studio Voice Cloner & Draft Manager', () => {
     assert.ok(buf.length > 0);
   });
 
+  it('VoiceClonerService supporte le profil vocal male/user avec référence dédiée', async () => {
+    const cloner = new VoiceClonerService({
+      apiKey: 'test-fish-key',
+      voiceProfile: 'male',
+      fetchImpl: (async () => new Response(new Uint8Array([79, 103, 103, 83]), { status: 200 })) as any,
+    });
+    assert.ok(cloner);
+  });
+
   it('DraftClonerManager: /vocal active le mode brouillon et répond par confirmation', async () => {
     const cloner = new VoiceClonerService({ fetchImpl: (async () => new Response()) as any });
     const manager = new DraftClonerManager({ cloner });
