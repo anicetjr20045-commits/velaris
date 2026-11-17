@@ -22,6 +22,7 @@ import { createMediaSigner } from './send/storage.js';
 import { WahaClient } from './send/waha-client.js';
 import { AudioTranscriber } from './services/transcribe.js';
 import { VoiceClonerService, DraftClonerManager } from './services/voice-cloner.js';
+import { ConciergeService } from './services/concierge-service.js';
 
 if (existsSync('.env.local')) process.loadEnvFile('.env.local');
 const config = loadConfig();
@@ -71,6 +72,21 @@ if (!config.enableAiAutoReply) {
 }
 log('Mode Brouillon Studio & Clonage Vocal Sœur ACTIVÉ (/vocal, /on, /stop, /off)');
 
+const conciergeService = config.enableConcierge
+  ? new ConciergeService({
+      db,
+      waha,
+      llmProvider,
+      transcriber,
+      protectedSessions: config.protectedSessions,
+      log,
+    })
+  : undefined;
+
+if (conciergeService) {
+  log('Concierge Djélia 24/7 ACTIVÉ (Onboarding Web-First + Support Différé 25s + Typing Indicator)');
+}
+
 const ingestDeps: IngestServerDeps = {
   db,
   spool,
@@ -83,6 +99,7 @@ const ingestDeps: IngestServerDeps = {
   transcriber,
   voiceCloner,
   draftManager,
+  conciergeService,
 };
 
 const sender = new OutboxSender({

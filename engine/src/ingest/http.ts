@@ -21,6 +21,7 @@ import type { DeepSeekProvider } from '../llm/deepseek.js';
 import { resetTestClient } from '../services/reset-client.js';
 import type { RestDb } from '../db/rest.js';
 import type { VoiceClonerService, DraftClonerManager } from '../services/voice-cloner.js';
+import type { ConciergeService } from '../services/concierge-service.js';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -32,8 +33,9 @@ export interface IngestServerDeps extends ProcessDeps {
   log: (line: string, data?: Record<string, unknown>) => void;
   waha?: WahaClient;
   llmProvider?: DeepSeekProvider;
-  voiceCloner?: VoiceClonerService;
-  draftManager?: DraftClonerManager;
+  voiceCloner?: VoiceClonerService | undefined;
+  draftManager?: DraftClonerManager | undefined;
+  conciergeService?: ConciergeService | undefined;
 }
 
 function readBody(req: IncomingMessage): Promise<Buffer> {
@@ -180,6 +182,17 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
     const r = await processEvent(ev, deps);
     await deps.db.rpc('agent_mark_inbound_event', { p_id: id, p_status: 'processed', p_reason: r.outcome });
     deps.log('event processed', { id, kind: ev.kind, outcome: r.outcome });
+
+    // 4. Concierge Djélia 24/7 (Onboarding Web-First & Support Différé)
+    if (deps.conciergeService && ev.kind === 'message') {
+      if (ev.fromMe) {
+        deps.conciergeService.cancelPendingTurn(ev.chatId);
+      } else {
+        void deps.conciergeService.handleEvent(ev).catch((err) => {
+          deps.log('concierge service error', { chatId: ev.chatId, error: err?.message || err });
+        });
+      }
+    }
   } catch (err) {
     deps.log('event processing failed', { id, kind: ev.kind, error: String((err as Error).message) });
     // Reste 'received' : le balayeur le reprendra (le traitement est idempotent).

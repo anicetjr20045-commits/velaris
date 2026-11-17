@@ -26,6 +26,7 @@ export interface EngineConfig {
   kieApiKey: string | null;
   fishApiKey: string;
   enableAiAutoReply: boolean;
+  enableConcierge: boolean;
   spoolDir: string;
   senderConcurrencyPerSession: number;
 }
@@ -81,6 +82,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
     kieApiKey: kieApiKey || null,
     fishApiKey: env.FISH_API_KEY?.trim() || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w',
     enableAiAutoReply: env.ENABLE_AI_AUTO_REPLY === 'true',
+    enableConcierge: env.ENABLE_CONCIERGE !== 'false',
     spoolDir: env.SPOOL_DIR?.trim() || './spool',
     senderConcurrencyPerSession: Number(env.SENDER_CONCURRENCY_PER_SESSION ?? 2),
   };
