@@ -76,6 +76,9 @@ const conciergeService = config.enableConcierge
   ? new ConciergeService({
       db,
       waha,
+      wahaUrl: config.wahaUrl,
+      wahaApiKey: config.wahaApiKey,
+      kieApiKey: config.kieApiKey,
       llmProvider,
       transcriber,
       protectedSessions: config.protectedSessions,
@@ -84,7 +87,7 @@ const conciergeService = config.enableConcierge
   : undefined;
 
 if (conciergeService) {
-  log('Concierge Djélia 24/7 ACTIVÉ (Onboarding Web-First + Support Différé 25s + Typing Indicator)');
+  log('Concierge Djélia 24/7 ACTIVÉ (Onboarding Web-First + Support Différé 30s + Vision Screenshots + Typing Indicator)');
 }
 
 const ingestDeps: IngestServerDeps = {

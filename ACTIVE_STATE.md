@@ -25,24 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (16:45 UTC)
-- **Lancement Opérationnel : Concierge WhatsApp Djélia 24/7 Web-First (Côte d'Ivoire 🇨🇮 & Cameroun 🇨🇲)** :
-  1. **Architecture & Stratégie Web-First** :
-     - Pivotement vers `https://djelia.store/studio.html` comme canal de commande central pour les campagnes publicitaires en Côte d'Ivoire et au Cameroun.
-     - Nouveau lead (premier message sur WhatsApp session `"Test"`) :
-       1. Envoi de la note vocale d'accueil PTT ([`vocal_accueil_concierge.opus`](https://waha.velarisagent.life/qr/assets/vocal_accueil_concierge.opus)) avec la voix de la sœur clonée (Fish Audio TTS s2.1-pro-free).
-       2. Envoi de la vidéo tutoriel smartphone ([`djelia_tuto_mobile.mp4`](https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4), 14.38 Mo) montrant la composition sur mobile en 2 minutes.
-       3. Envoi du lien d'accès direct vers le studio web avec message d'accompagnement bienveillant.
-       4. Marquage en base : `ack_log.concierge_onboarding_sent = true`.
-  2. **IA Concierge & Support 24/7 Déterministe (`ConciergeService` & `concierge-brain.ts`)** :
-     - Connaissance exhaustive du site : Formule Standard (1 200 F CFA, 2 versions MP3 en 15-20 min), Formule Intégrale (3 500 F CFA), moyens de paiement locaux (Wave & Orange Money en CI, MTN Mobile Money & Orange Money au Cameroun, Orange & Moov au Burkina Faso), 20% commission partenaire.
-     - Temporisation humaine déterministe de 25 secondes avec indicateur de présence WhatsApp « en train d'écrire... » (`typing: true`) sur les 8 dernières secondes.
-     - Nettoyage automatique des rafales (debounce) et annulation immédiate si le gérant répond manuellement depuis son téléphone.
-  3. **Isolation Absolue des Anciens Clients** :
-     - Vérification mathématique en amont : si `contacts.is_returning === true` ou si le contact possède des commandes antérieures, le concierge ne s'exécute JAMAIS. Le client fidèle reste géré par son canal habituel.
-  4. **Validation & Déploiement Production VPS (`162.35.113.220`)** :
-     - Banc d'essai : 237 tests unitaires et d'intégration validés au vert (`npm test`, 0 échec).
-     - Déployé et opérationnel sous Docker sur le conteneur `velaris-engine` (écoute port 3001).
+- **Dernière mise à jour** : 17 Novembre 2026 (17:10 UTC)
+- **Durcissement Extrême Concierge WhatsApp Djélia 24/7 Web-First (Cameroun 🇨🇲, Côte d'Ivoire 🇨🇮, Afrique de l'Ouest & Centrale)** :
+  1. **Détection Géographique & Intégration Chariow Déterministe** :
+     - Résolution automatique du pays à partir de l'indicatif téléphonique WhatsApp (`resolveCountryFromPhone`) : Cameroun (+237 -> MTN MoMo, Orange Money Cameroun), Côte d'Ivoire (+225 -> Wave, Orange Money, MTN), Burkina Faso (+226 -> Orange Money, Moov), Sénégal (+221 -> Wave, OM), Gabon (+241), Congo (+242), RDC (+243), Diaspora (+33, +1... -> Carte Bancaire Visa/Mastercard).
+     - Le prompt système reçoit dynamiquement le pays et les opérateurs de paiement locaux exacts selon l'API Chariow.
+  2. **Isolation Étanche Multi-Couches des Anciens Clients (Silence Absolu Garanti)** :
+     - 6 verrous déterministes avant toute action du concierge : `contacts.is_returning === true`, `ack_log.returning_client === true`, `conversation.control_mode === 'human'`, présence de commandes antérieures dans la table `orders`, date `contacts.first_seen_at` antérieure au lancement de la campagne (`2026-11-17T12:00:00Z`), ou présence de messages historiques avant cette date.
+     - Si une seule condition est remplie, le concierge reste 100% muet et n'interfère jamais avec les clients fidèles.
+  3. **Compréhension Multimodale des Captures d'Écran (Vision Gemini 3.6 Flash)** :
+     - Détection des images envoyées par les utilisateurs bloqués sur `djelia.store`.
+     - Téléchargement du buffer depuis WAHA et analyse instantanée via l'API Vision Gemini 3.6 Flash (Kie.ai).
+     - La description visuelle précise de l'écran est injectée dans le contexte du tour pour guider le client avec exactitude.
+  4. **Fenêtre de Temporisation Humaine de 30s & Debounce de Rafales** :
+     - Fenêtre d'attente de 30 secondes (`delayMs: 30_000`) regroupant tous les messages et images d'une rafale en une seule intervention fluide.
+     - Simulation de présence humaine avec déclenchement de la saisie WhatsApp (`composing`) sur les 8 dernières secondes (`typingDelayMs: 22_000`).
+     - Annulation instantanée si le gérant prend manuellement la main.
+  5. **Compression Roulante du Contexte pour Discussions Longues** :
+     - Si l'historique dépasse 6 messages, compression automatique des tours anciens en un résumé synthétique (`compressRecentHistory`) tout en préservant intacts les 4 derniers messages.
+  6. **Validation par Tests Unitaires & Intégration** :
+     - 11/11 tests spécifiques validés au vert dans `test/concierge.test.ts`.
+     - 241/241 tests de l'engine réussis sans aucune régression.
 - **Durcissement des Automatisations Emojis WhatsApp & Éradication Emojis Suno V6 Moteur** :
   1. **Résolution Haute Précision du Chat Réagi (`normalize.ts`)** :
      - Résolution déterministe du `chatId` à partir du message ID de la réaction (`false_[remoteJid]_[id]`), éliminant tout risque de renvoi vers le numéro du gérant quand `to` est omis par WAHA.

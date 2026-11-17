@@ -2,16 +2,19 @@
  * Service Concierge Djélia 24/7 (Web-First WhatsApp Onboarding & Support).
  *
  * Responsabilités :
- * 1. Détection déterministe des NOUVEAUX LEADS vs ANCIENS CLIENTS :
- *    - Si le client est ancien (contacts.is_returning = true, commandes existantes, ou reprise manuelle du gérant) :
- *      LE CONCIERGE NE S'EXÉCUTE JAMAIS.
+ * 1. Détection déterministe et impérméable des NOUVEAUX LEADS vs ANCIENS CLIENTS :
+ *    - Si le client est ancien (contacts.is_returning = true, commandes existantes, messages antérieurs,
+ *      ou first_seen_at avant le début de campagne) : LE CONCIERGE NE S'EXÉCUTE JAMAIS (Silence absolu).
  * 2. Au premier message d'un nouveau lead :
  *    - Envoi du vocal d'accueil PTT (voix de la sœur clonée).
- *    - Envoi de la vidéo tutoriel smartphone (maquette écran + voix clonée).
+ *    - Envoi de la vidéo tutoriel smartphone (maquette écran + voix clonée, 136s, < 16 Mo).
  *    - Envoi du lien vers le studio web (https://djelia.store/studio.html) et message d'accompagnement.
  *    - Marquage en base : concierge_onboarding_sent = true.
- * 3. Aux messages et questions ultérieures du lead (blocage, question tarif, paiement Wave/MTN...) :
- *    - Temporisation humaine de 25 secondes (regroupement des rafales).
+ * 3. Aux messages et questions ultérieures du lead (blocage, question tarif, moyen de paiement Chariow...) :
+ *    - Détection automatique du pays de provenance (+237 Cameroun, +225 Côte d'Ivoire...) et des paiements locaux.
+ *    - Analyse visuelle multimodale par IA (Kie.ai Gemini Flash) si le client transmet une capture d'écran du site.
+ *    - Compression roulante de l'historique pour les discussions longues (> 6 messages).
+ *    - Temporisation humaine déterministe de 30 secondes (regroupement de toutes les rafales de messages).
  *    - Indicateur de présence « en train d'écrire... » (composing) pendant les 8 dernières secondes.
  *    - Génération de la réponse via concierge-brain (DeepSeek via Kie.ai).
  *    - Envoi du message et arrêt de l'indicateur de saisie.
@@ -23,24 +26,32 @@ import type { WahaClient } from '../send/waha-client.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
 import type { AudioTranscriber } from './transcribe.js';
 import type { NormalizedEvent, MessageEvent } from '../ingest/normalize.js';
-import { generateConciergeReply } from '../llm/concierge-brain.js';
+import {
+  generateConciergeReply,
+  describeScreenshotWithVision,
+} from '../llm/concierge-brain.js';
 
 export interface ConciergeServiceDeps {
   db: Db;
   waha: WahaClient;
+  wahaUrl?: string | undefined;
+  wahaApiKey?: string | undefined;
+  kieApiKey?: string | null | undefined;
   llmProvider: DeepSeekProvider;
   transcriber?: AudioTranscriber | undefined;
   protectedSessions?: readonly string[] | undefined;
-  log?: (msg: string, meta?: Record<string, unknown>) => void;
-  voiceUrl?: string;
-  videoUrl?: string;
-  delayMs?: number;
-  typingDelayMs?: number;
+  log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
+  voiceUrl?: string | undefined;
+  videoUrl?: string | undefined;
+  delayMs?: number | undefined;
+  typingDelayMs?: number | undefined;
+  campaignStartDateIso?: string | undefined;
 }
 
 interface PendingSupportTurn {
   session: string;
   chatId: string;
+  phone: string;
   conversationId: string;
   userId: string;
   accumulatedText: string;
@@ -54,12 +65,22 @@ export class ConciergeService {
   private readonly videoUrl: string;
   private readonly delayMs: number;
   private readonly typingDelayMs: number;
+  private readonly wahaUrl: string;
+  private readonly wahaApiKey: string;
+  private readonly kieApiKey: string | null;
+  private readonly campaignStartDate: number;
 
   constructor(private readonly deps: ConciergeServiceDeps) {
     this.voiceUrl = deps.voiceUrl || 'https://waha.velarisagent.life/qr/assets/vocal_accueil_concierge.opus';
     this.videoUrl = deps.videoUrl || 'https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4';
-    this.delayMs = deps.delayMs ?? 25_000;
-    this.typingDelayMs = deps.typingDelayMs ?? 17_000;
+    this.delayMs = deps.delayMs ?? 30_000;
+    this.typingDelayMs = deps.typingDelayMs ?? 22_000;
+    this.wahaUrl = (deps.wahaUrl || 'http://waha:3000').replace(/\/$/, '');
+    this.wahaApiKey = deps.wahaApiKey || '';
+    this.kieApiKey = deps.kieApiKey || null;
+    this.campaignStartDate = deps.campaignStartDateIso
+      ? new Date(deps.campaignStartDateIso).getTime()
+      : new Date('2026-11-17T12:00:00Z').getTime();
   }
 
   /**
@@ -73,6 +94,107 @@ export class ConciergeService {
       this.pendingTurns.delete(chatId);
       void this.deps.waha.typing(existing.session, chatId, false).catch(() => undefined);
       this.deps.log?.('[concierge] Tour en attente annulé pour cause d\'intervention gérant', { chatId });
+    }
+  }
+
+  /**
+   * Vérifie de façon multi-couches si un contact est un ancien client.
+   * Si vrai, le concierge se tait et n'intervient jamais.
+   */
+  async checkIsReturningClient(
+    _session: string,
+    _chatId: string,
+    contact: any,
+    conversation: any
+  ): Promise<{ isReturning: boolean; reason: string }> {
+    // 1. Marqueur explicite sur la fiche contact
+    if (contact?.is_returning === true) {
+      return { isReturning: true, reason: 'contact_marked_returning' };
+    }
+
+    // 2. Marqueur explicite sur la conversation (ack_log)
+    if (conversation?.ack_log?.returning_client || conversation?.ack_log?.is_returning) {
+      return { isReturning: true, reason: 'conversation_ack_returning' };
+    }
+
+    // 3. Discussion sous contrôle gérant (human)
+    if (conversation?.control_mode === 'human') {
+      return { isReturning: true, reason: 'conversation_human_control' };
+    }
+
+    // 4. Commandes existantes dans la table orders
+    if (contact?.id && this.deps.db.queryTable) {
+      try {
+        const orders = await this.deps.db.queryTable<any[]>(
+          'orders',
+          `contact_id=eq.${encodeURIComponent(contact.id)}&limit=1`
+        );
+        if (orders && orders.length > 0) {
+          return { isReturning: true, reason: 'has_prior_orders' };
+        }
+      } catch {
+        // continue
+      }
+    }
+
+    // 5. Contact historique créé avant la campagne publicitaire actuelle
+    if (contact?.first_seen_at) {
+      const firstSeen = new Date(contact.first_seen_at).getTime();
+      if (firstSeen < this.campaignStartDate) {
+        return { isReturning: true, reason: 'contact_first_seen_before_campaign' };
+      }
+    }
+
+    // 6. Messages historiques archivés dans la discussion antérieurs à aujourd'hui
+    if (conversation?.id && this.deps.db.queryTable) {
+      try {
+        const priorMessages = await this.deps.db.queryTable<any[]>(
+          'messages',
+          `conversation_id=eq.${encodeURIComponent(conversation.id)}&created_at=lt.${new Date(this.campaignStartDate).toISOString()}&limit=1`
+        );
+        if (priorMessages && priorMessages.length > 0) {
+          return { isReturning: true, reason: 'has_historical_messages' };
+        }
+      } catch {
+        // continue
+      }
+    }
+
+    return { isReturning: false, reason: 'new_lead' };
+  }
+
+  /**
+   * Télécharge un média (image, vocal...) depuis WAHA.
+   */
+  async downloadMedia(mediaUrl: string, _waMessageId?: string, _chatId?: string): Promise<Buffer | null> {
+    try {
+      let targetUrl = mediaUrl;
+      try {
+        const parsed = new URL(mediaUrl);
+        targetUrl = `${this.wahaUrl}${parsed.pathname}${parsed.search}`;
+      } catch {
+        if (!mediaUrl.startsWith('http')) {
+          const slash = mediaUrl.startsWith('/') ? '' : '/';
+          targetUrl = `${this.wahaUrl}${slash}${mediaUrl}`;
+        }
+      }
+
+      const res = await fetch(targetUrl, {
+        method: 'GET',
+        headers: this.wahaApiKey ? { 'X-Api-Key': this.wahaApiKey } : {},
+        signal: AbortSignal.timeout(20_000),
+      });
+
+      if (!res.ok) {
+        return null;
+      }
+
+      const arrayBuf = await res.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
+      return buf.length > 0 ? buf : null;
+    } catch (err: any) {
+      this.deps.log?.('[concierge] Erreur téléchargement média WAHA', { error: err?.message || err, mediaUrl });
+      return null;
     }
   }
 
@@ -101,7 +223,7 @@ export class ConciergeService {
     try {
       const contacts = await this.deps.db.queryTable<any[]>(
         'contacts',
-        `wa_jid=eq.${encodeURIComponent(ev.chatId)}&select=id,user_id,name,phone,wa_jid,is_returning&limit=1`
+        `wa_jid=eq.${encodeURIComponent(ev.chatId)}&select=id,user_id,name,phone,wa_jid,is_returning,first_seen_at&limit=1`
       );
       contact = contacts?.[0] ?? null;
 
@@ -110,7 +232,7 @@ export class ConciergeService {
         if (cleanPhone) {
           const byPhone = await this.deps.db.queryTable<any[]>(
             'contacts',
-            `phone=eq.${encodeURIComponent(cleanPhone)}&select=id,user_id,name,phone,wa_jid,is_returning&limit=1`
+            `phone=eq.${encodeURIComponent(cleanPhone)}&select=id,user_id,name,phone,wa_jid,is_returning,first_seen_at&limit=1`
           );
           contact = byPhone?.[0] ?? null;
         }
@@ -128,35 +250,14 @@ export class ConciergeService {
       return { handled: false, reason: 'db_lookup_error' };
     }
 
-    // 2. RÈGLE D'OR INVIOLABLE : Isolation absolue des anciens clients
-    if (contact?.is_returning === true) {
-      this.deps.log?.('[concierge] Contact marqué is_returning=true -> Bipasse total du concierge', { chatId: ev.chatId });
-      return { handled: false, reason: 'returning_client' };
-    }
-
-    if (conversation?.ack_log?.returning_client || conversation?.ack_log?.is_returning) {
-      this.deps.log?.('[concierge] Conversation marquée returning -> Bipasse total du concierge', { chatId: ev.chatId });
-      return { handled: false, reason: 'returning_client' };
-    }
-
-    if (conversation?.control_mode === 'human') {
-      this.deps.log?.('[concierge] Conversation sous contrôle humain -> Bipasse concierge', { chatId: ev.chatId });
-      return { handled: false, reason: 'human_control' };
-    }
-
-    if (contact?.id) {
-      try {
-        const existingOrders = await this.deps.db.queryTable<any[]>(
-          'orders',
-          `contact_id=eq.${encodeURIComponent(contact.id)}&stage=neq.cancelled&limit=1`
-        );
-        if (existingOrders && existingOrders.length > 0) {
-          this.deps.log?.('[concierge] Contact possède des commandes existantes -> Bipasse concierge', { chatId: ev.chatId });
-          return { handled: false, reason: 'has_orders' };
-        }
-      } catch {
-        // En cas d'erreur sur orders, continuer
-      }
+    // 2. RÈGLE D'OR INVIOLABLE : Détection imperméable des anciens clients
+    const returningCheck = await this.checkIsReturningClient(ev.session, ev.chatId, contact, conversation);
+    if (returningCheck.isReturning) {
+      this.deps.log?.('[concierge] Ancien client détecté -> Bipasse absolu du concierge', {
+        chatId: ev.chatId,
+        reason: returningCheck.reason,
+      });
+      return { handled: false, reason: returningCheck.reason };
     }
 
     // 3. Détermination : Nouveau Lead (Onboarding non reçu) vs Lead en Support
@@ -232,14 +333,29 @@ export class ConciergeService {
   }
 
   /**
-   * Planifie la réponse du concierge avec une temporisation humaine de 25s et indicateur de frappe.
+   * Planifie la réponse du concierge avec une temporisation humaine de 30s,
+   * vision multimodale sur capture d'écran et indicateur de frappe.
    */
   private async scheduleSupportReply(ev: MessageEvent, conversation: any, contact: any): Promise<void> {
     const chatId = ev.chatId;
     let messageText = ev.body?.trim() || '';
 
-    // Si le client a envoyé un vocal, attendre ou récupérer sa transcription
-    if (ev.mediaKind === 'audio' && !messageText) {
+    // Analyse visuelle si le client a envoyé une capture d'écran
+    if (ev.mediaKind === 'image' && ev.mediaUrl && this.kieApiKey) {
+      try {
+        const imageBuffer = await this.downloadMedia(ev.mediaUrl, ev.waMessageId, chatId);
+        if (imageBuffer) {
+          const visionDesc = await describeScreenshotWithVision(this.kieApiKey, imageBuffer, ev.mediaMime || 'image/jpeg');
+          if (visionDesc) {
+            const visionTag = `[Capture d'écran envoyée par le client : ${visionDesc}]`;
+            messageText = messageText ? `${visionTag}\n${messageText}` : visionTag;
+            this.deps.log?.('[concierge] Capture d\'écran analysée par Vision IA', { chatId, visionDesc });
+          }
+        }
+      } catch (visErr: any) {
+        this.deps.log?.('[concierge] Erreur analyse vision capture', { error: visErr?.message || visErr });
+      }
+    } else if (ev.mediaKind === 'audio' && !messageText) {
       messageText = '[Note vocale reçue du client]';
     }
 
@@ -255,22 +371,24 @@ export class ConciergeService {
     const session = ev.session;
     const conversationId = conversation?.id;
     const userId = conversation?.user_id;
+    const phone = contact?.phone || ev.chatId;
 
-    // Déclencheur typing à T - 8s (17s après le début)
+    // Déclencheur typing à T - 8s (22s après le début de la temporisation)
     const typingTimer = setTimeout(() => {
       this.deps.log?.('[concierge] Déclenchement indicateur de frappe (typing)...', { chatId });
       void this.deps.waha.typing(session, chatId, true).catch(() => undefined);
     }, this.typingDelayMs);
 
-    // Déclencheur d'envoi final à T = 25s
+    // Déclencheur d'envoi final à T = 30s
     const timer = setTimeout(async () => {
       this.pendingTurns.delete(chatId);
-      await this.executeSupportReply(session, chatId, accumulatedText, conversationId, userId, contact?.name);
+      await this.executeSupportReply(session, chatId, phone, accumulatedText, conversationId, userId, contact?.name);
     }, this.delayMs);
 
     this.pendingTurns.set(chatId, {
       session,
       chatId,
+      phone,
       conversationId,
       userId,
       accumulatedText,
@@ -278,7 +396,7 @@ export class ConciergeService {
       typingTimer,
     });
 
-    this.deps.log?.('[concierge] Tour de support programmé (25s)', { chatId, preview: messageText.slice(0, 50) });
+    this.deps.log?.('[concierge] Tour de support programmé (fenêtre 30s)', { chatId, preview: messageText.slice(0, 60) });
   }
 
   /**
@@ -287,6 +405,7 @@ export class ConciergeService {
   private async executeSupportReply(
     session: string,
     chatId: string,
+    phone: string,
     incomingText: string,
     conversationId?: string,
     userId?: string,
@@ -295,17 +414,17 @@ export class ConciergeService {
     try {
       this.deps.log?.('[concierge] Exécution de la réponse de support...', { chatId, text: incomingText });
 
-      // Récupérer les derniers messages récents de la conversation pour le contexte
+      // Récupérer l'historique récent de la conversation pour le contexte
       let recentHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
       if (conversationId && this.deps.db.queryTable) {
         try {
           const msgs = await this.deps.db.queryTable<any[]>(
             'messages',
-            `conversation_id=eq.${encodeURIComponent(conversationId)}&order=created_at.desc&limit=6`
+            `conversation_id=eq.${encodeURIComponent(conversationId)}&order=created_at.desc&limit=10`
           );
           if (msgs && msgs.length > 0) {
             recentHistory = msgs.reverse().map((m) => ({
-              role: m.role === 'assistant' ? 'assistant' : 'user',
+              role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
               content: m.body || '',
             }));
           }
@@ -320,6 +439,7 @@ export class ConciergeService {
           incomingMessage: incomingText,
           recentHistory,
           contactName: contactName ?? undefined,
+          phone,
         },
         this.deps.log
       );
