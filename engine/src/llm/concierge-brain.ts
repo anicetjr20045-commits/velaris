@@ -154,9 +154,61 @@ export interface ConciergeBrainInput {
   recentHistory?: Array<{ role: 'user' | 'assistant'; content: string }> | undefined;
   contactName?: string | null | undefined;
   phone?: string | null | undefined;
+  videoAlreadySent?: boolean | undefined;
 }
 
-export function buildConciergeSystemPrompt(country: CountryPaymentInfo): string {
+export function isDirectSpecificQuestion(text?: string | null): boolean {
+  if (!text) return false;
+  const clean = text.trim().toLowerCase();
+
+  // Salutations pures ou messages génériques des publicités
+  const genericGreetings = [
+    'bonjour', 'bonjour !', 'bonsoir', 'bonsoir !', 'salut', 'salut !', 'hello',
+    'je veux une chanson', 'je souhaite une chanson', 'commander une chanson',
+    'je veux une chanson personnalisée', 'je souhaite commander une chanson personnalisée',
+    'je veux des informations', 'infos', 'info', 'infos svp', 'plus d\'infos',
+    'je suis intéressé', 'intéressé', 'je veux commander', 'comment vous allez',
+    'coucou', 'allô', 'allo', 'cc', 'bjr', 'bsr'
+  ];
+  if (genericGreetings.includes(clean)) return false;
+
+  // Si le message contient un point d'interrogation et fait plus de 2-3 mots
+  if (clean.includes('?') && clean.split(/\s+/).length >= 3) {
+    return true;
+  }
+
+  // Mots-clés de questions directes nécessitant une réponse ciblée
+  const specificQuestionPatterns = [
+    /\boù\b/, /situé/, /localisation/, /bureau/, /adresse/, /quel pays/,
+    /orange money/, /mtn/, /wave/, /moov/, /carte bancaire/, /visa/, /virement/,
+    /combien de temps/, /en combien/, /ce soir/, /demain/, /délai/,
+    /j'ai payé/, /déjà payé/, /ma commande/, /reçu/,
+    /responsable/, /parler à/, /vrai humain/, /appeler/, /au téléphone/,
+    /réduction/, /rabais/, /geste/, /diminuer/, /moins cher/, /1000f/
+  ];
+
+  return specificQuestionPatterns.some((pattern) => pattern.test(clean));
+}
+
+export function isAskingForProcedureOrTutorial(text?: string | null): boolean {
+  if (!text) return false;
+  const clean = text.toLowerCase();
+  const procedurePatterns = [
+    /comment.*(faire|commander|procéder|composer|marcher|marche|utiliser)/,
+    /c'est quoi.*(procédure|étapes|démarche)/,
+    /quelles sont les étapes/,
+    /montre.*(moi|comment)/,
+    /expliqu.*(moi|comment)/,
+    /tuto/,
+    /vidéo/,
+    /je (fais|mets) quoi/,
+    /je ne (sais pas|comprends pas).*comment/,
+    /comment ça se passe/,
+  ];
+  return procedurePatterns.some((p) => p.test(clean));
+}
+
+export function buildConciergeSystemPrompt(country: CountryPaymentInfo, videoAlreadySent: boolean = true): string {
   return `Tu es l'assistante concierge de Djélia (djelia.store), atelier de composition de chansons personnalisées en Afrique.
 Ton unique rôle est de guider, rassurer et orienter le client pour qu'il réussisse sa commande sur le studio web : https://djelia.store/studio.html.
 
@@ -165,6 +217,9 @@ Règles impératives de style et de ton :
 2. Réponses ultra-courtes : 1 à 2 phrases directes maximum. Jamais de longs pavés.
 3. Strictement AUCUN émoji dans tes réponses. Pas de symboles décoratifs.
 4. Tu ne prends pas la commande sur WhatsApp : tu renvoies toujours vers le studio en ligne https://djelia.store/studio.html en expliquant ce qu'il faut faire.
+${videoAlreadySent
+  ? '5. Si le client demande la procédure ou comment commander, rappelle-lui gentiment de regarder la courte vidéo de 2 minutes partagée plus haut dans la discussion, et donne le lien du site.'
+  : '5. Si le client demande la procédure ou comment commander, explique brièvement les étapes et donne le lien https://djelia.store/studio.html.'}
 
 Contexte géographique et paiements du client :
 - Pays détecté : ${country.name} (monnaie : ${country.currency}).
@@ -181,7 +236,7 @@ Réponds uniquement sous forme d'objet JSON avec le champ "reply" :
 {"reply": "texte de ta réponse courte sans émoji"}`;
 }
 
-export const DJELIA_CONCIERGE_SYSTEM_PROMPT = buildConciergeSystemPrompt(resolveCountryFromPhone(null));
+export const DJELIA_CONCIERGE_SYSTEM_PROMPT = buildConciergeSystemPrompt(resolveCountryFromPhone(null), true);
 
 export async function generateConciergeReply(
   llmProvider: LlmProvider,
@@ -189,7 +244,7 @@ export async function generateConciergeReply(
   log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined
 ): Promise<string> {
   const country = resolveCountryFromPhone(input.phone);
-  const systemPrompt = buildConciergeSystemPrompt(country);
+  const systemPrompt = buildConciergeSystemPrompt(country, input.videoAlreadySent ?? true);
 
   const llmMessages: LlmMessage[] = input.recentHistory && input.recentHistory.length > 0
     ? compressRecentHistory(input.recentHistory)

@@ -493,4 +493,135 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
 
     assert.equal(sentMessages.length, 0, 'Aucun message automatique ne doit être envoyé après intervention du gérant');
   });
+
+  it('Nouveau lead avec question directe : ne balance PAS la vidéo, bascule en support conseiller', async () => {
+    const sentMessages: any[] = [];
+    let updatedAckLog: any = null;
+
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent', waMessageId: 'wa-pack', waKey: 'key-pack' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string, ..._args: unknown[]) => {
+        if (table === 'contacts') {
+          return [{ id: 'contact-direct-q', name: 'Alain', phone: '23769900000', is_returning: false }];
+        }
+        if (table === 'conversations') {
+          return [{ id: 'conv-direct-q', user_id: 'user-1', control_mode: 'ai', ack_log: {} }];
+        }
+        return [];
+      },
+      updateRows: async (_table: string, _match: string, data: any) => {
+        updatedAckLog = data.ack_log;
+        return [data];
+      },
+      rpc: async () => null,
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: {} as any,
+      delayMs: 150,
+      typingDelayMs: 50,
+    });
+
+    const ev = makeMockMessage({
+      chatId: '23769900000@c.us',
+      body: 'Bonjour, vous êtes situés dans quel pays ?',
+      pushName: 'Alain',
+    });
+
+    const res = await concierge.handleEvent(ev);
+    assert.equal(res.handled, true);
+    assert.equal(res.action, 'support_scheduled_direct_question');
+
+    // Aucune vidéo balancée à l'accueil
+    assert.equal(sentMessages.length, 0, 'La vidéo ne doit PAS être balancée sur une question directe');
+    assert.equal(updatedAckLog.video_tutorial_sent, false);
+    assert.equal(updatedAckLog.concierge_onboarding_sent, true);
+  });
+
+  it('Envoi de la vidéo au moment opportun (demande procédure) et verrou d\'unicité (jamais 2 fois)', async () => {
+    const sentMessages: any[] = [];
+    let ackLogStore: any = { concierge_onboarding_sent: true, video_tutorial_sent: false };
+
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent', waMessageId: 'wa-supp', waKey: 'key-supp' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string, queryParams: string) => {
+        if (table === 'contacts') {
+          return [{ id: 'contact-proc', name: 'Fatou', phone: '22507001122', is_returning: false }];
+        }
+        if (table === 'conversations') {
+          return [{ id: 'conv-proc', user_id: 'user-1', control_mode: 'ai', ack_log: ackLogStore }];
+        }
+        if (table === 'messages' && queryParams.includes('created_at=lt')) return [];
+        return [];
+      },
+      updateRows: async (_table: string, _match: string, data: any) => {
+        ackLogStore = { ...ackLogStore, ...(data.ack_log || {}) };
+        return [data];
+      },
+      insertRow: async () => ({ id: 'msg-1' }),
+      rpc: async () => null,
+    } as any;
+
+    const mockLlm = {
+      completeJson: async () => ({
+        data: { reply: 'Voici comment procéder sur notre studio en ligne.' },
+        model: 'deepseek-v4-1-flash',
+        usage: { promptTokens: 10, completionTokens: 10, cacheHitTokens: 0 },
+        latencyMs: 10,
+        attempts: 1,
+      }),
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: mockLlm,
+      delayMs: 60,
+      typingDelayMs: 20,
+    });
+
+    // 1. Le client demande comment commander
+    const ev1 = makeMockMessage({
+      chatId: '22507001122@c.us',
+      body: 'Comment on fait pour commander ?',
+    });
+    await concierge.handleEvent(ev1);
+
+    // Attendre l'exécution
+    await new Promise((r) => setTimeout(r, 150));
+
+    // Doit avoir envoyé la vidéo puis la réponse texte
+    const videoMessages1 = sentMessages.filter((m) => m.kind === 'video');
+    assert.equal(videoMessages1.length, 1, 'La vidéo doit être envoyée quand le client demande comment commander');
+    assert.equal(ackLogStore.video_tutorial_sent, true, 'Le verrou d\'unicité de la vidéo doit être activé');
+
+    // 2. Le client redemande comment faire plus tard
+    const ev2 = makeMockMessage({
+      chatId: '22507001122@c.us',
+      body: 'Rappelez-moi comment composer svp ?',
+    });
+    await concierge.handleEvent(ev2);
+
+    await new Promise((r) => setTimeout(r, 150));
+
+    // La vidéo ne doit PAS avoir été renvoyée une 2ème fois !
+    const videoMessages2 = sentMessages.filter((m) => m.kind === 'video');
+    assert.equal(videoMessages2.length, 1, 'La vidéo ne doit JAMAIS être envoyée deux fois');
+  });
 });

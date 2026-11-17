@@ -29,6 +29,8 @@ import type { NormalizedEvent, MessageEvent } from '../ingest/normalize.js';
 import {
   generateConciergeReply,
   describeScreenshotWithVision,
+  isDirectSpecificQuestion,
+  isAskingForProcedureOrTutorial,
 } from '../llm/concierge-brain.js';
 
 export interface ConciergeServiceDeps {
@@ -273,7 +275,28 @@ export class ConciergeService {
     const onboardingSent = Boolean(ackLog.concierge_onboarding_sent);
 
     if (!onboardingSent) {
-      // Étape A : Premier message d'un nouveau lead -> Envoi du pack d'accueil complet
+      if (isDirectSpecificQuestion(ev.body)) {
+        // Le client arrive avec une question directe et précise :
+        // On ne balance pas la vidéo à l'aveugle ! On passe directement en mode Conseiller Support (30s) pour lui répondre précisément.
+        this.deps.log?.('[concierge] Nouveau lead avec question directe -> Déviation vers Support Concierge', {
+          chatId: ev.chatId,
+          text: ev.body?.slice(0, 80),
+        });
+        if (conversation?.id && this.deps.db.updateRows) {
+          const updatedAck = {
+            ...(conversation.ack_log || {}),
+            concierge_onboarding_sent: true,
+            concierge_onboarding_sent_at: new Date().toISOString(),
+            video_tutorial_sent: false,
+          };
+          await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, { ack_log: updatedAck }).catch(() => undefined);
+          conversation.ack_log = updatedAck;
+        }
+        await this.scheduleSupportReply(ev, conversation, contact);
+        return { handled: true, action: 'support_scheduled_direct_question' };
+      }
+
+      // Étape A : Premier message d'un nouveau lead (accueil / pub générale) -> Envoi du pack d'accueil complet
       await this.sendOnboardingPack(ev.session, ev.chatId, conversation);
       return { handled: true, action: 'onboarding_pack_sent' };
     }
@@ -301,7 +324,7 @@ export class ConciergeService {
     // Pacing léger de 1.5s
     await new Promise((r) => setTimeout(r, 1500));
 
-    // 2. Vidéo tutoriel smartphone (maquette animée 136s)
+    // 2. Vidéo tutoriel smartphone (maquette animée 136s, 4.4 Mo)
     await this.deps.waha.send(session, chatId, {
       kind: 'video',
       url: this.videoUrl,
@@ -327,12 +350,14 @@ export class ConciergeService {
       this.deps.log?.('[concierge] Erreur envoi texte accueil', { error: err?.message || err });
     });
 
-    // 4. Mettre à jour l'état en base pour ne jamais réexpédier l'onboarding
+    // 4. Mettre à jour l'état en base pour ne jamais réexpédier l'onboarding ni la vidéo (verrou d'unicité)
     if (conversation?.id && this.deps.db.updateRows) {
       const updatedAck = {
         ...(conversation.ack_log || {}),
         concierge_onboarding_sent: true,
         concierge_onboarding_sent_at: new Date().toISOString(),
+        video_tutorial_sent: true,
+        video_tutorial_sent_at: new Date().toISOString(),
       };
       await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, {
         ack_log: updatedAck,
@@ -441,6 +466,53 @@ export class ConciergeService {
         }
       }
 
+      // Vérifier si la vidéo tutoriel a déjà été envoyée à ce contact
+      let videoAlreadySent = false;
+      let currentAckLog: Record<string, any> = {};
+
+      if (conversationId && this.deps.db.queryTable) {
+        try {
+          const convs = await this.deps.db.queryTable<any[]>(
+            'conversations',
+            `id=eq.${encodeURIComponent(conversationId)}&select=ack_log&limit=1`
+          );
+          currentAckLog = convs?.[0]?.ack_log || {};
+          videoAlreadySent = Boolean(currentAckLog.video_tutorial_sent);
+        } catch {
+          // ignore
+        }
+      }
+
+      // Si le client demande la procédure/comment faire et que la vidéo n'a JAMAIS été envoyée :
+      const shouldSendVideoNow = !videoAlreadySent && isAskingForProcedureOrTutorial(incomingText);
+      if (shouldSendVideoNow) {
+        this.deps.log?.('[concierge] Envoi intelligent de la vidéo tutoriel (moment opportun procédure)', { chatId });
+        await this.deps.waha.send(session, chatId, {
+          kind: 'video',
+          url: this.videoUrl,
+          filename: 'djelia_tuto_mobile.mp4',
+          mimetype: 'video/mp4',
+          caption: 'Comment composer votre chanson personnalisée en 2 minutes sur Djélia',
+        }).catch((err) => {
+          this.deps.log?.('[concierge] Erreur envoi vidéo support', { error: err?.message || err });
+        });
+
+        // Verrou absolu d'unicité en base : JAMAIS envoyée deux fois
+        if (conversationId && this.deps.db.updateRows) {
+          const updatedAck = {
+            ...currentAckLog,
+            video_tutorial_sent: true,
+            video_tutorial_sent_at: new Date().toISOString(),
+          };
+          await this.deps.db.updateRows('conversations', `id=eq.${conversationId}`, {
+            ack_log: updatedAck,
+          }).catch(() => undefined);
+          videoAlreadySent = true;
+        }
+
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+
       const answer = await generateConciergeReply(
         this.deps.llmProvider,
         {
@@ -448,6 +520,7 @@ export class ConciergeService {
           recentHistory,
           contactName: contactName ?? undefined,
           phone,
+          videoAlreadySent,
         },
         this.deps.log
       );
