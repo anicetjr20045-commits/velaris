@@ -5,6 +5,8 @@ import {
   generateConciergeReply,
   resolveCountryFromPhone,
   compressRecentHistory,
+  extractCleanPhone,
+  isBurkinaFasoNumber,
 } from '../src/llm/concierge-brain.js';
 import { ConciergeService } from '../src/services/concierge-service.js';
 import type { MessageEvent } from '../src/ingest/normalize.js';
@@ -116,7 +118,116 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.ok(reply.includes('djelia.store/studio.html'));
   });
 
-  it('Isolation absolue : un ancien client (is_returning = true) n\'est JAMAIS touché par le concierge', async () => {
+  it('extractCleanPhone extrait fidèlement les chiffres sur tous les formats WhatsApp', () => {
+    assert.equal(extractCleanPhone('22670112233@c.us'), '22670112233');
+    assert.equal(extractCleanPhone('22670112233:1@c.us'), '22670112233');
+    assert.equal(extractCleanPhone('22670112233:2@s.whatsapp.net'), '22670112233');
+    assert.equal(extractCleanPhone('+226 70 11 22 33'), '22670112233');
+    assert.equal(extractCleanPhone('0022670112233'), '22670112233');
+    assert.equal(extractCleanPhone('+237 699 11 22 33'), '237699112233');
+    assert.equal(extractCleanPhone('225 07 08 09 10 11'), '2250708091011');
+    assert.equal(extractCleanPhone(''), '');
+    assert.equal(extractCleanPhone(null), '');
+  });
+
+  it('isBurkinaFasoNumber détecte de façon déterministe les numéros burkinabés (+226 et 8 chiffres locaux)', () => {
+    // Avec indicatif international 226
+    assert.equal(isBurkinaFasoNumber('22670112233@c.us'), true);
+    assert.equal(isBurkinaFasoNumber('22676001122:1@c.us'), true);
+    assert.equal(isBurkinaFasoNumber('+226 78 00 11 22'), true);
+    assert.equal(isBurkinaFasoNumber('0022670112233'), true);
+
+    // Format local 8 chiffres (Moov, Orange, Telecel, Fixes)
+    assert.equal(isBurkinaFasoNumber('70112233'), true); // Moov
+    assert.equal(isBurkinaFasoNumber('07112233'), true); // Orange
+    assert.equal(isBurkinaFasoNumber('78112233'), true); // Telecel
+    assert.equal(isBurkinaFasoNumber('25301122'), true); // Fixe Ouaga
+
+    // Numéros d'autres pays (hors Burkina Faso)
+    assert.equal(isBurkinaFasoNumber('237690123456@c.us'), false); // Cameroun
+    assert.equal(isBurkinaFasoNumber('2250701020304@c.us'), false); // Côte d'Ivoire
+    assert.equal(isBurkinaFasoNumber('221770001122@c.us'), false); // Sénégal
+    assert.equal(isBurkinaFasoNumber('+33612345678'), false); // France
+    assert.equal(isBurkinaFasoNumber('+14155552671'), false); // USA
+  });
+
+  it('Règle inviolable Burkina Faso : tout numéro Burkinabé (+226) nouveau ou ancien est confié 100% au gérant humain', async () => {
+    const sentMessages: any[] = [];
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent', waMessageId: 'wa-1', waKey: 'key-1' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockDb = {
+      queryTable: async () => [],
+      updateRows: async () => [],
+      rpc: async () => null,
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: {} as any,
+    });
+
+    // 1. Nouveau contact burkinabé
+    const evNew = makeMockMessage({
+      chatId: '22670112233@c.us',
+      body: 'Bonjour je veux composer une chanson',
+    });
+    const resNew = await concierge.handleEvent(evNew);
+    assert.equal(resNew.handled, false);
+    assert.equal(resNew.reason, 'burkina_faso_manual_handling');
+    assert.equal(sentMessages.length, 0, 'Aucun automate ne doit répondre à un Burkinabé');
+
+    // 2. Ancien contact burkinabé
+    const evOld = makeMockMessage({
+      chatId: '22676000000@c.us',
+      body: 'Salut c est encore moi',
+    });
+    const resOld = await concierge.handleEvent(evOld);
+    assert.equal(resOld.handled, false);
+    assert.equal(resOld.reason, 'burkina_faso_manual_handling');
+    assert.equal(sentMessages.length, 0);
+  });
+
+  it('Règle Burkina Faso sur fiche contact : si le numéro en base est burkinabé, le concierge se tait immédiatement', async () => {
+    const sentMessages: any[] = [];
+    const mockWaha = {
+      send: async () => ({ status: 'sent' }),
+      typing: async () => {},
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string) => {
+        if (table === 'contacts') {
+          return [{ id: 'c-bf', name: 'Issa', phone: '70112233', wa_jid: 'some-jid@c.us' }];
+        }
+        return [];
+      },
+      updateRows: async () => [],
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: {} as any,
+    });
+
+    const ev = makeMockMessage({
+      chatId: 'some-jid@c.us',
+      body: 'Bonjour',
+    });
+    const res = await concierge.handleEvent(ev);
+    assert.equal(res.handled, false);
+    assert.equal(res.reason, 'burkina_faso_manual_handling');
+    assert.equal(sentMessages.length, 0);
+  });
+
+  it('Isolation absolue : un ancien client hors Burkina Faso (is_returning = true) n\'est JAMAIS touché par le concierge', async () => {
     const sentMessages: any[] = [];
     const mockWaha = {
       send: async (_session: string, _chatId: string, content: any) => {
@@ -129,7 +240,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     const mockDb = {
       queryTable: async (table: string, ..._args: unknown[]) => {
         if (table === 'contacts') {
-          return [{ id: 'contact-old', name: 'Oumar', phone: '22650000001', is_returning: true }];
+          return [{ id: 'contact-old', name: 'Oumar', phone: '22507000001', is_returning: true }];
         }
         if (table === 'conversations') {
           return [{ id: 'conv-old', user_id: 'user-1', control_mode: 'ai', ack_log: {} }];
@@ -148,7 +259,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     });
 
     const ev = makeMockMessage({
-      chatId: '22650000001@c.us',
+      chatId: '22507000001@c.us',
       body: 'Bonjour je veux commander',
       pushName: 'Oumar',
     });
@@ -159,7 +270,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages.length, 0, 'Aucun message ne doit être envoyé à un ancien client');
   });
 
-  it('Un contact historique (first_seen_at avant la campagne) est détecté comme ancien et bloqué', async () => {
+  it('Un contact historique hors Burkina (créé avant la campagne) est détecté comme ancien et bloqué', async () => {
     const sentMessages: any[] = [];
     const mockWaha = {
       send: async (_session: string, _chatId: string, content: any) => {
@@ -174,7 +285,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
         if (table === 'contacts') {
           return [{
             id: 'contact-ancient',
-            phone: '22670001122',
+            phone: '237690001122',
             is_returning: false,
             first_seen_at: '2026-10-15T10:00:00Z', // bien avant la campagne
           }];
@@ -194,7 +305,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     });
 
     const ev = makeMockMessage({
-      chatId: '22670001122@c.us',
+      chatId: '237690001122@c.us',
       body: 'Salut',
     });
 

@@ -25,18 +25,20 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (18:40 UTC)
-- **Déploiement Opérationnel : Envoi Tactique Intelligent de la Vidéo & Verrou d'Unicité Inviolable** :
-  1. **Filtrage Intelligent du 1er Message (Zéro Envoi Aveugle)** :
-     - Si un nouveau lead arrive avec une question directe (`isDirectSpecificQuestion` : moyen de paiement, pays, délai, humain, prix...), la vidéo n'est PAS balancée ! Le lead bascule directement en mode Support Conseiller (fenêtre 30s) pour recevoir une réponse précise.
-     - Si le lead arrive avec une salutation / clic publicitaire classique (« Bonjour », « Je veux une chanson »), le pack d'accueil complet (vocal + vidéo 4.4 Mo + lien studio) lui donne l'autonomie immédiate.
-  2. **Envoi au Moment Propice & Verrou Inviolable en Base** :
-     - Si un lead qui n'avait pas reçu la vidéo demande plus tard la procédure (« Comment commander ? », « C'est quoi les étapes ? »), le concierge lui transmet la vidéo tutoriel à cet instant précis.
-     - Verrou scellé en base : `ack_log.video_tutorial_sent = true`. La vidéo n'est physiquement JAMAIS envoyée deux fois.
-     - Si le client redemande la procédure par la suite, l'IA lui rappelle gentiment de regarder la vidéo déjà partagée plus haut dans la discussion, sans gaspiller sa connexion internet.
-  3. **Tests & Validation Production VPS** :
-     - 13/13 tests unitaires validés au vert (`npm test`).
-     - Validation in situ sur le VPS (`velaris-engine`) : Question directe = 0 vidéo (Support direct) ; Arrivée pub classique = 1 vidéo (Pack d'accueil).
+- **Dernière mise à jour** : 17 Novembre 2026 (19:25 UTC)
+- **Déploiement Opérationnel : Routage Géographique Inviolable & Détection Déterministe Burkinabé (+226) vs Hors Burkina** :
+  1. **Règle Absolue Burkina Faso (+226) — 100% Gérant Humain (Manuel)** :
+     - Pour **TOUS les numéros Burkinabés** (anciens clients comme nouveaux leads) : l'IA Concierge ne s'exécute JAMAIS (silence radio total).
+     - Tout message entrant avec indicatif `226` ou numéro local burkinabé (8 chiffres : Moov 01-03/60-63/70-73, Orange 04-07/54-57/64-67/74-77, Telecel, Fixes 20/25) est immédiatement débrayé (`handled: false, reason: 'burkina_faso_manual_handling'`).
+     - Le gérant répond 100% manuellement depuis son WhatsApp / Lovable.
+  2. **Règle Hors Burkina Faso (Cameroun +237, Côte d'Ivoire +225, Sénégal +221, Diaspora +33...)** :
+     - **Nouveaux leads** : Prise en charge automatique par le Concierge IA Djélia Web-First (accueil personnalisé, détection locale des moyens de paiement Chariow, vidéo tutoriel 4.4 Mo au moment opportun sans doublon, support différé 30s).
+     - **Anciens clients** : Détection multi-couches étanche (commandes existantes dans `orders`, messages historiques dans `messages`, date de création avant la campagne `campaignStartDate`, `control_mode === 'human'`, `last_merchant_at` existant) -> Silence radio absolu de l'IA Concierge, le gérant répond manuellement.
+  3. **Extraction & Détection Infaillible du Numéro de Téléphone** :
+     - `extractCleanPhone` : extrait les chiffres réels en nettoyant tous les formats de JID WhatsApp (`226XXXXXXXX@c.us`, `:device@c.us`, `@s.whatsapp.net`, `+226...`, `00226...`).
+     - `isBurkinaFasoNumber` : identification mathématique et déterministe basée sur les préfixes officiels du Burkina Faso.
+  4. **Validation Complète par Tests Unitaires** :
+     - 17/17 tests unitaires validés au vert (`dist/test/concierge.test.js`).
   1. **Audit Schéma PostgreSQL & Résolution de Requête Supabase** :
      - Détection et correction chirurgicale de la clause `select` de `contacts` : remplacement des champs inexistants par les colonnes réelles `id,user_id,name,phone,wa_jid,created_at`.
      - Ajout d'un fallback déterministe par `chat_id` sur la table `conversations`.

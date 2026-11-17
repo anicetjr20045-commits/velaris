@@ -31,6 +31,8 @@ import {
   describeScreenshotWithVision,
   isDirectSpecificQuestion,
   isAskingForProcedureOrTutorial,
+  extractCleanPhone,
+  isBurkinaFasoNumber,
 } from '../llm/concierge-brain.js';
 
 export interface ConciergeServiceDeps {
@@ -124,22 +126,45 @@ export class ConciergeService {
       return { isReturning: true, reason: 'conversation_human_control' };
     }
 
-    // 4. Commandes existantes dans la table orders
-    if (contact?.id && this.deps.db.queryTable) {
-      try {
-        const orders = await this.deps.db.queryTable<any[]>(
-          'orders',
-          `contact_id=eq.${encodeURIComponent(contact.id)}&limit=1`
-        );
-        if (orders && orders.length > 0) {
-          return { isReturning: true, reason: 'has_prior_orders' };
-        }
-      } catch {
-        // continue
+    // 4. Échange historique déjà engagé par le gérant
+    if (conversation?.last_merchant_at) {
+      const merchantTime = new Date(conversation.last_merchant_at).getTime();
+      if (merchantTime < this.campaignStartDate) {
+        return { isReturning: true, reason: 'merchant_messaged_before_campaign' };
       }
     }
 
-    // 5. Contact historique créé avant la campagne publicitaire actuelle
+    // 5. Commandes existantes dans la table orders
+    if (this.deps.db.queryTable) {
+      if (contact?.id) {
+        try {
+          const orders = await this.deps.db.queryTable<any[]>(
+            'orders',
+            `contact_id=eq.${encodeURIComponent(contact.id)}&limit=1`
+          );
+          if (orders && orders.length > 0) {
+            return { isReturning: true, reason: 'has_prior_orders' };
+          }
+        } catch {
+          // continue
+        }
+      }
+      if (conversation?.id) {
+        try {
+          const ordersByConv = await this.deps.db.queryTable<any[]>(
+            'orders',
+            `conversation_id=eq.${encodeURIComponent(conversation.id)}&limit=1`
+          );
+          if (ordersByConv && ordersByConv.length > 0) {
+            return { isReturning: true, reason: 'has_prior_orders' };
+          }
+        } catch {
+          // continue
+        }
+      }
+    }
+
+    // 6. Contact historique créé avant la campagne publicitaire actuelle
     const creationTime = contact?.created_at
       ? new Date(contact.created_at).getTime()
       : (contact?.first_seen_at ? new Date(contact.first_seen_at).getTime() : null);
@@ -147,7 +172,15 @@ export class ConciergeService {
       return { isReturning: true, reason: 'contact_first_seen_before_campaign' };
     }
 
-    // 6. Messages historiques archivés dans la discussion antérieurs à aujourd'hui
+    // 7. Conversation créée avant la campagne actuelle
+    if (conversation?.created_at) {
+      const convCreationTime = new Date(conversation.created_at).getTime();
+      if (convCreationTime < this.campaignStartDate) {
+        return { isReturning: true, reason: 'conversation_created_before_campaign' };
+      }
+    }
+
+    // 8. Messages historiques archivés dans la discussion antérieurs à aujourd'hui
     if (conversation?.id && this.deps.db.queryTable) {
       try {
         const priorMessages = await this.deps.db.queryTable<any[]>(
@@ -214,6 +247,15 @@ export class ConciergeService {
       return { handled: false, reason: 'merchant_message' };
     }
 
+    // 0. RÈGLE INVIOLABLE BURKINA FASO (+226) : 100% GÉRANT HUMAIN (ANCIENS COMME NOUVEAUX)
+    // Aucun automate ni IA ne doit jamais répondre à un numéro du Burkina Faso.
+    if (isBurkinaFasoNumber(ev.chatId)) {
+      this.deps.log?.('[concierge] Numéro Burkina Faso (+226) détecté sur chatId -> 100% gérant humain', {
+        chatId: ev.chatId,
+      });
+      return { handled: false, reason: 'burkina_faso_manual_handling' };
+    }
+
     if (!this.deps.db.queryTable) {
       return { handled: false, reason: 'db_queryTable_not_available' };
     }
@@ -230,7 +272,7 @@ export class ConciergeService {
       contact = contacts?.[0] ?? null;
 
       if (!contact) {
-        const cleanPhone = ev.chatId.replace(/\D/g, '');
+        const cleanPhone = extractCleanPhone(ev.chatId);
         if (cleanPhone) {
           const byPhone = await this.deps.db.queryTable<any[]>(
             'contacts',
@@ -238,6 +280,15 @@ export class ConciergeService {
           );
           contact = byPhone?.[0] ?? null;
         }
+      }
+
+      // Si le contact en base a un numéro Burkinabé (+226), débrayage 100% humain immédiat
+      if (contact?.phone && isBurkinaFasoNumber(contact.phone)) {
+        this.deps.log?.('[concierge] Numéro Burkina Faso (+226) détecté sur fiche contact -> 100% gérant humain', {
+          chatId: ev.chatId,
+          phone: contact.phone,
+        });
+        return { handled: false, reason: 'burkina_faso_manual_handling' };
       }
 
       if (contact) {

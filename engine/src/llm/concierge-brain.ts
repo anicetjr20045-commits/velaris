@@ -41,8 +41,29 @@ export const COUNTRY_PAYMENT_MAP: Record<string, CountryPaymentInfo> = {
   '1':   { code: 'US_CA', name: 'États-Unis / Canada (Diaspora)', currency: 'USD / CAD', methods: 'Carte bancaire Visa, Mastercard et Amex' },
 };
 
+export function extractCleanPhone(phoneOrJid?: string | null): string {
+  if (!phoneOrJid) return '';
+  const base = phoneOrJid.split('@')[0]?.split(':')[0] || phoneOrJid;
+  let digits = base.replace(/\D/g, '');
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+  }
+  return digits;
+}
+
+export function isBurkinaFasoNumber(phoneOrJid?: string | null): boolean {
+  const digits = extractCleanPhone(phoneOrJid);
+  if (!digits) return false;
+  if (digits.startsWith('226')) return true;
+  if (digits.length === 8 && /^(0[1-7]|5[0-8]|6[0-9]|7[0-9]|20|25)/.test(digits)) {
+    return true;
+  }
+  return false;
+}
+
 export function resolveCountryFromPhone(phoneOrJid?: string | null): CountryPaymentInfo {
-  if (!phoneOrJid) {
+  const digits = extractCleanPhone(phoneOrJid);
+  if (!digits) {
     return {
       code: 'ALL',
       name: 'International',
@@ -50,7 +71,6 @@ export function resolveCountryFromPhone(phoneOrJid?: string | null): CountryPaym
       methods: 'Mobile Money selon le pays sélectionné sur le site ou Carte bancaire Visa/Mastercard',
     };
   }
-  const digits = phoneOrJid.replace(/\D/g, '');
   const sortedPrefixes = Object.keys(COUNTRY_PAYMENT_MAP).sort((a, b) => b.length - a.length);
   for (const prefix of sortedPrefixes) {
     if (digits.startsWith(prefix) && digits.length >= prefix.length + 6) {
