@@ -25,7 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (15:30 UTC)
+- **Dernière mise à jour** : 17 Novembre 2026 (16:45 UTC)
+- **Lancement Opérationnel : Concierge WhatsApp Djélia 24/7 Web-First (Côte d'Ivoire 🇨🇮 & Cameroun 🇨🇲)** :
+  1. **Architecture & Stratégie Web-First** :
+     - Pivotement vers `https://djelia.store/studio.html` comme canal de commande central pour les campagnes publicitaires en Côte d'Ivoire et au Cameroun.
+     - Nouveau lead (premier message sur WhatsApp session `"Test"`) :
+       1. Envoi de la note vocale d'accueil PTT ([`vocal_accueil_concierge.opus`](https://waha.velarisagent.life/qr/assets/vocal_accueil_concierge.opus)) avec la voix de la sœur clonée (Fish Audio TTS s2.1-pro-free).
+       2. Envoi de la vidéo tutoriel smartphone ([`djelia_tuto_mobile.mp4`](https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4), 14.38 Mo) montrant la composition sur mobile en 2 minutes.
+       3. Envoi du lien d'accès direct vers le studio web avec message d'accompagnement bienveillant.
+       4. Marquage en base : `ack_log.concierge_onboarding_sent = true`.
+  2. **IA Concierge & Support 24/7 Déterministe (`ConciergeService` & `concierge-brain.ts`)** :
+     - Connaissance exhaustive du site : Formule Standard (1 200 F CFA, 2 versions MP3 en 15-20 min), Formule Intégrale (3 500 F CFA), moyens de paiement locaux (Wave & Orange Money en CI, MTN Mobile Money & Orange Money au Cameroun, Orange & Moov au Burkina Faso), 20% commission partenaire.
+     - Temporisation humaine déterministe de 25 secondes avec indicateur de présence WhatsApp « en train d'écrire... » (`typing: true`) sur les 8 dernières secondes.
+     - Nettoyage automatique des rafales (debounce) et annulation immédiate si le gérant répond manuellement depuis son téléphone.
+  3. **Isolation Absolue des Anciens Clients** :
+     - Vérification mathématique en amont : si `contacts.is_returning === true` ou si le contact possède des commandes antérieures, le concierge ne s'exécute JAMAIS. Le client fidèle reste géré par son canal habituel.
+  4. **Validation & Déploiement Production VPS (`162.35.113.220`)** :
+     - Banc d'essai : 237 tests unitaires et d'intégration validés au vert (`npm test`, 0 échec).
+     - Déployé et opérationnel sous Docker sur le conteneur `velaris-engine` (écoute port 3001).
 - **Durcissement des Automatisations Emojis WhatsApp & Éradication Emojis Suno V6 Moteur** :
   1. **Résolution Haute Précision du Chat Réagi (`normalize.ts`)** :
      - Résolution déterministe du `chatId` à partir du message ID de la réaction (`false_[remoteJid]_[id]`), éliminant tout risque de renvoi vers le numéro du gérant quand `to` est omis par WAHA.
