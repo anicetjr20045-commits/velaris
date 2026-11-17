@@ -25,7 +25,15 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (13:20 UTC)
+- **Dernière mise à jour** : 17 Novembre 2026 (15:30 UTC)
+- **Durcissement des Automatisations Emojis WhatsApp & Éradication Emojis Suno V6 Moteur** :
+  1. **Résolution Haute Précision du Chat Réagi (`normalize.ts`)** :
+     - Résolution déterministe du `chatId` à partir du message ID de la réaction (`false_[remoteJid]_[id]`), éliminant tout risque de renvoi vers le numéro du gérant quand `to` est omis par WAHA.
+     - Prise en charge des drapeaux `fromMe` profonds (`payload._data.key.fromMe`, `payload._data.fromMe`) pour ne rater aucune réaction gérant sur WAHA WEBJS.
+  2. **Suppression Emojis Suno V6 (`stripEmojis` dans `music.ts`)** :
+     - Intégration de `stripEmojis` dans `generateKieSong` et `formatLyricsForSuno` pour bannir tout rejet HTTP 400 (Invalid prompt) lorsque les paroles contiennent des emojis lors d'une réaction `⭐`.
+  3. **Tests & Compilation** :
+     - 28/28 tests de normalisation et d'automatisations emojis validés au vert (`npm run build` 0 erreur).
 - **Clonage Vocal Réalisé avec Succès : Voix Masculine Utilisateur Démo Djélia (Novembre 2026)** :
   1. **Extraction de la Vidéo Google Drive** :
      - Lien source utilisateur : `https://drive.google.com/file/d/1M7xH3kxWDXcnaJdCnCBo9OGTBHe4axZw/view?usp=drivesdk`
