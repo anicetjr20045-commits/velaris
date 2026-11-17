@@ -25,9 +25,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (17:10 UTC)
+- **Dernière mise à jour** : 17 Novembre 2026 (17:25 UTC)
 - **Durcissement Extrême Concierge WhatsApp Djélia 24/7 Web-First (Cameroun 🇨🇲, Côte d'Ivoire 🇨🇮, Afrique de l'Ouest & Centrale)** :
-  1. **Détection Géographique & Intégration Chariow Déterministe** :
+  1. **Vidéo Tutoriel Mobile Ultra-Légère (4.4 Mo au lieu de 14.4 Mo) & Lecture Vidéo WhatsApp Native** :
+     - Re-compression optimale de `djelia_tuto_mobile.mp4` : passage de 14.38 Mo à 4.41 Mo (-70% de bande passante).
+     - Format d'encodage H.264 Main Profile 3.1, Pix_Fmt YUV420P, audio AAC 64k, résolution 720x1280 (verticale HD).
+     - Flag `-movflags +faststart` injecté : vignette instantanée et streaming direct WhatsApp sans temps de chargement.
+     - Payload WAHA `kind: 'video'` : affichage sous forme de bulle vidéo WhatsApp native avec bouton Play (aucun affichage sous forme de document/fichier).
+  2. **Vocal d'Accueil Concierge & Interface d'Écoute Dédiée** :
+     - Conversion MP3 universelle : `https://waha.velarisagent.life/qr/assets/vocal_accueil_concierge.mp3` (22s, voix de la sœur Fish Audio).
+     - Page d'écoute dédiée en production : `https://waha.velarisagent.life/qr/ecouter-vocal.html`.
+  3. **Détection Géographique & Intégration Chariow Déterministe** :
      - Résolution automatique du pays à partir de l'indicatif téléphonique WhatsApp (`resolveCountryFromPhone`) : Cameroun (+237 -> MTN MoMo, Orange Money Cameroun), Côte d'Ivoire (+225 -> Wave, Orange Money, MTN), Burkina Faso (+226 -> Orange Money, Moov), Sénégal (+221 -> Wave, OM), Gabon (+241), Congo (+242), RDC (+243), Diaspora (+33, +1... -> Carte Bancaire Visa/Mastercard).
      - Le prompt système reçoit dynamiquement le pays et les opérateurs de paiement locaux exacts selon l'API Chariow.
   2. **Isolation Étanche Multi-Couches des Anciens Clients (Silence Absolu Garanti)** :
