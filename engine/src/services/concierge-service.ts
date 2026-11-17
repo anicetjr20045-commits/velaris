@@ -138,11 +138,11 @@ export class ConciergeService {
     }
 
     // 5. Contact historique créé avant la campagne publicitaire actuelle
-    if (contact?.first_seen_at) {
-      const firstSeen = new Date(contact.first_seen_at).getTime();
-      if (firstSeen < this.campaignStartDate) {
-        return { isReturning: true, reason: 'contact_first_seen_before_campaign' };
-      }
+    const creationTime = contact?.created_at
+      ? new Date(contact.created_at).getTime()
+      : (contact?.first_seen_at ? new Date(contact.first_seen_at).getTime() : null);
+    if (creationTime && creationTime < this.campaignStartDate) {
+      return { isReturning: true, reason: 'contact_first_seen_before_campaign' };
     }
 
     // 6. Messages historiques archivés dans la discussion antérieurs à aujourd'hui
@@ -223,7 +223,7 @@ export class ConciergeService {
     try {
       const contacts = await this.deps.db.queryTable<any[]>(
         'contacts',
-        `wa_jid=eq.${encodeURIComponent(ev.chatId)}&select=id,user_id,name,phone,wa_jid,is_returning,first_seen_at&limit=1`
+        `wa_jid=eq.${encodeURIComponent(ev.chatId)}&select=id,user_id,name,phone,wa_jid,created_at&limit=1`
       );
       contact = contacts?.[0] ?? null;
 
@@ -232,7 +232,7 @@ export class ConciergeService {
         if (cleanPhone) {
           const byPhone = await this.deps.db.queryTable<any[]>(
             'contacts',
-            `phone=eq.${encodeURIComponent(cleanPhone)}&select=id,user_id,name,phone,wa_jid,is_returning,first_seen_at&limit=1`
+            `phone=eq.${encodeURIComponent(cleanPhone)}&select=id,user_id,name,phone,wa_jid,created_at&limit=1`
           );
           contact = byPhone?.[0] ?? null;
         }
@@ -244,6 +244,14 @@ export class ConciergeService {
           `contact_id=eq.${encodeURIComponent(contact.id)}&select=id,user_id,control_mode,ack_log&order=created_at.desc&limit=1`
         );
         conversation = convs?.[0] ?? null;
+      }
+
+      if (!conversation) {
+        const convsByChat = await this.deps.db.queryTable<any[]>(
+          'conversations',
+          `chat_id=eq.${encodeURIComponent(ev.chatId)}&select=id,user_id,contact_id,control_mode,ack_log&order=created_at.desc&limit=1`
+        );
+        conversation = convsByChat?.[0] ?? null;
       }
     } catch (err: any) {
       this.deps.log?.('[concierge] Erreur recherche contact/conversation', { error: err?.message || err });
