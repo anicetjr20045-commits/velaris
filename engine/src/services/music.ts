@@ -394,12 +394,15 @@ export function formatLyricsForSuno(raw: string): string {
   // 10. Chiffres isolés restants (ex: 20 ans -> vingt ans)
   text = replaceOutsideTags(text, /\b(\d+)\b/g, (_m, d: string) => numberToFrenchWords(d));
 
-  // 11. Sigles professionnels et ouest-africains (épelés avec tirets pour une prononciation distincte)
+// 11. Sigles professionnels et ouest-africains (épelés avec tirets pour une prononciation distincte)
   const ACRONYMS = ['PDG', 'DG', 'DRH', 'VIP', 'USA', 'ONG', 'SAV', 'SMS', 'CDI', 'CDD', 'CEO', 'BTP', 'SARL'];
   for (const acr of ACRONYMS) {
     const re = new RegExp(`\\b${acr}\\b`, 'g');
     text = replaceOutsideTags(text, re, acr.split('').join('-'));
   }
+
+  // 12. Élimination stricte des emojis et symboles pictographiques (évite le rejet HTTP 400 par le tokenizer Suno V6)
+  text = stripEmojis(text);
 
   return text
     .split('\n')
@@ -408,6 +411,25 @@ export function formatLyricsForSuno(raw: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, 4900);
+}
+
+/**
+ * Supprime strictement les emojis, symboles pictographiques et sélecteurs de variation
+ * pour éviter les rejets HTTP 400 (Invalid prompt) par Suno / Kie.ai.
+ * Conserve 100% des chiffres (0-9), ponctuations, et balises musicales ([Verse], [Chorus], etc.).
+ */
+export function stripEmojis(text: string): string {
+  if (!text) return '';
+  return text
+    // Emojis étendus, symboles pictographiques et drapeaux
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    // Blocs Unicode explicites d'emojis, symboles et pictographes
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}]/gu, '')
+    // Sélecteurs de variation Unicode (ex: \uFE0F) et ligatures zéro-largeur (ZWJ \u200D)
+    .replace(/[\uFE00-\uFE0F\u200D]/gu, '')
+    // Espaces résiduels multiples
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
 }
 
 /**
@@ -566,9 +588,9 @@ export async function generateKieSong(
   input: KieSongInput,
   fetchImpl: typeof fetch = fetch,
 ): Promise<KieGenerateResponse> {
-  const lyrics = formatLyricsForSuno(input.lyrics);
-  const fullStyle = optimizeSunoStylePrompt(input.style, input.voice);
-  const title = (input.title || 'Chanson personnalisée').slice(0, 80);
+  const lyrics = stripEmojis(formatLyricsForSuno(input.lyrics));
+  const fullStyle = stripEmojis(optimizeSunoStylePrompt(input.style, input.voice));
+  const title = stripEmojis(input.title || 'Chanson personnalisée').slice(0, 80);
 
   try {
     const res = await fetchImpl(`${KIE_API_BASE_URL}/generate`, {

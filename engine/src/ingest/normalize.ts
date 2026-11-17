@@ -137,14 +137,32 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
   }
 
   if (event === 'message.reaction') {
-    // Seules les réactions du GÉRANT comptent. fromMe absent = rejet (corrige E1).
-    if (payload.fromMe !== true) return { ok: false, reason: 'reaction_not_from_merchant' };
+    // Seules les réactions du GÉRANT comptent.
+    const rawData = isObj(payload._data) ? (payload._data as Obj) : null;
+    const rawKey = rawData && isObj(rawData.key) ? (rawData.key as Obj) : null;
+    const isFromMe = payload.fromMe === true || rawKey?.fromMe === true || rawData?.fromMe === true;
+    if (!isFromMe) return { ok: false, reason: 'reaction_not_from_merchant' };
+
     const reaction = isObj(payload.reaction) ? payload.reaction : null;
-    const emojiRaw = reaction ? str(reaction.text) : null;
+    const emojiRaw = reaction ? str(reaction.text) : (rawData ? str(rawData.text) ?? str(rawData.emoji) : null);
     if (!emojiRaw) return { ok: false, reason: 'reaction_removed_or_empty' };
-    const reacted = waMessageIdKey(normalizeWaMessageId(reaction?.messageId));
+    const reacted = waMessageIdKey(normalizeWaMessageId(reaction?.messageId ?? rawData?.messageId));
     if (!reacted) return { ok: false, reason: 'reaction_without_target' };
-    const chatId = str(payload.to) ?? str(payload.from);
+
+    let chatId = str(payload.to) ?? str(payload.from);
+    // Résolution haute fidélité du chatId depuis le messageId de la réaction
+    // Format WhatsApp standard sérialisé : [fromMe]_[remoteJid]_[id] (ex: false_22670000000@c.us_3EB0...)
+    const rawMsgId = str(reaction?.messageId) || (rawData ? str(rawData.messageId) : '') || '';
+    const parts = rawMsgId.split('_');
+    if (parts.length >= 3 && parts[1]?.includes('@') && !isGroupJid(parts[1]) && !isBroadcastJid(parts[1])) {
+      chatId = parts[1];
+    } else if (rawData && str(rawData.remote)) {
+      const rem = str(rawData.remote);
+      if (rem && !isGroupJid(rem) && !isBroadcastJid(rem)) {
+        chatId = rem;
+      }
+    }
+
     if (!chatId || isGroupJid(chatId) || isBroadcastJid(chatId)) return { ok: false, reason: 'reaction_ignored_chat' };
     const emoji = normalizeEmoji(emojiRaw);
     return { ok: true, event: { kind: 'reaction', session, dedupKey: `${reacted}|${emoji}`, chatId, reactedKey: reacted, emoji } };
