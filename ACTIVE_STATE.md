@@ -25,8 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (18:05 UTC)
-- **Validation Intégrale & Audit de Perfection du Concierge Djélia 24/7 (Déployé Production VPS)** :
+- **Dernière mise à jour** : 17 Novembre 2026 (18:40 UTC)
+- **Déploiement Opérationnel : Envoi Tactique Intelligent de la Vidéo & Verrou d'Unicité Inviolable** :
+  1. **Filtrage Intelligent du 1er Message (Zéro Envoi Aveugle)** :
+     - Si un nouveau lead arrive avec une question directe (`isDirectSpecificQuestion` : moyen de paiement, pays, délai, humain, prix...), la vidéo n'est PAS balancée ! Le lead bascule directement en mode Support Conseiller (fenêtre 30s) pour recevoir une réponse précise.
+     - Si le lead arrive avec une salutation / clic publicitaire classique (« Bonjour », « Je veux une chanson »), le pack d'accueil complet (vocal + vidéo 4.4 Mo + lien studio) lui donne l'autonomie immédiate.
+  2. **Envoi au Moment Propice & Verrou Inviolable en Base** :
+     - Si un lead qui n'avait pas reçu la vidéo demande plus tard la procédure (« Comment commander ? », « C'est quoi les étapes ? »), le concierge lui transmet la vidéo tutoriel à cet instant précis.
+     - Verrou scellé en base : `ack_log.video_tutorial_sent = true`. La vidéo n'est physiquement JAMAIS envoyée deux fois.
+     - Si le client redemande la procédure par la suite, l'IA lui rappelle gentiment de regarder la vidéo déjà partagée plus haut dans la discussion, sans gaspiller sa connexion internet.
+  3. **Tests & Validation Production VPS** :
+     - 13/13 tests unitaires validés au vert (`npm test`).
+     - Validation in situ sur le VPS (`velaris-engine`) : Question directe = 0 vidéo (Support direct) ; Arrivée pub classique = 1 vidéo (Pack d'accueil).
   1. **Audit Schéma PostgreSQL & Résolution de Requête Supabase** :
      - Détection et correction chirurgicale de la clause `select` de `contacts` : remplacement des champs inexistants par les colonnes réelles `id,user_id,name,phone,wa_jid,created_at`.
      - Ajout d'un fallback déterministe par `chat_id` sur la table `conversations`.
