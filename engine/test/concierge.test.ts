@@ -38,7 +38,9 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.ok(lines.length <= 60, `Prompt trop long : ${lines.length} lignes`);
     assert.doesNotMatch(DJELIA_CONCIERGE_SYSTEM_PROMPT, /[\u{1F300}-\u{1F9FF}]/u, 'Le prompt ne doit contenir aucun émoji');
     assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('djelia.store/studio.html'));
-    assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('1 200 F CFA'));
+    assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('1 200 francs'));
+    assert.ok(!DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('3 500'));
+    assert.ok(!DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('FCFA'));
     assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('20%'));
   });
 
@@ -754,7 +756,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages[1].kind, 'video');
     assert.ok(sentMessages[1].url.includes('djelia_tuto_mobile.mp4'));
     assert.equal(sentMessages[2].kind, 'text');
-    assert.ok(sentMessages[2].text.includes('1 200 F CFA'));
+    assert.ok(sentMessages[2].text.includes('1 200 francs'));
     assert.ok(sentMessages[2].text.includes('djelia.store/studio.html'));
 
     assert.equal(updatedAckLog.concierge_onboarding_sent, true);

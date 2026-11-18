@@ -8,7 +8,7 @@ const refAudioPath = path.resolve('/root/projets/velaris/engine/src/assets/sampl
 
 const welcomeText = "Bonjour et bienvenue chez Djélia ! Nous composons des chansons personnalisées uniques pour toutes les occasions : anniversaire, mariage, déclaration d'amour ou hommage. Je vous transmets juste en dessous une courte vidéo de deux minutes qui vous montre comment créer votre chanson en moins de cinq minutes sur notre studio. Regardez la vidéo, et si vous avez la moindre question ou besoin d'aide pour vos paroles, n'hésitez surtout pas à me demander, je suis là pour vous accompagner !";
 
-const priceText = "Bonjour et bienvenue chez Djélia ! Pour composer votre chanson personnalisée, nos tarifs débutent à partir de 1 200 F CFA pour la formule standard avec deux versions MP3 complètes prêtes en 15 à 20 minutes. Je vous transmets juste en dessous une courte vidéo qui vous montre exactement comment procéder pour créer votre chanson en moins de cinq minutes. Regardez la vidéo, et si vous avez la moindre question, n'hésitez surtout pas à me demander ici !";
+const priceText = "Bonjour et bienvenue chez Djélia ! Pour faire composer votre chanson personnalisée, c'est seulement 1 200 francs. Et pour ce tarif, vous recevez deux versions complètes avec vos propres paroles. Je vous transmets juste en dessous une petite vidéo qui vous montre exactement comment faire sur le studio. Regardez la vidéo, et si vous avez la moindre question, n'hésitez pas à me demander ici !";
 
 async function generateAudio(text: string, outFilename: string) {
   console.log(`Generating: ${outFilename}...`);

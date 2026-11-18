@@ -709,7 +709,7 @@ export class ConciergeService {
 
     // 3. Message texte officiel avec lien direct vers le studio
     const onboardingText = isPrice
-      ? "Nos formules officielles :\n• Chanson personnalisée complète (2 versions MP3) : 1 200 F CFA\n• Chanson + montage vidéo avec vos photos : 3 500 F CFA\n\nVoici le lien de notre studio en ligne : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !"
+      ? "Pour faire composer votre chanson personnalisée avec vos paroles (2 versions complètes incluses) :\nLe tarif est de 1 200 francs.\n\nVoici le lien de notre studio en ligne : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !"
       : "Voici le lien de notre studio en ligne pour composer votre chanson en quelques clics : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.";
 
     await this.deps.waha.send(session, chatId, {
