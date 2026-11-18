@@ -25,15 +25,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 18 Novembre 2026 (21:08 UTC)
-- **Déploiement Opérationnel : Pack d'Onboarding Déterministe en 3 Volets & Activation Automatique Permanente du Mode Test sur le +226 05777308** :
-  1. **Résolution du blocage testeur (+226 05777308)** :
-     - Cause identifiée dans les logs VPS : La commande `#reset` ou `/reset` purgeait bien les messages via le routeur HTTP d'ingestion mais court-circuitait le Concierge avant l'activation du drapeau `testModes`. Dès lors, le numéro burkinabé `+226 05777308` retombait sous la règle de protection 100% gérant manuel.
-     - Correctif chirurgical :
-       - Le numéro de test `+226 05777308` est désormais **ACTIF PAR DÉFAUT** en mode simulateur de prospect étranger (Cameroun +237) sans avoir besoin de taper une commande préalable.
-       - Le réarmement du mode test et l'annulation des tours en attente sont désormais directement branchés au routeur HTTP sur `/reset`, `reset`, `#reset`, `!reset`.
-       - Persistance robuste sur disque (`/tmp/velaris-test-modes.json`) avec modules ESM natifs.
-  2. **Onboarding Médias Déterministe à l'Arrivée de Tout Nouveau Lead (Fin des Esquives)** :
+- **Dernière mise à jour** : 18 Novembre 2026 (21:24 UTC)
+- **Déploiement Opérationnel : Formule Unique 1 200 Francs (Sans CFA), Zéro Offre Vidéo 3 500 F, et Réponses Service Client Naturelles sans Forcer le Lien Web** :
+  1. **Harmonisation Tarifaire Pure (1 200 Francs Seul)** :
+     - Élimination totale de toute mention de l'offre vidéo à 3 500 F CFA. Il n'existe plus qu'une seule et unique formule : la chanson personnalisée complète avec 2 versions MP3 pour **1 200 francs**.
+     - Interdiction stricte du suffixe "CFA" ou "FCFA" à l'oral comme à l'écrit : on s'arrête strictement à **« 1 200 francs »**.
+     - Le vocal prix (`vocal_prix_concierge.opus` et `.mp3`, voix sœur clonée Fish Audio) a été re-généré et synchronisé sur le VPS : *« Bonjour et bienvenue chez Djélia ! Pour faire composer votre chanson personnalisée, c'est seulement 1 200 francs. Et pour ce tarif, vous recevez deux versions complètes avec vos propres paroles. Je vous transmets juste en dessous une petite vidéo qui vous montre exactement comment faire sur le studio... »*.
+  2. **Mode Service Client Naturel (Fin du Spam de Lien Web et de Vidéo)** :
+     - Au Tour 1 (Arrivée) : Le client reçoit le pack d'onboarding structuré (Vocal + Vidéo tutoriel + Texte avec lien direct du studio).
+     - Aux Tours 2+ (Support / Service client) :
+       - L'IA répond directement, avec chaleur et concision (1-2 phrases), aux questions spécifiques du client (ex: localisation, styles musicaux, inspiration, moyens de paiement...).
+       - **Elle ne force plus JAMAIS le lien du site à chaque message**. Le lien du studio n'est communiqué que si le client demande expressément où aller ou comment commander.
+       - La vidéo n'est plus jamais mentionnée ni réexpédiée.
+  3. **Numéro de Test Dédié (+226 05777308)** :
      - **Élimination du bypass fragile `isDirectSpecificQuestion`** : Tout nouveau prospect arrivant sur le canal WhatsApp reçoit systématiquement le pack d'onboarding complet (Vocal ➔ Vidéo ➔ Texte & Studio) sans être court-circuité par une question posée au premier tour.
      - **Branche A (Salutations, Demandes d'infos générales, Clics Ads, "Bonjour puis-je en savoir plus ?")** :
        1. **Vocal d'Accueil** (24.6s, Fish Audio, voix de la sœur) : *« Bonjour et bienvenue chez Djélia ! C'est un réel plaisir de vous accueillir... Regardez juste en dessous, je vous ai glissé une petite vidéo d'une minute qui vous montre exactement comment procéder... »* (`vocal_accueil_concierge.opus` / `.mp3`).
