@@ -21,7 +21,7 @@ import type { DeepSeekProvider } from '../llm/deepseek.js';
 import { resetTestClient } from '../services/reset-client.js';
 import type { RestDb } from '../db/rest.js';
 import type { VoiceClonerService, DraftClonerManager } from '../services/voice-cloner.js';
-import type { ConciergeService } from '../services/concierge-service.js';
+import { isTestPhoneNumber, type ConciergeService } from '../services/concierge-service.js';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
@@ -147,13 +147,22 @@ export async function runProcessing(id: number, ev: NormalizedEvent, deps: Inges
       return;
     }
 
-    // 2. Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset)
+    // 2. Commande magique de réinitialisation instantanée via WhatsApp (#reset, !reset, /reset, reset)
     // Permet au testeur (depuis son téléphone WhatsApp, fromMe = false) ou au gérant (fromMe = true)
     // de purger instantanément la discussion et recommencer un test à blanc.
     if (ev.kind === 'message' && typeof ev.body === 'string' && (!ev.fromMe || ev.source !== 'api')) {
       const trimmed = ev.body.trim().toLowerCase();
-      if (trimmed === '#reset' || trimmed === '!reset' || trimmed === '/reset') {
+      if (
+        trimmed === '#reset' ||
+        trimmed === '!reset' ||
+        trimmed === '/reset' ||
+        (isTestPhoneNumber(ev.chatId) && trimmed === 'reset')
+      ) {
         const resetRes = await resetTestClient(deps.db as RestDb, ev.chatId);
+        if (deps.conciergeService && isTestPhoneNumber(ev.chatId)) {
+          deps.conciergeService.cancelPendingTurn(ev.chatId);
+          deps.conciergeService.enableTestMode(ev.chatId, '237', 'Cameroun');
+        }
         if (deps.waha) {
           await deps.waha.send(
             ev.session,

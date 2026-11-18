@@ -21,6 +21,7 @@
  * 4. Débrayage immédiat si le gérant prend la main depuis son téléphone WhatsApp.
  */
 
+import * as fs from 'node:fs';
 import type { Db } from '../db/rest.js';
 import type { WahaClient } from '../send/waha-client.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
@@ -37,6 +38,7 @@ import {
 } from '../llm/concierge-brain.js';
 
 export const TEST_PHONE_NUMBER = '22605777308';
+const TEST_MODES_PERSIST_FILE = process.env.TEST_MODES_FILE || '/tmp/velaris-test-modes.json';
 
 export function isTestPhoneNumber(phoneOrJid?: string | null): boolean {
   if (!phoneOrJid) return false;
@@ -116,15 +118,12 @@ export class ConciergeService {
 
   private loadPersistedTestModes(): void {
     try {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const p = path.resolve(__dirname, '../assets/test-modes.json');
-      if (fs.existsSync(p)) {
-        const raw = fs.readFileSync(p, 'utf8');
+      if (fs.existsSync(TEST_MODES_PERSIST_FILE)) {
+        const raw = fs.readFileSync(TEST_MODES_PERSIST_FILE, 'utf8');
         const items = JSON.parse(raw);
         if (Array.isArray(items)) {
           for (const it of items) {
-            if (it?.chatId && it?.active) {
+            if (it?.chatId) {
               this.testModes.set(it.chatId, it);
             }
           }
@@ -137,14 +136,53 @@ export class ConciergeService {
 
   private savePersistedTestModes(): void {
     try {
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const p = path.resolve(__dirname, '../assets/test-modes.json');
       const arr = Array.from(this.testModes.values());
-      fs.writeFileSync(p, JSON.stringify(arr, null, 2), 'utf8');
+      fs.writeFileSync(TEST_MODES_PERSIST_FILE, JSON.stringify(arr, null, 2), 'utf8');
     } catch {
       // ignore
     }
+  }
+
+  /**
+   * Retourne la configuration de test pour un chat donné.
+   * Pour le numéro de test configuré (+226 05777308), le mode test est ACTIF PAR DÉFAUT (Cameroun +237)
+   * sauf si explicitement désactivé via /stop.
+   */
+  getTestMode(chatId: string): TestModeConfig | null {
+    if (this.testModes.has(chatId)) {
+      return this.testModes.get(chatId)!;
+    }
+    if (isTestPhoneNumber(chatId)) {
+      const defaultConfig: TestModeConfig = {
+        chatId,
+        countryCode: '237',
+        countryName: 'Cameroun',
+        simulatedPhone: '23769000000',
+        active: true,
+        startedAt: new Date().toISOString(),
+      };
+      this.testModes.set(chatId, defaultConfig);
+      this.savePersistedTestModes();
+      return defaultConfig;
+    }
+    return null;
+  }
+
+  /**
+   * Active ou met à jour le mode test pour un numéro autorisé.
+   */
+  enableTestMode(chatId: string, countryCode = '237', countryName = 'Cameroun'): TestModeConfig {
+    const config: TestModeConfig = {
+      chatId,
+      countryCode,
+      countryName,
+      simulatedPhone: `${countryCode}690000000`,
+      active: true,
+      startedAt: new Date().toISOString(),
+    };
+    this.testModes.set(chatId, config);
+    this.savePersistedTestModes();
+    return config;
   }
 
   /**
@@ -172,7 +210,7 @@ export class ConciergeService {
     conversation: any
   ): Promise<{ isReturning: boolean; reason: string }> {
     // 0. Mode test actif : toujours considéré comme un nouveau prospect
-    if (this.testModes.get(_chatId)?.active) {
+    if (this.getTestMode(_chatId)?.active) {
       return { isReturning: false, reason: 'test_mode_forced_new_lead' };
     }
 
@@ -308,13 +346,14 @@ export class ConciergeService {
   ): Promise<{ handled: boolean; action?: string; reason?: string }> {
     const text = ev.body?.trim() || '';
     const parts = text.split(/\s+/);
-    const cmd = parts[0]?.toLowerCase() || '';
+    const rawCmd = parts[0]?.toLowerCase().trim() || '';
+    const cmd = rawCmd.replace(/^[/#!]/, '');
     const arg = parts.slice(1).join(' ').toLowerCase().trim();
 
     const chatId = ev.chatId;
     const session = ev.session;
 
-    if (cmd === '/test' || cmd === '/mode') {
+    if (cmd === 'test' || cmd === 'mode') {
       let countryCode = '237';
       let countryName = 'Cameroun';
 
@@ -338,16 +377,7 @@ export class ConciergeService {
         countryName = 'RD Congo';
       }
 
-      this.testModes.set(chatId, {
-        chatId,
-        countryCode,
-        countryName,
-        simulatedPhone: `${countryCode}690000000`,
-        active: true,
-        startedAt: new Date().toISOString(),
-      });
-      this.savePersistedTestModes();
-
+      this.enableTestMode(chatId, countryCode, countryName);
       await this.wipeConversationForTest(chatId, conversation?.id, contact?.id);
 
       const reply =
@@ -364,23 +394,32 @@ export class ConciergeService {
       return { handled: true, action: `test_mode_activated_${countryCode}` };
     }
 
-    if (cmd === '/reset' || cmd === '/clear' || cmd === '/recommencer') {
-      const current = this.testModes.get(chatId);
+    if (cmd === 'reset' || cmd === 'clear' || cmd === 'recommencer') {
+      const current = this.getTestMode(chatId);
+      const countryCode = current?.countryCode || '237';
+      const countryName = current?.countryName || 'Cameroun';
+      this.enableTestMode(chatId, countryCode, countryName);
       await this.wipeConversationForTest(chatId, conversation?.id, contact?.id);
 
-      const countryInfo = current ? `${current.countryName} (+${current.countryCode})` : 'Cameroun (+237)';
       const reply =
         `[CONVERSATION RÉINITIALISÉE]\n\n` +
         `Toutes les données de la discussion ont été purgées. Les compteurs sont remis à zéro.\n` +
-        `Pays simulé : ${countryInfo}.\n\n` +
+        `Pays simulé : ${countryName} (+${countryCode}).\n\n` +
         `Vous pouvez renvoyer un premier message (ex: 'Bonjour') pour retester l'accueil depuis le début !`;
 
       await this.deps.waha.send(session, chatId, { kind: 'text', text: reply });
       return { handled: true, action: 'test_conversation_reset' };
     }
 
-    if (cmd === '/stop' || cmd === '/off' || cmd === '/quitter') {
-      this.testModes.delete(chatId);
+    if (cmd === 'stop' || cmd === 'off' || cmd === 'quitter') {
+      this.testModes.set(chatId, {
+        chatId,
+        countryCode: '226',
+        countryName: 'Burkina Faso',
+        simulatedPhone: '22605777308',
+        active: false,
+        startedAt: new Date().toISOString(),
+      });
       this.savePersistedTestModes();
       await this.wipeConversationForTest(chatId, conversation?.id, contact?.id);
 
@@ -393,8 +432,8 @@ export class ConciergeService {
       return { handled: true, action: 'test_mode_deactivated' };
     }
 
-    if (cmd === '/aide' || cmd === '/help' || cmd === '/statut' || cmd === '/status') {
-      const current = this.testModes.get(chatId);
+    if (cmd === 'aide' || cmd === 'help' || cmd === 'statut' || cmd === 'status') {
+      const current = this.getTestMode(chatId);
       const statusTxt = current?.active
         ? `ACTIF (Pays simulé : ${current.countryName} +${current.countryCode})`
         : `INACTIF (Mode normal gérant)`;
@@ -521,11 +560,18 @@ export class ConciergeService {
     }
 
     // 0. Interception des commandes de test pour le numéro autorisé (+226 05777308)
-    if (isTestPhoneNumber(ev.chatId) && ev.body?.trim().startsWith('/')) {
+    const firstWord = ev.body?.trim().split(/\s+/)[0]?.toLowerCase().replace(/^[/#!]/, '') || '';
+    if (
+      isTestPhoneNumber(ev.chatId) &&
+      (ev.body?.trim().startsWith('/') ||
+        ev.body?.trim().startsWith('#') ||
+        ev.body?.trim().startsWith('!') ||
+        ['test', 'stop', 'aide', 'help', 'mode', 'reset', 'clear', 'recommencer'].includes(firstWord))
+    ) {
       return await this.handleTestCommand(ev);
     }
 
-    const testConfig = this.testModes.get(ev.chatId);
+    const testConfig = this.getTestMode(ev.chatId);
     const isTestActive = Boolean(testConfig?.active);
 
     // 0 bis. RÈGLE INVIOLABLE BURKINA FASO (+226) : 100% GÉRANT HUMAIN (ANCIENS COMME NOUVEAUX)
@@ -724,7 +770,7 @@ export class ConciergeService {
       existing.accumulatedText += '\n' + messageText;
     }
 
-    const testConfig = this.testModes.get(chatId);
+    const testConfig = this.getTestMode(chatId);
     const isTestActive = Boolean(testConfig?.active);
 
     const accumulatedText = existing ? existing.accumulatedText : messageText;
