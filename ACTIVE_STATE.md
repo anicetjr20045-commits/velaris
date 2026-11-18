@@ -25,8 +25,31 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 18 Novembre 2026 (21:24 UTC)
-- **Déploiement Opérationnel : Formule Unique 1 200 Francs (Sans CFA), Zéro Offre Vidéo 3 500 F, et Réponses Service Client Naturelles sans Forcer le Lien Web** :
+- **Dernière mise à jour** : 18 Novembre 2026 (21:55 UTC)
+- **Déploiement Opérationnel : Concierge Conseiller Pro (Délai 30s Réaliste, Frappe 8s, URL https://djelia.store, Programme Partenaire 25%, Découpage 1-2 Bulles, Garde-fous Silence & Débrayage Gérant)** :
+  1. **Correction d'URL Officielle (Racine Propre)** :
+     - Utilisation stricte de l'URL racine officielle **`https://djelia.store`** partout (dans les prompts, le pack d'accueil et le service client), remplaçant définitivement l'ancienne URL `https://djelia.store/studio.html`.
+  2. **Temporisation Humaine Réaliste de 30 Secondes & Regroupement des Rafales (Tour 1 & Tour 2+)** :
+     - Tout nouveau message (qu'il s'agisse de l'arrivée d'un prospect au Tour 1 ou d'une question au Tour 2+) subit une temporisation réaliste de **30 secondes** avant toute réponse.
+     - Regroupement déterministe (debounce) : si le client envoie plusieurs messages, vocaux ou captures d'écran durant l'intervalle de 30 secondes, le minuteur est relancé et l'ensemble de ses messages est fusionné pour une réponse globale unique.
+     - Indicateur de frappe WhatsApp réel : déclenchement du statut *« en train d'écrire... »* (`typing: true`) durant les **8 dernières secondes** (de t = 22s à 30s).
+     - Au Tour 1, le pack d'onboarding complet (Vocal ➔ Vidéo ➔ Texte studio) s'expédie d'un bloc après ces 30 secondes d'attente.
+  3. **Découpage Dynamique en 1 ou 2 Bulles avec Pause Naturelle** :
+     - En mode support (Tour 2+), l'IA peut structurer sa réponse en 1 ou 2 bulles distinctes (séparateur `---` ou saut de paragraphe).
+     - Un intervalle naturel de **1.5 seconde** sépare l'envoi de la première et de la deuxième bulle pour un rendu humain et aéré.
+  4. **Cerveau Conseiller Expert & Base de Connaissances Intégrale** :
+     - **Étapes du site `https://djelia.store`** : 1) Choix de l'occasion/relation 2) Prénom et souvenirs 3) Paroles générées par IA en 15s modifiables gratuitement à volonté 4) Choix du style musical 5) Paiement 1 200 francs 6) Réception WhatsApp en 15-20 minutes.
+     - **Programme Partenaire Officiel** : Inscription gratuite sur **`https://djelia.store/partenaire.html`** avec son WhatsApp pour obtenir son lien d'affiliation, **25% de commission nette** sur chaque commande générée, retrait instantané dès 1 500 francs via Wave, Orange Money ou MTN.
+     - **Tarif unique** : Strictement **« 1 200 francs »** (sans suffixe "CFA" ni "FCFA", aucune offre vidéo à 3 500 F).
+     - **Pas de spam de lien ni de vidéo** : L'URL du site n'est fournie que si le client le demande expressément. La vidéo n'est jamais réexpédiée.
+  5. **Débrayage Gérant Immédiat & Garde-Fous Anti-Hallucination** :
+     - Dès que le gérant écrit dans le chat (`fromMe === true && source !== 'api'`), tout tour en attente est instantanément annulé, la conversation bascule en `control_mode = 'human'` et l'IA se tait à 100% et de manière définitive.
+     - Analyse visuelle des captures d'écran reçues via Gemini 3.6 Flash multimodale.
+     - Garde-fou d'honnêteté : en cas de litige financier ou de doute technique, l'IA ne devine rien. Elle renvoie `SILENCE` ou transfère poliment au responsable de l'atelier (*« J'ai bien reçu votre message. Je transmets directement votre demande au responsable de l'atelier... »*) et débraye immédiatement la conversation en mode humain.
+  6. **Validation Complète & Déploiement VPS** :
+     - 251/251 tests unitaires au vert (`npm test`), 21/21 sur `test/concierge.test.ts`.
+     - Code synchronisé sur le VPS `162.35.113.220`, conteneur Docker `velaris-engine` reconstruit et relancé sous supervision.
+- **Déploiement Précédent : Formule Unique 1 200 Francs (Sans CFA), Zéro Offre Vidéo 3 500 F, et Réponses Service Client Naturelles sans Forcer le Lien Web** :
   1. **Harmonisation Tarifaire Pure (1 200 Francs Seul)** :
      - Élimination totale de toute mention de l'offre vidéo à 3 500 F CFA. Il n'existe plus qu'une seule et unique formule : la chanson personnalisée complète avec 2 versions MP3 pour **1 200 francs**.
      - Interdiction stricte du suffixe "CFA" ou "FCFA" à l'oral comme à l'écrit : on s'arrête strictement à **« 1 200 francs »**.

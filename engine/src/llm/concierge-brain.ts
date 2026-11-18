@@ -1,7 +1,7 @@
 /**
  * Concierge IA Djélia 24/7 (Support & Orientation Web-First).
  *
- * Rôle : Accueillir, orienter et débloquer les clients vers le studio web (https://djelia.store/studio.html).
+ * Rôle : Accueillir, orienter et débloquer les clients vers le studio web (https://djelia.store).
  * Contrat d'ingénierie :
  *  - Zéro empilement de règles ad-hoc (prompt sobre, max 50-60 lignes).
  *  - Zéro émoji dans les réponses.
@@ -131,10 +131,10 @@ export async function describeScreenshotWithVision(
     const endpoint = 'https://api.kie.ai/gemini-3-6-flash-openai/v1/chat/completions';
 
     const prompt =
-      "Tu es l'assistant visuel de l'atelier Djélia (djelia.store), atelier de création de chansons personnalisées. " +
+      "Tu es l'assistant visuel de l'atelier Djélia (https://djelia.store), atelier de création de chansons personnalisées. " +
       "Analyse cette capture d'écran envoyée par un client sur WhatsApp. " +
       "Décris en 1 ou 2 phrases courtes et précises : " +
-      "1) Sur quelle page ou étape du studio le client se trouve (ex: accueil, choix occasion, prénom/souvenirs, génération paroles IA, choix de style, choix formule 1200F/3500F, ou paiement Chariow). " +
+      "1) Sur quelle page ou étape du site le client se trouve (ex: accueil, choix occasion, prénom/souvenirs, génération paroles IA, choix de style, formule 1 200 francs, ou paiement Chariow). " +
       "2) Le blocage visible, message d'erreur, ou ce qui est rempli/sélectionné à l'écran. " +
       "Réponds uniquement par ta description factuelle concise en français, sans formule d'introduction.";
 
@@ -251,25 +251,28 @@ export function isAskingForDemoOrSample(text?: string | null): boolean {
 }
 
 export function buildConciergeSystemPrompt(country: CountryPaymentInfo, _videoAlreadySent: boolean = true): string {
-  return `Tu es l'assistante service client de Djélia (djelia.store), atelier de composition de chansons personnalisées.
-Ton rôle est de répondre avec clarté, bienveillance et naturel aux questions du client, comme une vraie conseillère humaine.
+  return `Tu es la conseillère clientèle de l'atelier Djélia (https://djelia.store), service de chansons personnalisées en Afrique.
+Ton rôle est de conseiller avec chaleur, clarté et bienveillance chaque client, comme une vraie conseillère humaine attentive.
 
 Règles impératives de style et de ton :
-1. Dignité, politesse et respect chaleureux ouest-africain et camerounais.
-2. Réponses ultra-courtes : 1 à 2 phrases directes maximum. Jamais de longs pavés.
+1. Dignité, politesse et respect chaleureux (Afrique de l'Ouest et Cameroun).
+2. Réponses concises et aérées : 1 à 2 phrases directes. Tu peux séparer 2 idées en 2 bulles distinctes avec "---".
 3. Strictement AUCUN émoji dans tes réponses. Pas de symboles décoratifs.
-4. Réponds directement et précisément à la question posée (prix, délais, paiement, occasion, style...).
-5. Ne force JAMAIS le lien du site dans chaque réponse. Le client a déjà reçu le lien et le tutoriel au tout début. Tu donnes le lien https://djelia.store/studio.html UNIQUEMENT si le client demande expressément le lien ou où aller pour commander.
-6. Ne mentionne jamais de vidéo dans tes réponses : le tutoriel a déjà été envoyé plus haut.
+4. Réponds toujours avec précision à la question posée, puis propose ton aide avec bienveillance.
+5. NE FORCE JAMAIS le lien du site dans chaque réponse. Le client a déjà reçu le lien au tout début. Tu donnes le lien https://djelia.store UNIQUEMENT s'il demande expressément le lien ou où aller pour commander.
+6. Ne renvoie jamais de vidéo : le tutoriel a déjà été envoyé plus haut. S'il a un doute, invite-le simplement à revoir la courte vidéo reçue plus haut.
+7. RÈGLE D'HONNÊTETÉ & GARDE-FOU DOUTE : Si la question concerne un litige financier, un problème technique inconnu ou un cas complexe dont tu n'es pas absolument certaine, NE DEVINE RIEN. Réponds exactement :
+"J'ai bien reçu votre message. Je transmets directement votre demande au responsable de l'atelier qui va regarder cela pour vous tout de suite." ou renvoie {"reply": "SILENCE"}.
 
-Tarifs et connaissances Djélia :
+Connaissances indispensables de l'atelier Djélia :
+- Site officiel : https://djelia.store
 - Formule unique : Chanson personnalisée complète avec 2 versions MP3 différentes pour 1 200 francs.
-- Dis toujours "1 200 francs". Il n'y a aucune autre formule ni option vidéo.
-- Délais : Les 2 versions MP3 complètes sont prêtes en 15 à 20 minutes après validation.
-- Paroles : Le client lit et valide l'intégralité des paroles gratuitement avant de lancer la création.
-- Pays détecté : ${country.name}.
-- Moyens de paiement disponibles pour son pays : ${country.methods}.
-- Programme Partenaire : 20% de commission sur chaque commande passée via son lien affilié (https://djelia.store/partenaire.html).
+- Dis toujours "1 200 francs" (sans mentionner CFA). Il n'y a aucune autre formule ni option vidéo.
+- Délais : Les 2 versions MP3 complètes sont prêtes en 15 à 20 minutes après validation de la commande.
+- Étapes sur https://djelia.store : 1) Choix de l'occasion et relation 2) Prénom et souvenirs 3) L'IA écrit les paroles en 15 secondes, modifiables gratuitement à volonté 4) Choix du style musical 5) Paiement sécurisé 1 200 francs 6) Réception sur WhatsApp.
+- Occasions : Anniversaire, mariage, amour, hommage aux parents, remerciement, réconciliation.
+- Moyens de paiement pour son pays (${country.name}) : ${country.methods}.
+- Programme Partenaire : Inscription gratuite sur https://djelia.store/partenaire.html avec son numéro WhatsApp. On reçoit son lien d'affiliation unique et on gagne 25% de commission nette sur chaque commande générée. Retrait instantané dès 1 500 francs sur Wave, Orange Money ou MTN.
 
 Réponds uniquement sous forme d'objet JSON avec le champ "reply" :
 {"reply": "texte de ta réponse courte sans émoji"}`;
@@ -305,15 +308,15 @@ export async function generateConciergeReply(
     const data = res.data as { reply?: unknown; message?: unknown; response?: unknown } | undefined;
     const rawAnswer = String(data?.reply || data?.message || data?.response || '').trim();
 
-    // Nettoyage strict anti-émoji (Règle #4 & #5)
+    // Nettoyage strict anti-émoji (Règle #4 & #5) en préservant les sauts de lignes pour les bulles
     const cleanAnswer = rawAnswer
       .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1FA00}-\u{1FAFF}]/gu, '')
-      .replace(/\s{2,}/g, ' ')
+      .replace(/[ \t]{2,}/g, ' ')
       .trim();
 
-    return cleanAnswer || `Vous pouvez composer et écouter vos paroles directement sur https://djelia.store/studio.html . Je reste à votre disposition si vous avez la moindre question.`;
+    return cleanAnswer || `Vous pouvez composer et écouter vos paroles directement sur https://djelia.store . Je reste à votre disposition si vous avez la moindre question.`;
   } catch (err: any) {
     log?.('Erreur generateConciergeReply', { error: err?.message || err });
-    return `Pour composer votre chanson, rendez-vous directement sur notre studio en ligne : https://djelia.store/studio.html . Je suis là si vous avez besoin d'aide.`;
+    return `Pour composer votre chanson, rendez-vous directement sur notre site : https://djelia.store . Je suis là si vous avez besoin d'aide.`;
   }
 }

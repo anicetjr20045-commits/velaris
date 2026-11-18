@@ -37,11 +37,11 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     const lines = DJELIA_CONCIERGE_SYSTEM_PROMPT.split('\n');
     assert.ok(lines.length <= 60, `Prompt trop long : ${lines.length} lignes`);
     assert.doesNotMatch(DJELIA_CONCIERGE_SYSTEM_PROMPT, /[\u{1F300}-\u{1F9FF}]/u, 'Le prompt ne doit contenir aucun émoji');
-    assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('djelia.store/studio.html'));
+    assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('djelia.store'));
     assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('1 200 francs'));
     assert.ok(!DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('3 500'));
     assert.ok(!DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('FCFA'));
-    assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('20%'));
+    assert.ok(DJELIA_CONCIERGE_SYSTEM_PROMPT.includes('25%'));
   });
 
   it('resolveCountryFromPhone détecte avec précision le pays et les moyens de paiement Chariow', () => {
@@ -102,7 +102,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
         capturedSystem = req.system;
         return {
           data: {
-            reply: '✨ Au Cameroun, vous pouvez payer par MTN Mobile Money ou Orange Money sur https://djelia.store/studio.html . 🎵',
+            reply: '✨ Au Cameroun, vous pouvez payer par MTN Mobile Money ou Orange Money sur https://djelia.store . 🎵',
           },
         };
       },
@@ -117,7 +117,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.ok(capturedSystem.includes('MTN Mobile Money'));
     assert.doesNotMatch(reply, /[\u{1F300}-\u{1F9FF}]/u);
     assert.ok(reply.includes('MTN Mobile Money'));
-    assert.ok(reply.includes('djelia.store/studio.html'));
+    assert.ok(reply.includes('djelia.store'));
   });
 
   it('extractCleanPhone extrait fidèlement les chiffres sur tous les formats WhatsApp', () => {
@@ -169,10 +169,13 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       rpc: async () => null,
     } as any;
 
+    // Délai suffisant pour permettre l'intervention du gérant
     const concierge = new ConciergeService({
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
+      delayMs: 100,
+      typingDelayMs: 40,
     });
 
     // 1. Nouveau contact burkinabé
@@ -213,10 +216,13 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       updateRows: async () => [],
     } as any;
 
+    // Délai suffisant pour permettre l'intervention du gérant
     const concierge = new ConciergeService({
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
+      delayMs: 100,
+      typingDelayMs: 40,
     });
 
     const ev = makeMockMessage({
@@ -344,10 +350,13 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       rpc: async () => null,
     } as any;
 
+    // Délai suffisant pour permettre l'intervention du gérant
     const concierge = new ConciergeService({
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
+      delayMs: 100,
+      typingDelayMs: 40,
     });
 
     const ev = makeMockMessage({
@@ -396,6 +405,8 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
+      delayMs: 0,
+      typingDelayMs: 0,
     });
 
     const ev = makeMockMessage({
@@ -415,7 +426,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages[1].kind, 'video');
     assert.ok(sentMessages[1].url.includes('djelia_tuto_mobile.mp4'));
     assert.equal(sentMessages[2].kind, 'text');
-    assert.ok(sentMessages[2].text.includes('djelia.store/studio.html'));
+    assert.ok(sentMessages[2].text.includes('djelia.store'));
 
     assert.equal(updatedAckLog.concierge_onboarding_sent, true);
     assert.equal(updatedAckLog.video_tutorial_sent, true);
@@ -452,6 +463,8 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
+      delayMs: 0,
+      typingDelayMs: 0,
     });
 
     const testChatId = '22605777308@c.us';
@@ -557,7 +570,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
         }
         if (table === 'messages') {
           if (queryParams.includes('created_at=lt')) return [];
-          return [{ role: 'assistant', body: 'Lien studio : https://djelia.store/studio.html' }];
+          return [{ role: 'assistant', body: 'Lien site officiel : https://djelia.store' }];
         }
         return [];
       },
@@ -673,12 +686,13 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       },
     } as any;
 
+    // Délai suffisant pour permettre l'intervention du gérant
     const concierge = new ConciergeService({
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
-      delayMs: 150,
-      typingDelayMs: 50,
+      delayMs: 100,
+      typingDelayMs: 40,
     });
 
     // 1. Message client
@@ -735,8 +749,8 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
       db: mockDb,
       waha: mockWaha,
       llmProvider: {} as any,
-      delayMs: 150,
-      typingDelayMs: 50,
+      delayMs: 0,
+      typingDelayMs: 0,
     });
 
     const ev = makeMockMessage({
@@ -757,7 +771,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.ok(sentMessages[1].url.includes('djelia_tuto_mobile.mp4'));
     assert.equal(sentMessages[2].kind, 'text');
     assert.ok(sentMessages[2].text.includes('1 200 francs'));
-    assert.ok(sentMessages[2].text.includes('djelia.store/studio.html'));
+    assert.ok(sentMessages[2].text.includes('djelia.store'));
 
     assert.equal(updatedAckLog.concierge_onboarding_sent, true);
     assert.equal(updatedAckLog.video_tutorial_sent, true);
@@ -840,5 +854,142 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     // La vidéo ne doit PAS avoir été renvoyée une 2ème fois !
     const videoMessages2 = sentMessages.filter((m) => m.kind === 'video');
     assert.equal(videoMessages2.length, 1, 'La vidéo ne doit JAMAIS être envoyée deux fois');
+  });
+
+  it('Support : découpage en 2 bulles si "---" est présent avec pause naturelle', async () => {
+    const sentMessages: any[] = [];
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent', waMessageId: 'wa-1' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockLlm = {
+      completeJson: async () => ({
+        data: { reply: 'Voici la première explication détaillée.\n---\nEt voici la deuxième bulle de conseil.' },
+      }),
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string) => {
+        if (table === 'contacts') return [{ id: 'c-1', phone: '23769000000', is_returning: false }];
+        if (table === 'conversations') return [{ id: 'conv-1', ack_log: { concierge_onboarding_sent: true, video_tutorial_sent: true } }];
+        return [];
+      },
+      insertRow: async () => ({ id: 'msg-1' }),
+      updateRows: async () => [],
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: mockLlm,
+      delayMs: 20,
+      typingDelayMs: 5,
+    });
+
+    await concierge.handleEvent(makeMockMessage({
+      chatId: '23769000000@c.us',
+      body: 'Quels sont vos styles musicaux ?',
+    }));
+
+    await new Promise((r) => setTimeout(r, 1600));
+
+    assert.equal(sentMessages.length, 2, 'Deux bulles doivent être expédiées séparément');
+    assert.equal(sentMessages[0].text, 'Voici la première explication détaillée.');
+    assert.equal(sentMessages[1].text, 'Et voici la deuxième bulle de conseil.');
+  });
+
+  it('Garde-fou SILENCE : l IA ne répond rien si elle renvoie SILENCE', async () => {
+    const sentMessages: any[] = [];
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockLlm = {
+      completeJson: async () => ({
+        data: { reply: 'SILENCE' },
+      }),
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string) => {
+        if (table === 'contacts') return [{ id: 'c-2', phone: '23769000001', is_returning: false }];
+        if (table === 'conversations') return [{ id: 'conv-2', ack_log: { concierge_onboarding_sent: true } }];
+        return [];
+      },
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: mockLlm,
+      delayMs: 20,
+      typingDelayMs: 5,
+    });
+
+    await concierge.handleEvent(makeMockMessage({
+      chatId: '23769000001@c.us',
+      body: 'Message douteux ou inintelligible',
+    }));
+
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(sentMessages.length, 0, 'Aucun message ne doit être envoyé si la réponse est SILENCE');
+  });
+
+  it('Passage de main au responsable de l atelier : débraye en mode humain permanent', async () => {
+    const sentMessages: any[] = [];
+    let updatedConversation: any = null;
+
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockLlm = {
+      completeJson: async () => ({
+        data: { reply: "J'ai bien reçu votre message. Je transmets directement votre demande au responsable de l'atelier qui va regarder cela pour vous tout de suite." },
+      }),
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string) => {
+        if (table === 'contacts') return [{ id: 'c-3', phone: '23769000002', is_returning: false }];
+        if (table === 'conversations') return [{ id: 'conv-3', ack_log: { concierge_onboarding_sent: true } }];
+        return [];
+      },
+      updateRows: async (table: string, _match: string, data: any) => {
+        if (table === 'conversations') updatedConversation = data;
+        return [data];
+      },
+      insertRow: async () => ({ id: 'msg-3' }),
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: mockLlm,
+      delayMs: 20,
+      typingDelayMs: 5,
+    });
+
+    await concierge.handleEvent(makeMockMessage({
+      chatId: '23769000002@c.us',
+      body: 'J ai un litige de paiement Chariow depuis 3 jours',
+    }));
+
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(sentMessages.length, 1);
+    assert.ok(sentMessages[0].text.includes("responsable de l'atelier"));
+    assert.equal(updatedConversation?.control_mode, 'human', 'Le control_mode doit basculer en human');
   });
 });

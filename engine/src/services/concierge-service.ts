@@ -8,7 +8,7 @@
  * 2. Au premier message d'un nouveau lead :
  *    - Envoi du vocal d'accueil PTT (voix de la sœur clonée).
  *    - Envoi de la vidéo tutoriel smartphone (maquette écran + voix clonée, 136s, < 16 Mo).
- *    - Envoi du lien vers le studio web (https://djelia.store/studio.html) et message d'accompagnement.
+ *    - Envoi du lien vers le site officiel (https://djelia.store) et message d'accompagnement.
  *    - Marquage en base : concierge_onboarding_sent = true.
  * 3. Aux messages et questions ultérieures du lead (blocage, question tarif, moyen de paiement Chariow...) :
  *    - Détection automatique du pays de provenance (+237 Cameroun, +225 Côte d'Ivoire...) et des paiements locaux.
@@ -52,6 +52,7 @@ export interface TestModeConfig {
   countryName: string;
   simulatedPhone: string;
   active: boolean;
+  merchantTookOver?: boolean;
   startedAt: string;
 }
 
@@ -74,19 +75,21 @@ export interface ConciergeServiceDeps {
   campaignStartDateIso?: string | undefined;
 }
 
-interface PendingSupportTurn {
+interface PendingConciergeTurn {
   session: string;
   chatId: string;
   phone: string;
-  conversationId: string;
-  userId: string;
+  conversationId?: string | undefined;
+  userId?: string | undefined;
+  contactName?: string | undefined;
   accumulatedText: string;
-  timer: NodeJS.Timeout;
-  typingTimer: NodeJS.Timeout;
+  isInitialOnboarding: boolean;
+  timer?: NodeJS.Timeout;
+  typingTimer?: NodeJS.Timeout;
 }
 
 export class ConciergeService {
-  private readonly pendingTurns = new Map<string, PendingSupportTurn>();
+  private readonly pendingTurns = new Map<string, PendingConciergeTurn>();
   private readonly testModes = new Map<string, TestModeConfig>();
   private readonly voiceUrl: string;
   private readonly priceVoiceUrl: string;
@@ -104,8 +107,8 @@ export class ConciergeService {
     this.priceVoiceUrl = deps.priceVoiceUrl || 'https://waha.velarisagent.life/qr/assets/vocal_prix_concierge.opus';
     this.videoUrl = deps.videoUrl || 'https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4';
     this.demoVideoUrl = deps.demoVideoUrl || 'https://waha.velarisagent.life/qr/assets/324048.mp4';
-    this.delayMs = deps.delayMs ?? 30_000;
-    this.typingDelayMs = deps.typingDelayMs ?? 22_000;
+    this.delayMs = deps.delayMs !== undefined ? deps.delayMs : 30_000;
+    this.typingDelayMs = deps.typingDelayMs !== undefined ? deps.typingDelayMs : 22_000;
     this.wahaUrl = (deps.wahaUrl || 'http://waha:3000').replace(/\/$/, '');
     this.wahaApiKey = deps.wahaApiKey || '';
     this.kieApiKey = deps.kieApiKey || null;
@@ -178,6 +181,7 @@ export class ConciergeService {
       countryName,
       simulatedPhone: `${countryCode}690000000`,
       active: true,
+      merchantTookOver: false,
       startedAt: new Date().toISOString(),
     };
     this.testModes.set(chatId, config);
@@ -186,13 +190,13 @@ export class ConciergeService {
   }
 
   /**
-   * Annule tout tour en attente si le gérant écrit manuellement dans ce chat.
+   * Annule tout tour en attente pour un chat donné.
    */
   cancelPendingTurn(chatId: string): void {
     const existing = this.pendingTurns.get(chatId);
     if (existing) {
-      clearTimeout(existing.timer);
-      clearTimeout(existing.typingTimer);
+      if (existing.timer) clearTimeout(existing.timer);
+      if (existing.typingTimer) clearTimeout(existing.typingTimer);
       this.pendingTurns.delete(chatId);
       void this.deps.waha.typing(existing.session, chatId, false).catch(() => undefined);
       this.deps.log?.('[concierge] Tour en attente annulé pour cause d\'intervention gérant', { chatId });
@@ -200,7 +204,45 @@ export class ConciergeService {
   }
 
   /**
-   * Vérifie de façon multi-couches si un contact est un ancien client.
+   * Intervention manuelle du gérant depuis WhatsApp :
+   * Débraye définitivement la conversation (mode humain permanent) et impose le silence absolu de l'IA.
+   */
+  async handleMerchantIntervention(session: string, chatId: string): Promise<void> {
+    this.cancelPendingTurn(chatId);
+
+    // 1. Débrayer la conversation en base : control_mode = 'human'
+    if (this.deps.db.updateRows) {
+      await this.deps.db.updateRows(
+        'conversations',
+        `chat_id=eq.${encodeURIComponent(chatId)}`,
+        {
+          control_mode: 'human',
+          last_merchant_at: new Date().toISOString(),
+        }
+      ).catch(() => undefined);
+    }
+
+    // 2. Annuler immédiatement tout message sortant en attente
+    if (this.deps.db.updateRows) {
+      await this.deps.db.updateRows(
+        'outbound_messages',
+        `session_name=eq.${encodeURIComponent(session)}&chat_id=eq.${encodeURIComponent(chatId)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
+        { status: 'cancelled', error: 'merchant_took_over' }
+      ).catch(() => undefined);
+    }
+
+    // 3. Si c'est le numéro de test, marquer que le gérant a pris la main (silence absolu jusqu'au prochain /reset)
+    const testMode = this.getTestMode(chatId);
+    if (testMode) {
+      testMode.merchantTookOver = true;
+      this.savePersistedTestModes();
+    }
+
+    this.deps.log?.('[concierge] Gérant intervenu -> mode humain permanent activé, silence total de l\'IA', { chatId });
+  }
+
+  /**
+   * Vérifie de façon multi-couches si un contact est un ancien client ou sous contrôle gérant.
    * Si vrai, le concierge se tait et n'intervient jamais.
    */
   async checkIsReturningClient(
@@ -209,7 +251,18 @@ export class ConciergeService {
     contact: any,
     conversation: any
   ): Promise<{ isReturning: boolean; reason: string }> {
-    // 0. Mode test actif : toujours considéré comme un nouveau prospect
+    // 0. Si le gérant est déjà intervenu manuellement dans ce chat : SILENCE TOTAL ET PERMANENT
+    if (conversation?.control_mode === 'human') {
+      return { isReturning: true, reason: 'conversation_human_control' };
+    }
+    if (conversation?.last_merchant_at) {
+      return { isReturning: true, reason: 'merchant_already_intervened' };
+    }
+    if (this.getTestMode(_chatId)?.merchantTookOver) {
+      return { isReturning: true, reason: 'merchant_took_over_test' };
+    }
+
+    // 0 bis. Mode test actif sans intervention du gérant : toujours considéré comme un nouveau prospect
     if (this.getTestMode(_chatId)?.active) {
       return { isReturning: false, reason: 'test_mode_forced_new_lead' };
     }
@@ -553,10 +606,13 @@ export class ConciergeService {
     if (ev.kind !== 'message') return { handled: false, reason: 'not_message' };
     if (this.deps.protectedSessions?.includes(ev.session)) return { handled: false, reason: 'protected_session' };
 
-    // Si le message est tapé par le gérant (fromMe et non écho API) : annuler tout tour concierge en cours
-    if (ev.fromMe) {
-      this.cancelPendingTurn(ev.chatId);
+    // Si le message est tapé par le gérant (fromMe et non écho API) : débrayage 100% humain permanent
+    if (ev.fromMe && ev.source !== 'api') {
+      await this.handleMerchantIntervention(ev.session, ev.chatId);
       return { handled: false, reason: 'merchant_message' };
+    }
+    if (ev.fromMe) {
+      return { handled: false, reason: 'api_echo_ignored' };
     }
 
     // 0. Interception des commandes de test pour le numéro autorisé (+226 05777308)
@@ -652,19 +708,12 @@ export class ConciergeService {
     const ackLog = conversation?.ack_log || {};
     const onboardingSent = Boolean(ackLog.concierge_onboarding_sent);
 
-    if (!onboardingSent) {
-      const isPrice = isPriceQuestion(ev.body);
-      await this.sendOnboardingPack(ev.session, ev.chatId, conversation, isPrice);
-      return { handled: true, action: isPrice ? 'onboarding_price_pack_sent' : 'onboarding_welcome_pack_sent' };
-    }
-
-    // Étape B : Questions ultérieures du lead -> Support Concierge 24/7 avec temporisation
-    await this.scheduleSupportReply(ev, conversation, contact);
-    return { handled: true, action: 'support_scheduled' };
+    // Planification du tour (temporisation de 30s avec regroupement des rafales, typing et exécution)
+    return await this.scheduleTurn(ev as MessageEvent, conversation, contact, !onboardingSent);
   }
 
   /**
-   * Envoi du pack d'accueil : Note vocale (accueil ou prix) + Vidéo tutoriel (136s, 4.4 Mo) + Message texte avec lien direct studio web.
+   * Envoi du pack d'accueil : Note vocale (accueil ou prix) + Vidéo tutoriel (136s, 4.4 Mo) + Message texte avec lien officiel.
    * Le vocal annonce la vidéo, la vidéo suit immédiatement, puis le message donne le lien et invite à poser des questions.
    */
   private async sendOnboardingPack(
@@ -707,10 +756,10 @@ export class ConciergeService {
     // Pacing léger de 1.5s
     await new Promise((r) => setTimeout(r, 1500));
 
-    // 3. Message texte officiel avec lien direct vers le studio
+    // 3. Message texte officiel avec lien direct vers le site
     const onboardingText = isPrice
-      ? "Pour faire composer votre chanson personnalisée avec vos paroles (2 versions complètes incluses) :\nLe tarif est de 1 200 francs.\n\nVoici le lien de notre studio en ligne : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !"
-      : "Voici le lien de notre studio en ligne pour composer votre chanson en quelques clics : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.";
+      ? "Pour composer votre chanson personnalisée avec vos paroles (2 versions complètes incluses) :\nLe tarif est de 1 200 francs.\n\nVoici le lien de notre site officiel : https://djelia.store\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !"
+      : "Voici le lien de notre site officiel pour composer votre chanson en quelques clics : https://djelia.store\n\nRegardez la courte vidéo ci-dessus et si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.";
 
     await this.deps.waha.send(session, chatId, {
       kind: 'text',
@@ -736,10 +785,16 @@ export class ConciergeService {
   }
 
   /**
-   * Planifie la réponse du concierge avec une temporisation humaine de 30s,
-   * vision multimodale sur capture d'écran et indicateur de frappe.
+   * Planifie ou agrège un tour pour un client (onboarding initial ou support différé)
+   * avec une temporisation humaine de 30 secondes (typing pendant les 8 dernières secondes),
+   * regroupement des rafales de messages et analyse visuelle/audio.
    */
-  private async scheduleSupportReply(ev: MessageEvent, conversation: any, contact: any): Promise<void> {
+  private async scheduleTurn(
+    ev: MessageEvent,
+    conversation: any,
+    contact: any,
+    isInitialOnboarding: boolean
+  ): Promise<{ handled: boolean; action?: string; reason?: string }> {
     const chatId = ev.chatId;
     let messageText = ev.body?.trim() || '';
 
@@ -762,36 +817,72 @@ export class ConciergeService {
       messageText = '[Note vocale reçue du client]';
     }
 
-    const existing = this.pendingTurns.get(chatId);
-    if (existing) {
-      // Réinitialiser les timers et concaténer le message pour regrouper la rafale
-      clearTimeout(existing.timer);
-      clearTimeout(existing.typingTimer);
-      existing.accumulatedText += '\n' + messageText;
-    }
-
     const testConfig = this.getTestMode(chatId);
     const isTestActive = Boolean(testConfig?.active);
-
-    const accumulatedText = existing ? existing.accumulatedText : messageText;
+    const phone = (isTestActive && testConfig) ? testConfig.simulatedPhone : (contact?.phone || ev.chatId);
     const session = ev.session;
     const conversationId = conversation?.id;
     const userId = conversation?.user_id;
-    const phone = (isTestActive && testConfig) ? testConfig.simulatedPhone : (contact?.phone || ev.chatId);
+    const contactName = contact?.name;
 
-    const effectiveDelayMs = isTestActive ? 5_000 : this.delayMs;
-    const effectiveTypingMs = isTestActive ? 1_500 : this.typingDelayMs;
+    const existing = this.pendingTurns.get(chatId);
+    if (existing) {
+      if (existing.timer) clearTimeout(existing.timer);
+      if (existing.typingTimer) clearTimeout(existing.typingTimer);
+      existing.accumulatedText += '\n' + messageText;
+      if (conversationId && !existing.conversationId) existing.conversationId = conversationId;
+      if (userId && !existing.userId) existing.userId = userId;
+      if (contactName && !existing.contactName) existing.contactName = contactName;
+    }
 
-    // Déclencheur typing
+    const accumulatedText = existing ? existing.accumulatedText : messageText;
+    const turnIsInitialOnboarding = existing ? existing.isInitialOnboarding : isInitialOnboarding;
+
+    // Cas synchrone (pour tests unitaires avec delayMs: 0)
+    if (this.delayMs === 0) {
+      this.pendingTurns.delete(chatId);
+      const isPrice = isPriceQuestion(accumulatedText);
+      await this.executeTurn(
+        session,
+        chatId,
+        phone,
+        accumulatedText,
+        turnIsInitialOnboarding,
+        conversationId,
+        userId,
+        contactName,
+        conversation
+      );
+      return {
+        handled: true,
+        action: turnIsInitialOnboarding
+          ? (isPrice ? 'onboarding_price_pack_sent' : 'onboarding_welcome_pack_sent')
+          : 'support_replied',
+      };
+    }
+
+    // Cas asynchrone temporisé (30 secondes en production, typing aux 8 dernières secondes)
+    const effectiveDelayMs = this.delayMs;
+    const effectiveTypingMs = this.typingDelayMs;
+
     const typingTimer = setTimeout(() => {
       this.deps.log?.('[concierge] Déclenchement indicateur de frappe (typing)...', { chatId });
       void this.deps.waha.typing(session, chatId, true).catch(() => undefined);
     }, effectiveTypingMs);
 
-    // Déclencheur d'envoi final
     const timer = setTimeout(async () => {
       this.pendingTurns.delete(chatId);
-      await this.executeSupportReply(session, chatId, phone, accumulatedText, conversationId, userId, contact?.name);
+      await this.executeTurn(
+        session,
+        chatId,
+        phone,
+        accumulatedText,
+        turnIsInitialOnboarding,
+        conversationId,
+        userId,
+        contactName,
+        conversation
+      );
     }, effectiveDelayMs);
 
     this.pendingTurns.set(chatId, {
@@ -800,16 +891,73 @@ export class ConciergeService {
       phone,
       conversationId,
       userId,
+      contactName,
       accumulatedText,
+      isInitialOnboarding: turnIsInitialOnboarding,
       timer,
       typingTimer,
     });
 
-    this.deps.log?.('[concierge] Tour de support programmé', { chatId, isTestActive, effectiveDelayMs, preview: messageText.slice(0, 60) });
+    const isPrice = isPriceQuestion(accumulatedText);
+    this.deps.log?.('[concierge] Tour programmé (temporisation 30s)', {
+      chatId,
+      isInitialOnboarding: turnIsInitialOnboarding,
+      effectiveDelayMs,
+      preview: messageText.slice(0, 60),
+    });
+
+    return {
+      handled: true,
+      action: turnIsInitialOnboarding
+        ? (isPrice ? 'onboarding_price_pack_scheduled' : 'onboarding_welcome_pack_scheduled')
+        : 'support_scheduled',
+    };
   }
 
   /**
-   * Génération et expédition de la réponse via DeepSeek (Kie.ai).
+   * Exécute le tour une fois la temporisation de 30 secondes écoulée.
+   */
+  private async executeTurn(
+    session: string,
+    chatId: string,
+    phone: string,
+    accumulatedText: string,
+    isInitialOnboarding: boolean,
+    conversationId?: string,
+    userId?: string,
+    contactName?: string | null,
+    conversation?: any
+  ): Promise<void> {
+    try {
+      // 1. Arrêter l'indicateur de saisie
+      await this.deps.waha.typing(session, chatId, false).catch(() => undefined);
+
+      // 2. Si c'est l'onboarding initial : envoi du pack (Vocal + Vidéo + Texte studio)
+      if (isInitialOnboarding) {
+        const isPrice = isPriceQuestion(accumulatedText);
+        await this.sendOnboardingPack(session, chatId, conversation, isPrice);
+        return;
+      }
+
+      // 3. Sinon : Support Concierge 24/7 (DeepSeek via Kie.ai)
+      await this.executeSupportReply(
+        session,
+        chatId,
+        phone,
+        accumulatedText,
+        conversationId,
+        userId,
+        contactName
+      );
+    } catch (err: any) {
+      this.deps.log?.('[concierge] Erreur lors de l\'exécution du tour concierge', { error: err?.message || err });
+      await this.deps.waha.typing(session, chatId, false).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Génération et expédition de la réponse via DeepSeek (Kie.ai) avec support 1 ou 2 bulles,
+   * garde-fou SILENCE et passage de main au responsable si litige/doute.
    */
   private async executeSupportReply(
     session: string,
@@ -937,13 +1085,45 @@ export class ConciergeService {
       // Arrêt du typing
       await this.deps.waha.typing(session, chatId, false).catch(() => undefined);
 
-      // Envoi du message texte
-      const sendRes = await this.deps.waha.send(session, chatId, {
-        kind: 'text',
-        text: answer,
-      });
+      // Si l'IA répond SILENCE (doute ou garde-fou) : ne rien envoyer du tout
+      if (!answer || answer.trim().toUpperCase() === 'SILENCE') {
+        this.deps.log?.('[concierge] Garde-fou SILENCE activé -> aucun message envoyé', { chatId });
+        return;
+      }
 
-      this.deps.log?.('[concierge] Réponse de support expédiée avec succès', { chatId, answer, sendRes });
+      // Détection de passage de main au responsable de l'atelier
+      const isManagerHandoff = answer.toLowerCase().includes("responsable de l'atelier");
+
+      // Découpage en 1 ou 2 bulles si présent (séparateur '---' ou double saut de ligne)
+      let bubbles: string[] = [];
+      if (answer.includes('---')) {
+        bubbles = answer.split(/\s*---\s*/).map((b) => b.trim()).filter(Boolean);
+      } else if (answer.includes('\n\n')) {
+        bubbles = answer.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+      }
+
+      if (bubbles.length === 0) {
+        bubbles = [answer];
+      } else if (bubbles.length > 2) {
+        const first = bubbles[0] || answer;
+        const rest = bubbles.slice(1).join('\n\n');
+        bubbles = [first, rest];
+      }
+
+      // Envoi de la ou des bulles avec un délai réaliste de 1.5s entre chaque bulle
+      for (let i = 0; i < bubbles.length; i++) {
+        const bubbleText = bubbles[i];
+        if (!bubbleText) continue;
+        if (i > 0) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        await this.deps.waha.send(session, chatId, {
+          kind: 'text',
+          text: bubbleText,
+        });
+      }
+
+      this.deps.log?.('[concierge] Réponse de support expédiée avec succès', { chatId, bubblesCount: bubbles.length });
 
       // Enregistrement dans la table messages
       if (conversationId && userId && this.deps.db.insertRow) {
@@ -952,10 +1132,15 @@ export class ConciergeService {
           conversation_id: conversationId,
           role: 'assistant',
           direction: 'outbound',
-          body: answer,
+          body: bubbles.join('\n\n'),
           media_kind: null,
           created_at: new Date().toISOString(),
         }).catch(() => undefined);
+      }
+
+      // Si passage de main au responsable, débrayer immédiatement en mode humain
+      if (isManagerHandoff) {
+        await this.handleMerchantIntervention(session, chatId);
       }
     } catch (err: any) {
       this.deps.log?.('[concierge] Erreur lors de l\'exécution du support', { error: err?.message || err });
