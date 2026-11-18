@@ -25,24 +25,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 18 Novembre 2026 (20:35 UTC)
-- **Déploiement Opérationnel : Flux d'Accueil Humanisé & Progressif (Vocal Seul au Tour 1), Vidéos Ciblées au Moment Opportun & Mode Test Numéro Dédié (+226 05777308)** :
-  1. **Accueil Humanisé & Progressif (Fin du Déversement Agressif)** :
-     - **Tour 1 (Arrivée d'un nouveau prospect)** : Envoi exclusif de la note vocale d'accueil PTT (11.8s, voix de la sœur clonée Fish Audio). Aucune vidéo ni lien vers le site n'est envoyé d'office, préservant une écoute et une considération humaines (*« Bonjour et bienvenue chez Djélia ! C'est un grand plaisir de vous accueillir. Dites-moi, c'est pour quelle occasion la chanson ?... »*).
-     - **Tour 2+ (Conversation & Qualification)** : L'IA oriente avec dignité et concision, félicite l'occasion, annonce la formule complète à partir de 1 200 F CFA avec 2 versions MP3, et introduit le lien du studio (`https://djelia.store/studio.html`).
-  2. **Envoi Intelligent des Vidéos au Moment Opportun** :
-     - **Vidéo Tutoriel Smartphone** (`djelia_tuto_mobile.mp4`, 4.4 Mo) : Expédiée uniquement si le client demande comment procéder / les étapes / le tutoriel (`isAskingForProcedureOrTutorial`), avec verrou d'unicité en base.
-     - **Vidéo Démo Musique & Montage** (`324048.mp4`, 15 Mo) : Expédiée si le client demande un exemple ou souhaite voir le rendu (`isAskingForDemoOrSample`), avec verrou d'unicité.
-  3. **Numéro de Test Dédié & Commandes de Pilotage (+226 05777308)** :
-     - Le numéro `+226 05777308` dispose d'un bypass spécial du filtre Burkina Faso pour exécuter et tester l'IA en direct depuis WhatsApp.
-     - `/test` ou `/test cm` : Active le mode test en simulant un nouveau lead du Cameroun (+237, MTN MoMo / Orange Money), purge l'historique et démarre à zéro avec une réactivité rapide (5s).
+- **Dernière mise à jour** : 18 Novembre 2026 (20:55 UTC)
+- **Déploiement Opérationnel : Pack d'Onboarding Déterministe en 3 Volets (Vocal Adapté + Vidéo Tutoriel Native + Texte & Studio) & Mode Test Numéro Dédié (+226 05777308)** :
+  1. **Onboarding Médias Déterministe à l'Arrivée de Tout Nouveau Lead (Fin des Esquives)** :
+     - **Élimination du bypass fragile `isDirectSpecificQuestion`** : Tout nouveau prospect arrivant sur le canal WhatsApp reçoit systématiquement le pack d'onboarding complet (Vocal ➔ Vidéo ➔ Texte & Studio) sans être court-circuité par une question posée au premier tour.
+     - **Branche A (Salutations, Demandes d'infos générales, Clics Ads, "Bonjour puis-je en savoir plus ?")** :
+       1. **Vocal d'Accueil** (24.6s, Fish Audio, voix de la sœur) : *« Bonjour et bienvenue chez Djélia ! C'est un réel plaisir de vous accueillir... Regardez juste en dessous, je vous ai glissé une petite vidéo d'une minute qui vous montre exactement comment procéder... »* (`vocal_accueil_concierge.opus` / `.mp3`).
+       2. **Vidéo Tutoriel Smartphone Native** (4.4 Mo, 720x1280 vertical HD, faststart, affichage natif vidéo WhatsApp) : `djelia_tuto_mobile.mp4`.
+       3. **Texte Concierge avec Lien Studio Web** : Lien direct `https://djelia.store/studio.html` et invitation bienveillante à poser des questions.
+     - **Branche B (Questions Directes sur le Prix, e.g. "C'est combien ?", "Quels sont vos tarifs ?")** :
+       1. **Vocal Prix Dédié & Personnalisé** (25.9s, Fish Audio, voix de la sœur) : *« Bonjour et bienvenue chez Djélia ! Pour faire composer votre chanson personnalisée, la formule complète est à partir de seulement 1 200 Francs CFA. Pour ce tarif, vous recevez deux versions complètes en haute qualité... Je vous envoie juste en dessous une petite vidéo rapide pour vous montrer le studio... »* (`vocal_prix_concierge.opus` / `.mp3`).
+       2. **Vidéo Tutoriel Smartphone Native** (4.4 Mo) : `djelia_tuto_mobile.mp4`.
+       3. **Texte Détail Tarifaire & Studio** : Confirmation claire du tarif (1 200 F CFA pour 2 versions MP3 complètes) et lien direct `https://djelia.store/studio.html`.
+  2. **Numéro de Test Dédié & Commandes de Pilotage (+226 05777308)** :
+     - Le numéro `+226 05777308` dispose d'un bypass spécial du filtre Burkina Faso pour tester l'agent en direct depuis WhatsApp.
+     - `/test` ou `/test cm` : Active le mode test en simulant un nouveau lead du Cameroun (+237, MTN MoMo / Orange Money), purge l'historique de conversation et démarre à zéro avec une réactivité rapide (5s).
      - `/test ci` / `/test sn` / `/test bf` / `/test fr` : Simule un client de Côte d'Ivoire, du Sénégal, du Burkina Faso ou de France.
-     - `/reset` : Purge immédiatement toute la table `messages` et remet les compteurs à zéro pour relancer un test comme un tout nouveau lead.
-     - `/stop` : Désactive le mode test et repasse le numéro en mode gérant normal.
+     - `/reset` : Purge immédiatement toute la table `messages`, réinitialise l'ack_log et remet les compteurs à zéro pour relancer un test comme un tout nouveau lead.
+     - `/stop` : Désactive le mode test et repasse le numéro en mode gérant normal (100% silencieux pour l'IA).
      - `/aide` : Affiche le statut et la liste des commandes disponibles.
-  4. **Validation Complète par Tests Unitaires & Déploiement VPS** :
-     - 248/248 tests unitaires validés au vert (`npm test`).
-     - Image Docker reconstruite (`velaris-engine:latest`) et conteneur redéployé avec succès sur le VPS Contabo (`162.35.113.220`).
+  3. **Validation Complète par Tests Unitaires & Déploiement VPS** :
+     - 248/248 tests unitaires validés au vert (`npm test`), 18/18 sur le Concierge Djélia.
+     - Image Docker reconstruite (`velaris-engine:latest`) et conteneur redémarré avec succès sur le VPS Contabo (`162.35.113.220`).
+     - Vérification des logs conteneur : Concierge Djélia 24/7 actif et écoute sur port 3001.
 - **Déploiement Précédent : Routage Géographique Inviolable & Détection Déterministe Burkinabé (+226) vs Hors Burkina** :
   1. **Règle Absolue Burkina Faso (+226) — 100% Gérant Humain (Manuel)** :
      - Pour **TOUS les numéros Burkinabés** (anciens clients comme nouveaux leads) : l'IA Concierge ne s'exécute JAMAIS (silence radio total).

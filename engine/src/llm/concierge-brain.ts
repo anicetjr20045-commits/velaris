@@ -177,6 +177,16 @@ export interface ConciergeBrainInput {
   videoAlreadySent?: boolean | undefined;
 }
 
+export function isPriceQuestion(text?: string | null): boolean {
+  if (!text) return false;
+  const clean = text.toLowerCase();
+  const pricePatterns = [
+    /\b(prix|tarif|tarifs|coût|cout|combien|combien.*coûte|combien.*coute|c'est combien|c combien|payer combien|quel.*prix|quels.*prix)\b/,
+    /\b(1200|3500|fcfa|f cfa)\b/,
+  ];
+  return pricePatterns.some((pattern) => pattern.test(clean));
+}
+
 export function isDirectSpecificQuestion(text?: string | null): boolean {
   if (!text) return false;
   const clean = text.trim().toLowerCase();

@@ -360,7 +360,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages.length, 0);
   });
 
-  it('Nouveau lead : expédie uniquement la note vocale d\'accueil (vocal seul, zéro vidéo d\'office)', async () => {
+  it('Nouveau lead : expédie le pack d\'accueil complet (vocal d\'accueil + vidéo tutoriel + texte studio)', async () => {
     const sentMessages: any[] = [];
     let updatedAckLog: any = null;
 
@@ -404,15 +404,20 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
 
     const res = await concierge.handleEvent(ev);
     assert.equal(res.handled, true);
-    assert.equal(res.action, 'onboarding_pack_sent');
+    assert.equal(res.action, 'onboarding_welcome_pack_sent');
 
-    // NOUVELLE RÈGLE HUMAINE PROGRESSIVE : Seul le vocal d'accueil part au Tour 1 !
-    assert.equal(sentMessages.length, 1);
+    // Pack onboarding en 3 volets : Vocal -> Vidéo -> Texte & Studio
+    assert.equal(sentMessages.length, 3);
     assert.equal(sentMessages[0].kind, 'voice');
     assert.ok(sentMessages[0].url.includes('vocal_accueil_concierge.opus'));
+    assert.equal(sentMessages[1].kind, 'video');
+    assert.ok(sentMessages[1].url.includes('djelia_tuto_mobile.mp4'));
+    assert.equal(sentMessages[2].kind, 'text');
+    assert.ok(sentMessages[2].text.includes('djelia.store/studio.html'));
 
     assert.equal(updatedAckLog.concierge_onboarding_sent, true);
-    assert.equal(updatedAckLog.video_tutorial_sent, false);
+    assert.equal(updatedAckLog.video_tutorial_sent, true);
+    assert.equal(updatedAckLog.onboarding_type, 'welcome');
   });
 
   it('Numéro de test (+226 05777308) : active le mode test /test, réinitialise avec /reset et stoppe avec /stop', async () => {
@@ -469,9 +474,11 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     });
     const resGreeting = await concierge.handleEvent(evGreeting);
     assert.equal(resGreeting.handled, true);
-    assert.equal(resGreeting.action, 'onboarding_pack_sent');
-    assert.equal(sentMessages.length, 1);
+    assert.equal(resGreeting.action, 'onboarding_welcome_pack_sent');
+    assert.equal(sentMessages.length, 3);
     assert.equal(sentMessages[0].kind, 'voice');
+    assert.equal(sentMessages[1].kind, 'video');
+    assert.equal(sentMessages[2].kind, 'text');
 
     // 3. Commande /reset
     sentMessages.length = 0;
@@ -693,7 +700,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages.length, 0, 'Aucun message automatique ne doit être envoyé après intervention du gérant');
   });
 
-  it('Nouveau lead avec question directe : ne balance PAS la vidéo, bascule en support conseiller', async () => {
+  it('Nouveau lead avec question directe de prix : expédie le pack adapté (vocal prix + vidéo tutoriel + texte tarifaire & studio)', async () => {
     const sentMessages: any[] = [];
     let updatedAckLog: any = null;
 
@@ -708,10 +715,10 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     const mockDb = {
       queryTable: async (table: string, ..._args: unknown[]) => {
         if (table === 'contacts') {
-          return [{ id: 'contact-direct-q', name: 'Alain', phone: '23769900000', is_returning: false }];
+          return [{ id: 'contact-direct-price', name: 'Alain', phone: '23769900000', is_returning: false }];
         }
         if (table === 'conversations') {
-          return [{ id: 'conv-direct-q', user_id: 'user-1', control_mode: 'ai', ack_log: {} }];
+          return [{ id: 'conv-direct-price', user_id: 'user-1', control_mode: 'ai', ack_log: {} }];
         }
         return [];
       },
@@ -732,18 +739,27 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
 
     const ev = makeMockMessage({
       chatId: '23769900000@c.us',
-      body: 'Bonjour, vous êtes situés dans quel pays ?',
+      body: 'C\'est combien pour faire une chanson ?',
       pushName: 'Alain',
     });
 
     const res = await concierge.handleEvent(ev);
     assert.equal(res.handled, true);
-    assert.equal(res.action, 'support_scheduled_direct_question');
+    assert.equal(res.action, 'onboarding_price_pack_sent');
 
-    // Aucune vidéo balancée à l'accueil
-    assert.equal(sentMessages.length, 0, 'La vidéo ne doit PAS être balancée sur une question directe');
-    assert.equal(updatedAckLog.video_tutorial_sent, false);
+    // 3 messages dans l'ordre : Vocal Prix -> Vidéo -> Texte & Tarifs
+    assert.equal(sentMessages.length, 3);
+    assert.equal(sentMessages[0].kind, 'voice');
+    assert.ok(sentMessages[0].url.includes('vocal_prix_concierge.opus'));
+    assert.equal(sentMessages[1].kind, 'video');
+    assert.ok(sentMessages[1].url.includes('djelia_tuto_mobile.mp4'));
+    assert.equal(sentMessages[2].kind, 'text');
+    assert.ok(sentMessages[2].text.includes('1 200 F CFA'));
+    assert.ok(sentMessages[2].text.includes('djelia.store/studio.html'));
+
     assert.equal(updatedAckLog.concierge_onboarding_sent, true);
+    assert.equal(updatedAckLog.video_tutorial_sent, true);
+    assert.equal(updatedAckLog.onboarding_type, 'price');
   });
 
   it('Envoi de la vidéo au moment opportun (demande procédure) et verrou d\'unicité (jamais 2 fois)', async () => {

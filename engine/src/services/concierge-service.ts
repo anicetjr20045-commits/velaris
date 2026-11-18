@@ -29,9 +29,9 @@ import type { NormalizedEvent, MessageEvent } from '../ingest/normalize.js';
 import {
   generateConciergeReply,
   describeScreenshotWithVision,
-  isDirectSpecificQuestion,
   isAskingForProcedureOrTutorial,
   isAskingForDemoOrSample,
+  isPriceQuestion,
   extractCleanPhone,
   isBurkinaFasoNumber,
 } from '../llm/concierge-brain.js';
@@ -64,6 +64,7 @@ export interface ConciergeServiceDeps {
   protectedSessions?: readonly string[] | undefined;
   log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
   voiceUrl?: string | undefined;
+  priceVoiceUrl?: string | undefined;
   videoUrl?: string | undefined;
   demoVideoUrl?: string | undefined;
   delayMs?: number | undefined;
@@ -86,6 +87,7 @@ export class ConciergeService {
   private readonly pendingTurns = new Map<string, PendingSupportTurn>();
   private readonly testModes = new Map<string, TestModeConfig>();
   private readonly voiceUrl: string;
+  private readonly priceVoiceUrl: string;
   private readonly videoUrl: string;
   private readonly demoVideoUrl: string;
   private readonly delayMs: number;
@@ -97,6 +99,7 @@ export class ConciergeService {
 
   constructor(private readonly deps: ConciergeServiceDeps) {
     this.voiceUrl = deps.voiceUrl || 'https://waha.velarisagent.life/qr/assets/vocal_accueil_concierge.opus';
+    this.priceVoiceUrl = deps.priceVoiceUrl || 'https://waha.velarisagent.life/qr/assets/vocal_prix_concierge.opus';
     this.videoUrl = deps.videoUrl || 'https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4';
     this.demoVideoUrl = deps.demoVideoUrl || 'https://waha.velarisagent.life/qr/assets/324048.mp4';
     this.delayMs = deps.delayMs ?? 30_000;
@@ -604,31 +607,9 @@ export class ConciergeService {
     const onboardingSent = Boolean(ackLog.concierge_onboarding_sent);
 
     if (!onboardingSent) {
-      if (isDirectSpecificQuestion(ev.body)) {
-        // Le client arrive avec une question directe et précise :
-        // On ne balance pas le vocal d'accueil à l'aveugle ! On passe directement en mode Conseiller Support pour lui répondre précisément.
-        this.deps.log?.('[concierge] Nouveau lead avec question directe -> Déviation vers Support Concierge', {
-          chatId: ev.chatId,
-          text: ev.body?.slice(0, 80),
-        });
-        if (conversation?.id && this.deps.db.updateRows) {
-          const updatedAck = {
-            ...(conversation.ack_log || {}),
-            concierge_onboarding_sent: true,
-            concierge_onboarding_sent_at: new Date().toISOString(),
-            video_tutorial_sent: false,
-            demo_video_sent: false,
-          };
-          await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, { ack_log: updatedAck }).catch(() => undefined);
-          conversation.ack_log = updatedAck;
-        }
-        await this.scheduleSupportReply(ev, conversation, contact);
-        return { handled: true, action: 'support_scheduled_direct_question' };
-      }
-
-      // Étape A : Premier message d'un nouveau lead (accueil / salutation) -> Envoi de la note vocale d'accueil SEULE
-      await this.sendOnboardingPack(ev.session, ev.chatId, conversation);
-      return { handled: true, action: 'onboarding_pack_sent' };
+      const isPrice = isPriceQuestion(ev.body);
+      await this.sendOnboardingPack(ev.session, ev.chatId, conversation, isPrice);
+      return { handled: true, action: isPrice ? 'onboarding_price_pack_sent' : 'onboarding_welcome_pack_sent' };
     }
 
     // Étape B : Questions ultérieures du lead -> Support Concierge 24/7 avec temporisation
@@ -637,29 +618,70 @@ export class ConciergeService {
   }
 
   /**
-   * Envoi du pack d'accueil : Note vocale d'accueil PTT SEULE (11.8s, voix de la sœur).
-   * Zéro vidéo d'office, zéro lien web, pour engager un dialogue humain respectueux.
+   * Envoi du pack d'accueil : Note vocale (accueil ou prix) + Vidéo tutoriel (136s, 4.4 Mo) + Message texte avec lien direct studio web.
+   * Le vocal annonce la vidéo, la vidéo suit immédiatement, puis le message donne le lien et invite à poser des questions.
    */
-  private async sendOnboardingPack(session: string, chatId: string, conversation: any): Promise<void> {
-    this.deps.log?.('[concierge] Envoi du vocal d\'accueil seul au nouveau lead', { chatId, session });
+  private async sendOnboardingPack(
+    session: string,
+    chatId: string,
+    conversation: any,
+    isPrice: boolean = false
+  ): Promise<void> {
+    const targetVoiceUrl = isPrice ? this.priceVoiceUrl : this.voiceUrl;
+    this.deps.log?.('[concierge] Envoi du pack d\'accueil au nouveau lead', {
+      chatId,
+      session,
+      isPrice,
+      voiceUrl: targetVoiceUrl,
+    });
 
-    // 1. Note vocale d'accueil PTT (11.8s, voix de la sœur clonée)
+    // 1. Note vocale PTT (Voix de la sœur clonée, annonce la vidéo)
     await this.deps.waha.send(session, chatId, {
       kind: 'voice',
-      url: this.voiceUrl,
+      url: targetVoiceUrl,
       mimetype: 'audio/ogg; codecs=opus',
     }).catch((err) => {
       this.deps.log?.('[concierge] Erreur envoi vocal accueil', { error: err?.message || err });
     });
 
-    // 2. Mettre à jour l'état en base : onboarding_sent = true, vidéo et démo = false
+    // Pacing léger de 1.5s
+    await new Promise((r) => setTimeout(r, 1500));
+
+    // 2. Vidéo tutoriel smartphone (maquette animée 136s, 4.4 Mo)
+    await this.deps.waha.send(session, chatId, {
+      kind: 'video',
+      url: this.videoUrl,
+      filename: 'djelia_tuto_mobile.mp4',
+      mimetype: 'video/mp4',
+      caption: 'Comment composer votre chanson personnalisée en 2 minutes sur Djélia',
+    }).catch((err) => {
+      this.deps.log?.('[concierge] Erreur envoi vidéo tutoriel', { error: err?.message || err });
+    });
+
+    // Pacing léger de 1.5s
+    await new Promise((r) => setTimeout(r, 1500));
+
+    // 3. Message texte officiel avec lien direct vers le studio
+    const onboardingText = isPrice
+      ? "Nos formules officielles :\n• Chanson personnalisée complète (2 versions MP3) : 1 200 F CFA\n• Chanson + montage vidéo avec vos photos : 3 500 F CFA\n\nVoici le lien de notre studio en ligne : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !"
+      : "Voici le lien de notre studio en ligne pour composer votre chanson en quelques clics : https://djelia.store/studio.html\n\nRegardez la courte vidéo ci-dessus et si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.";
+
+    await this.deps.waha.send(session, chatId, {
+      kind: 'text',
+      text: onboardingText,
+    }).catch((err) => {
+      this.deps.log?.('[concierge] Erreur envoi texte accueil', { error: err?.message || err });
+    });
+
+    // 4. Mettre à jour l'état en base pour ne jamais réexpédier l'onboarding ni la vidéo (verrou d'unicité)
     if (conversation?.id && this.deps.db.updateRows) {
       const updatedAck = {
         ...(conversation.ack_log || {}),
         concierge_onboarding_sent: true,
         concierge_onboarding_sent_at: new Date().toISOString(),
-        video_tutorial_sent: false,
-        demo_video_sent: false,
+        video_tutorial_sent: true,
+        video_tutorial_sent_at: new Date().toISOString(),
+        onboarding_type: isPrice ? 'price' : 'welcome',
       };
       await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, {
         ack_log: updatedAck,
