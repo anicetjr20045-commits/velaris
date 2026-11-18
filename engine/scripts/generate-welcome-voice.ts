@@ -6,7 +6,7 @@ const FISH_API_KEY = process.env.FISH_API_KEY || 'sk-fish-rqWm8BgYyKZROEpKmgfZYf
 const REFERENCE_TEXT = "Donc je voulais vous dire merci pour vos commentaires, vos likes, vos partages à tous, ça me fait plaisir. Et puis quand vous m'envoyez des messages là, on me parle comme votre amie et tout, c'est un plaisir sincèrement, j'adore !";
 const refAudioPath = path.resolve('/root/projets/velaris/engine/src/assets/sample_sister_reference.mp3');
 
-const welcomeText = "Bonjour et bienvenue chez Djélia ! Nous composons des chansons personnalisées uniques pour toutes les occasions : anniversaire, mariage, déclaration d'amour ou hommage. Je vous transmets juste en dessous une courte vidéo de deux minutes qui vous montre comment créer votre chanson en quelques clics. Si vous avez la moindre question ou besoin d'aide pour vos paroles, dites-le moi, je suis là pour vous accompagner !";
+const welcomeText = "Bonjour et bienvenue chez Djélia ! C'est un grand plaisir de vous accueillir. Dites-moi, c'est pour quelle occasion la chanson ? Un anniversaire, un mariage, une déclaration d'amour ou un hommage ?";
 
 async function main() {
   console.log('Loading reference audio from:', refAudioPath);

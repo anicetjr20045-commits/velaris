@@ -220,12 +220,24 @@ export function isAskingForProcedureOrTutorial(text?: string | null): boolean {
     /montre.*(moi|comment)/,
     /expliqu.*(moi|comment)/,
     /tuto/,
-    /vidéo/,
+    /vidéo.*tuto/,
     /je (fais|mets) quoi/,
     /je ne (sais pas|comprends pas).*comment/,
     /comment ça se passe/,
   ];
   return procedurePatterns.some((p) => p.test(clean));
+}
+
+export function isAskingForDemoOrSample(text?: string | null): boolean {
+  if (!text) return false;
+  const clean = text.toLowerCase();
+  const demoPatterns = [
+    /\b(exemple|exemples|démo|demos|demo|extrait|extraits|échantillon|échantillons)\b/,
+    /voir.*(ce que ça donne|le résultat|à quoi ça ressemble|un exemple)/,
+    /écouter.*(quelque chose|chanson|morceau|extrait)/,
+    /montre.*(moi|un rendu|un travail)/,
+  ];
+  return demoPatterns.some((p) => p.test(clean));
 }
 
 export function buildConciergeSystemPrompt(country: CountryPaymentInfo, videoAlreadySent: boolean = true): string {
@@ -237,9 +249,10 @@ Règles impératives de style et de ton :
 2. Réponses ultra-courtes : 1 à 2 phrases directes maximum. Jamais de longs pavés.
 3. Strictement AUCUN émoji dans tes réponses. Pas de symboles décoratifs.
 4. Tu ne prends pas la commande sur WhatsApp : tu renvoies toujours vers le studio en ligne https://djelia.store/studio.html en expliquant ce qu'il faut faire.
+5. Si le client indique son occasion (anniversaire, mariage, déclaration, hommage), félicite-le chaleureusement, mentionne que la formule complète débute à 1 200 F CFA avec 2 versions MP3 prêtes en 15-20 min, et invite-le à composer ses paroles sur https://djelia.store/studio.html.
 ${videoAlreadySent
-  ? '5. Si le client demande la procédure ou comment commander, rappelle-lui gentiment de regarder la courte vidéo de 2 minutes partagée plus haut dans la discussion, et donne le lien du site.'
-  : '5. Si le client demande la procédure ou comment commander, explique brièvement les étapes et donne le lien https://djelia.store/studio.html.'}
+  ? '6. Si le client demande la procédure ou comment commander, rappelle-lui de regarder la courte vidéo de 2 minutes partagée plus haut, et donne le lien du site.'
+  : '6. Si le client demande la procédure ou comment commander, explique brièvement les étapes et donne le lien https://djelia.store/studio.html.'}
 
 Contexte géographique et paiements du client :
 - Pays détecté : ${country.name} (monnaie : ${country.currency}).

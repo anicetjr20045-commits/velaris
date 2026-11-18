@@ -360,7 +360,7 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages.length, 0);
   });
 
-  it('Nouveau lead : expédie la note vocale d\'accueil, la vidéo et le texte avec lien studio web', async () => {
+  it('Nouveau lead : expédie uniquement la note vocale d\'accueil (vocal seul, zéro vidéo d\'office)', async () => {
     const sentMessages: any[] = [];
     let updatedAckLog: any = null;
 
@@ -406,17 +406,105 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(res.handled, true);
     assert.equal(res.action, 'onboarding_pack_sent');
 
-    assert.equal(sentMessages.length, 3);
+    // NOUVELLE RÈGLE HUMAINE PROGRESSIVE : Seul le vocal d'accueil part au Tour 1 !
+    assert.equal(sentMessages.length, 1);
     assert.equal(sentMessages[0].kind, 'voice');
     assert.ok(sentMessages[0].url.includes('vocal_accueil_concierge.opus'));
 
-    assert.equal(sentMessages[1].kind, 'video');
-    assert.ok(sentMessages[1].url.includes('djelia_tuto_mobile.mp4'));
-
-    assert.equal(sentMessages[2].kind, 'text');
-    assert.ok(sentMessages[2].text.includes('https://djelia.store/studio.html'));
-
     assert.equal(updatedAckLog.concierge_onboarding_sent, true);
+    assert.equal(updatedAckLog.video_tutorial_sent, false);
+  });
+
+  it('Numéro de test (+226 05777308) : active le mode test /test, réinitialise avec /reset et stoppe avec /stop', async () => {
+    const sentMessages: any[] = [];
+    let deletedTable: string[] = [];
+
+    const mockWaha = {
+      send: async (_session: string, _chatId: string, content: any) => {
+        sentMessages.push(content);
+        return { status: 'sent', waMessageId: 'wa-test', waKey: 'key-test' };
+      },
+      typing: async () => {},
+    } as any;
+
+    const mockDb = {
+      queryTable: async (table: string) => {
+        if (table === 'contacts') return [{ id: 'c-test', phone: '22605777308' }];
+        if (table === 'conversations') return [{ id: 'conv-test', ack_log: {} }];
+        return [];
+      },
+      deleteRows: async (table: string) => {
+        deletedTable.push(table);
+        return [];
+      },
+      updateRows: async () => [{}],
+      rpc: async () => null,
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: {} as any,
+    });
+
+    const testChatId = '22605777308@c.us';
+
+    // 1. Commande /test (active Cameroun +237 par défaut)
+    const evTest = makeMockMessage({
+      chatId: testChatId,
+      body: '/test',
+    });
+    const resTest = await concierge.handleEvent(evTest);
+    assert.equal(resTest.handled, true);
+    assert.equal(resTest.action, 'test_mode_activated_237');
+    assert.ok(sentMessages[sentMessages.length - 1].text.includes('MODE TEST ACTIVÉ'));
+    assert.ok(sentMessages[sentMessages.length - 1].text.includes('Cameroun (+237)'));
+    assert.ok(deletedTable.includes('messages'));
+
+    // 2. Message de salutation "Bonjour" : ne doit PAS être bloqué par la règle Burkina Faso (+226)
+    sentMessages.length = 0;
+    const evGreeting = makeMockMessage({
+      chatId: testChatId,
+      body: 'Bonjour',
+    });
+    const resGreeting = await concierge.handleEvent(evGreeting);
+    assert.equal(resGreeting.handled, true);
+    assert.equal(resGreeting.action, 'onboarding_pack_sent');
+    assert.equal(sentMessages.length, 1);
+    assert.equal(sentMessages[0].kind, 'voice');
+
+    // 3. Commande /reset
+    sentMessages.length = 0;
+    deletedTable.length = 0;
+    const evReset = makeMockMessage({
+      chatId: testChatId,
+      body: '/reset',
+    });
+    const resReset = await concierge.handleEvent(evReset);
+    assert.equal(resReset.handled, true);
+    assert.equal(resReset.action, 'test_conversation_reset');
+    assert.ok(sentMessages[0].text.includes('CONVERSATION RÉINITIALISÉE'));
+    assert.ok(deletedTable.includes('messages'));
+
+    // 4. Commande /stop
+    sentMessages.length = 0;
+    const evStop = makeMockMessage({
+      chatId: testChatId,
+      body: '/stop',
+    });
+    const resStop = await concierge.handleEvent(evStop);
+    assert.equal(resStop.handled, true);
+    assert.equal(resStop.action, 'test_mode_deactivated');
+    assert.ok(sentMessages[0].text.includes('MODE TEST DÉSACTIVÉ'));
+
+    // 5. Message après /stop : le numéro redevient bloqué par la règle 100% gérant humain (+226)
+    const evAfterStop = makeMockMessage({
+      chatId: testChatId,
+      body: 'Rebonjour',
+    });
+    const resAfterStop = await concierge.handleEvent(evAfterStop);
+    assert.equal(resAfterStop.handled, false);
+    assert.equal(resAfterStop.reason, 'burkina_faso_manual_handling');
   });
 
   it('Lead en cours : temporisation humaine, regroupement de rafales et réponse consolidée', async () => {

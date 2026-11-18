@@ -25,8 +25,25 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 17 Novembre 2026 (19:25 UTC)
-- **Déploiement Opérationnel : Routage Géographique Inviolable & Détection Déterministe Burkinabé (+226) vs Hors Burkina** :
+- **Dernière mise à jour** : 18 Novembre 2026 (20:35 UTC)
+- **Déploiement Opérationnel : Flux d'Accueil Humanisé & Progressif (Vocal Seul au Tour 1), Vidéos Ciblées au Moment Opportun & Mode Test Numéro Dédié (+226 05777308)** :
+  1. **Accueil Humanisé & Progressif (Fin du Déversement Agressif)** :
+     - **Tour 1 (Arrivée d'un nouveau prospect)** : Envoi exclusif de la note vocale d'accueil PTT (11.8s, voix de la sœur clonée Fish Audio). Aucune vidéo ni lien vers le site n'est envoyé d'office, préservant une écoute et une considération humaines (*« Bonjour et bienvenue chez Djélia ! C'est un grand plaisir de vous accueillir. Dites-moi, c'est pour quelle occasion la chanson ?... »*).
+     - **Tour 2+ (Conversation & Qualification)** : L'IA oriente avec dignité et concision, félicite l'occasion, annonce la formule complète à partir de 1 200 F CFA avec 2 versions MP3, et introduit le lien du studio (`https://djelia.store/studio.html`).
+  2. **Envoi Intelligent des Vidéos au Moment Opportun** :
+     - **Vidéo Tutoriel Smartphone** (`djelia_tuto_mobile.mp4`, 4.4 Mo) : Expédiée uniquement si le client demande comment procéder / les étapes / le tutoriel (`isAskingForProcedureOrTutorial`), avec verrou d'unicité en base.
+     - **Vidéo Démo Musique & Montage** (`324048.mp4`, 15 Mo) : Expédiée si le client demande un exemple ou souhaite voir le rendu (`isAskingForDemoOrSample`), avec verrou d'unicité.
+  3. **Numéro de Test Dédié & Commandes de Pilotage (+226 05777308)** :
+     - Le numéro `+226 05777308` dispose d'un bypass spécial du filtre Burkina Faso pour exécuter et tester l'IA en direct depuis WhatsApp.
+     - `/test` ou `/test cm` : Active le mode test en simulant un nouveau lead du Cameroun (+237, MTN MoMo / Orange Money), purge l'historique et démarre à zéro avec une réactivité rapide (5s).
+     - `/test ci` / `/test sn` / `/test bf` / `/test fr` : Simule un client de Côte d'Ivoire, du Sénégal, du Burkina Faso ou de France.
+     - `/reset` : Purge immédiatement toute la table `messages` et remet les compteurs à zéro pour relancer un test comme un tout nouveau lead.
+     - `/stop` : Désactive le mode test et repasse le numéro en mode gérant normal.
+     - `/aide` : Affiche le statut et la liste des commandes disponibles.
+  4. **Validation Complète par Tests Unitaires & Déploiement VPS** :
+     - 248/248 tests unitaires validés au vert (`npm test`).
+     - Image Docker reconstruite (`velaris-engine:latest`) et conteneur redéployé avec succès sur le VPS Contabo (`162.35.113.220`).
+- **Déploiement Précédent : Routage Géographique Inviolable & Détection Déterministe Burkinabé (+226) vs Hors Burkina** :
   1. **Règle Absolue Burkina Faso (+226) — 100% Gérant Humain (Manuel)** :
      - Pour **TOUS les numéros Burkinabés** (anciens clients comme nouveaux leads) : l'IA Concierge ne s'exécute JAMAIS (silence radio total).
      - Tout message entrant avec indicatif `226` ou numéro local burkinabé (8 chiffres : Moov 01-03/60-63/70-73, Orange 04-07/54-57/64-67/74-77, Telecel, Fixes 20/25) est immédiatement débrayé (`handled: false, reason: 'burkina_faso_manual_handling'`).

@@ -31,9 +31,27 @@ import {
   describeScreenshotWithVision,
   isDirectSpecificQuestion,
   isAskingForProcedureOrTutorial,
+  isAskingForDemoOrSample,
   extractCleanPhone,
   isBurkinaFasoNumber,
 } from '../llm/concierge-brain.js';
+
+export const TEST_PHONE_NUMBER = '22605777308';
+
+export function isTestPhoneNumber(phoneOrJid?: string | null): boolean {
+  if (!phoneOrJid) return false;
+  const clean = extractCleanPhone(phoneOrJid);
+  return clean === TEST_PHONE_NUMBER || clean === '05777308' || clean.endsWith('22605777308') || clean.endsWith('05777308');
+}
+
+export interface TestModeConfig {
+  chatId: string;
+  countryCode: string;
+  countryName: string;
+  simulatedPhone: string;
+  active: boolean;
+  startedAt: string;
+}
 
 export interface ConciergeServiceDeps {
   db: Db;
@@ -47,6 +65,7 @@ export interface ConciergeServiceDeps {
   log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
   voiceUrl?: string | undefined;
   videoUrl?: string | undefined;
+  demoVideoUrl?: string | undefined;
   delayMs?: number | undefined;
   typingDelayMs?: number | undefined;
   campaignStartDateIso?: string | undefined;
@@ -65,8 +84,10 @@ interface PendingSupportTurn {
 
 export class ConciergeService {
   private readonly pendingTurns = new Map<string, PendingSupportTurn>();
+  private readonly testModes = new Map<string, TestModeConfig>();
   private readonly voiceUrl: string;
   private readonly videoUrl: string;
+  private readonly demoVideoUrl: string;
   private readonly delayMs: number;
   private readonly typingDelayMs: number;
   private readonly wahaUrl: string;
@@ -77,6 +98,7 @@ export class ConciergeService {
   constructor(private readonly deps: ConciergeServiceDeps) {
     this.voiceUrl = deps.voiceUrl || 'https://waha.velarisagent.life/qr/assets/vocal_accueil_concierge.opus';
     this.videoUrl = deps.videoUrl || 'https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4';
+    this.demoVideoUrl = deps.demoVideoUrl || 'https://waha.velarisagent.life/qr/assets/324048.mp4';
     this.delayMs = deps.delayMs ?? 30_000;
     this.typingDelayMs = deps.typingDelayMs ?? 22_000;
     this.wahaUrl = (deps.wahaUrl || 'http://waha:3000').replace(/\/$/, '');
@@ -85,6 +107,41 @@ export class ConciergeService {
     this.campaignStartDate = deps.campaignStartDateIso
       ? new Date(deps.campaignStartDateIso).getTime()
       : new Date('2026-11-17T12:00:00Z').getTime();
+
+    this.loadPersistedTestModes();
+  }
+
+  private loadPersistedTestModes(): void {
+    try {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const p = path.resolve(__dirname, '../assets/test-modes.json');
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, 'utf8');
+        const items = JSON.parse(raw);
+        if (Array.isArray(items)) {
+          for (const it of items) {
+            if (it?.chatId && it?.active) {
+              this.testModes.set(it.chatId, it);
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private savePersistedTestModes(): void {
+    try {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const p = path.resolve(__dirname, '../assets/test-modes.json');
+      const arr = Array.from(this.testModes.values());
+      fs.writeFileSync(p, JSON.stringify(arr, null, 2), 'utf8');
+    } catch {
+      // ignore
+    }
   }
 
   /**
@@ -111,6 +168,11 @@ export class ConciergeService {
     contact: any,
     conversation: any
   ): Promise<{ isReturning: boolean; reason: string }> {
+    // 0. Mode test actif : toujours considéré comme un nouveau prospect
+    if (this.testModes.get(_chatId)?.active) {
+      return { isReturning: false, reason: 'test_mode_forced_new_lead' };
+    }
+
     // 1. Marqueur explicite sur la fiche contact
     if (contact?.is_returning === true) {
       return { isReturning: true, reason: 'contact_marked_returning' };
@@ -234,6 +296,214 @@ export class ConciergeService {
   }
 
   /**
+   * Traite les commandes spéciales reçues depuis le numéro de test autorisé (+226 05777308).
+   */
+  private async handleTestCommand(
+    ev: MessageEvent,
+    conversation?: any,
+    contact?: any
+  ): Promise<{ handled: boolean; action?: string; reason?: string }> {
+    const text = ev.body?.trim() || '';
+    const parts = text.split(/\s+/);
+    const cmd = parts[0]?.toLowerCase() || '';
+    const arg = parts.slice(1).join(' ').toLowerCase().trim();
+
+    const chatId = ev.chatId;
+    const session = ev.session;
+
+    if (cmd === '/test' || cmd === '/mode') {
+      let countryCode = '237';
+      let countryName = 'Cameroun';
+
+      if (arg.includes('ci') || arg.includes('ivoire')) {
+        countryCode = '225';
+        countryName = "Côte d'Ivoire";
+      } else if (arg.includes('sn') || arg.includes('senegal')) {
+        countryCode = '221';
+        countryName = 'Sénégal';
+      } else if (arg.includes('bf') || arg.includes('burkina')) {
+        countryCode = '226';
+        countryName = 'Burkina Faso';
+      } else if (arg.includes('fr') || arg.includes('france') || arg.includes('diaspora')) {
+        countryCode = '33';
+        countryName = 'France (Diaspora)';
+      } else if (arg.includes('ga') || arg.includes('gabon')) {
+        countryCode = '241';
+        countryName = 'Gabon';
+      } else if (arg.includes('cd') || arg.includes('congo') || arg.includes('rdc')) {
+        countryCode = '243';
+        countryName = 'RD Congo';
+      }
+
+      this.testModes.set(chatId, {
+        chatId,
+        countryCode,
+        countryName,
+        simulatedPhone: `${countryCode}690000000`,
+        active: true,
+        startedAt: new Date().toISOString(),
+      });
+      this.savePersistedTestModes();
+
+      await this.wipeConversationForTest(chatId, conversation?.id, contact?.id);
+
+      const reply =
+        `[MODE TEST ACTIVÉ]\n\n` +
+        `Simulateur configuré comme un NOUVEAU PROSPECT de : ${countryName} (+${countryCode}).\n` +
+        `Toute la discussion a été effacée et les compteurs remis à zéro.\n\n` +
+        `Envoyez votre premier message (ex: 'Bonjour' ou 'C'est combien ?') pour démarrer le test !\n\n` +
+        `Commandes utiles :\n` +
+        `• /reset : efface tout et recommence à zéro\n` +
+        `• /stop : quitte le mode test et revient en mode normal\n` +
+        `• /test [pays] : change le pays simulé (ex: /test ci, /test sn, /test cm)`;
+
+      await this.deps.waha.send(session, chatId, { kind: 'text', text: reply });
+      return { handled: true, action: `test_mode_activated_${countryCode}` };
+    }
+
+    if (cmd === '/reset' || cmd === '/clear' || cmd === '/recommencer') {
+      const current = this.testModes.get(chatId);
+      await this.wipeConversationForTest(chatId, conversation?.id, contact?.id);
+
+      const countryInfo = current ? `${current.countryName} (+${current.countryCode})` : 'Cameroun (+237)';
+      const reply =
+        `[CONVERSATION RÉINITIALISÉE]\n\n` +
+        `Toutes les données de la discussion ont été purgées. Les compteurs sont remis à zéro.\n` +
+        `Pays simulé : ${countryInfo}.\n\n` +
+        `Vous pouvez renvoyer un premier message (ex: 'Bonjour') pour retester l'accueil depuis le début !`;
+
+      await this.deps.waha.send(session, chatId, { kind: 'text', text: reply });
+      return { handled: true, action: 'test_conversation_reset' };
+    }
+
+    if (cmd === '/stop' || cmd === '/off' || cmd === '/quitter') {
+      this.testModes.delete(chatId);
+      this.savePersistedTestModes();
+      await this.wipeConversationForTest(chatId, conversation?.id, contact?.id);
+
+      const reply =
+        `[MODE TEST DÉSACTIVÉ]\n\n` +
+        `Le numéro +226 05777308 est revenu en mode normal (gérant humain WhatsApp).\n` +
+        `Pour réactiver le test à tout moment, tapez : /test`;
+
+      await this.deps.waha.send(session, chatId, { kind: 'text', text: reply });
+      return { handled: true, action: 'test_mode_deactivated' };
+    }
+
+    if (cmd === '/aide' || cmd === '/help' || cmd === '/statut' || cmd === '/status') {
+      const current = this.testModes.get(chatId);
+      const statusTxt = current?.active
+        ? `ACTIF (Pays simulé : ${current.countryName} +${current.countryCode})`
+        : `INACTIF (Mode normal gérant)`;
+
+      const reply =
+        `[STATUT DU MODE TEST]\n` +
+        `Statut actuel : ${statusTxt}\n\n` +
+        `Commandes disponibles :\n` +
+        `• /test : active le test en simulant un client du Cameroun (+237)\n` +
+        `• /test ci : simule un client de Côte d'Ivoire (+225)\n` +
+        `• /test sn : simule un client du Sénégal (+221)\n` +
+        `• /test bf : simule un client du Burkina Faso (+226)\n` +
+        `• /reset : purge complètement la discussion pour recommencer à zéro\n` +
+        `• /stop : désactive le mode test`;
+
+      await this.deps.waha.send(session, chatId, { kind: 'text', text: reply });
+      return { handled: true, action: 'test_help_sent' };
+    }
+
+    return { handled: false, reason: 'unknown_test_command' };
+  }
+
+  /**
+   * Purge intégrale de la conversation pour le mode test :
+   * Supprime les messages de la table messages, réinitialise ack_log et contacts.is_returning.
+   */
+  private async wipeConversationForTest(chatId: string, knownConvId?: string, knownContactId?: string): Promise<void> {
+    this.cancelPendingTurn(chatId);
+
+    if (!this.deps.db.queryTable) return;
+
+    try {
+      let convId = knownConvId;
+      let contactId = knownContactId;
+
+      if (!convId || !contactId) {
+        const cleanPhone = extractCleanPhone(chatId);
+        const contacts = await this.deps.db.queryTable<any[]>(
+          'contacts',
+          `wa_jid=eq.${encodeURIComponent(chatId)}&select=id&limit=1`
+        );
+        let c = contacts?.[0];
+        if (!c && cleanPhone) {
+          const byPhone = await this.deps.db.queryTable<any[]>(
+            'contacts',
+            `phone=eq.${encodeURIComponent(cleanPhone)}&select=id&limit=1`
+          );
+          c = byPhone?.[0];
+        }
+        contactId = c?.id || contactId;
+
+        if (contactId) {
+          const convs = await this.deps.db.queryTable<any[]>(
+            'conversations',
+            `contact_id=eq.${encodeURIComponent(contactId)}&select=id&limit=1`
+          );
+          convId = convs?.[0]?.id || convId;
+        }
+        if (!convId) {
+          const convsByChat = await this.deps.db.queryTable<any[]>(
+            'conversations',
+            `chat_id=eq.${encodeURIComponent(chatId)}&select=id&limit=1`
+          );
+          convId = convsByChat?.[0]?.id || convId;
+        }
+      }
+
+      // 1. Supprimer tous les messages de la table messages
+      if (convId && this.deps.db.deleteRows) {
+        await this.deps.db.deleteRows('messages', `conversation_id=eq.${convId}`).catch(() => undefined);
+        await this.deps.db.deleteRows('orders', `conversation_id=eq.${convId}`).catch(() => undefined);
+      }
+
+      // 2. Réinitialiser la conversation
+      if (convId && this.deps.db.updateRows) {
+        await this.deps.db.updateRows('conversations', `id=eq.${convId}`, {
+          ack_log: {
+            concierge_onboarding_sent: false,
+            video_tutorial_sent: false,
+            demo_video_sent: false,
+            test_mode: true,
+          },
+          control_mode: 'ai',
+          ai_paused: false,
+          funnel_stage: 'new',
+          last_merchant_at: null,
+        }).catch(() => undefined);
+      }
+
+      // 3. Réinitialiser le contact
+      if (contactId && this.deps.db.updateRows) {
+        await this.deps.db.updateRows('contacts', `id=eq.${contactId}`, {
+          is_returning: false,
+        }).catch(() => undefined);
+      }
+
+      // 4. Annuler tout message sortant en attente
+      if (this.deps.db.updateRows) {
+        await this.deps.db.updateRows(
+          'outbound_messages',
+          `chat_id=eq.${encodeURIComponent(chatId)}&status=in.(pending,unknown,queued)`,
+          { status: 'cancelled' }
+        ).catch(() => undefined);
+      }
+
+      this.deps.log?.('[concierge] Conversation purgée avec succès pour le test', { chatId, convId });
+    } catch (err: any) {
+      this.deps.log?.('[concierge] Erreur purge conversation test', { error: err?.message || err, chatId });
+    }
+  }
+
+  /**
    * Évalue et traite un événement entrant pour le flux Concierge.
    * Retourne true si l'événement a été pris en charge par le concierge.
    */
@@ -247,9 +517,17 @@ export class ConciergeService {
       return { handled: false, reason: 'merchant_message' };
     }
 
-    // 0. RÈGLE INVIOLABLE BURKINA FASO (+226) : 100% GÉRANT HUMAIN (ANCIENS COMME NOUVEAUX)
-    // Aucun automate ni IA ne doit jamais répondre à un numéro du Burkina Faso.
-    if (isBurkinaFasoNumber(ev.chatId)) {
+    // 0. Interception des commandes de test pour le numéro autorisé (+226 05777308)
+    if (isTestPhoneNumber(ev.chatId) && ev.body?.trim().startsWith('/')) {
+      return await this.handleTestCommand(ev);
+    }
+
+    const testConfig = this.testModes.get(ev.chatId);
+    const isTestActive = Boolean(testConfig?.active);
+
+    // 0 bis. RÈGLE INVIOLABLE BURKINA FASO (+226) : 100% GÉRANT HUMAIN (ANCIENS COMME NOUVEAUX)
+    // Sauf si le numéro autorisé est en mode test actif !
+    if (isBurkinaFasoNumber(ev.chatId) && !isTestActive) {
       this.deps.log?.('[concierge] Numéro Burkina Faso (+226) détecté sur chatId -> 100% gérant humain', {
         chatId: ev.chatId,
       });
@@ -282,8 +560,8 @@ export class ConciergeService {
         }
       }
 
-      // Si le contact en base a un numéro Burkinabé (+226), débrayage 100% humain immédiat
-      if (contact?.phone && isBurkinaFasoNumber(contact.phone)) {
+      // Si le contact en base a un numéro Burkinabé (+226) et n'est pas en test, débrayage 100% humain immédiat
+      if (contact?.phone && isBurkinaFasoNumber(contact.phone) && !isTestActive) {
         this.deps.log?.('[concierge] Numéro Burkina Faso (+226) détecté sur fiche contact -> 100% gérant humain', {
           chatId: ev.chatId,
           phone: contact.phone,
@@ -328,7 +606,7 @@ export class ConciergeService {
     if (!onboardingSent) {
       if (isDirectSpecificQuestion(ev.body)) {
         // Le client arrive avec une question directe et précise :
-        // On ne balance pas la vidéo à l'aveugle ! On passe directement en mode Conseiller Support (30s) pour lui répondre précisément.
+        // On ne balance pas le vocal d'accueil à l'aveugle ! On passe directement en mode Conseiller Support pour lui répondre précisément.
         this.deps.log?.('[concierge] Nouveau lead avec question directe -> Déviation vers Support Concierge', {
           chatId: ev.chatId,
           text: ev.body?.slice(0, 80),
@@ -339,6 +617,7 @@ export class ConciergeService {
             concierge_onboarding_sent: true,
             concierge_onboarding_sent_at: new Date().toISOString(),
             video_tutorial_sent: false,
+            demo_video_sent: false,
           };
           await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, { ack_log: updatedAck }).catch(() => undefined);
           conversation.ack_log = updatedAck;
@@ -347,7 +626,7 @@ export class ConciergeService {
         return { handled: true, action: 'support_scheduled_direct_question' };
       }
 
-      // Étape A : Premier message d'un nouveau lead (accueil / pub générale) -> Envoi du pack d'accueil complet
+      // Étape A : Premier message d'un nouveau lead (accueil / salutation) -> Envoi de la note vocale d'accueil SEULE
       await this.sendOnboardingPack(ev.session, ev.chatId, conversation);
       return { handled: true, action: 'onboarding_pack_sent' };
     }
@@ -358,12 +637,13 @@ export class ConciergeService {
   }
 
   /**
-   * Envoi du pack d'accueil : Note vocale PTT + Vidéo tutoriel smartphone + Message lien studio web.
+   * Envoi du pack d'accueil : Note vocale d'accueil PTT SEULE (11.8s, voix de la sœur).
+   * Zéro vidéo d'office, zéro lien web, pour engager un dialogue humain respectueux.
    */
   private async sendOnboardingPack(session: string, chatId: string, conversation: any): Promise<void> {
-    this.deps.log?.('[concierge] Envoi du pack d\'accueil au nouveau lead', { chatId, session });
+    this.deps.log?.('[concierge] Envoi du vocal d\'accueil seul au nouveau lead', { chatId, session });
 
-    // 1. Note vocale d'accueil PTT
+    // 1. Note vocale d'accueil PTT (11.8s, voix de la sœur clonée)
     await this.deps.waha.send(session, chatId, {
       kind: 'voice',
       url: this.voiceUrl,
@@ -372,43 +652,14 @@ export class ConciergeService {
       this.deps.log?.('[concierge] Erreur envoi vocal accueil', { error: err?.message || err });
     });
 
-    // Pacing léger de 1.5s
-    await new Promise((r) => setTimeout(r, 1500));
-
-    // 2. Vidéo tutoriel smartphone (maquette animée 136s, 4.4 Mo)
-    await this.deps.waha.send(session, chatId, {
-      kind: 'video',
-      url: this.videoUrl,
-      filename: 'djelia_tuto_mobile.mp4',
-      mimetype: 'video/mp4',
-      caption: 'Comment composer votre chanson personnalisée en 2 minutes sur Djélia',
-    }).catch((err) => {
-      this.deps.log?.('[concierge] Erreur envoi vidéo tutoriel', { error: err?.message || err });
-    });
-
-    // Pacing léger de 1.5s
-    await new Promise((r) => setTimeout(r, 1500));
-
-    // 3. Message texte officiel avec lien direct vers le studio
-    const onboardingText =
-      "Voici le lien de notre studio en ligne pour composer votre chanson en quelques clics : https://djelia.store/studio.html\n\n" +
-      "Si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.";
-
-    await this.deps.waha.send(session, chatId, {
-      kind: 'text',
-      text: onboardingText,
-    }).catch((err) => {
-      this.deps.log?.('[concierge] Erreur envoi texte accueil', { error: err?.message || err });
-    });
-
-    // 4. Mettre à jour l'état en base pour ne jamais réexpédier l'onboarding ni la vidéo (verrou d'unicité)
+    // 2. Mettre à jour l'état en base : onboarding_sent = true, vidéo et démo = false
     if (conversation?.id && this.deps.db.updateRows) {
       const updatedAck = {
         ...(conversation.ack_log || {}),
         concierge_onboarding_sent: true,
         concierge_onboarding_sent_at: new Date().toISOString(),
-        video_tutorial_sent: true,
-        video_tutorial_sent_at: new Date().toISOString(),
+        video_tutorial_sent: false,
+        demo_video_sent: false,
       };
       await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, {
         ack_log: updatedAck,
@@ -451,23 +702,29 @@ export class ConciergeService {
       existing.accumulatedText += '\n' + messageText;
     }
 
+    const testConfig = this.testModes.get(chatId);
+    const isTestActive = Boolean(testConfig?.active);
+
     const accumulatedText = existing ? existing.accumulatedText : messageText;
     const session = ev.session;
     const conversationId = conversation?.id;
     const userId = conversation?.user_id;
-    const phone = contact?.phone || ev.chatId;
+    const phone = (isTestActive && testConfig) ? testConfig.simulatedPhone : (contact?.phone || ev.chatId);
 
-    // Déclencheur typing à T - 8s (22s après le début de la temporisation)
+    const effectiveDelayMs = isTestActive ? 5_000 : this.delayMs;
+    const effectiveTypingMs = isTestActive ? 1_500 : this.typingDelayMs;
+
+    // Déclencheur typing
     const typingTimer = setTimeout(() => {
       this.deps.log?.('[concierge] Déclenchement indicateur de frappe (typing)...', { chatId });
       void this.deps.waha.typing(session, chatId, true).catch(() => undefined);
-    }, this.typingDelayMs);
+    }, effectiveTypingMs);
 
-    // Déclencheur d'envoi final à T = 30s
+    // Déclencheur d'envoi final
     const timer = setTimeout(async () => {
       this.pendingTurns.delete(chatId);
       await this.executeSupportReply(session, chatId, phone, accumulatedText, conversationId, userId, contact?.name);
-    }, this.delayMs);
+    }, effectiveDelayMs);
 
     this.pendingTurns.set(chatId, {
       session,
@@ -480,7 +737,7 @@ export class ConciergeService {
       typingTimer,
     });
 
-    this.deps.log?.('[concierge] Tour de support programmé (fenêtre 30s)', { chatId, preview: messageText.slice(0, 60) });
+    this.deps.log?.('[concierge] Tour de support programmé', { chatId, isTestActive, effectiveDelayMs, preview: messageText.slice(0, 60) });
   }
 
   /**
@@ -517,8 +774,9 @@ export class ConciergeService {
         }
       }
 
-      // Vérifier si la vidéo tutoriel a déjà été envoyée à ce contact
+      // Vérifier si la vidéo tutoriel ou démo a déjà été envoyée à ce contact
       let videoAlreadySent = false;
+      let demoAlreadySent = false;
       let currentAckLog: Record<string, any> = {};
 
       if (conversationId && this.deps.db.queryTable) {
@@ -529,14 +787,15 @@ export class ConciergeService {
           );
           currentAckLog = convs?.[0]?.ack_log || {};
           videoAlreadySent = Boolean(currentAckLog.video_tutorial_sent);
+          demoAlreadySent = Boolean(currentAckLog.demo_video_sent);
         } catch {
           // ignore
         }
       }
 
-      // Si le client demande la procédure/comment faire et que la vidéo n'a JAMAIS été envoyée :
-      const shouldSendVideoNow = !videoAlreadySent && isAskingForProcedureOrTutorial(incomingText);
-      if (shouldSendVideoNow) {
+      // 1. Si le client demande la démarche/procédure et que le tutoriel n'a pas été envoyé :
+      const shouldSendTutorialNow = !videoAlreadySent && isAskingForProcedureOrTutorial(incomingText);
+      if (shouldSendTutorialNow) {
         this.deps.log?.('[concierge] Envoi intelligent de la vidéo tutoriel (moment opportun procédure)', { chatId });
         await this.deps.waha.send(session, chatId, {
           kind: 'video',
@@ -548,7 +807,7 @@ export class ConciergeService {
           this.deps.log?.('[concierge] Erreur envoi vidéo support', { error: err?.message || err });
         });
 
-        // Verrou absolu d'unicité en base : JAMAIS envoyée deux fois
+        // Verrou d'unicité en base : JAMAIS renvoyée
         if (conversationId && this.deps.db.updateRows) {
           const updatedAck = {
             ...currentAckLog,
@@ -558,7 +817,38 @@ export class ConciergeService {
           await this.deps.db.updateRows('conversations', `id=eq.${conversationId}`, {
             ack_log: updatedAck,
           }).catch(() => undefined);
+          currentAckLog = updatedAck;
           videoAlreadySent = true;
+        }
+
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+
+      // 2. Si le client demande un exemple / démo et qu'elle n'a pas encore été envoyée :
+      const shouldSendDemoNow = !demoAlreadySent && !shouldSendTutorialNow && isAskingForDemoOrSample(incomingText);
+      if (shouldSendDemoNow) {
+        this.deps.log?.('[concierge] Envoi intelligent de la vidéo démo (exemple demandé)', { chatId });
+        await this.deps.waha.send(session, chatId, {
+          kind: 'video',
+          url: this.demoVideoUrl,
+          filename: '324048.mp4',
+          mimetype: 'video/mp4',
+          caption: 'Voici un aperçu d\'une de nos créations avec montage vidéo',
+        }).catch((err) => {
+          this.deps.log?.('[concierge] Erreur envoi vidéo démo', { error: err?.message || err });
+        });
+
+        if (conversationId && this.deps.db.updateRows) {
+          const updatedAck = {
+            ...currentAckLog,
+            demo_video_sent: true,
+            demo_video_sent_at: new Date().toISOString(),
+          };
+          await this.deps.db.updateRows('conversations', `id=eq.${conversationId}`, {
+            ack_log: updatedAck,
+          }).catch(() => undefined);
+          currentAckLog = updatedAck;
+          demoAlreadySent = true;
         }
 
         await new Promise((r) => setTimeout(r, 1200));
@@ -571,7 +861,7 @@ export class ConciergeService {
           recentHistory,
           contactName: contactName ?? undefined,
           phone,
-          videoAlreadySent,
+          videoAlreadySent: videoAlreadySent || shouldSendTutorialNow,
         },
         this.deps.log
       );
