@@ -25,9 +25,15 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 18 Novembre 2026 (20:55 UTC)
-- **Déploiement Opérationnel : Pack d'Onboarding Déterministe en 3 Volets (Vocal Adapté + Vidéo Tutoriel Native + Texte & Studio) & Mode Test Numéro Dédié (+226 05777308)** :
-  1. **Onboarding Médias Déterministe à l'Arrivée de Tout Nouveau Lead (Fin des Esquives)** :
+- **Dernière mise à jour** : 18 Novembre 2026 (21:08 UTC)
+- **Déploiement Opérationnel : Pack d'Onboarding Déterministe en 3 Volets & Activation Automatique Permanente du Mode Test sur le +226 05777308** :
+  1. **Résolution du blocage testeur (+226 05777308)** :
+     - Cause identifiée dans les logs VPS : La commande `#reset` ou `/reset` purgeait bien les messages via le routeur HTTP d'ingestion mais court-circuitait le Concierge avant l'activation du drapeau `testModes`. Dès lors, le numéro burkinabé `+226 05777308` retombait sous la règle de protection 100% gérant manuel.
+     - Correctif chirurgical :
+       - Le numéro de test `+226 05777308` est désormais **ACTIF PAR DÉFAUT** en mode simulateur de prospect étranger (Cameroun +237) sans avoir besoin de taper une commande préalable.
+       - Le réarmement du mode test et l'annulation des tours en attente sont désormais directement branchés au routeur HTTP sur `/reset`, `reset`, `#reset`, `!reset`.
+       - Persistance robuste sur disque (`/tmp/velaris-test-modes.json`) avec modules ESM natifs.
+  2. **Onboarding Médias Déterministe à l'Arrivée de Tout Nouveau Lead (Fin des Esquives)** :
      - **Élimination du bypass fragile `isDirectSpecificQuestion`** : Tout nouveau prospect arrivant sur le canal WhatsApp reçoit systématiquement le pack d'onboarding complet (Vocal ➔ Vidéo ➔ Texte & Studio) sans être court-circuité par une question posée au premier tour.
      - **Branche A (Salutations, Demandes d'infos générales, Clics Ads, "Bonjour puis-je en savoir plus ?")** :
        1. **Vocal d'Accueil** (24.6s, Fish Audio, voix de la sœur) : *« Bonjour et bienvenue chez Djélia ! C'est un réel plaisir de vous accueillir... Regardez juste en dessous, je vous ai glissé une petite vidéo d'une minute qui vous montre exactement comment procéder... »* (`vocal_accueil_concierge.opus` / `.mp3`).
