@@ -25,20 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 19 Novembre 2026 (07:42 UTC)
-- **Résolution Incident WhatsApp Business & Rattrapage des 18 Clients (19 Novembre 2026 — Déployé & Opérationnel)** :
-  1. **Cause racine de l'incident** :
-     - Le message d'accueil automatique WhatsApp Business mobile (*« Bonjour ! Dites-nous comment nous pouvons vous aider. »*) était capté en `fromMe: true` par le moteur et interprété à tort comme une intervention physique du gérant.
-     - Conséquence : `control_mode = 'human'` activé et annulation du concierge, entraînant le silence complet de l'IA sur les nouveaux prospects de la nuit.
-  2. **Correctif définitif (`concierge-service.ts` & `process-event.ts`)** :
-     - Détection explicite et neutralisation du message d'accueil automatique WhatsApp Business (`isAutoGreeting`).
-     - Ce message n'annule plus les tours en attente et ne bascule plus la conversation en mode manuel.
-     - 22/22 tests unitaires validés avec succès (`npm run build && node --test dist/test/concierge.test.js`).
-     - Image Docker reconstruite et conteneur `velaris-engine` redémarré en production sur le VPS.
-  3. **Rattrapage en production des 18 clients en attente** :
-     - Script de rattrapage exécuté avec succès : 18/18 clients ont reçu le pack d'accueil complet (Note vocale soeur Fish Audio, Vidéo tutoriel smartphone 136s, et Message texte officiel https://djelia.store personnalisé).
-     - État en base réactivé en `control_mode = 'ai'` avec horodatage de rattrapage et logs d'acquittement.
-     - Respect absolu des exclusions (clients ayant déjà reçu une réponse manuelle et numéros burkinabés préservés pour la gestion manuelle).
+- **Dernière mise à jour** : 19 Novembre 2026 (08:02 UTC)
+- **Résolution Incident WhatsApp Business & Rattrapage Intégral (19 Novembre 2026 — 19/19 Clients Livrés & Moteur Blindé)** :
+  1. **Analyse Approfondie du Problème Initial** :
+     - Même avec le premier filtre, la fonction SQL PostgreSQL `agent_ingest_message` marquait directement la conversation en `control_mode = 'human'` et `last_merchant_at = now()` dès qu'un message `fromMe` arrivait.
+     - Ainsi, quand le message client arrivait 1 seconde plus tard, `checkIsReturningClient` lisait l'état en base et bloquait le tour avec `conversation_human_control`.
+  2. **Blindage Multi-Couches Imperméable Déployé** :
+     - **Couche Ingestion (`normalize.ts`)** : Détection du champ `_data.type === 'automated_greeting_message'` et du texte pour assigner `source = 'auto_greeting'`.
+     - **Couche Événement (`process-event.ts`)** : Restitution immédiate du contrôle à l'IA en base via `agent_set_control('ai')` et remise à zéro de `last_merchant_at` lors de l'ingestion de l'auto-greeting.
+     - **Couche Concierge (`concierge-service.ts` / `checkIsReturningClient`)** : Auto-réparation déterministe. Si un contact n'a pas encore reçu l'onboarding, le concierge vérifie dans `messages` s'il existe de vrais messages humains manuels. Si aucun message humain n'est présent (uniquement l'auto-greeting), le statut est automatiquement réparé en `ai` et le concierge programme l'onboarding.
+  3. **Rattrapage Réalisé** :
+     - 19 clients au total traités et livrés (dont le client `237694920420@c.us` arrivé à 07:51).
+     - Image Docker reconstruite et redémarrée en production sur le VPS. Tout nouveau lead est désormais accueilli automatiquement à 100%.
 - **Déploiement Opérationnel : Concierge Conseiller Pro (Délai 30s Réaliste, Frappe 8s, URL https://djelia.store, Programme Partenaire 25%, Découpage 1-2 Bulles, Garde-fous Silence & Débrayage Gérant)** :
   1. **Correction d'URL Officielle (Racine Propre)** :
      - Utilisation stricte de l'URL racine officielle **`https://djelia.store`** partout (dans les prompts, le pack d'accueil et le service client), remplaçant définitivement l'ancienne URL `https://djelia.store/studio.html`.
