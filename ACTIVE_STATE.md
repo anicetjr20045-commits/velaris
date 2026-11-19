@@ -25,7 +25,12 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 19 Novembre 2026 (08:02 UTC)
+- **Dernière mise à jour** : 19 Novembre 2026 (09:26 UTC)
+- **Arrêt Immédiat de l'IA sur Demande Utilisateur (19 Novembre 2026 — 100% Inactive & Mode Manuel Humain Actif)** :
+  1. `ENABLE_CONCIERGE=false` et `ENABLE_AI_AUTO_REPLY=false` appliqués dans `docker-compose.yml`.
+  2. Conteneur `velaris-engine` recréé sur le VPS.
+  3. Concierge et réponses automatiques entièrement désactivés.
+  4. L'IA ne répond plus à aucun message (mode 100% gérant humain).
 - **Résolution Incident WhatsApp Business & Rattrapage Intégral (19 Novembre 2026 — 19/19 Clients Livrés & Moteur Blindé)** :
   1. **Analyse Approfondie du Problème Initial** :
      - Même avec le premier filtre, la fonction SQL PostgreSQL `agent_ingest_message` marquait directement la conversation en `control_mode = 'human'` et `last_merchant_at = now()` dès qu'un message `fromMe` arrivait.
