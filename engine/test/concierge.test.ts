@@ -716,6 +716,37 @@ describe('Concierge Djélia 24/7 (Web-First & Support)', () => {
     assert.equal(sentMessages.length, 0, 'Aucun message automatique ne doit être envoyé après intervention du gérant');
   });
 
+  it('Message d accueil automatique WhatsApp Business : ignoré et ne débraye PAS le concierge', async () => {
+    let merchantIntervened = false;
+    const mockWaha = {
+      send: async () => ({ status: 'sent' }),
+      typing: async () => {},
+    } as any;
+    const mockDb = {
+      updateRows: async () => {},
+    } as any;
+
+    const concierge = new ConciergeService({
+      db: mockDb,
+      waha: mockWaha,
+      llmProvider: {} as any,
+    });
+    concierge.handleMerchantIntervention = async () => {
+      merchantIntervened = true;
+    };
+
+    const res = await concierge.handleEvent(makeMockMessage({
+      chatId: '22501000000@c.us',
+      fromMe: true,
+      body: 'Bonjour ! Dites-nous comment nous pouvons vous aider.',
+      source: null,
+    }));
+
+    assert.equal(res.handled, false);
+    assert.equal(res.reason, 'whatsapp_business_auto_greeting_ignored');
+    assert.equal(merchantIntervened, false, 'Le message d accueil automatique ne doit PAS débrayer le concierge');
+  });
+
   it('Nouveau lead avec question directe de prix : expédie le pack adapté (vocal prix + vidéo tutoriel + texte tarifaire & studio)', async () => {
     const sentMessages: any[] = [];
     let updatedAckLog: any = null;

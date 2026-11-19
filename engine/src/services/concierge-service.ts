@@ -608,6 +608,19 @@ export class ConciergeService {
 
     // Si le message est tapé par le gérant (fromMe et non écho API) : débrayage 100% humain permanent
     if (ev.fromMe && ev.source !== 'api') {
+      // Détection des messages d'accueil automatiques WhatsApp Business (ex: "Bonjour ! Dites-nous comment nous pouvons vous aider.")
+      const isAutoGreeting = ev.body && (
+        ev.body.toLowerCase().includes('dites-nous comment nous pouvons vous aider') ||
+        ev.body.toLowerCase().includes('comment nous pouvons vous aider')
+      );
+      if (isAutoGreeting) {
+        this.deps.log?.('[concierge] Message d\'accueil automatique WhatsApp Business ignoré (pas de débrayage humain)', {
+          chatId: ev.chatId,
+          body: ev.body,
+        });
+        return { handled: false, reason: 'whatsapp_business_auto_greeting_ignored' };
+      }
+
       await this.handleMerchantIntervention(ev.session, ev.chatId);
       return { handled: false, reason: 'merchant_message' };
     }

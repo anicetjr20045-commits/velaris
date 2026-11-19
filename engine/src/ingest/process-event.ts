@@ -149,11 +149,17 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
       }
 
       if (ev.fromMe && ev.source !== 'api' && res.conversation_id && deps.db.updateRows) {
-        await deps.db.updateRows(
-          'outbound_messages',
-          `conversation_id=eq.${encodeURIComponent(res.conversation_id)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
-          { status: 'cancelled', error: 'merchant_took_over' }
-        ).catch(() => undefined);
+        const isAutoGreeting = ev.body && (
+          ev.body.toLowerCase().includes('dites-nous comment nous pouvons vous aider') ||
+          ev.body.toLowerCase().includes('comment nous pouvons vous aider')
+        );
+        if (!isAutoGreeting) {
+          await deps.db.updateRows(
+            'outbound_messages',
+            `conversation_id=eq.${encodeURIComponent(res.conversation_id)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
+            { status: 'cancelled', error: 'merchant_took_over' }
+          ).catch(() => undefined);
+        }
       }
 
       return res;
