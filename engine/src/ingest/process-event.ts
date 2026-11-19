@@ -136,30 +136,39 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
         ).catch(() => undefined);
       }
 
-      // Bouclier de sécurité : si le message provient de l'API (source = 'api') mais a été classé 'merchant',
-      // corriger immédiatement pour restituer le contrôle à l'IA
-      if (ev.fromMe && ev.source === 'api' && res.outcome === 'merchant' && res.conversation_id) {
+      // Bouclier de sécurité : si le message provient de l'API (source = 'api') ou de l'accueil auto WhatsApp Business (source = 'auto_greeting')
+      // mais a été classé 'merchant' par SQL agent_ingest_message,
+      // corriger immédiatement pour restituer le contrôle à l'IA en base
+      const isAutoGreeting = ev.source === 'auto_greeting' || (ev.body && (
+        ev.body.toLowerCase().includes('dites-nous comment nous pouvons vous aider') ||
+        ev.body.toLowerCase().includes('comment nous pouvons vous aider')
+      ));
+
+      if (ev.fromMe && (ev.source === 'api' || isAutoGreeting) && res.outcome === 'merchant' && res.conversation_id) {
         await deps.db.rpc('agent_set_control', {
           p_conversation: res.conversation_id,
           p_mode: 'ai',
-          p_reason: 'auto_corrected_api_echo',
+          p_reason: isAutoGreeting ? 'auto_greeting_not_merchant' : 'auto_corrected_api_echo',
           p_actor: 'merchant',
         }).catch(() => undefined);
+
+        if (isAutoGreeting && deps.db.updateRows) {
+          await deps.db.updateRows(
+            'conversations',
+            `id=eq.${encodeURIComponent(res.conversation_id)}`,
+            { last_merchant_at: null }
+          ).catch(() => undefined);
+        }
+
         return { ...res, outcome: 'echo' };
       }
 
-      if (ev.fromMe && ev.source !== 'api' && res.conversation_id && deps.db.updateRows) {
-        const isAutoGreeting = ev.body && (
-          ev.body.toLowerCase().includes('dites-nous comment nous pouvons vous aider') ||
-          ev.body.toLowerCase().includes('comment nous pouvons vous aider')
-        );
-        if (!isAutoGreeting) {
-          await deps.db.updateRows(
-            'outbound_messages',
-            `conversation_id=eq.${encodeURIComponent(res.conversation_id)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
-            { status: 'cancelled', error: 'merchant_took_over' }
-          ).catch(() => undefined);
-        }
+      if (ev.fromMe && ev.source !== 'api' && !isAutoGreeting && res.conversation_id && deps.db.updateRows) {
+        await deps.db.updateRows(
+          'outbound_messages',
+          `conversation_id=eq.${encodeURIComponent(res.conversation_id)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
+          { status: 'cancelled', error: 'merchant_took_over' }
+        ).catch(() => undefined);
       }
 
       return res;

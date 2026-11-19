@@ -215,7 +215,13 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
   const text = formatMessageBody(rawText, quotedText);
   if (!text && !mediaKind) return { ok: false, reason: 'empty_message' };
 
-  const source = str(payload.source);
+  const rawType = data ? str(data.type) : str(payload.type);
+  const isAutoGreetingType = rawType === 'automated_greeting_message';
+  const isAutoGreetingText = text && (
+    text.toLowerCase().includes('dites-nous comment nous pouvons vous aider') ||
+    text.toLowerCase().includes('comment nous pouvons vous aider')
+  );
+  const source = (isAutoGreetingType || isAutoGreetingText) ? 'auto_greeting' : str(payload.source);
 
   return {
     ok: true,

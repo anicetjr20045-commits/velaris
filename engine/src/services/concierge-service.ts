@@ -252,11 +252,48 @@ export class ConciergeService {
     conversation: any
   ): Promise<{ isReturning: boolean; reason: string }> {
     // 0. Si le gérant est déjà intervenu manuellement dans ce chat : SILENCE TOTAL ET PERMANENT
-    if (conversation?.control_mode === 'human') {
-      return { isReturning: true, reason: 'conversation_human_control' };
-    }
-    if (conversation?.last_merchant_at) {
-      return { isReturning: true, reason: 'merchant_already_intervened' };
+    if (conversation?.control_mode === 'human' || conversation?.last_merchant_at) {
+      // Garde de sécurité : vérifier si ce n'est pas un nouveau prospect pollué par l'auto-greeting
+      const onboardingSent = Boolean(conversation?.ack_log?.concierge_onboarding_sent);
+      if (!onboardingSent) {
+        let hasRealManualHumanMsg = false;
+        if (this.deps.db.queryTable && conversation?.id) {
+          try {
+            const msgs = await this.deps.db.queryTable<any[]>(
+              'messages',
+              `conversation_id=eq.${encodeURIComponent(conversation.id)}&direction=eq.outbound&limit=5`
+            );
+            hasRealManualHumanMsg = (msgs || []).some((m) => {
+              const body = m.body || '';
+              return !body.toLowerCase().includes('comment nous pouvons vous aider') &&
+                     !body.toLowerCase().includes('dites-nous comment nous pouvons vous aider');
+            });
+          } catch {
+            hasRealManualHumanMsg = false;
+          }
+        }
+        if (!hasRealManualHumanMsg) {
+          // Aucun vrai message du gérant : auto-réparation et maintien en mode IA
+          if (this.deps.db.updateRows && conversation?.id) {
+            void this.deps.db.updateRows('conversations', `id=eq.${encodeURIComponent(conversation.id)}`, {
+              control_mode: 'ai',
+              last_merchant_at: null,
+            }).catch(() => undefined);
+          }
+          conversation.control_mode = 'ai';
+          conversation.last_merchant_at = null;
+        } else {
+          return {
+            isReturning: true,
+            reason: conversation?.control_mode === 'human' ? 'conversation_human_control' : 'merchant_already_intervened',
+          };
+        }
+      } else {
+        return {
+          isReturning: true,
+          reason: conversation?.control_mode === 'human' ? 'conversation_human_control' : 'merchant_already_intervened',
+        };
+      }
     }
     if (this.getTestMode(_chatId)?.merchantTookOver) {
       return { isReturning: true, reason: 'merchant_took_over_test' };
