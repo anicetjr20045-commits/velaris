@@ -41,9 +41,12 @@ export const EMOJI_AUTOMATIONS: Record<string, EmojiAction> = {
   [cleanEmoji('✨')]: {
     type: 'text',
     label: 'Présentation des offres',
-    content: `Notre tarif est de 1 200 francs pour la création de votre chanson personnalisée complète (avec 2 versions MP3 différentes incluses).
+    content: `Nous avons deux formules pour vous :
 
-Vous souhaitez qu'on lance la création ?`,
+- Chanson personnalisée : 1 200 F
+- Chanson + vidéo montage avec vos photos : 3 000 F
+
+Laquelle vous convient ?`,
   },
   // 3. 🙏 — Message texte (paiement Orange Money)
   [cleanEmoji('🙏')]: {
@@ -843,9 +846,15 @@ export async function executeEmojiAutomation(
     return { executed: false, action: 'deduplicated' };
   }
 
-  // Résolution haute fidélité du vrai chatId (@c.us) et du contexte
-  const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
-  const targetChatId = resolved.realChatId || chatId;
+  // OPTIMISATION ULTRA-RÉACTIVE (0ms de délai réseau inutile) :
+  // Si l'action est directe (texte, vocal, vidéo) et que le chatId est déjà un numéro standard WhatsApp (@c.us),
+  // on envoie immédiatement sans round-trip base de données.
+  // La résolution SQL n'est déclenchée QUE pour les identifiants techniques @lid ou les actions personnalisées (Suno, Paroles, Clôture).
+  let targetChatId = chatId;
+  if (chatId.includes('@lid') || action.type === 'custom') {
+    const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
+    targetChatId = resolved.realChatId || chatId;
+  }
 
   log?.(`⚡ [ACTION DÉCLENCHÉE PAR RÉACTION ${rawEmoji}] : "${action.label}" vers ${targetChatId} (source: ${chatId})`);
 

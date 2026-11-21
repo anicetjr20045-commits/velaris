@@ -345,12 +345,46 @@ test('🎉 Clôture de commande : marque l ordre en delivered et inscrit le clie
   assert.equal(contactUpdate.data.is_returning, true);
 });
 
-test('✨ Présentation des offres : formule unique 1 200 francs, zéro mention de 3 500 F', () => {
+test('✨ Présentation des offres : deux formules 1 200 F et 3 000 F', () => {
   const action = EMOJI_AUTOMATIONS[cleanEmoji('✨')];
   assert.ok(action);
   assert.equal(action.type, 'text');
-  assert.ok(action.content?.includes('1 200 francs'));
+  assert.ok(action.content?.includes('Chanson personnalisée : 1 200 F'));
+  assert.ok(action.content?.includes('Chanson + vidéo montage avec vos photos : 3 000 F'));
   assert.ok(!action.content?.includes('3 500'));
+});
+
+test('Optimisation ultra-réactive : envoi direct sans appel DB quand le chatId est déjà un @c.us standard', async () => {
+  const sent: any[] = [];
+  let dbCallCount = 0;
+  const mockWaha: any = {
+    send: async (session: string, chatId: string, content: any) => {
+      sent.push({ session, chatId, content });
+      return { status: 'sent', waMessageId: 'wa_fast', waKey: 'k_fast' };
+    },
+  };
+  const mockDb: any = {
+    queryTable: async () => {
+      dbCallCount++;
+      return [];
+    },
+  };
+
+  const res = await executeEmojiAutomation(
+    'Test',
+    '22507596000@c.us',
+    '✨',
+    'msg_fast_123',
+    { waha: mockWaha, db: mockDb }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].chatId, '22507596000@c.us');
+  assert.ok(sent[0].content.text.includes('1 200 F'));
+  assert.ok(sent[0].content.text.includes('3 000 F'));
+  // Aucune requête DB ne doit être exécutée pour un message standard @c.us
+  assert.equal(dbCallCount, 0);
 });
 
 test('Immunité LID WhatsApp : resolveAutomationContext résout le @c.us et les métadonnées depuis reactedKey', async () => {
