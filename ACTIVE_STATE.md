@@ -25,12 +25,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 19 Novembre 2026 (09:26 UTC)
-- **Arrêt Immédiat de l'IA sur Demande Utilisateur (19 Novembre 2026 — 100% Inactive & Mode Manuel Humain Actif)** :
-  1. `ENABLE_CONCIERGE=false` et `ENABLE_AI_AUTO_REPLY=false` appliqués dans `docker-compose.yml`.
-  2. Conteneur `velaris-engine` recréé sur le VPS.
-  3. Concierge et réponses automatiques entièrement désactivés.
-  4. L'IA ne répond plus à aucun message (mode 100% gérant humain).
+- **Dernière mise à jour** : 21 Novembre 2026 (09:45 UTC)
+- **Résolution Incident Automatisations Émojis WhatsApp & Reconnexion Session (21 Novembre 2026)** :
+  1. **Reconnexion Passerelle WAHA (Session "Test" +226 56 24 05 33)** :
+     - La session avait décroché suite à une déconnexion Chromium à 08:40 UTC (`The browser has been disconnected`).
+     - Session relancée et reconnectée avec succès par scan QR (`status: WORKING`, `engine: WEBJS`, `state: CONNECTED`).
+  2. **Immunisation Totale contre les Identifiants LID WhatsApp (@lid)** :
+     - Problème résolu : sur WhatsApp WebJS, les réactions envoyées par le gérant transmettaient des identifiants LID (`...772884@lid`) au lieu du numéro de téléphone (`...225...@c.us`), provoquant un échec silencieux `contact_not_found` sur les handlers ⭐ (Suno), ✍️ (Paroles) et 🎉 (Clôture commande), et expédiant les médias vers un identifiant invalide.
+     - Solution implémentée : création de `resolveAutomationContext` dans `engine/src/ingest/emoji-automations.ts`. Le contexte complet (`chat_id` réel `@c.us`, `contact_id`, `conversation_id`, `focus_order_id`) est résolu de manière déterministe via la table `messages` et `conversations` à partir du message ciblé (`reactedKey` / `wa_message_key`).
+  3. **Formule Unique d'Offre (Émoji ✨)** :
+     - Mise à jour du template de présentation d'offre vers la formule unique à 1 200 francs (2 versions MP3 incluses), avec élimination définitive de toute mention de l'ancienne formule vidéo 3 500 F.
+  4. **Support Déclenché par Message Direct de l'Émoji** :
+     - Dans `engine/src/ingest/process-event.ts`, si le gérant envoie un émoji d'automatisation en tant que message court direct (`fromMe: true`), l'automatisation se déclenche avec la même rigueur que s'il s'agissait d'une réaction.
+  5. **Validation & Déploiement** :
+     - Suite de tests 100% verte : 252/252 tests passés, 12/12 sur les automatisations émojis.
+     - Conteneur Docker `velaris-engine:latest` reconstruit et relancé avec succès sur le VPS `162.35.113.220` (port 3001, écoute active, trafic reçu). Commits GitHub poussés sur `main`.
 - **Résolution Incident WhatsApp Business & Rattrapage Intégral (19 Novembre 2026 — 19/19 Clients Livrés & Moteur Blindé)** :
   1. **Analyse Approfondie du Problème Initial** :
      - Même avec le premier filtre, la fonction SQL PostgreSQL `agent_ingest_message` marquait directement la conversation en `control_mode = 'human'` et `last_merchant_at = now()` dès qu'un message `fromMe` arrivait.
