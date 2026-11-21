@@ -33,13 +33,18 @@
   2. **Immunisation Totale contre les Identifiants LID WhatsApp (@lid)** :
      - Problème résolu : sur WhatsApp WebJS, les réactions envoyées par le gérant transmettaient des identifiants LID (`...772884@lid`) au lieu du numéro de téléphone (`...225...@c.us`), provoquant un échec silencieux `contact_not_found` sur les handlers ⭐ (Suno), ✍️ (Paroles) et 🎉 (Clôture commande), et expédiant les médias vers un identifiant invalide.
      - Solution implémentée : création de `resolveAutomationContext` dans `engine/src/ingest/emoji-automations.ts`. Le contexte complet (`chat_id` réel `@c.us`, `contact_id`, `conversation_id`, `focus_order_id`) est résolu de manière déterministe via la table `messages` et `conversations` à partir du message ciblé (`reactedKey` / `wa_message_key`).
-  3. **Formule Unique d'Offre (Émoji ✨)** :
-     - Mise à jour du template de présentation d'offre vers la formule unique à 1 200 francs (2 versions MP3 incluses), avec élimination définitive de toute mention de l'ancienne formule vidéo 3 500 F.
-  4. **Support Déclenché par Message Direct de l'Émoji** :
-     - Dans `engine/src/ingest/process-event.ts`, si le gérant envoie un émoji d'automatisation en tant que message court direct (`fromMe: true`), l'automatisation se déclenche avec la même rigueur que s'il s'agissait d'une réaction.
-  5. **Validation & Déploiement** :
-     - Suite de tests 100% verte : 252/252 tests passés, 12/12 sur les automatisations émojis.
-     - Conteneur Docker `velaris-engine:latest` reconstruit et relancé avec succès sur le VPS `162.35.113.220` (port 3001, écoute active, trafic reçu). Commits GitHub poussés sur `main`.
+  3. **Mise à Jour des Deux Formules Commerciales (Émoji ✨)** :
+     - Formule 1 : Chanson personnalisée : 1 200 F
+     - Formule 2 : Chanson + vidéo montage avec vos photos : 3 000 F
+     - Question de clôture : « Laquelle vous convient ? »
+  4. **Optimisation Ultra-Réactive & Latence Réseau Réduite à Zéro** :
+     - Pour toutes les actions directes (textes, vocaux, vidéo), si l'identifiant est déjà un numéro standard WhatsApp (`@c.us`), l'envoi vers WAHA part instantanément sans aucun appel SQL préalable.
+     - La résolution en base n'est sollicitée que pour les identifiants techniques `@lid` ou les actions nécessitant la base (génération de paroles IA ✍️, Suno V6 ⭐, clôture 🎉).
+  5. **Support Déclenché par Message Direct de l'Émoji** :
+     - Dans `engine/src/ingest/process-event.ts`, si le gérant envoie un émoji d'automatisation en message court direct (`fromMe: true`), l'automatisation se déclenche immédiatement comme une réaction.
+  6. **Validation & Déploiement** :
+     - Suite de tests 100% verte : 253 tests passés, 13/13 sur les automatisations émojis.
+     - Conteneur Docker `velaris-engine:latest` reconstruit et relancé avec succès sur le VPS `162.35.113.220` (port 3001, écoute active, latence interne < 4ms). Commits GitHub poussés sur `main`.
 - **Résolution Incident WhatsApp Business & Rattrapage Intégral (19 Novembre 2026 — 19/19 Clients Livrés & Moteur Blindé)** :
   1. **Analyse Approfondie du Problème Initial** :
      - Même avec le premier filtre, la fonction SQL PostgreSQL `agent_ingest_message` marquait directement la conversation en `control_mode = 'human'` et `last_merchant_at = now()` dès qu'un message `fromMe` arrivait.
