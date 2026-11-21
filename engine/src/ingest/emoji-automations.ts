@@ -41,12 +41,9 @@ export const EMOJI_AUTOMATIONS: Record<string, EmojiAction> = {
   [cleanEmoji('✨')]: {
     type: 'text',
     label: 'Présentation des offres',
-    content: `Nous avons deux formules pour vous :
+    content: `Notre tarif est de 1 200 francs pour la création de votre chanson personnalisée complète (avec 2 versions MP3 différentes incluses).
 
-- Chanson personnalisée : 1 200 F
-- Chanson + vidéo montage avec vos photos : 3 500 F
-
-Laquelle vous convient ?`,
+Vous souhaitez qu'on lance la création ?`,
   },
   // 3. 🙏 — Message texte (paiement Orange Money)
   [cleanEmoji('🙏')]: {
@@ -120,6 +117,124 @@ export function shouldProcessReaction(msgId: string, emoji: string): boolean {
   return true;
 }
 
+export interface ResolvedAutomationContext {
+  realChatId: string;
+  contactId?: string;
+  userId?: string;
+  conversationId?: string;
+  focusOrderId?: string | null;
+}
+
+/**
+ * Résolution haute fidélité du destinataire et du contexte conversationnel.
+ * Permet d'immuniser les automatisations contre les identifiants LID WhatsApp (@lid)
+ * envoyés lors des réactions en résolvant le vrai numéro de téléphone (@c.us)
+ * à partir du message ciblé (reactedKey) ou de la conversation en base.
+ */
+export async function resolveAutomationContext(
+  ctx: EmojiAutomationContext,
+  chatId: string,
+  reactedKey?: string | null,
+): Promise<ResolvedAutomationContext> {
+  const result: ResolvedAutomationContext = { realChatId: chatId };
+  if (!ctx.db) return result;
+
+  try {
+    // 1. Résolution prioritaire par le message réagi (wa_message_key)
+    if (reactedKey) {
+      const msgs = await ctx.db.queryTable?.<Array<{ id: string; conversation_id: string; user_id: string }>>(
+        'messages',
+        `wa_message_key=eq.${encodeURIComponent(reactedKey)}&select=id,conversation_id,user_id&limit=1`,
+      ).catch(() => []);
+
+      const msg = msgs?.[0];
+      if (msg?.conversation_id) {
+        result.conversationId = msg.conversation_id;
+        if (msg.user_id) result.userId = msg.user_id;
+
+        const convs = await ctx.db.queryTable?.<
+          Array<{ id: string; user_id: string; contact_id: string; chat_id: string; focus_order_id: string | null }>
+        >(
+          'conversations',
+          `id=eq.${encodeURIComponent(msg.conversation_id)}&select=id,user_id,contact_id,chat_id,focus_order_id&limit=1`,
+        ).catch(() => []);
+
+        const conv = convs?.[0];
+        if (conv) {
+          result.contactId = conv.contact_id;
+          result.focusOrderId = conv.focus_order_id;
+          if (conv.user_id) result.userId = conv.user_id;
+          if (conv.chat_id && conv.chat_id.endsWith('@c.us')) {
+            result.realChatId = conv.chat_id;
+            return result;
+          }
+        }
+      }
+    }
+
+    // 2. Si le chatId est déjà un numéro standard @c.us, chercher directement le contact
+    if (chatId.includes('@c.us')) {
+      const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
+        'contacts',
+        `wa_jid=eq.${encodeURIComponent(chatId)}&select=id,user_id&limit=1`,
+      ).catch(() => []);
+
+      if (contacts?.[0]) {
+        result.contactId = contacts[0].id;
+        result.userId = contacts[0].user_id;
+
+        const convs = await ctx.db.queryTable?.<Array<{ id: string; focus_order_id: string | null; chat_id: string }>>(
+          'conversations',
+          `contact_id=eq.${encodeURIComponent(contacts[0].id)}&order=created_at.desc&limit=1`,
+        ).catch(() => []);
+        if (convs?.[0]) {
+          result.conversationId = convs[0].id;
+          result.focusOrderId = convs[0].focus_order_id;
+          if (convs[0].chat_id && convs[0].chat_id.endsWith('@c.us')) {
+            result.realChatId = convs[0].chat_id;
+          }
+        }
+        return result;
+      }
+    }
+
+    // 3. Si chatId est un @lid ou si le contact direct n'a pas été trouvé, chercher dans conversations
+    const convsByChat = await ctx.db.queryTable?.<
+      Array<{ id: string; user_id: string; contact_id: string; chat_id: string; focus_order_id: string | null }>
+    >(
+      'conversations',
+      `chat_id=eq.${encodeURIComponent(chatId)}&order=created_at.desc&limit=1`,
+    ).catch(() => []);
+
+    if (convsByChat?.[0]) {
+      const conv = convsByChat[0];
+      result.conversationId = conv.id;
+      result.contactId = conv.contact_id;
+      result.userId = conv.user_id;
+      result.focusOrderId = conv.focus_order_id;
+      if (conv.chat_id && conv.chat_id.endsWith('@c.us')) {
+        result.realChatId = conv.chat_id;
+      }
+      return result;
+    }
+
+    // 4. Si contactId est résolu mais realChatId reste en @lid, interroger le contact pour obtenir son wa_jid
+    if (result.contactId && result.realChatId.includes('@lid')) {
+      const contactRows = await ctx.db.queryTable?.<Array<{ wa_jid: string }>>(
+        'contacts',
+        `id=eq.${encodeURIComponent(result.contactId)}&select=wa_jid&limit=1`,
+      ).catch(() => []);
+      if (contactRows?.[0]?.wa_jid && contactRows[0].wa_jid.endsWith('@c.us')) {
+        result.realChatId = contactRows[0].wa_jid;
+      }
+    }
+  } catch (err: any) {
+    ctx.log?.(`⚠️ [resolveAutomationContext] Erreur de résolution pour ${chatId}: ${err?.message || err}`);
+  }
+
+  return result;
+}
+
 /**
  * Traite la réaction ✍️ : analyse les messages et vocaux transcrits, résout les rôles,
  * compose les paroles avec le style d'élite du studio et livre directement au client en 2 bulles.
@@ -149,15 +264,27 @@ async function handleAutonomousLyricsGenerationAndDelivery(
   log(`✍️ [RÉACTION PAROLES] Début de l'analyse autonome pour ${chatId}`);
 
   try {
+    const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
+    const targetChatId = resolved.realChatId || chatId;
+
     // 1. Trouver le contact
-    const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
-      'contacts',
-      `wa_jid=eq.${encodeURIComponent(chatId)}&select=id,user_id&limit=1`,
-    ).catch(() => []);
-    const contact = contacts?.[0];
-    if (!contact) {
-      log(`✍️ Contact introuvable pour ${chatId}, envoi du texte de secours`);
-      await ctx.waha.send(session, chatId, {
+    let contactId = resolved.contactId;
+    let userId = resolved.userId;
+    if (!contactId) {
+      const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
+        'contacts',
+        `wa_jid=eq.${encodeURIComponent(targetChatId)}&select=id,user_id&limit=1`,
+      ).catch(() => []);
+      const contact = contacts?.[0];
+      if (contact) {
+        contactId = contact.id;
+        userId = contact.user_id;
+      }
+    }
+
+    if (!contactId) {
+      log(`✍️ Contact introuvable pour ${targetChatId}, envoi du texte de secours`);
+      await ctx.waha.send(session, targetChatId, {
         kind: 'text',
         text: EMOJI_AUTOMATIONS[cleanEmoji('✍️')]?.content || 'Merci de me donner votre retour sur le texte.',
       });
@@ -165,13 +292,23 @@ async function handleAutonomousLyricsGenerationAndDelivery(
     }
 
     // 2. Trouver la conversation
-    const convs = await ctx.db.queryTable?.<Array<{ id: string; user_id: string; focus_order_id: string | null }>>(
-      'conversations',
-      `contact_id=eq.${contact.id}&order=created_at.desc&limit=1`,
-    ).catch(() => []);
-    const conv = convs?.[0];
-    if (!conv) {
-      log(`✍️ Conversation introuvable pour contact ${contact.id}`);
+    let convId = resolved.conversationId;
+    let focusOrderId = resolved.focusOrderId;
+    if (!convId) {
+      const convs = await ctx.db.queryTable?.<Array<{ id: string; user_id: string; focus_order_id: string | null }>>(
+        'conversations',
+        `contact_id=eq.${encodeURIComponent(contactId)}&order=created_at.desc&limit=1`,
+      ).catch(() => []);
+      const conv = convs?.[0];
+      if (conv) {
+        convId = conv.id;
+        if (!userId) userId = conv.user_id;
+        focusOrderId = conv.focus_order_id;
+      }
+    }
+
+    if (!convId) {
+      log(`✍️ Conversation introuvable pour contact ${contactId}`);
       return { executed: false, error: 'conversation_not_found' };
     }
 
@@ -187,7 +324,7 @@ async function handleAutonomousLyricsGenerationAndDelivery(
         wa_message_key: string | null;
         created_at: string;
       }>
-    >('messages', `conversation_id=eq.${conv.id}&order=created_at.desc&limit=50`).catch(() => []);
+    >('messages', `conversation_id=eq.${encodeURIComponent(convId)}&order=created_at.desc&limit=50`).catch(() => []);
 
     const messages = (rawMessages || []).reverse();
 
@@ -255,7 +392,7 @@ async function handleAutonomousLyricsGenerationAndDelivery(
       const hasHeaderAlready = /\[\s*style\b/i.test(composed.lyrics) || /style\s*[:=\s]/i.test(composed.lyrics);
       const lyricsWithHeader = hasHeaderAlready ? composed.lyrics : `${metaHeader}\n\n${composed.lyrics}`;
       const lyricsMessage = `*« ${composed.title.toUpperCase()} »*${multiLabel}\n\n${lyricsWithHeader}`;
-      await ctx.waha.send(session, chatId, {
+      await ctx.waha.send(session, targetChatId, {
         kind: 'text',
         text: lyricsMessage,
       });
@@ -265,16 +402,16 @@ async function handleAutonomousLyricsGenerationAndDelivery(
 
       // Bulle 2 : Message de politesse et validation
       const validationMessage = `Merci de me donner votre retour sur le texte. Une fois la validation faite, la chanson sera finalisée et aucune modification ne pourra être apportée. 🙏`;
-      await ctx.waha.send(session, chatId, {
+      await ctx.waha.send(session, targetChatId, {
         kind: 'text',
         text: validationMessage,
       });
 
       // 8. Persistance dans la commande en base de données
-      let orderId = conv.focus_order_id;
+      let orderId = focusOrderId;
       if (!orderId || i > 0) {
         try {
-          orderId = await ctx.db.rpc<string>('agent_open_order', { p_conversation: conv.id });
+          orderId = await ctx.db.rpc<string>('agent_open_order', { p_conversation: convId });
         } catch {
           // ignore
         }
@@ -303,7 +440,7 @@ async function handleAutonomousLyricsGenerationAndDelivery(
       }
     }
 
-    log(`✅ [RÉACTION PAROLES ✍️ TERMINÉE AVEC SUCCÈS] : Paroles livrées à ${chatId}`);
+    log(`✅ [RÉACTION PAROLES ✍️ TERMINÉE AVEC SUCCÈS] : Paroles livrées à ${targetChatId}`);
     return { executed: true, action: 'Génération et livraison des paroles réussie' };
   } catch (err: any) {
     const errorMsg = err?.message || String(err);
@@ -331,32 +468,43 @@ async function handleMarkDelivered(
   }
 
   try {
+    const resolved = await resolveAutomationContext(ctx, chatId, _reactedKey);
+    const targetChatId = resolved.realChatId || chatId;
+
     // 1. Trouver le contact
-    const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
-      'contacts',
-      `wa_jid=eq.${encodeURIComponent(chatId)}&select=id,user_id&limit=1`,
-    ).catch(() => []);
-    const contact = contacts?.[0];
-    if (!contact) {
-      log(`🎉 Contact introuvable pour ${chatId}`);
+    let contactId = resolved.contactId;
+    if (!contactId) {
+      const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
+        'contacts',
+        `wa_jid=eq.${encodeURIComponent(targetChatId)}&select=id,user_id&limit=1`,
+      ).catch(() => []);
+      contactId = contacts?.[0]?.id;
+    }
+
+    if (!contactId) {
+      log(`🎉 Contact introuvable pour ${targetChatId}`);
       return { executed: false, error: 'contact_not_found' };
     }
 
     // 2. Trouver la conversation
-    const convs = await ctx.db.queryTable?.<Array<{ id: string }>>(
-      'conversations',
-      `contact_id=eq.${contact.id}&order=created_at.desc&limit=1`,
-    ).catch(() => []);
-    const conv = convs?.[0];
-    if (!conv) {
-      log(`🎉 Conversation introuvable pour ${chatId}`);
+    let convId = resolved.conversationId;
+    if (!convId) {
+      const convs = await ctx.db.queryTable?.<Array<{ id: string }>>(
+        'conversations',
+        `contact_id=eq.${encodeURIComponent(contactId)}&order=created_at.desc&limit=1`,
+      ).catch(() => []);
+      convId = convs?.[0]?.id;
+    }
+
+    if (!convId) {
+      log(`🎉 Conversation introuvable pour ${targetChatId}`);
       return { executed: false, error: 'conversation_not_found' };
     }
 
     // 3. Trouver la commande ouverte non livrée
     const openOrders = await ctx.db.queryTable?.<Array<{ id: string; version: number; stage: string }>>(
       'orders',
-      `conversation_id=eq.${conv.id}&stage=not.in.(delivered,closed,cancelled)&order=created_at.desc&limit=1`,
+      `conversation_id=eq.${encodeURIComponent(convId)}&stage=not.in.(delivered,closed,cancelled)&order=created_at.desc&limit=1`,
     ).catch(() => []);
     const orderToClose = openOrders?.[0];
 
@@ -398,7 +546,7 @@ async function handleMarkDelivered(
       // ancrer la frontière exacte sur la commande la plus récente
       const recentOrders = await ctx.db.queryTable?.<Array<{ id: string }>>(
         'orders',
-        `conversation_id=eq.${conv.id}&order=created_at.desc&limit=1`,
+        `conversation_id=eq.${encodeURIComponent(convId)}&order=created_at.desc&limit=1`,
       ).catch(() => []);
       if (recentOrders?.[0]?.id) {
         await ctx.db.updateRows?.(
@@ -413,11 +561,11 @@ async function handleMarkDelivered(
     // 4. Inscrire le contact comme client fidèle (is_returning = true)
     await ctx.db.updateRows?.(
       'contacts',
-      `id=eq.${contact.id}`,
+      `id=eq.${encodeURIComponent(contactId)}`,
       { is_returning: true },
     ).catch(() => undefined);
 
-    log(`✅ [COMMANDE CLÔTURÉE AVEC SUCCÈS 🎉] : Commande marquée terminée pour ${chatId}`);
+    log(`✅ [COMMANDE CLÔTURÉE AVEC SUCCÈS 🎉] : Commande marquée terminée pour ${targetChatId}`);
     return { executed: true, action: 'Confirmation livraison & clôture commande' };
   } catch (err: any) {
     const errorMsg = err?.message || String(err);
@@ -452,25 +600,47 @@ async function handleConfirmAndProduceSong(
   log(`⭐ [RÉACTION PRODUCTION MUSICALE] Traitement pour ${chatId} (clé réagie : ${reactedKey || 'aucune'})`);
 
   try {
+    const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
+    const targetChatId = resolved.realChatId || chatId;
+
     // 1. Trouver le contact
-    const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
-      'contacts',
-      `wa_jid=eq.${encodeURIComponent(chatId)}&select=id,user_id&limit=1`,
-    ).catch(() => []);
-    const contact = contacts?.[0];
-    if (!contact) {
-      log(`⭐ Contact introuvable pour ${chatId}`);
+    let contactId = resolved.contactId;
+    let userId = resolved.userId;
+    if (!contactId) {
+      const contacts = await ctx.db.queryTable?.<Array<{ id: string; user_id: string }>>(
+        'contacts',
+        `wa_jid=eq.${encodeURIComponent(targetChatId)}&select=id,user_id&limit=1`,
+      ).catch(() => []);
+      const contact = contacts?.[0];
+      if (contact) {
+        contactId = contact.id;
+        userId = contact.user_id;
+      }
+    }
+
+    if (!contactId) {
+      log(`⭐ Contact introuvable pour ${targetChatId}`);
       return { executed: false, error: 'contact_not_found' };
     }
 
     // 2. Trouver la conversation
-    const convs = await ctx.db.queryTable?.<Array<{ id: string; user_id: string; focus_order_id: string | null }>>(
-      'conversations',
-      `contact_id=eq.${contact.id}&order=created_at.desc&limit=1`,
-    ).catch(() => []);
-    const conv = convs?.[0];
-    if (!conv) {
-      log(`⭐ Conversation introuvable pour ${chatId}`);
+    let convId = resolved.conversationId;
+    let focusOrderId = resolved.focusOrderId;
+    if (!convId) {
+      const convs = await ctx.db.queryTable?.<Array<{ id: string; user_id: string; focus_order_id: string | null }>>(
+        'conversations',
+        `contact_id=eq.${encodeURIComponent(contactId)}&order=created_at.desc&limit=1`,
+      ).catch(() => []);
+      const conv = convs?.[0];
+      if (conv) {
+        convId = conv.id;
+        if (!userId) userId = conv.user_id;
+        focusOrderId = conv.focus_order_id;
+      }
+    }
+
+    if (!convId) {
+      log(`⭐ Conversation introuvable pour ${targetChatId}`);
       return { executed: false, error: 'conversation_not_found' };
     }
 
@@ -493,7 +663,7 @@ async function handleConfirmAndProduceSong(
     if (!lyrics || lyrics.length < 50) {
       const recentMsgs = await ctx.db.queryTable?.<Array<{ id: string; body: string | null; transcript: string | null }>>(
         'messages',
-        `conversation_id=eq.${conv.id}&order=created_at.desc&limit=15&select=id,body,transcript`,
+        `conversation_id=eq.${encodeURIComponent(convId)}&order=created_at.desc&limit=15&select=id,body,transcript`,
       ).catch(() => []);
       const candidate = (recentMsgs || []).find((m) => {
         const text = m.transcript || m.body || '';
@@ -509,7 +679,7 @@ async function handleConfirmAndProduceSong(
     }
 
     if (!lyrics) {
-      log(`⭐ Aucune parole trouvée pour lancer la production musicale vers ${chatId}`);
+      log(`⭐ Aucune parole trouvée pour lancer la production musicale vers ${targetChatId}`);
       return { executed: false, error: 'lyrics_not_found' };
     }
 
@@ -522,10 +692,10 @@ async function handleConfirmAndProduceSong(
     // Si le style ou la voix ne sont pas indiqués dans le message de paroles,
     // interroger la commande existante et les derniers messages de la discussion
     if (!style || !voice) {
-      if (conv.focus_order_id) {
+      if (focusOrderId) {
         const orderRows = await ctx.db.queryTable?.<Array<{ style: string | null; voice: string | null }>>(
           'orders',
-          `id=eq.${conv.focus_order_id}&select=style,voice&limit=1`,
+          `id=eq.${encodeURIComponent(focusOrderId)}&select=style,voice&limit=1`,
         ).catch(() => []);
         if (orderRows?.[0]) {
           if (!style && orderRows[0].style) style = orderRows[0].style;
@@ -540,7 +710,7 @@ async function handleConfirmAndProduceSong(
 
       const recentMsgs = await ctx.db.queryTable?.<Array<{ body: string | null; transcript: string | null; direction: string }>>(
         'messages',
-        `conversation_id=eq.${conv.id}&order=created_at.desc&limit=25&select=body,transcript,direction`,
+        `conversation_id=eq.${encodeURIComponent(convId)}&order=created_at.desc&limit=25&select=body,transcript,direction`,
       ).catch(() => []);
 
       for (const m of (recentMsgs || [])) {
@@ -590,17 +760,17 @@ async function handleConfirmAndProduceSong(
     }
 
     // 5. Trouver ou créer la commande cible
-    let orderId = conv.focus_order_id;
+    let orderId = focusOrderId;
     if (!orderId) {
       const openOrders = await ctx.db.queryTable?.<Array<{ id: string }>>(
         'orders',
-        `conversation_id=eq.${conv.id}&stage=not.in.(delivered,closed,cancelled)&order=created_at.desc&limit=1`,
+        `conversation_id=eq.${encodeURIComponent(convId)}&stage=not.in.(delivered,closed,cancelled)&order=created_at.desc&limit=1`,
       ).catch(() => []);
       orderId = openOrders?.[0]?.id || null;
     }
     if (!orderId) {
       try {
-        orderId = await ctx.db.rpc<string>('agent_open_order', { p_conversation: conv.id });
+        orderId = await ctx.db.rpc<string>('agent_open_order', { p_conversation: convId });
       } catch {
         // ignore
       }
@@ -627,11 +797,11 @@ async function handleConfirmAndProduceSong(
     void startBackgroundProduction({
       apiKey,
       db: ctx.db,
-      orderId: orderId || conv.id,
-      userId: conv.user_id,
-      conversationId: conv.id,
+      orderId: orderId || convId,
+      userId: userId || '',
+      conversationId: convId,
       sessionName: session,
-      chatId,
+      chatId: targetChatId,
       title,
       style: finalStyle,
       voice: finalVoice,
@@ -668,16 +838,20 @@ export async function executeEmojiAutomation(
 
   const log = ctx.log ?? logFn;
 
-  if (!shouldProcessReaction(reactedKey, emoji)) {
+  if (!shouldProcessReaction(reactedKey || chatId, emoji)) {
     log?.('[reaction-automation] Doublon ignoré', { reactedKey, emoji });
     return { executed: false, action: 'deduplicated' };
   }
 
-  log?.(`⚡ [ACTION DÉCLENCHÉE PAR RÉACTION ${rawEmoji}] : "${action.label}" vers ${chatId}`);
+  // Résolution haute fidélité du vrai chatId (@c.us) et du contexte
+  const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
+  const targetChatId = resolved.realChatId || chatId;
+
+  log?.(`⚡ [ACTION DÉCLENCHÉE PAR RÉACTION ${rawEmoji}] : "${action.label}" vers ${targetChatId} (source: ${chatId})`);
 
   try {
     if (action.type === 'custom' && action.execute) {
-      return await action.execute(ctx, session, chatId, reactedKey);
+      return await action.execute(ctx, session, targetChatId, reactedKey);
     }
 
     if (!ctx.waha) {
@@ -686,15 +860,15 @@ export async function executeEmojiAutomation(
     }
 
     if (action.type === 'text' && action.content) {
-      await ctx.waha.send(session, chatId, { kind: 'text', text: action.content });
+      await ctx.waha.send(session, targetChatId, { kind: 'text', text: action.content });
     } else if (action.type === 'voice' && action.url) {
-      await ctx.waha.send(session, chatId, {
+      await ctx.waha.send(session, targetChatId, {
         kind: 'voice',
         url: action.url,
         mimetype: 'audio/ogg; codecs=opus',
       });
     } else if (action.type === 'video' && action.url) {
-      await ctx.waha.send(session, chatId, {
+      await ctx.waha.send(session, targetChatId, {
         kind: 'video',
         url: action.url,
         mimetype: 'video/mp4',

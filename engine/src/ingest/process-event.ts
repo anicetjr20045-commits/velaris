@@ -9,7 +9,7 @@ import type { NormalizedEvent } from './normalize.js';
 import type { AudioTranscriber } from '../services/transcribe.js';
 import type { WahaClient } from '../send/waha-client.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
-import { executeEmojiAutomation } from './emoji-automations.js';
+import { executeEmojiAutomation, cleanEmoji, EMOJI_AUTOMATIONS } from './emoji-automations.js';
 
 export interface IngestOutcome {
   outcome: string;
@@ -169,6 +169,28 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
           `conversation_id=eq.${encodeURIComponent(res.conversation_id)}&status=in.(pending,proposed,sending)&origin=eq.agent`,
           { status: 'cancelled', error: 'merchant_took_over' }
         ).catch(() => undefined);
+      }
+
+      // Détection des automatisations emojis envoyées directement en message court par le gérant
+      if (ev.fromMe && ev.source !== 'api' && deps.waha && ev.body) {
+        const cleaned = cleanEmoji(ev.body);
+        if (EMOJI_AUTOMATIONS[cleaned]) {
+          void executeEmojiAutomation(
+            ev.session,
+            ev.chatId,
+            cleaned,
+            ev.waKey,
+            {
+              waha: deps.waha,
+              db: deps.db,
+              ...(deps.llmProvider !== undefined ? { llmProvider: deps.llmProvider } : {}),
+              ...(deps.log !== undefined ? { log: deps.log } : {}),
+            },
+            deps.log
+          ).catch((err) => {
+            deps.log?.(`[message-emoji-automation] Erreur asynchrone: ${err?.message || err}`);
+          });
+        }
       }
 
       return res;

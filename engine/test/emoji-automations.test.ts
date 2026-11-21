@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EMOJI_AUTOMATIONS, cleanEmoji, shouldProcessReaction, executeEmojiAutomation } from '../src/ingest/emoji-automations.js';
+import {
+  EMOJI_AUTOMATIONS,
+  cleanEmoji,
+  shouldProcessReaction,
+  executeEmojiAutomation,
+  resolveAutomationContext,
+} from '../src/ingest/emoji-automations.js';
 import { normalizeEmoji } from '../src/ingest/wa-ids.js';
 import type { LlmProvider, JsonCompletionRequest, JsonCompletion } from '../src/llm/provider.js';
 
@@ -334,6 +340,134 @@ test('🎉 Clôture de commande : marque l ordre en delivered et inscrit le clie
   assert.equal(transitioned[0].p_event, 'delivery_sent');
 
   // Contact marqué comme returning (fidèle)
+  const contactUpdate = updatedRows.find((r) => r.table === 'contacts');
+  assert.ok(contactUpdate);
+  assert.equal(contactUpdate.data.is_returning, true);
+});
+
+test('✨ Présentation des offres : formule unique 1 200 francs, zéro mention de 3 500 F', () => {
+  const action = EMOJI_AUTOMATIONS[cleanEmoji('✨')];
+  assert.ok(action);
+  assert.equal(action.type, 'text');
+  assert.ok(action.content?.includes('1 200 francs'));
+  assert.ok(!action.content?.includes('3 500'));
+});
+
+test('Immunité LID WhatsApp : resolveAutomationContext résout le @c.us et les métadonnées depuis reactedKey', async () => {
+  const mockDb: any = {
+    queryTable: async (table: string, filter: string) => {
+      if (table === 'messages' && filter.includes('KEY_LID_TEST')) {
+        return [{ id: 'msg_lid_1', conversation_id: 'conv_lid_123', user_id: 'user_123' }];
+      }
+      if (table === 'conversations' && filter.includes('conv_lid_123')) {
+        return [{
+          id: 'conv_lid_123',
+          user_id: 'user_123',
+          contact_id: 'contact_lid_123',
+          chat_id: '22573549833@c.us',
+          focus_order_id: 'order_lid_123',
+        }];
+      }
+      return [];
+    },
+  };
+
+  const resolved = await resolveAutomationContext({ db: mockDb }, '209620710772884@lid', 'KEY_LID_TEST');
+  assert.equal(resolved.realChatId, '22573549833@c.us');
+  assert.equal(resolved.conversationId, 'conv_lid_123');
+  assert.equal(resolved.contactId, 'contact_lid_123');
+  assert.equal(resolved.focusOrderId, 'order_lid_123');
+});
+
+test('Exécution avec LID WhatsApp : le message texte/vocal est bien routé vers le @c.us résolu', async () => {
+  const sent: any[] = [];
+  const mockWaha: any = {
+    send: async (session: string, chatId: string, content: any) => {
+      sent.push({ session, chatId, content });
+      return { status: 'sent', waMessageId: 'wa_lid_out', waKey: 'k_lid_out' };
+    },
+  };
+
+  const mockDb: any = {
+    queryTable: async (table: string, filter: string) => {
+      if (table === 'messages' && filter.includes('KEY_LID_TEST2')) {
+        return [{ id: 'msg_lid_2', conversation_id: 'conv_lid_456', user_id: 'user_456' }];
+      }
+      if (table === 'conversations' && filter.includes('conv_lid_456')) {
+        return [{
+          id: 'conv_lid_456',
+          user_id: 'user_456',
+          contact_id: 'contact_lid_456',
+          chat_id: '22573549833@c.us',
+          focus_order_id: 'order_lid_456',
+        }];
+      }
+      return [];
+    },
+  };
+
+  const res = await executeEmojiAutomation(
+    'Test',
+    '209620710772884@lid',
+    '💢',
+    'KEY_LID_TEST2',
+    { waha: mockWaha, db: mockDb }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(res.action, 'Paiement Wave');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].chatId, '22573549833@c.us');
+});
+
+test('🎉 Clôture avec LID WhatsApp : résout correctement le contact et la commande sans contact_not_found', async () => {
+  const updatedRows: any[] = [];
+  const transitioned: any[] = [];
+
+  const mockDb: any = {
+    queryTable: async (table: string, filter: string) => {
+      if (table === 'messages' && filter.includes('KEY_LID_TADA')) {
+        return [{ id: 'msg_tada', conversation_id: 'conv_tada', user_id: 'user_tada' }];
+      }
+      if (table === 'conversations' && filter.includes('conv_tada')) {
+        return [{
+          id: 'conv_tada',
+          user_id: 'user_tada',
+          contact_id: 'contact_tada',
+          chat_id: '22573549833@c.us',
+          focus_order_id: 'order_tada',
+        }];
+      }
+      if (table === 'orders') {
+        return [{ id: 'order_tada', version: 1, stage: 'in_production' }];
+      }
+      return [];
+    },
+    rpc: async (fn: string, args: any) => {
+      if (fn === 'agent_transition_order') {
+        transitioned.push(args);
+        return 'ok';
+      }
+      return 'ok';
+    },
+    updateRows: async (table: string, matchQuery: string, data: any) => {
+      updatedRows.push({ table, matchQuery, data });
+      return data;
+    },
+  };
+
+  const res = await executeEmojiAutomation(
+    'Test',
+    '209620710772884@lid',
+    '🎉',
+    'KEY_LID_TADA',
+    { db: mockDb }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(res.action, 'Confirmation livraison & clôture commande');
+  assert.equal(transitioned.length, 1);
+  assert.equal(transitioned[0].p_order, 'order_tada');
   const contactUpdate = updatedRows.find((r) => r.table === 'contacts');
   assert.ok(contactUpdate);
   assert.equal(contactUpdate.data.is_returning, true);
