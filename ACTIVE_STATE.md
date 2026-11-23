@@ -24,8 +24,9 @@
 
 ## 🎯 Statut Actuel & Point de Reprise
 
-- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 23 Novembre 2026 (19:02 UTC)
+- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
+- **Dernière mise à jour** : 23 Novembre 2026 (19:05 UTC)
+- **Déploiement Production Vercel Validé** : `https://velaris-dun.vercel.app` (HTTP 200, Commit `e7fa072`).
 - **Intégration d'un Vrai Menu Applicatif (Sidebar Fixe Desktop & Drawer Mobile Hamburger)** :
   1. **Menu Latéral Professionnel (Desktop Sidebar `w-72`)** :
      - En-tête de marque avec le monogramme géométrique `V` sculpté en obsidienne et or champagne, et le titre `VELARIS STUDIO OS`.
