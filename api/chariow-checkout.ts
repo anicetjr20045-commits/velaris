@@ -26,8 +26,11 @@ function getEnvConfig() {
   return { apiKey, productId };
 }
 
-function parsePhoneAndCountry(rawPhone: string): { number: string; countryCode: string } {
+function parsePhoneAndCountry(rawPhone: string, hintCountry?: string): { number: string; countryCode: string } {
   const digits = rawPhone.replace(/\D/g, '');
+  if (hintCountry && hintCountry.length === 2) {
+    return { number: digits, countryCode: hintCountry.toUpperCase() };
+  }
   if (digits.startsWith('226')) return { number: digits.slice(3) || digits, countryCode: 'BF' };
   if (digits.startsWith('225')) return { number: digits.slice(3) || digits, countryCode: 'CI' };
   if (digits.startsWith('221')) return { number: digits.slice(3) || digits, countryCode: 'SN' };
@@ -36,7 +39,11 @@ function parsePhoneAndCountry(rawPhone: string): { number: string; countryCode: 
   if (digits.startsWith('228')) return { number: digits.slice(3) || digits, countryCode: 'TG' };
   if (digits.startsWith('229')) return { number: digits.slice(3) || digits, countryCode: 'BJ' };
   if (digits.startsWith('224')) return { number: digits.slice(3) || digits, countryCode: 'GN' };
+  if (digits.startsWith('241')) return { number: digits.slice(3) || digits, countryCode: 'GA' };
+  if (digits.startsWith('242')) return { number: digits.slice(3) || digits, countryCode: 'CG' };
+  if (digits.startsWith('243')) return { number: digits.slice(3) || digits, countryCode: 'CD' };
   if (digits.startsWith('33')) return { number: digits.slice(2) || digits, countryCode: 'FR' };
+  if (digits.startsWith('1')) return { number: digits.slice(1) || digits, countryCode: 'US' };
   return { number: digits, countryCode: 'BF' };
 }
 
@@ -66,7 +73,8 @@ export default async function handler(req: any, res: any) {
 
   const [firstName, ...rest] = fullName.split(/\s+/);
   const lastName = rest.join(' ') || firstName || 'Client';
-  const { number: phoneNumber, countryCode } = parsePhoneAndCountry(rawPhone);
+  const hintCountry = String(body.countryCode || '').trim().toUpperCase();
+  const { number: phoneNumber, countryCode } = parsePhoneAndCountry(rawPhone, hintCountry);
 
   const chariowPayload = {
     product_id: config.productId,

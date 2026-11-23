@@ -123,20 +123,25 @@ const KIND_TO_TYPE: Record<string, CreditTransaction['type']> = {
 
 function mapSubscription(p: any, lastPayment?: any): SubscriptionInfo {
   if (!p?.subscription_plan || p.subscription_plan === 'free' || !p.subscription_expires_at) return NO_SUBSCRIPTION;
-  const isPro = p.subscription_plan === 'pro' || p.subscription_plan === 'quarterly';
-  const plan = isPro ? (SASPAY_CONFIG.plans.pro || SASPAY_CONFIG.plans.quarterly) : (SASPAY_CONFIG.plans.start || SASPAY_CONFIG.plans.monthly);
+  const isChariowMonthly = p.subscription_plan === 'monthly';
+  const isPro = p.subscription_plan === 'pro' || p.subscription_plan === 'quarterly' || isChariowMonthly;
+  const plan = isChariowMonthly
+    ? { id: 'monthly' as SubscriptionPlanId, name: 'Pass Créateur Djelia Academy', priceXOF: 4900, durationDays: 30 }
+    : isPro
+      ? (SASPAY_CONFIG.plans.pro || SASPAY_CONFIG.plans.quarterly)
+      : (SASPAY_CONFIG.plans.start || SASPAY_CONFIG.plans.monthly);
   const expired = new Date(p.subscription_expires_at).getTime() < Date.now();
   const renew = readRenewalPref();
   return {
     planId: plan.id,
     planName: plan.name,
     priceXOF: plan.priceXOF,
-    status: expired ? 'expired' : p.subscription_status === 'CANCELED' || !renew ? 'canceled' : 'active',
+    status: expired ? 'expired' : p.subscription_status === 'CANCELED' ? 'canceled' : 'active',
     startedAt: new Date(new Date(p.subscription_expires_at).getTime() - plan.durationDays * 86400000).toISOString(),
     expiresAt: p.subscription_expires_at,
     autoRenew: renew && !expired,
     lastPaymentRef: lastPayment?.transaction_ref || undefined,
-    lastPaymentMethod: lastPayment ? 'SasPay Mobile Money' : undefined,
+    lastPaymentMethod: lastPayment?.transaction_ref?.startsWith('CHARIOW') ? 'Chariow Mobile Money' : 'Mobile Money',
   };
 }
 

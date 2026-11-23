@@ -9,6 +9,7 @@ export interface ChariowCheckoutOptions {
   email: string;
   fullName?: string;
   phone?: string;
+  countryCode?: string;
   redirectUrl?: string;
 }
 
@@ -34,6 +35,7 @@ export async function initiateChariowCheckout(options: ChariowCheckoutOptions): 
         email: options.email,
         fullName: options.fullName,
         phone: options.phone,
+        countryCode: options.countryCode,
         redirectUrl,
       }),
     });

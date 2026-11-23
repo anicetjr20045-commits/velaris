@@ -42,7 +42,7 @@ import { getLiveConversations } from '../services/supabase';
 import { useStudioLive } from '../hooks/useStudioLive';
 import { applyReadState, useReadState } from '../services/readState';
 import { getStudioSubscription, subscribeToBilling } from '../services/billing';
-import { createSubscriptionCheckout } from '../services/saspay';
+import { initiateChariowCheckout } from '../services/chariow';
 
 const EMPTY_STUDIO_METRICS: StudioMetrics = {
   totalRevenue: 0,
@@ -117,10 +117,10 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
   }, []);
 
   const isPro = useMemo(() => {
-    // Si l'utilisateur est admin ou a un abonnement Pro actif
+    // Si l'utilisateur est admin ou a un abonnement actif (Pass Créateur Chariow ou Pro)
     if (user?.email && (user.email.includes('admin') || user.email.includes('anicet'))) return true;
     if (user?.user_metadata?.plan === 'pro') return true;
-    return subscription.status === 'active' && (subscription.planId === 'pro' || subscription.planId === 'quarterly');
+    return subscription.status === 'active';
   }, [subscription, user]);
 
   // Synchronisation avec l'onglet initial si transmis par le parent
@@ -186,11 +186,20 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     setIsUpgrading(true);
     setUpgradeError(null);
     try {
-      const res = await createSubscriptionCheckout('pro');
+      const res = await initiateChariowCheckout({
+        userId: user.id,
+        email: user.email || '',
+        fullName:
+          (user.user_metadata?.studio_name as string) ||
+          (user.user_metadata?.full_name as string) ||
+          'Créateur Djelia',
+        phone: (user.user_metadata?.phone as string) || '',
+        redirectUrl: `${window.location.origin}/studio?payment=success&sale_id={sale_id}`,
+      });
       if (res.success && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+        window.location.assign(res.checkoutUrl);
       } else {
-        setUpgradeError(res.error || 'Erreur lors de l\'initialisation du paiement');
+        setUpgradeError(res.error || 'Erreur lors de l\'initialisation du paiement Chariow');
       }
     } catch (err: any) {
       setUpgradeError(err?.message || 'Erreur inconnue');

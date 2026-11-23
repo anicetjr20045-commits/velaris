@@ -20,6 +20,7 @@ import { ShieldCheck } from 'lucide-react';
 import { PlaygroundView } from './components/PlaygroundView';
 import { ConversationsView } from './components/ConversationsView';
 import { MiniSiteView } from './components/MiniSiteView';
+import { PaymentSuccessModal } from './components/PaymentSuccessModal';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
@@ -182,6 +183,13 @@ export function App() {
     if (typeof window === 'undefined') return false;
     const urlParams = new URLSearchParams(window.location.search);
     return Boolean(urlParams.get('listen'));
+  });
+
+  // Détection retour de paiement Chariow réussi (?payment=success ou ?sale_id=...)
+  const [isPaymentSuccessModalOpen, setIsPaymentSuccessModalOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const p = new URLSearchParams(window.location.search);
+    return p.get('payment') === 'success' || Boolean(p.get('sale_id'));
   });
 
   useEffect(() => {
@@ -671,6 +679,18 @@ export function App() {
 
       {/* Authentication & Studio Creation Modal */}
       <AuthModal />
+
+      {/* Célébration & Redirection Automatique après Paiement Chariow */}
+      {isPaymentSuccessModalOpen && (
+        <PaymentSuccessModal
+          onDismiss={() => setIsPaymentSuccessModalOpen(false)}
+          onEnterStudio={() => {
+            setIsPaymentSuccessModalOpen(false);
+            changeTab('studio', 'studio_ai');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
     </div>
   );
 }
