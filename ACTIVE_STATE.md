@@ -25,7 +25,31 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (16:41 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (17:15 UTC)
+- **Isolation Stricte du Menu Public & Coupure d'Accès à Expiration (Pass Créateur 4 900 F CFA)** :
+  1. **Purge Intégrale de la Barre Publique (`src/components/Navbar.tsx`)** :
+     - Élimination totale des liens de navigation interne (Accueil, Académie, WhatsApp, Ventes, Copilot) et du tiroir mobile pour les visiteurs publics et non abonnés.
+     - La barre publique n'affiche que le logo `DJELIA ACADEMY` et les boutons d'action (« Connexion » / « Rejoindre l'Académie » ou « Activer mon Pass (4 900 F) »).
+     - Le menu complet de navigation (Studio IA, Commandes, Audio, WhatsApp, Académie, Copilot, etc.) est **strictement réservé aux membres abonnés actifs**.
+  2. **Coupure Déterministe d'Accès & Porte Pleine Page (`src/components/DjeliaAppLayout.tsx`)** :
+     - Vérification stricte `isPro` : requiert un abonnement actif (`subscription_status === 'ACTIVE'`) ET une date d'échéance non dépassée (`expiresAt > Date.now()`).
+     - Les utilisateurs non abonnés ou dont l'abonnement a expiré sont physiquement bloqués à l'entrée : aucun onglet interne ni barre latérale n'est rendu.
+     - Affichage d'un bandeau rouge d'alerte en cas d'expiration indiquant la suspension temporaire des accès et un bouton direct de réactivation.
+  3. **Cockpit d'Abonnement Détaillé dans le Profil (`src/components/StudioProfileView.tsx`)** :
+     - Carte dédiée « Pass Créateur Djelia Academy » affichant :
+       - Statut en temps réel (badge vert émeraude `Actif` ou rose `Expiré`).
+       - Date exacte de début et date d'expiration formatée en français.
+       - Compteur dynamique de jours restants avec alerte ambre si <= 5 jours et rouge si expiré.
+       - Solde de crédits restants (30 crédits inclus à l'adhésion).
+       - Bouton direct « Renouveler mon Pass (4 900 F CFA) » ouvrant instantanément Chariow.
+  4. **API Automatisée & Tâche Cron d'Expiration (`api/check-expirations.ts` & `vercel.json`)** :
+     - Route `/api/check-expirations` exécutée automatiquement chaque jour à 09:00 UTC via Vercel Cron.
+     - Scan de tous les utilisateurs via Supabase Auth Admin :
+       - Si expiré (`expDate <= now`) : statut basculé en `EXPIRED`, accès coupé, et notification WhatsApp d'interruption envoyée via WAHA.
+       - Si expiration proche (`<= 3 jours`) : rappel préventif automatique envoyé sur WhatsApp avec décompte de jours restants et lien direct de renouvellement.
+  5. **Architecture Résiliente user_metadata-first** :
+     - Synchronisation directe de `subscription_status`, `subscription_expires_at` et `credits` dans `user_metadata` Supabase Auth.
+     - Indépendance totale vis-à-vis des schémas SQL distants pour garantir un fonctionnement sans faille à tout instant.
 - **Intégration Paiement Mobile Money Chariow (Pass Créateur 4 900 F CFA / mois)** :
   1. **Passerelle Chariow Validée & Opérationnelle (`api/chariow-checkout.ts`)** :
      - Produit vérifié via l'API Chariow : `prd_bh3vpcup` (« Djelia abonnement academy », 4 900 F CFA, type `license`).
