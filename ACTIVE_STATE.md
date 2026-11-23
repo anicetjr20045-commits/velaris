@@ -25,22 +25,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (16:07 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (16:41 UTC)
 - **Intégration Paiement Mobile Money Chariow (Pass Créateur 4 900 F CFA / mois)** :
   1. **Passerelle Chariow Validée & Opérationnelle (`api/chariow-checkout.ts`)** :
      - Produit vérifié via l'API Chariow : `prd_bh3vpcup` (« Djelia abonnement academy », 4 900 F CFA, type `license`).
      - Clé API configurée côté serveur Vercel et `.env.local` (`CHARIOW_API_KEY`).
-     - Session de paiement Mobile Money (Wave, Orange Money, Moov, MTN, Carte) générée dynamiquement avec redirection checkout Orqex.
-  2. **Webhook & Réconciliation Double-Filet (`api/chariow-webhook.ts` & `api/chariow-verify.ts`)** :
-     - URL de webhook sécurisée par jeton : `https://velaris-dun.vercel.app/api/chariow-webhook?token=chariow_sec_djelia_2026_9dc757c6`.
+     - Prise en charge universelle des pays d'Afrique de l'Ouest (BF, CI, SN, ML, BJ, TG, GN), d'Afrique Centrale (CM, GA, CG, CD) et de la Diaspora (FR, US).
+     - Session de paiement Mobile Money (Wave, Orange Money, Moov, MTN, Airtel, M-Pesa, Carte) générée dynamiquement avec redirection checkout Orqex.
+  2. **Webhook Sécurisé HMAC & Réconciliation Double-Filet (`api/chariow-webhook.ts` & `api/chariow-verify.ts`)** :
+     - Secret Webhook officiel Chariow configuré : `whsec_Len2tOYxtMT83018eqEwbtv7eCwvCrITfZxoFp8S` (Production, Preview, Dev, `.env.local`).
+     - Vérification de signature cryptographique HMAC SHA256 (`X-Chariow-Signature`).
      - Événements `successful.sale` et `license.activated` : activation du profil (`subscription_status = 'ACTIVE'`, durée 30 jours renouvelable) + crédit immédiat de **30 crédits** de production.
      - Endpoint de vérification instantanée au retour de redirection (`/api/chariow-verify?sale_id=...`) : activation immédiate sans attendre le webhook.
      - Enregistrement comptable dans le grand livre `credit_transactions` (idempotence garantie sur `sale_id`).
      - Notification de célébration envoyée directement sur le WhatsApp du créateur via WAHA.
-  3. **Branchement Frontend (`src/services/chariow.ts`, `LandingPage.tsx`, `StudioProfileView.tsx`)** :
-     - Boutons d'action « Activer mon Pass Créateur (4 900 F CFA / mois) » sur la landing page et le cockpit profil.
-     - Redirection fluide vers le checkout sécurisé Chariow pour les utilisateurs connectés, et invitation préalable à l'inscription si non connecté.
-     - Écouteur automatique de retour de paiement sur `/studio?payment=success&sale_id=...` avec feedback visuel en temps réel.
+  3. **Paywall de Luxe Pass Créateur avec Sélecteur Pays & Drapeaux (`src/components/PlanGate.tsx`)** :
+     - Remplacement de l'ancien panneau générique par un écran de vente de haute facture.
+     - Sélecteur de pays avec drapeaux nationaux, indicatifs et badges des opérateurs Mobile Money locaux.
+     - Bento 4 Piliers inclus (30 crédits, Suno V6, WhatsApp 24/7, mini-site & affiliation 25%).
+     - Bouton d'action doré luxueux « Activer mon Pass (4 900 F CFA) » avec appel direct à Chariow.
+  4. **Modal de Célébration & Redirection Automatique (`src/components/PaymentSuccessModal.tsx` & `src/App.tsx`)** :
+     - Détection instantanée du retour de paiement réussi via `?payment=success&sale_id=...`.
+     - Vérification atomique en direct auprès de Chariow, affichage de l'animation de succès, du solde crédité (+30 crédits) et de la validité 30 jours.
+     - Décompte automatique de 4 secondes avec redirection fluide vers l'intérieur du studio (`studio_ai`).
 - **Refonte Front-End Élite & Hiérarchie d'Authentification (`src/components/AuthModal.tsx`)** :
   1. **Purge du Double Étage d'Onglets & Hiérarchie Visuelle Impeccable** :
      - Élimination de la superposition confuse de deux rangées de boutons.
