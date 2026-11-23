@@ -25,7 +25,25 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 23 Novembre 2026 (18:55 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (19:02 UTC)
+- **Intégration d'un Vrai Menu Applicatif (Sidebar Fixe Desktop & Drawer Mobile Hamburger)** :
+  1. **Menu Latéral Professionnel (Desktop Sidebar `w-72`)** :
+     - En-tête de marque avec le monogramme géométrique `V` sculpté en obsidienne et or champagne, et le titre `VELARIS STUDIO OS`.
+     - Structuration par groupes hiérarchiques discrets :
+       - `PILOTAGE DU STUDIO` :
+         - `Académie & Cursus` (badge `4 Modules`, icône `GraduationCap`).
+         - `Studio IA de Musique` (badge `Suno V6`, icône `Music2`).
+         - `Mon WhatsApp & Pilote` (badge `Actif 24/7`, icône `Smartphone`).
+       - `ESPACE MEMBRE & GESTION` :
+         - `Mon Compte & Abonnement` (badge solde dynamique e.g. `30 crédits`, icône `UserCircle`).
+         - `Voir le site public` (icône `Globe` avec flèche de sortie).
+     - Rendu actif haute visibilité : liseré doré champagne gauche, fond légèrement illuminé, typographie soignée.
+     - Widget Profil utilisateur en bas de sidebar : Initiales stylisées dans un médaillon doré, nom du studio ou email, badge vert émeraude `Pass Créateur Actif`, et bouton de déconnexion.
+  2. **Drawer Mobile Plein Format avec Bouton Hamburger** :
+     - Barre supérieure mobile intégrant le bouton Hamburger (`Menu` icône), fil d'ariane dynamique et badge de crédits.
+     - Tiroir coulissant sur-mesure avec backdrop-blur sombre et fermeture par swipe ou clic extérieur.
+  3. **Zero Clutter & Zero Fatigue Visuelle** :
+     - Tout en offrant un menu complet et structuré, le contenu central reste d'une netteté absolue (Académie sans surcharge, Studio IA direct, WhatsApp QR épuré).
 - **Refonte Intérieure Épurée & Minimaliste (Zero Clutter & Expérience Directe)** :
   1. **Purge des Discussions du Site & Suppression du Plein Écran Chat** :
      - Élimination intégrale du panneau lourd de conversations WhatsApp (`ConversationsView`, 132 Ko) à l'intérieur du site. Le créateur gère ses clients directement sur son application WhatsApp réelle.
