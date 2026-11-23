@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FC } from 'react';
 import { LogIn, Menu, ShieldCheck, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { VelarisMark } from './VelarisMark';
 import { SonarGlyph } from './SonarMascot';
 
 type NavTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
@@ -16,13 +15,13 @@ interface NavbarProps {
 
 const NAV_ITEMS: { id: NavTab; label: string }[] = [
   { id: 'home', label: 'Accueil' },
-  { id: 'studio', label: 'Atelier' },
-  { id: 'cockpit', label: 'Cockpit' },
+  { id: 'academy', label: '01 Académie' },
+  { id: 'studio', label: '02 WhatsApp' },
+  { id: 'cockpit', label: '03 Ventes' },
   { id: 'copilot', label: 'Copilot' },
-  { id: 'academy', label: 'Académie' },
 ];
 
-const WHATSAPP_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Velaris, je souhaite créer une chanson personnalisée.');
+const WHATSAPP_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Djelia, je souhaite créer une chanson personnalisée.');
 
 export const Navbar: FC<NavbarProps> = ({
   activeTab,
@@ -83,10 +82,14 @@ export const Navbar: FC<NavbarProps> = ({
           type="button"
           onClick={() => handleNavClick('home')}
           className="group flex shrink-0 items-center gap-2.5 select-none cursor-pointer"
-          aria-label="Velaris, accueil"
+          aria-label="Djelia Academy, accueil"
         >
-          <VelarisMark className="h-7 w-7 text-white transition-transform duration-500 ease-luxury group-hover:rotate-[24deg]" />
-          <span className="font-heading text-[17px] font-bold tracking-tight text-white">Velaris</span>
+          <div className="h-7 w-7 rounded-lg bg-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-xs">
+            D
+          </div>
+          <span className="font-heading text-[17px] font-bold tracking-tight text-white">
+            DJELIA <span className="text-[#D4A017] font-mono text-xs">ACADEMY</span>
+          </span>
         </button>
 
         {/* Navigation desktop */}
@@ -253,7 +256,7 @@ export const Navbar: FC<NavbarProps> = ({
                 className="w-full flex items-center justify-center gap-2 rounded-full border border-white/[0.15] py-3 text-xs font-medium text-white cursor-pointer"
               >
                 <LogIn className="h-3.5 w-3.5" />
-                Connexion à l'espace studio
+                Connexion à l'espace membre
               </button>
             )}
           </div>
