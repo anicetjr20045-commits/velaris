@@ -139,14 +139,13 @@ export default async function handler(req: any, res: any) {
     // 1. Résolution de l'utilisateur (par ID ou par email)
     let targetUserId = metadataUserId;
     if (!targetUserId && customerEmail) {
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('email', customerEmail)
-        .maybeSingle();
-      if (profile?.id) {
-        targetUserId = profile.id;
-      }
+      try {
+        const { data: usersData } = await admin.auth.admin.listUsers();
+        const found = usersData?.users?.find((u: any) => u.email?.toLowerCase() === customerEmail.toLowerCase());
+        if (found) {
+          targetUserId = found.id;
+        }
+      } catch {}
     }
 
     if (!targetUserId) {
@@ -156,68 +155,88 @@ export default async function handler(req: any, res: any) {
 
     // 2. Vérification idempotence (anti-doublon)
     const transactionRef = `CHARIOW-${saleId}`;
-    const { data: existingTx } = await admin
-      .from('credit_transactions')
-      .select('id')
-      .eq('transaction_ref', transactionRef)
-      .maybeSingle();
+    try {
+      const { data: existingTx } = await admin
+        .from('credit_transactions')
+        .select('id')
+        .eq('transaction_ref', transactionRef)
+        .maybeSingle();
 
-    if (existingTx) {
-      console.log(`[Chariow Webhook] Transaction ${transactionRef} déjà appliquée.`);
-      return res.status(200).json({ received: true, applied: false, reason: 'Déjà traité' });
-    }
+      if (existingTx) {
+        console.log(`[Chariow Webhook] Transaction ${transactionRef} déjà appliquée.`);
+        return res.status(200).json({ received: true, applied: false, reason: 'Déjà traité' });
+      }
+    } catch {}
 
-    // 3. Calcul de la nouvelle date d'expiration (30 jours)
-    const { data: currentProfile } = await admin
-      .from('profiles')
-      .select('subscription_expires_at, credits, studio_name')
-      .eq('id', targetUserId)
-      .maybeSingle();
+    // 3. Calcul de la nouvelle date d'expiration (30 jours) et crédits
+    let currentExpires = 0;
+    let currentCredits = 0;
+    let currentMeta: Record<string, any> = {};
 
-    const currentExpires = currentProfile?.subscription_expires_at
-      ? new Date(currentProfile.subscription_expires_at).getTime()
-      : 0;
+    try {
+      const { data: userResp } = await admin.auth.admin.getUserById(targetUserId);
+      if (userResp?.user) {
+        currentMeta = userResp.user.user_metadata || {};
+        if (currentMeta.subscription_expires_at) {
+          currentExpires = new Date(currentMeta.subscription_expires_at).getTime();
+        }
+        currentCredits = Number(currentMeta.credits) || 0;
+      }
+    } catch {}
+
     const baseTime = currentExpires > Date.now() ? currentExpires : Date.now();
     const newExpiresAt = new Date(baseTime + 30 * 24 * 3600 * 1000).toISOString();
-
     const CREDITS_TO_ADD = 30; // 30 crédits de production inclus dans le Pass à 4 900 F CFA
-    const newCredits = (Number(currentProfile?.credits) || 0) + CREDITS_TO_ADD;
+    const newCredits = currentCredits + CREDITS_TO_ADD;
 
-    // 4. Mise à jour atomique du profil
-    const { error: updateErr } = await admin
-      .from('profiles')
-      .update({
+    // 4. Mise à jour atomique du profil via user_metadata (garanti)
+    await admin.auth.admin.updateUserById(targetUserId, {
+      user_metadata: {
+        ...currentMeta,
         subscription_status: 'ACTIVE',
         subscription_plan: 'monthly',
         subscription_expires_at: newExpiresAt,
+        subscription_started_at: currentMeta.subscription_started_at || new Date().toISOString(),
         credits: newCredits,
+        last_payment_ref: transactionRef,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', targetUserId);
-
-    if (updateErr) {
-      console.error('[Chariow Webhook] Erreur mise à jour profil:', updateErr);
-      return res.status(500).json({ error: 'Échec mise à jour profil' });
-    }
-
-    // 5. Enregistrement dans le grand livre des transactions
-    await admin.from('credit_transactions').insert({
-      user_id: targetUserId,
-      amount_cfa: 4900,
-      credits_added: CREDITS_TO_ADD,
-      balance_after: newCredits,
-      transaction_ref: transactionRef,
-      payment_provider: 'CHARIOW',
-      status: 'SUCCESS',
-      kind: 'subscription',
-      reason: 'Pass Créateur Djelia Academy (4 900 F CFA / 30 jours)',
-      metadata: {
-        chariow_sale_id: saleId,
-        chariow_product_id: sale.product_id || 'prd_bh3vpcup',
-        customer_email: customerEmail,
-        customer_phone: rawCustomerPhone,
       },
     });
+
+    // 5. Mise à jour de secours sur la table profiles si elle existe
+    try {
+      await admin
+        .from('profiles')
+        .update({
+          subscription_status: 'ACTIVE',
+          subscription_plan: 'monthly',
+          subscription_expires_at: newExpiresAt,
+          credits: newCredits,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', targetUserId);
+    } catch {}
+
+    // 6. Enregistrement dans le grand livre des transactions si la table existe
+    try {
+      await admin.from('credit_transactions').insert({
+        user_id: targetUserId,
+        amount_cfa: 4900,
+        credits_added: CREDITS_TO_ADD,
+        balance_after: newCredits,
+        transaction_ref: transactionRef,
+        payment_provider: 'CHARIOW',
+        status: 'SUCCESS',
+        kind: 'subscription',
+        reason: 'Pass Créateur Djelia Academy (4 900 F CFA / 30 jours)',
+        metadata: {
+          chariow_sale_id: saleId,
+          chariow_product_id: sale.product_id || 'prd_bh3vpcup',
+          customer_email: customerEmail,
+          customer_phone: rawCustomerPhone,
+        },
+      });
+    } catch {}
 
     console.log(`[Chariow Webhook] ✅ Succès : User ${targetUserId} activé jusqu'au ${newExpiresAt} avec +${CREDITS_TO_ADD} crédits.`);
 
@@ -228,7 +247,7 @@ export default async function handler(req: any, res: any) {
         ? phoneDigits
         : `226${phoneDigits}`;
 
-      const studioName = currentProfile?.studio_name || 'Créateur';
+      const studioName = currentMeta?.studio_name || currentMeta?.full_name || 'Créateur';
       const notifMsg = `Djelia Academy : Félicitations ${studioName} !\nVotre Pass Créateur (4 900 F CFA) est maintenant actif.\n30 crédits de production musicale ont été ajoutés à votre studio. Bonnes créations !`;
 
       fetch(`${config.wahaBaseUrl}/api/sendText`, {

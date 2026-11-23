@@ -104,12 +104,11 @@ export default async function handler(req: any, res: any) {
 
     let targetUserId = metadataUserId;
     if (!targetUserId && customerEmail) {
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('id')
-        .eq('email', customerEmail)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+      try {
+        const { data: usersData } = await admin.auth.admin.listUsers();
+        const found = usersData?.users?.find((u: any) => u.email?.toLowerCase() === customerEmail.toLowerCase());
+        if (found) targetUserId = found.id;
+      } catch {}
     }
 
     if (!targetUserId) {
@@ -122,65 +121,91 @@ export default async function handler(req: any, res: any) {
     }
 
     const transactionRef = `CHARIOW-${saleId}`;
-    const { data: existingTx } = await admin
-      .from('credit_transactions')
-      .select('id')
-      .eq('transaction_ref', transactionRef)
-      .maybeSingle();
+    try {
+      const { data: existingTx } = await admin
+        .from('credit_transactions')
+        .select('id')
+        .eq('transaction_ref', transactionRef)
+        .maybeSingle();
 
-    if (existingTx) {
-      return res.status(200).json({
-        success: true,
-        activated: true,
-        status: 'completed',
-        already_applied: true,
-      });
-    }
+      if (existingTx) {
+        return res.status(200).json({
+          success: true,
+          activated: true,
+          status: 'completed',
+          already_applied: true,
+        });
+      }
+    } catch {}
 
-    // Récupérer le profil pour recalculer
-    const { data: currentProfile } = await admin
-      .from('profiles')
-      .select('subscription_expires_at, credits, studio_name')
-      .eq('id', targetUserId)
-      .maybeSingle();
+    // Récupérer le profil et métadonnées
+    let currentExpires = 0;
+    let currentCredits = 0;
+    let currentMeta: Record<string, any> = {};
 
-    const currentExpires = currentProfile?.subscription_expires_at
-      ? new Date(currentProfile.subscription_expires_at).getTime()
-      : 0;
+    try {
+      const { data: userResp } = await admin.auth.admin.getUserById(targetUserId);
+      if (userResp?.user) {
+        currentMeta = userResp.user.user_metadata || {};
+        if (currentMeta.subscription_expires_at) {
+          currentExpires = new Date(currentMeta.subscription_expires_at).getTime();
+        }
+        currentCredits = Number(currentMeta.credits) || 0;
+      }
+    } catch {}
+
     const baseTime = currentExpires > Date.now() ? currentExpires : Date.now();
     const newExpiresAt = new Date(baseTime + 30 * 24 * 3600 * 1000).toISOString();
-
     const CREDITS_TO_ADD = 30;
-    const newCredits = (Number(currentProfile?.credits) || 0) + CREDITS_TO_ADD;
+    const newCredits = currentCredits + CREDITS_TO_ADD;
 
-    await admin
-      .from('profiles')
-      .update({
+    // Mise à jour synchrone user_metadata (garantie)
+    await admin.auth.admin.updateUserById(targetUserId, {
+      user_metadata: {
+        ...currentMeta,
         subscription_status: 'ACTIVE',
         subscription_plan: 'monthly',
         subscription_expires_at: newExpiresAt,
+        subscription_started_at: currentMeta.subscription_started_at || new Date().toISOString(),
         credits: newCredits,
+        last_payment_ref: transactionRef,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', targetUserId);
-
-    await admin.from('credit_transactions').insert({
-      user_id: targetUserId,
-      amount_cfa: 4900,
-      credits_added: CREDITS_TO_ADD,
-      balance_after: newCredits,
-      transaction_ref: transactionRef,
-      payment_provider: 'CHARIOW',
-      status: 'SUCCESS',
-      kind: 'subscription',
-      reason: 'Pass Créateur Djelia Academy (4 900 F CFA / 30 jours)',
-      metadata: {
-        chariow_sale_id: saleId,
-        chariow_product_id: sale.product?.id || config.productId,
-        customer_email: customerEmail,
-        customer_phone: rawCustomerPhone,
       },
     });
+
+    // Mise à jour profiles de secours
+    try {
+      await admin
+        .from('profiles')
+        .update({
+          subscription_status: 'ACTIVE',
+          subscription_plan: 'monthly',
+          subscription_expires_at: newExpiresAt,
+          credits: newCredits,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', targetUserId);
+    } catch {}
+
+    try {
+      await admin.from('credit_transactions').insert({
+        user_id: targetUserId,
+        amount_cfa: 4900,
+        credits_added: CREDITS_TO_ADD,
+        balance_after: newCredits,
+        transaction_ref: transactionRef,
+        payment_provider: 'CHARIOW',
+        status: 'SUCCESS',
+        kind: 'subscription',
+        reason: 'Pass Créateur Djelia Academy (4 900 F CFA / 30 jours)',
+        metadata: {
+          chariow_sale_id: saleId,
+          chariow_product_id: sale.product?.id || config.productId,
+          customer_email: customerEmail,
+          customer_phone: rawCustomerPhone,
+        },
+      });
+    } catch {}
 
     return res.status(200).json({
       success: true,

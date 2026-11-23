@@ -52,18 +52,21 @@ export default async function handler(req: any, res: any) {
   const expiredProfilesUpdated: string[] = [];
 
   try {
-    // 1. Récupérer les profils avec abonnement actif
-    const { data: profiles, error: pErr } = await admin
-      .from('profiles')
-      .select('id, email, phone, studio_name, subscription_status, subscription_expires_at')
-      .eq('subscription_status', 'ACTIVE')
-      .not('subscription_expires_at', 'is', null);
+    // 1. Récupérer les utilisateurs via Supabase Auth Admin
+    const { data: usersData, error: uErr } = await admin.auth.admin.listUsers();
+    if (uErr) throw uErr;
 
-    if (pErr) throw pErr;
+    const allUsers = usersData?.users || [];
 
-    for (const p of profiles || []) {
-      const expDate = new Date(p.subscription_expires_at);
-      const rawPhone = String(p.phone || '');
+    for (const u of allUsers) {
+      const meta = u.user_metadata || {};
+      const subStatus = meta.subscription_status;
+      const expIso = meta.subscription_expires_at;
+
+      if (subStatus !== 'ACTIVE' || !expIso) continue;
+
+      const expDate = new Date(expIso);
+      const rawPhone = String(meta.phone || u.phone || meta.phone_number || '');
       const digits = rawPhone.replace(/\D/g, '');
       const cleanPhone = digits.length >= 8
         ? digits.startsWith('226') || digits.startsWith('225') || digits.startsWith('221') || digits.startsWith('237')
@@ -71,20 +74,31 @@ export default async function handler(req: any, res: any) {
           : `226${digits}`
         : null;
 
-      const studioName = p.studio_name || 'Créateur';
+      const studioName = meta.studio_name || meta.full_name || 'Créateur';
       const formattedDate = expDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
       // CAS A : Expiré aujourd'hui ou dans le passé
       if (expDate.getTime() <= now.getTime()) {
-        await admin
-          .from('profiles')
-          .update({
-            subscription_status: 'EXPIRED',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', p.id);
+        const updatedMeta = {
+          ...meta,
+          subscription_status: 'EXPIRED',
+          expired_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        };
 
-        expiredProfilesUpdated.push(p.id);
+        await admin.auth.admin.updateUserById(u.id, { user_metadata: updatedMeta }).catch(() => {});
+
+        try {
+          await admin
+            .from('profiles')
+            .update({
+              subscription_status: 'EXPIRED',
+              updated_at: now.toISOString(),
+            })
+            .eq('id', u.id);
+        } catch {}
+
+        expiredProfilesUpdated.push(u.id);
 
         if (cleanPhone) {
           const msg = `Djelia Academy : Bonjour ${studioName}.\nVotre Pass Créateur a expiré le ${formattedDate}.\nL'accès à votre studio, à vos outils et à votre ligne WhatsApp a été suspendu.\nPour réactiver immédiatement vos accès et obtenir 30 nouveaux crédits : https://velaris-dun.vercel.app`;
@@ -102,14 +116,16 @@ export default async function handler(req: any, res: any) {
             }),
           }).catch(() => {});
 
-          notificationsSent.push({ userId: p.id, type: 'expired', phone: cleanPhone });
+          notificationsSent.push({ userId: u.id, type: 'expired', phone: cleanPhone });
         }
       }
       // CAS B : Expire dans moins de 3 jours (rappel préventif)
       else if (expDate.getTime() <= threeDaysFromNow.getTime()) {
         const daysLeft = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
+        const lastWarning = meta.last_warning_sent_at;
+        const alreadySentToday = lastWarning && new Date(lastWarning).toDateString() === now.toDateString();
 
-        if (cleanPhone) {
+        if (cleanPhone && !alreadySentToday) {
           const msg = `Djelia Academy : Bonjour ${studioName} !\nVotre Pass Créateur expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''} (le ${formattedDate}).\nPensez à renouveler dès maintenant pour éviter l'interruption de votre ligne WhatsApp et conserver vos crédits : https://velaris-dun.vercel.app`;
 
           await fetch(`${config.wahaBaseUrl}/api/sendText`, {
@@ -125,14 +141,21 @@ export default async function handler(req: any, res: any) {
             }),
           }).catch(() => {});
 
-          notificationsSent.push({ userId: p.id, type: 'warning', daysLeft, phone: cleanPhone });
+          await admin.auth.admin.updateUserById(u.id, {
+            user_metadata: {
+              ...meta,
+              last_warning_sent_at: now.toISOString(),
+            },
+          }).catch(() => {});
+
+          notificationsSent.push({ userId: u.id, type: 'warning', daysLeft, phone: cleanPhone });
         }
       }
     }
 
     return res.status(200).json({
       success: true,
-      checkedCount: (profiles || []).length,
+      checkedCount: allUsers.length,
       expiredCount: expiredProfilesUpdated.length,
       notificationsSentCount: notificationsSent.length,
       details: { expiredProfilesUpdated, notificationsSent },

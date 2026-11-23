@@ -143,18 +143,42 @@ export function refreshBilling(): Promise<void> {
   const userId = state.userId;
   loading = (async () => {
     try {
-      const [profileRes, txRes] = await Promise.all([
-        supabase.from('profiles').select('credits, subscription_status, subscription_plan, subscription_expires_at').eq('id', userId).maybeSingle(),
-        supabase
-          .from('credit_transactions')
-          .select('id, kind, credits_added, amount_cfa, balance_after, reason, transaction_ref, created_at')
-          .order('created_at', { ascending: false })
-          .limit(50),
-      ]);
-      if (state.userId !== userId) return;
-      if (profileRes.error) throw profileRes.error;
+      // 1. Lire depuis Supabase Auth user_metadata (toujours disponible et synchrone)
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUser = authData?.user;
+      const meta = (currentUser && currentUser.id === userId) ? (currentUser.user_metadata || {}) : {};
 
-      const rows = txRes.data || [];
+      // 2. Tenter de lire depuis la table profiles et credit_transactions si disponibles
+      let profileData: any = null;
+      let rows: any[] = [];
+      try {
+        const [profileRes, txRes] = await Promise.all([
+          supabase.from('profiles').select('credits, subscription_status, subscription_plan, subscription_expires_at').eq('id', userId).maybeSingle(),
+          supabase
+            .from('credit_transactions')
+            .select('id, kind, credits_added, amount_cfa, balance_after, reason, transaction_ref, created_at')
+            .order('created_at', { ascending: false })
+            .limit(50),
+        ]);
+        if (!profileRes.error && profileRes.data) {
+          profileData = profileRes.data;
+        }
+        if (!txRes.error && txRes.data) {
+          rows = txRes.data;
+        }
+      } catch {
+        // Tables distantes non créées : fallback fluide sur user_metadata
+      }
+
+      if (state.userId !== userId) return;
+
+      const mergedProfile = {
+        credits: profileData?.credits ?? (typeof meta.credits === 'number' ? meta.credits : (Number(meta.credits) || 0)),
+        subscription_status: profileData?.subscription_status || meta.subscription_status || 'INACTIVE',
+        subscription_plan: profileData?.subscription_plan || meta.subscription_plan || 'monthly',
+        subscription_expires_at: profileData?.subscription_expires_at || meta.subscription_expires_at || null,
+      };
+
       const history: CreditTransaction[] = rows.map((t: any) => ({
         id: t.id,
         type: KIND_TO_TYPE[t.kind] || 'purchase',
@@ -164,8 +188,9 @@ export function refreshBilling(): Promise<void> {
         date: t.created_at,
         reference: t.transaction_ref || undefined,
       }));
-      state.credits = base(Number(profileRes.data?.credits ?? 0), history, 'server');
-      state.subscription = mapSubscription(profileRes.data, rows.find((t: any) => t.kind === 'subscription'));
+
+      state.credits = base(Number(mergedProfile.credits ?? 0), history, 'server');
+      state.subscription = mapSubscription(mergedProfile, rows.find((t: any) => t.kind === 'subscription'));
       state.error = null;
     } catch (err: any) {
       state.error = err?.message || 'Solde indisponible';
