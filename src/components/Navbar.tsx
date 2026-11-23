@@ -21,8 +21,6 @@ const NAV_ITEMS: { id: NavTab; label: string }[] = [
   { id: 'copilot', label: 'Copilot' },
 ];
 
-const WHATSAPP_URL = 'https://wa.me/22656240533?text=' + encodeURIComponent('Bonjour Djelia, je souhaite créer une chanson personnalisée.');
-
 export const Navbar: FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
@@ -160,26 +158,34 @@ export const Navbar: FC<NavbarProps> = ({
             </button>
           )}
 
-          <a
-            href={WHATSAPP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-neutral-200 active:scale-[0.97] transition-all duration-150 ease-press whitespace-nowrap shadow-[0_0_24px_rgba(255,255,255,0.10)]"
-          >
-            Commander sur WhatsApp
-          </a>
+          {user ? (
+            <button
+              type="button"
+              onClick={() => handleNavClick('academy')}
+              className="inline-flex items-center rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-4 py-2 text-xs font-semibold text-[#0A0A0F] active:scale-[0.97] transition-all duration-150 ease-press whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.3)] cursor-pointer"
+            >
+              Mon Espace Membre
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openAuthModal('signup')}
+              className="inline-flex items-center rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-4 py-2 text-xs font-semibold text-[#0A0A0F] active:scale-[0.97] transition-all duration-150 ease-press whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.3)] cursor-pointer"
+            >
+              Rejoindre l'Académie
+            </button>
+          )}
         </div>
 
         {/* Mobile */}
         <div className="flex md:hidden shrink-0 items-center gap-2">
-          <a
-            href={WHATSAPP_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-black whitespace-nowrap"
+          <button
+            type="button"
+            onClick={() => (user ? handleNavClick('academy') : openAuthModal('signup'))}
+            className="inline-flex items-center rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-3.5 py-1.5 text-xs font-semibold text-[#0A0A0F] whitespace-nowrap cursor-pointer"
           >
-            Commander
-          </a>
+            Rejoindre
+          </button>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(o => !o)}
