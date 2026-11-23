@@ -61,20 +61,34 @@ export default async function handler(req: any, res: any) {
   }
 
   const payload = req.body || {};
-  const eventType = String(payload.type || payload.event || '');
-  const eventId = String(payload.id || payload.event_id || '');
-  const data = payload.data || {};
+  const headerEvent = String(req.headers['x-pulse-event'] || req.headers['x-event-name'] || '');
+  const eventType = String(headerEvent || payload.type || payload.event || '').toLowerCase();
+  const eventId = String(payload.id || payload.event_id || req.headers['x-pulse-delivery-id'] || '');
+  const data = payload.data || payload;
 
-  console.log(`[Chariow Webhook] Reçu: type=${eventType} id=${eventId}`);
+  console.log(`[Chariow Webhook] Reçu: type=${eventType || 'inconnu'} id=${eventId}`);
 
-  // Seuls les succès de vente et activations de licence nous intéressent
-  if (eventType !== 'successful.sale' && eventType !== 'license.activated') {
-    return res.status(200).json({ received: true, applied: false, note: `Événement ${eventType} ignoré` });
-  }
-
-  const sale = data.sale || data.purchase || data || {};
+  const sale = data.sale || data.purchase || (data.product ? data : {}) || {};
   const license = data.license || {};
-  const metadata = sale.custom_metadata || {};
+  const metadata = sale.custom_metadata || payload.custom_metadata || payload.metadata || {};
+  const payInfo = sale.payment || data.payment || {};
+
+  // Vérifier si c'est un événement de succès de vente ou d'activation
+  const isSuccess =
+    eventType === 'successful.sale' ||
+    eventType === 'successful_sale' ||
+    eventType === 'license.activated' ||
+    eventType === 'sale.completed' ||
+    eventType === 'transaction.success' ||
+    sale.status === 'completed' ||
+    data.status === 'completed' ||
+    payInfo.status === 'completed' ||
+    payInfo.status === 'paid' ||
+    payInfo.status === 'success';
+
+  if (!isSuccess) {
+    return res.status(200).json({ received: true, applied: false, note: `Événement ${eventType || 'non-complété'} ignoré` });
+  }
 
   const saleId = String(sale.id || license.sale_id || eventId || 'SALE-UNKNOWN');
   const metadataUserId = metadata.user_id && metadata.user_id !== 'anonymous' ? metadata.user_id : null;

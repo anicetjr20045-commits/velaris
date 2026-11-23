@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import authWhatsappHandler from './api/auth-whatsapp.ts'
 import chariowCheckoutHandler from './api/chariow-checkout.ts'
 import chariowWebhookHandler from './api/chariow-webhook.ts'
+import chariowVerifyHandler from './api/chariow-verify.ts'
 
 function apiDevHandlersPlugin(): Plugin {
   return {
@@ -15,6 +16,7 @@ function apiDevHandlersPlugin(): Plugin {
         if (url.startsWith('/api/auth-whatsapp')) handler = authWhatsappHandler;
         else if (url.startsWith('/api/chariow-checkout')) handler = chariowCheckoutHandler;
         else if (url.startsWith('/api/chariow-webhook')) handler = chariowWebhookHandler;
+        else if (url.startsWith('/api/chariow-verify')) handler = chariowVerifyHandler;
 
         if (handler) {
           let bodyStr = ''

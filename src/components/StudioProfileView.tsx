@@ -41,7 +41,7 @@ import {
   SASPAY_CONFIG
 } from '../services/saspay';
 import { useAdminAccess } from '../hooks/useAdmin';
-import { initiateChariowCheckout } from '../services/chariow';
+import { initiateChariowCheckout, verifyChariowSale } from '../services/chariow';
 
 interface StudioProfileViewProps {
   onSignedOut?: () => void;
@@ -122,10 +122,42 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     return unsub;
   }, []);
 
-  /* Retour de la page SasPay : on vérifie le statut puis on attend le crédit posé par le webhook */
+  /* Retour de paiement : SasPay ou Chariow */
   useEffect(() => {
     if (!user) return;
     const params = new URLSearchParams(window.location.search);
+
+    // Retour Chariow
+    if (params.get('payment') === 'success' && params.get('sale_id')) {
+      const saleId = params.get('sale_id')!;
+      params.delete('payment');
+      params.delete('sale_id');
+      const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+      window.history.replaceState(null, '', clean);
+
+      let cancelled = false;
+      (async () => {
+        setNotice({ tone: 'ok', text: 'Validation de votre abonnement Chariow en cours…' });
+        for (let i = 0; i < 4 && !cancelled; i++) {
+          const res = await verifyChariowSale(saleId);
+          if (res.activated) {
+            await refreshBilling();
+            if (!cancelled) {
+              setNotice({ tone: 'ok', text: 'Paiement Chariow confirmé ! Votre Pass Créateur et vos 30 crédits sont actifs.' });
+            }
+            return;
+          }
+          await new Promise(r => setTimeout(r, 2000));
+        }
+        await refreshBilling();
+        if (!cancelled) {
+          setNotice({ tone: 'ok', text: 'Paiement Chariow enregistré. Votre Pass est actif.' });
+        }
+      })();
+      return;
+    }
+
+    // Retour SasPay
     const pending = getPendingCheckout();
     if (params.get('payment') !== 'return' || !pending) return;
     params.delete('payment');

@@ -58,3 +58,20 @@ export async function initiateChariowCheckout(options: ChariowCheckoutOptions): 
     };
   }
 }
+
+export async function verifyChariowSale(saleId: string): Promise<{ success: boolean; activated: boolean; status?: string; error?: string }> {
+  try {
+    const res = await fetch(`/api/chariow-verify?sale_id=${encodeURIComponent(saleId)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, activated: false, error: data.error || 'Erreur vérification vente' };
+    }
+    return {
+      success: true,
+      activated: Boolean(data.activated),
+      status: data.status,
+    };
+  } catch (err: any) {
+    return { success: false, activated: false, error: err.message };
+  }
+}
