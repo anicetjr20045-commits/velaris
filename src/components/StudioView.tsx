@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC } from 'react';
+import { useState, useEffect, type FC, type FormEvent } from 'react';
 import {
   FileText,
   ShieldCheck,
@@ -16,7 +16,7 @@ import {
   ExternalLink,
   Mic,
   Sliders,
-  CheckCheck
+  Plus
 } from 'lucide-react';
 import type { Order } from '../types';
 import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
@@ -67,6 +67,36 @@ export const StudioView: FC<StudioViewProps> = ({
 
   const [lyricsCopied, setLyricsCopied] = useState(false);
   const [confirmedDoneSuccess, setConfirmedDoneSuccess] = useState(false);
+
+  // Formulaire de composition libre immédiate
+  const [showQuickForm, setShowQuickForm] = useState(false);
+  const [quickRecipient, setQuickRecipient] = useState('');
+  const [quickOccasion, setQuickOccasion] = useState('Anniversaire');
+  const [quickStyle, setQuickStyle] = useState('Afro-Love');
+  const [quickDetails, setQuickDetails] = useState('');
+
+  const handleQuickCreate = (e: FormEvent) => {
+    e.preventDefault();
+    if (!quickRecipient.trim()) return;
+    const newOrder: Order = {
+      id: `ord_${Date.now()}`,
+      clientName: 'Création Studio',
+      clientPhone: '+225 00 00 00 00',
+      recipient: quickRecipient.trim(),
+      occasion: quickOccasion,
+      style: quickStyle,
+      amount: 3500,
+      paymentMethod: 'Wave',
+      status: 'brief_recu',
+      transcription: quickDetails.trim() || `Chanson pour ${quickRecipient.trim()} pour son ${quickOccasion}.`,
+      createdAt: new Date().toISOString(),
+    };
+    onUpdateOrder(newOrder);
+    onSelectOrder(newOrder.id);
+    setShowQuickForm(false);
+    setQuickRecipient('');
+    setQuickDetails('');
+  };
 
   // Synchronisation lors du changement de commande
   useEffect(() => {
@@ -296,6 +326,14 @@ export const StudioView: FC<StudioViewProps> = ({
                 >
                   Toutes ({orders.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickForm(true)}
+                  className="rounded-full px-3 py-1 text-[12px] font-bold bg-[#D4AF37] text-black hover:bg-[#F5EDD7] transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Nouvelle Chanson</span>
+                </button>
               </div>
             </div>
 
@@ -308,9 +346,12 @@ export const StudioView: FC<StudioViewProps> = ({
                   <button
                     key={o.id}
                     type="button"
-                    onClick={() => onSelectOrder(o.id)}
+                    onClick={() => {
+                      setShowQuickForm(false);
+                      onSelectOrder(o.id);
+                    }}
                     className={`shrink-0 flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs transition-all cursor-pointer ${
-                      active
+                      active && !showQuickForm
                         ? 'bg-white text-black font-bold shadow-sm'
                         : 'border border-white/[0.08] bg-[#0B0C10] text-neutral-300 hover:text-white'
                     }`}
@@ -326,13 +367,95 @@ export const StudioView: FC<StudioViewProps> = ({
             </div>
           </div>
 
-          {!currentOrder ? (
-            <div className="rounded-2xl border border-dashed border-white/12 bg-[#0B0C10] p-12 text-center space-y-3">
-              <CheckCheck className="h-10 w-10 text-emerald-400 mx-auto" />
-              <h3 className="text-lg font-bold text-white">Tous les textes sont à jour !</h3>
-              <p className="text-sm text-neutral-400 max-w-md mx-auto">
-                Aucune commande n'attend de rédaction de paroles actuellement. Dès qu'un client termine son brief vocal sur WhatsApp, il apparaîtra ici en temps réel.
-              </p>
+          {showQuickForm || !currentOrder ? (
+            <div className="spotlight-card rounded-2xl border border-[#D4AF37]/30 bg-[#08090D] p-6 sm:p-8 max-w-2xl mx-auto space-y-5">
+              <div className="border-b border-white/[0.08] pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-heading text-xl font-bold text-white">Composer une Chanson Libre</h3>
+                  <p className="text-xs text-[#8E94A3] mt-0.5">
+                    Entrez les détails du destinataire pour générer immédiatement les paroles et le master musical.
+                  </p>
+                </div>
+                {currentOrder && (
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickForm(false)}
+                    className="text-xs text-[#8E94A3] hover:text-white px-2.5 py-1 rounded-lg border border-white/10"
+                  >
+                    Fermer
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleQuickCreate} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[#C7CAD4] font-medium mb-1.5">
+                    Prénom ou surnom du destinataire *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={quickRecipient}
+                    onChange={(e) => setQuickRecipient(e.target.value)}
+                    placeholder="Ex: Mariam, Maman Awa, Marc..."
+                    className="w-full bg-[#040507] border border-white/10 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[#C7CAD4] font-medium mb-1.5">Occasion</label>
+                    <select
+                      value={quickOccasion}
+                      onChange={(e) => setQuickOccasion(e.target.value)}
+                      className="w-full bg-[#040507] border border-white/10 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                    >
+                      <option>Anniversaire</option>
+                      <option>Demande en mariage</option>
+                      <option>Déclaration d'amour</option>
+                      <option>Hommage aux parents</option>
+                      <option>Célébration / Diplôme</option>
+                      <option>Réconciliation</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[#C7CAD4] font-medium mb-1.5">Style Musical</label>
+                    <select
+                      value={quickStyle}
+                      onChange={(e) => setQuickStyle(e.target.value)}
+                      className="w-full bg-[#040507] border border-white/10 rounded-xl px-3.5 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                    >
+                      <option>Afro-Love Contemporain</option>
+                      <option>Guitare Acoustique & Voix</option>
+                      <option>Chœur Gospel Moderne</option>
+                      <option>Zouk Romantique</option>
+                      <option>Rumba Douce</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#C7CAD4] font-medium mb-1.5">
+                    Souvenirs, qualités ou anecdotes (2 phrases)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={quickDetails}
+                    onChange={(e) => setQuickDetails(e.target.value)}
+                    placeholder="Ex: Elle fête ses 30 ans ce vendredi. Toujours souriante, elle aime sa famille et ne baisse jamais les bras..."
+                    className="w-full bg-[#040507] border border-white/10 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-[#D4AF37] leading-relaxed"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl btn-apple-pro text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer mt-2"
+                >
+                  <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                  <span>Lancer la création de la chanson</span>
+                </button>
+              </form>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

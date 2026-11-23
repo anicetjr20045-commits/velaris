@@ -1,79 +1,35 @@
 import { useEffect, useMemo, useState, type FC, type ReactNode } from 'react';
 import {
   GraduationCap,
-  Smartphone,
-  TrendingUp,
-  Share2,
-  Lock,
-  MessagesSquare,
   Music2,
-  Zap,
-  LayoutGrid,
-  Wallet,
-  Sparkles,
+  Smartphone,
   UserRound,
-  Crown,
-  LogOut,
-  LogIn,
-  ShieldCheck,
-  Menu,
-  X,
   ArrowLeft,
-  Search,
-  Plus,
-  QrCode,
-  Home
+  LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import type { Order, StudioMetrics, ConversationItem } from '../types';
-import { CockpitView } from './CockpitView';
-import { ConversationsView } from './ConversationsView';
-import { AutomationsView } from './AutomationsView';
-import { WhatsAppLinesView } from './WhatsAppLinesView';
-import { VentesCaisseView } from './VentesCaisseView';
-import { StudioCopilotView } from './StudioCopilotView';
-import { AdminConsoleView } from './AdminConsoleView';
+import type { Order, StudioMetrics } from '../types';
 import { StudioProfileView } from './StudioProfileView';
-import { PlaygroundView } from './PlaygroundView';
-import { AffiliationView } from './AffiliationView';
+import { SimpleWhatsAppView } from './SimpleWhatsAppView';
 import { PlanGate } from './PlanGate';
-import { CommandPalette, isMacPlatform, type PaletteCommand } from './CommandPalette';
-import { getLiveConversations } from '../services/supabase';
-import { useStudioLive } from '../hooks/useStudioLive';
-import { applyReadState, useReadState } from '../services/readState';
-import { getStudioSubscription, subscribeToBilling } from '../services/billing';
+import { getStudioCredits, getStudioSubscription, subscribeToBilling } from '../services/billing';
 import { initiateChariowCheckout } from '../services/chariow';
-
-const EMPTY_STUDIO_METRICS: StudioMetrics = {
-  totalRevenue: 0,
-  ordersDelivered: 0,
-  ordersActive: 0,
-  adLeadsCount: 0,
-  conversionRate: 0,
-  currency: 'FCFA',
-};
-const EMPTY_CONVERSATIONS: ConversationItem[] = [];
-
-export type DjeliaPillar = 'academy' | 'whatsapp' | 'ventes' | 'affiliation';
 
 export type StudioTab =
   | 'academy'
-  // Pilier WhatsApp
-  | 'conversations'
   | 'studio_ai'
+  | 'whatsapp'
+  | 'profile'
+  | 'conversations'
   | 'automations'
   | 'lines'
-  | 'whatsapp'
   | 'playground'
-  // Pilier Ventes
   | 'revenus'
   | 'ventes'
   | 'analyste'
   | 'pipeline'
-  // Pilier Affiliation
   | 'affiliation'
-  // Compte / Admin
-  | 'profile'
   | 'admin';
 
 interface DjeliaAppLayoutProps {
@@ -92,27 +48,35 @@ interface DjeliaAppLayoutProps {
 export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
   initialTab = 'academy',
   onTabChange,
-  orders,
-  metrics,
+  orders: _orders,
+  metrics: _metrics,
   onReturnToHome,
   renderStudioAI,
   renderAcademy,
-  onSelectOrderForStudio,
-  onOpenQrModal,
-  onOpenNewOrderModal
+  onSelectOrderForStudio: _onSelectOrderForStudio,
 }) => {
   const { user, signOut, openAuthModal } = useAuth();
-  const [currentTab, setCurrentTab] = useState<StudioTab>(initialTab);
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [isUpgrading, setIsUpgrading] = useState(false);
-  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  
+  // Normalize tab to the 4 essential clean tabs
+  const normalizeTab = (t: StudioTab): 'academy' | 'studio_ai' | 'whatsapp' | 'profile' => {
+    if (t === 'academy') return 'academy';
+    if (t === 'studio_ai') return 'studio_ai';
+    if (['whatsapp', 'conversations', 'automations', 'lines', 'playground'].includes(t)) return 'whatsapp';
+    if (t === 'profile') return 'profile';
+    return 'academy';
+  };
 
-  // État de l'abonnement en direct (détection Plan Start vs Pro)
+  const [currentTab, setCurrentTab] = useState<'academy' | 'studio_ai' | 'whatsapp' | 'profile'>(() =>
+    normalizeTab(initialTab)
+  );
+
   const [subscription, setSubscription] = useState(getStudioSubscription);
+  const [credits, setCredits] = useState(getStudioCredits);
+
   useEffect(() => {
     return subscribeToBilling(() => {
       setSubscription(getStudioSubscription());
+      setCredits(getStudioCredits());
     });
   }, []);
 
@@ -127,9 +91,6 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
         hash.includes('preview=true') ||
         hash.includes('demo=1')
       ) {
-        try {
-          sessionStorage.setItem('velaris_preview_mode', 'true');
-        } catch {}
         return true;
       }
       try {
@@ -155,59 +116,10 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     return subscription.status === 'active' && hasActiveDate;
   }, [subscription, user]);
 
-  // Synchronisation avec l'onglet initial si transmis par le parent
-  const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
-  if (prevInitialTab !== initialTab) {
-    setPrevInitialTab(initialTab);
-    setCurrentTab(initialTab);
-  }
-
-  const userDisplayName = (user?.user_metadata?.studio_name as string) ||
-    (user?.user_metadata?.full_name as string) ||
-    (user?.email ? user.email.split('@')[0] : 'Membre Invité');
-  const userInitials = (userDisplayName.slice(0, 2) || 'DJ').toUpperCase();
-
-  // Conversations non lues
-  const { data: rawConversations } = useStudioLive(
-    getLiveConversations,
-    EMPTY_CONVERSATIONS,
-    ['conversations', 'messages'],
-    [user?.id]
-  );
-  const readState = useReadState();
-  const liveConversations = useMemo(
-    () => applyReadState(rawConversations, readState.readOverrides, readState.archiveOverrides),
-    [rawConversations, readState]
-  );
-  const unreadCount = liveConversations.filter((c) => !c.isArchived && c.unread).length;
-  const pendingLyricsCount = orders.filter((o) => o.status === 'brief_recu').length;
-
-  // Détermination du pilier actif
-  const currentPillar: DjeliaPillar = useMemo(() => {
-    if (['conversations', 'studio_ai', 'automations', 'lines', 'playground'].includes(currentTab)) {
-      return 'whatsapp';
-    }
-    if (['revenus', 'ventes', 'analyste'].includes(currentTab)) {
-      return 'ventes';
-    }
-    if (currentTab === 'affiliation') {
-      return 'affiliation';
-    }
-    return 'academy';
-  }, [currentTab]);
-
-  const handleTabClick = (tab: StudioTab) => {
+  const handleTabClick = (tab: 'academy' | 'studio_ai' | 'whatsapp' | 'profile') => {
     setCurrentTab(tab);
-    setIsMobileDrawerOpen(false);
     onTabChange?.(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handlePillarClick = (pillar: DjeliaPillar) => {
-    if (pillar === 'academy') handleTabClick('academy');
-    else if (pillar === 'whatsapp') handleTabClick('conversations');
-    else if (pillar === 'ventes') handleTabClick('revenus');
-    else if (pillar === 'affiliation') handleTabClick('affiliation');
   };
 
   const handleUpgradeToPro = async () => {
@@ -215,184 +127,68 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
       openAuthModal('login');
       return;
     }
-    setIsUpgrading(true);
-    setUpgradeError(null);
-    try {
-      const res = await initiateChariowCheckout({
-        userId: user.id,
-        email: user.email || '',
-        fullName:
-          (user.user_metadata?.studio_name as string) ||
-          (user.user_metadata?.full_name as string) ||
-          'Créateur Djelia',
-        phone: (user.user_metadata?.phone as string) || '',
-        redirectUrl: `${window.location.origin}/studio?payment=success&sale_id={sale_id}`,
-      });
-      if (res.success && res.checkoutUrl) {
-        window.location.assign(res.checkoutUrl);
-      } else {
-        setUpgradeError(res.error || 'Erreur lors de l\'initialisation du paiement Chariow');
-      }
-    } catch (err: any) {
-      setUpgradeError(err?.message || 'Erreur inconnue');
-    } finally {
-      setIsUpgrading(false);
+    const res = await initiateChariowCheckout({
+      userId: user.id,
+      email: user.email || '',
+      fullName:
+        (user.user_metadata?.studio_name as string) ||
+        (user.user_metadata?.full_name as string) ||
+        'Créateur Velaris',
+      phone: (user.user_metadata?.phone as string) || '',
+    });
+    if (res.success && res.checkoutUrl) {
+      window.location.assign(res.checkoutUrl);
     }
   };
 
-  const openOrderInStudio = (orderId: string) => {
-    onSelectOrderForStudio(orderId);
-    handleTabClick('studio_ai');
-  };
-
-  // 4 Piliers Fondamentaux
-  const pillarsConfig: {
-    id: DjeliaPillar;
-    num: string;
-    label: string;
-    sublabel: string;
-    icon: typeof GraduationCap;
-    requiresPro: boolean;
-    defaultTab: StudioTab;
-    subTabs?: { id: StudioTab; label: string; icon: typeof LayoutGrid; count?: number }[];
-  }[] = [
-    {
-      id: 'academy',
-      num: '01',
-      label: 'Académie',
-      sublabel: 'Méthode & Formations',
-      icon: GraduationCap,
-      requiresPro: false,
-      defaultTab: 'academy'
-    },
-    {
-      id: 'whatsapp',
-      num: '02',
-      label: 'Mon WhatsApp',
-      sublabel: 'Studio IA & Discussions',
-      icon: Smartphone,
-      requiresPro: true,
-      defaultTab: 'conversations',
-      subTabs: [
-        { id: 'conversations', label: 'Discussions WhatsApp', icon: MessagesSquare, count: unreadCount },
-        { id: 'studio_ai', label: 'Textes & Studio Musique', icon: Music2, count: pendingLyricsCount },
-        { id: 'automations', label: 'Automatisations émojis', icon: Zap },
-        { id: 'lines', label: 'Connexion Ligne WAHA', icon: QrCode },
-        { id: 'playground', label: 'Playground WhatsApp', icon: Sparkles },
-      ]
-    },
-    {
-      id: 'ventes',
-      num: '03',
-      label: 'Mes Ventes',
-      sublabel: 'Dashboard & Pipeline',
-      icon: TrendingUp,
-      requiresPro: true,
-      defaultTab: 'revenus',
-      subTabs: [
-        { id: 'revenus', label: 'Chiffre d\'Affaires', icon: LayoutGrid },
-        { id: 'ventes', label: 'Ventes & Caisse', icon: Wallet },
-        { id: 'analyste', label: 'Analyste Copilot IA', icon: Sparkles },
-      ]
-    },
-    {
-      id: 'affiliation',
-      num: '04',
-      label: 'Mon Affiliation',
-      sublabel: 'Commissions 25%',
-      icon: Share2,
-      requiresPro: false,
-      defaultTab: 'affiliation'
-    }
-  ];
-
-  // Palette Cmd+K
-  const paletteCommands = useMemo<PaletteCommand[]>(() => {
-    const list: PaletteCommand[] = [
-      { id: 'tab-academy', label: '01 Académie Studio', group: 'Piliers', icon: GraduationCap, run: () => handleTabClick('academy') },
-      { id: 'tab-conversations', label: '02 Discussions WhatsApp', group: 'WhatsApp', icon: MessagesSquare, run: () => handleTabClick('conversations') },
-      { id: 'tab-studio_ai', label: 'Textes & Musique Suno', group: 'WhatsApp', icon: Music2, run: () => handleTabClick('studio_ai') },
-      { id: 'tab-revenus', label: '03 Chiffre d\'affaires', group: 'Ventes', icon: LayoutGrid, run: () => handleTabClick('revenus') },
-      { id: 'tab-affiliation', label: '04 Mon Espace Affiliation', group: 'Piliers', icon: Share2, run: () => handleTabClick('affiliation') },
-      { id: 'tab-profile', label: 'Mon Profil Studio', group: 'Compte', icon: UserRound, run: () => handleTabClick('profile') },
-    ];
-    if (onOpenNewOrderModal) {
-      list.push({ id: 'new-order', label: 'Nouvelle commande', group: 'Actions', icon: Plus, run: onOpenNewOrderModal });
-    }
-    if (onOpenQrModal) {
-      list.push({ id: 'connect-wa', label: 'Connecter WhatsApp (QR)', group: 'Actions', icon: QrCode, run: onOpenQrModal });
-    }
-    list.push(
-      user
-        ? { id: 'sign-out', label: 'Se déconnecter', group: 'Compte', icon: LogOut, run: () => void signOut() }
-        : { id: 'sign-in', label: 'Se connecter', group: 'Compte', icon: LogIn, run: () => openAuthModal('login') }
-    );
-    list.push({ id: 'home', label: 'Retour à la vitrine', group: 'Compte', icon: Home, run: onReturnToHome });
-    return list;
-  }, [user, onOpenNewOrderModal, onOpenQrModal, onReturnToHome]);
-
-  const shortcutLabel = isMacPlatform() ? '⌘K' : 'Ctrl K';
-
-  // Si l'utilisateur n'est pas abonné ou si son abonnement a expiré :
-  // STRICTEMENT AUCUN MENU INTÉRIEUR VISIBLE -> Redirection et affichage direct du Paywall Pass Créateur
+  // Si l'utilisateur n'est pas abonné : Paywall minimaliste
   if (!isPro) {
     const isExpired =
       subscription.status === 'expired' ||
       Boolean(subscription.expiresAt && new Date(subscription.expiresAt).getTime() <= Date.now());
 
     return (
-      <div className="min-h-screen bg-[#07080A] text-[#F0F0F5] flex flex-col selection:bg-[#D4A017]/30 selection:text-white">
-        {/* Header sobre sans aucun menu intérieur */}
-        <header className="h-20 border-b border-white/[0.08] bg-[#0A0A0F]/90 backdrop-blur-xl px-5 sm:px-10 flex items-center justify-between">
+      <div className="min-h-screen bg-[#020204] text-[#E2E4E9] flex flex-col selection:bg-[#D4AF37]/30 selection:text-white">
+        {/* Header sobre */}
+        <header className="h-20 border-b border-white/[0.06] bg-[#040507]/90 backdrop-blur-xl px-5 sm:px-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#F5D060] to-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-sm shadow-[0_0_20px_rgba(245,208,96,0.3)]">
-              D
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1A1E29] via-[#0D0F15] to-[#040507] border border-[#D4AF37]/50 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.18)]">
+              <svg className="w-5 h-5 text-[#E0C583]" viewBox="0 0 24 24" fill="none">
+                <path d="M4 6L12 20L20 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M7.5 6L12 14L16.5 6" stroke="#FFFFFF" strokeOpacity="0.7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <span className="font-heading text-lg sm:text-xl font-extrabold tracking-tight text-white">
-              DJELIA <span className="bg-gradient-to-r from-[#F5D060] to-[#E5B54F] bg-clip-text text-transparent font-mono text-sm font-bold">ACADEMY</span>
-            </span>
+            <div>
+              <span className="font-heading text-lg font-bold text-white tracking-wider">VELARIS</span>
+              <span className="text-[9px] font-mono tracking-[0.28em] text-[#8E94A3] uppercase block">ACADEMY</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
-            <span className="hidden sm:inline-flex text-xs sm:text-sm text-[#A0A5B5] font-mono">
-              {user?.email || 'Non abonné'}
-            </span>
+          <div className="flex items-center gap-3">
             <button
               onClick={onReturnToHome}
-              className="text-xs sm:text-sm font-medium text-[#CBD2E1] hover:text-white px-4 py-2 rounded-full border border-white/[0.12] hover:bg-white/[0.05] transition-colors cursor-pointer"
+              className="btn-titanium-gold text-xs px-4 py-2 rounded-xl cursor-pointer"
             >
               Retour à l'accueil
             </button>
             <button
               onClick={() => void signOut()}
-              className="text-xs sm:text-sm font-semibold text-rose-400 hover:text-rose-300 px-4 py-2 rounded-full border border-rose-500/25 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="text-xs text-rose-400 hover:text-rose-300 px-3 py-2 cursor-pointer"
             >
               Déconnexion
             </button>
           </div>
         </header>
 
-        {/* Zone centrale : Paywall Pass Créateur avec Alerte Expiration si nécessaire */}
-        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-          {isExpired && (
-            <div className="mb-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 p-4 text-xs text-rose-200 flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-rose-400 shrink-0" />
-              <div>
-                <strong className="block text-sm text-white font-semibold">Votre Pass Créateur a expiré</strong>
-                <span>
-                  L'accès à votre studio, à vos outils et à votre ligne WhatsApp est suspendu. Renouvelez votre abonnement ci-dessous pour 4 900 F CFA pour réactiver immédiatement l'ensemble de vos outils.
-                </span>
-              </div>
-            </div>
-          )}
-
+        <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8 flex items-center justify-center">
           <PlanGate
             isPro={false}
             featureDescription={
               isExpired
-                ? 'Votre abonnement mensuel a pris fin. Réactivez votre Pass Créateur pour 4 900 F CFA pour débloquer votre studio et récupérer vos 30 crédits.'
-                : 'Activez votre Pass Créateur (4 900 F CFA / 30 jours) pour débloquer l’ensemble des outils du studio, votre ligne WhatsApp et vos 30 crédits.'
+                ? 'Votre abonnement a expiré. Réactivez votre Pass Créateur (4 900 F CFA) pour débloquer immédiatement l’Académie, le Studio IA et vos automatisations WhatsApp.'
+                : 'Activez votre Pass Créateur (4 900 F CFA / 30 jours) pour débloquer l’ensemble des outils et vos 30 crédits.'
             }
+            onUpgrade={handleUpgradeToPro}
           >
             {null}
           </PlanGate>
@@ -402,390 +198,171 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-[#F0F0F5] flex flex-col md:flex-row relative selection:bg-[#D4A017]/30 selection:text-white">
-      {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 z-40 w-full flex items-center justify-between px-4 py-3 bg-[#12121A]/90 border-b border-white/[0.08] backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsMobileDrawerOpen(true)}
-            className="-ml-2 h-11 w-11 inline-flex items-center justify-center rounded-xl text-[#8E94A3] hover:text-white hover:bg-white/[0.05] transition-colors"
-            aria-label="Ouvrir le menu"
+    <div className="min-h-screen bg-[#020204] text-[#E2E4E9] flex flex-col selection:bg-[#D4AF37]/30 selection:text-white">
+      {/* ===================================================================== */}
+      {/* APEX DOCK ÉPURÉ HAUT-DE-GAMME (NAVIGATION MINIMALISTE SANS CHARGE)      */}
+      {/* ===================================================================== */}
+      <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#040507]/90 backdrop-blur-2xl">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-4">
+          
+          {/* Logo marque */}
+          <div
+            onClick={onReturnToHome}
+            className="flex items-center gap-3 cursor-pointer select-none"
+            title="Retour à la vitrine"
           >
-            <Menu className="h-5 w-5" strokeWidth={1.5} />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-xs">
-              D
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1A1E29] via-[#0D0F15] to-[#040507] border border-[#D4AF37]/50 flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.18)]">
+              <svg className="w-5 h-5 text-[#E0C583]" viewBox="0 0 24 24" fill="none">
+                <path d="M4 6L12 20L20 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M7.5 6L12 14L16.5 6" stroke="#FFFFFF" strokeOpacity="0.7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <span className="font-heading font-bold text-sm tracking-tight text-white">DJELIA ACADEMY</span>
+            <div>
+              <span className="font-heading text-lg font-bold text-white tracking-wider block leading-none">
+                VELARIS
+              </span>
+              <span className="text-[9px] font-mono tracking-[0.25em] text-[#8E94A3] uppercase block mt-1">
+                STUDIO OS
+              </span>
+            </div>
+          </div>
+
+          {/* 4 Onglets Centraux Purs (Académie, Studio IA, WhatsApp, Compte) */}
+          <nav className="hidden sm:flex items-center p-1 rounded-xl bg-[#08090D] border border-white/[0.08] text-xs font-medium text-[#C7CAD4]">
+            <button
+              type="button"
+              onClick={() => handleTabClick('academy')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition cursor-pointer ${
+                currentTab === 'academy'
+                  ? 'bg-white/[0.1] text-white font-bold shadow-sm'
+                  : 'text-[#8E94A3] hover:text-white'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4 text-[#D4AF37]" />
+              <span>1. Académie</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabClick('studio_ai')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition cursor-pointer ${
+                currentTab === 'studio_ai'
+                  ? 'bg-white/[0.1] text-white font-bold shadow-sm'
+                  : 'text-[#8E94A3] hover:text-white'
+              }`}
+            >
+              <Music2 className="w-4 h-4 text-[#D4AF37]" />
+              <span>2. Studio IA</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabClick('whatsapp')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition cursor-pointer ${
+                currentTab === 'whatsapp'
+                  ? 'bg-white/[0.1] text-white font-bold shadow-sm'
+                  : 'text-[#8E94A3] hover:text-white'
+              }`}
+            >
+              <Smartphone className="w-4 h-4 text-[#00E599]" />
+              <span>3. Mon WhatsApp</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabClick('profile')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition cursor-pointer ${
+                currentTab === 'profile'
+                  ? 'bg-white/[0.1] text-white font-bold shadow-sm'
+                  : 'text-[#8E94A3] hover:text-white'
+              }`}
+            >
+              <UserRound className="w-4 h-4 text-[#C7CAD4]" />
+              <span>4. Mon Compte</span>
+            </button>
+          </nav>
+
+          {/* Contrôles droits : Crédits & Déconnexion */}
+          <div className="flex items-center gap-3">
+            {/* Pill Solde Crédits */}
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-xs font-mono font-bold text-[#E0C583]">
+              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>{credits.balance} crédits</span>
+            </div>
+
+            {/* Bouton retour Vitrine */}
+            <button
+              type="button"
+              onClick={onReturnToHome}
+              className="text-xs font-mono text-[#8E94A3] hover:text-white px-3 py-1.5 rounded-lg border border-white/[0.08] hover:bg-white/[0.04] transition cursor-pointer flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Vitrine</span>
+            </button>
+
+            {/* Déconnexion */}
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut();
+                onReturnToHome();
+              }}
+              className="p-2 rounded-xl text-[#8E94A3] hover:text-rose-400 hover:bg-white/[0.04] transition cursor-pointer"
+              title="Se déconnecter"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/[0.1] text-[#D4A017] bg-[#D4A017]/10">
-            {isPro ? 'PRO' : 'START'}
-          </span>
+        {/* Mobile Navigation Drawer / Tabs */}
+        <div className="flex sm:hidden border-t border-white/[0.06] bg-[#040507] px-2 py-2 justify-between text-xs font-medium">
           <button
-            onClick={() => setPaletteOpen(true)}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-xl text-[#8E94A3] hover:text-white hover:bg-white/[0.05]"
-            aria-label="Rechercher"
+            type="button"
+            onClick={() => handleTabClick('academy')}
+            className={`flex-1 py-1.5 text-center rounded-lg ${currentTab === 'academy' ? 'bg-white/10 text-white font-bold' : 'text-[#8E94A3]'}`}
           >
-            <Search className="h-4 w-4" />
+            Académie
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('studio_ai')}
+            className={`flex-1 py-1.5 text-center rounded-lg ${currentTab === 'studio_ai' ? 'bg-white/10 text-white font-bold' : 'text-[#8E94A3]'}`}
+          >
+            Studio IA
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('whatsapp')}
+            className={`flex-1 py-1.5 text-center rounded-lg ${currentTab === 'whatsapp' ? 'bg-white/10 text-white font-bold' : 'text-[#8E94A3]'}`}
+          >
+            WhatsApp
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick('profile')}
+            className={`flex-1 py-1.5 text-center rounded-lg ${currentTab === 'profile' ? 'bg-white/10 text-white font-bold' : 'text-[#8E94A3]'}`}
+          >
+            Compte
           </button>
         </div>
       </header>
 
-      {/* Drawer Overlay for Mobile */}
-      <div
-        onClick={() => setIsMobileDrawerOpen(false)}
-        className={`fixed inset-0 z-50 bg-black/70 backdrop-blur-sm md:hidden transition-opacity duration-300 ${
-          isMobileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      />
-
-      {/* Left Sidebar */}
-      <aside
-        className={`fixed md:sticky top-0 bottom-0 left-0 z-50 md:z-30 w-72 shrink-0 flex flex-col bg-[#12121A]/95 md:bg-[#12121A]/85 backdrop-blur-xl border-r border-white/[0.08] transition-transform duration-300 ${
-          isMobileDrawerOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        } h-screen`}
-      >
-        {/* Brand Header */}
-        <div className="px-6 py-6 border-b border-white/[0.08] flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="h-11 w-11 rounded-2xl bg-[#D4A017]/10 border border-[#F5D060]/30 flex items-center justify-center text-[#F5D060] shrink-0 font-heading font-black text-lg shadow-[0_0_20px_-4px_rgba(245,208,96,0.3)]">
-              D
-            </div>
-
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-heading font-black text-lg tracking-wide text-white">
-                  DJELIA
-                </span>
-                <span className="text-[11px] font-bold tracking-wider px-2 py-0.5 rounded-md bg-gradient-to-r from-[#F5D060] to-[#D4A017] text-[#0A0A0F]">
-                  ACADEMY
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                <span className="text-xs font-mono tracking-wider text-emerald-400 font-semibold">
-                  STUDIO ACTIF 24/7
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsMobileDrawerOpen(false)}
-            className="md:hidden -mr-2 h-10 w-10 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white"
-            aria-label="Fermer"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Bouton retour Vitrine */}
-        <div className="px-4 pt-3">
-          <button
-            onClick={onReturnToHome}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-[#A0A5B5] hover:text-white hover:bg-white/[0.05] border border-white/[0.08] transition-colors cursor-pointer"
-          >
-            <span className="flex items-center gap-2.5">
-              <ArrowLeft className="h-4 w-4 text-neutral-400" />
-              <span>Retour à la vitrine</span>
-            </span>
-            <span className="text-xs font-mono text-neutral-500 font-semibold">Site</span>
-          </button>
-        </div>
-
-        {/* Navigation Principale : Les 4 Piliers */}
-        <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto no-scrollbar">
-          <div className="px-3 text-xs font-mono uppercase tracking-widest text-[#A0A5B5]/70 font-semibold">
-            Espace Membre
-          </div>
-
-          <div className="space-y-2">
-            {pillarsConfig.map((pillar) => {
-              const Icon = pillar.icon;
-              const isPillarActive = currentPillar === pillar.id;
-              const isLocked = pillar.requiresPro && !isPro;
-
-              return (
-                <div key={pillar.id} className="space-y-1">
-                  <button
-                    onClick={() => handlePillarClick(pillar.id)}
-                    className={`w-full group relative flex items-center justify-between rounded-2xl px-3.5 py-3 text-sm transition-all duration-200 text-left cursor-pointer border ${
-                      isPillarActive
-                        ? 'bg-[#F5D060]/10 border-[#F5D060]/40 text-white font-bold shadow-[0_0_24px_-8px_rgba(245,208,96,0.35)]'
-                        : 'bg-transparent border-transparent text-[#CBD2E1] hover:bg-white/[0.04] hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className={`text-xs font-mono font-bold ${isPillarActive ? 'text-[#F5D060]' : 'text-neutral-500'}`}>
-                        {pillar.num}
-                      </span>
-                      <Icon className={`h-5 w-5 shrink-0 ${isPillarActive ? 'text-[#F5D060]' : 'text-neutral-400 group-hover:text-white'}`} />
-                      <div className="truncate">
-                        <div className="truncate font-semibold">{pillar.label}</div>
-                      </div>
-                    </div>
-
-                    {isLocked ? (
-                      <Lock className="h-4 w-4 text-[#F5D060]/80 shrink-0" />
-                    ) : (
-                      <span className="text-xs font-mono text-neutral-500 group-hover:text-neutral-300">
-                        →
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Sous-onglets actifs pour WhatsApp ou Ventes */}
-                  {isPillarActive && pillar.subTabs && (
-                    <div className="pl-8 pr-1 py-1 space-y-1">
-                      {pillar.subTabs.map((sub) => {
-                        const SubIcon = sub.icon;
-                        const isSubActive = currentTab === sub.id;
-                        return (
-                          <button
-                            key={sub.id}
-                            onClick={() => handleTabClick(sub.id)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
-                              isSubActive
-                                ? 'bg-white/[0.1] text-[#F5D060] font-semibold'
-                                : 'text-[#A0A5B5] hover:text-white hover:bg-white/[0.04]'
-                            }`}
-                          >
-                            <span className="flex items-center gap-2.5 truncate">
-                              <SubIcon className="h-4 w-4" />
-                              <span className="truncate">{sub.label}</span>
-                            </span>
-                            {!!sub.count && (
-                              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#E11D48] text-white text-xs font-mono font-bold flex items-center justify-center">
-                                {sub.count}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Section Paramètres Studio */}
-          <div className="pt-3 border-t border-white/[0.08] space-y-1.5">
-            <div className="px-3 text-xs font-mono uppercase tracking-widest text-[#A0A5B5]/70 mb-1 font-semibold">
-              Configuration
-            </div>
-            <button
-              onClick={() => handleTabClick('profile')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer ${
-                currentTab === 'profile'
-                  ? 'bg-white/[0.1] text-white font-semibold'
-                  : 'text-[#CBD2E1] hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              <UserRound className="h-4.5 w-4.5" />
-              <span>Mon profil studio</span>
-            </button>
-
-            {user?.email && (user.email.includes('admin') || user.email.includes('anicet')) && (
-              <button
-                onClick={() => handleTabClick('admin')}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer ${
-                  currentTab === 'admin'
-                    ? 'bg-white/[0.1] text-[#F5D060] font-semibold'
-                    : 'text-[#CBD2E1] hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                <Crown className="h-4.5 w-4.5 text-[#F5D060]" />
-                <span>Console Admin</span>
-              </button>
-            )}
-          </div>
-        </nav>
-
-        {/* Upgrade Banner pour membres Start */}
-        {!isPro && (
-          <div className="p-3 mx-3 mb-2 rounded-xl bg-gradient-to-b from-[#D4A017]/15 to-[#D4A017]/5 border border-[#D4A017]/25 text-center space-y-2">
-            <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white">
-              <Sparkles className="h-3.5 w-3.5 text-[#D4A017]" />
-              <span>Passer en Djelia Pro</span>
-            </div>
-            <p className="text-[11px] text-[#8E94A3] leading-tight">
-              Débloquez WhatsApp, le Concierge IA et le Dashboard financier.
-            </p>
-            <button
-              onClick={handleUpgradeToPro}
-              disabled={isUpgrading}
-              className="w-full py-1.5 px-3 rounded-full bg-[#D4A017] hover:bg-[#F5D060] text-[#0A0A0F] font-semibold text-xs transition-colors cursor-pointer shadow-[0_0_12px_rgba(212,160,23,0.3)]"
-            >
-              {isUpgrading ? 'Ouverture SasPay…' : '10 000 F / mois'}
-            </button>
-            {upgradeError && (
-              <p className="text-[10px] text-red-400">{upgradeError}</p>
-            )}
-          </div>
+      {/* ===================================================================== */}
+      {/* ZONE CENTRALE ÉPURÉE & IMMERSIVE (ZÉRO SURCHARGE, CONTENU NET)         */}
+      {/* ===================================================================== */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        {currentTab === 'academy' && renderAcademy()}
+        {currentTab === 'studio_ai' && renderStudioAI()}
+        {currentTab === 'whatsapp' && <SimpleWhatsAppView />}
+        {currentTab === 'profile' && (
+          <StudioProfileView
+            onOpenWhatsApp={() => handleTabClick('whatsapp')}
+            onSignedOut={onReturnToHome}
+          />
         )}
+      </main>
 
-        {/* Footer Profil Utilisateur */}
-        <div className="p-4 border-t border-white/[0.08]">
-          {user ? (
-            <div className="rounded-2xl border border-white/[0.1] bg-[#141420] p-3 flex items-center justify-between gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
-              <button
-                onClick={() => handleTabClick('profile')}
-                className="flex items-center gap-3 min-w-0 text-left cursor-pointer"
-              >
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#F5D060]/20 to-[#E5B54F]/5 border border-[#F5D060]/30 flex items-center justify-center text-xs font-bold text-[#F5D060] shrink-0 shadow-sm">
-                  {userInitials}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-white truncate">
-                    {userDisplayName}
-                  </div>
-                  <div className="text-xs text-emerald-400 truncate flex items-center gap-1.5 font-mono font-medium">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    <span>{isPro ? 'Plan Pro Actif' : 'Plan Start'}</span>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={async () => {
-                  await signOut();
-                  onReturnToHome();
-                }}
-                className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer shrink-0"
-                title="Se déconnecter"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/[0.1] bg-[#141420] p-4 space-y-2.5 text-center">
-              <span className="text-xs font-mono text-[#F5D060] block font-semibold">Session Visiteur</span>
-              <button
-                onClick={() => openAuthModal('login')}
-                className="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#F5D060] to-[#D4A017] text-[#0A0A0F] font-bold text-xs cursor-pointer hover:brightness-110 transition-all shadow-[0_0_15px_rgba(245,208,96,0.3)]"
-              >
-                Se connecter
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Column */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        {/* Fil d'Ariane Desktop */}
-        <div className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-between px-8 border-b border-white/[0.08] bg-[#0A0A0F]/80 backdrop-blur-xl">
-          <div className="flex items-center gap-2.5 text-sm font-medium text-[#A0A5B5]">
-            <span className="text-[#F5D060] font-mono font-semibold">Djelia Academy</span>
-            <span className="text-neutral-500">/</span>
-            <span className="text-white capitalize font-semibold">{currentTab.replace('_', ' ')}</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setPaletteOpen(true)}
-              className="inline-flex items-center gap-2.5 h-10 rounded-full border border-white/[0.1] bg-white/[0.03] px-4 text-xs sm:text-sm text-[#CBD2E1] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
-            >
-              <Search className="h-4 w-4" />
-              <span>Aller à…</span>
-              <kbd className="text-xs font-mono px-2 py-0.5 rounded bg-white/[0.08] text-[#BAC0D4]">{shortcutLabel}</kbd>
-            </button>
-
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/[0.08] bg-white/[0.02] text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Serveur Live
-            </span>
-          </div>
-        </div>
-
-        {/* Vue Principale */}
-        <main className="flex-1 min-w-0 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          {/* PILIER 01 : ACADÉMIE */}
-          {currentTab === 'academy' && renderAcademy()}
-
-          {/* PILIER 02 : MON WHATSAPP (Gated par Plan Pro) */}
-          {['conversations', 'studio_ai', 'automations', 'lines', 'playground'].includes(currentTab) && (
-            <PlanGate
-              isPro={isPro}
-              featureTitle="WhatsApp Studio & Concierge IA"
-              featureDescription="Connectez votre numéro de téléphone WhatsApp à WAHA, répondez automatiquement à vos prospects et fabriquez vos chansons en automatique."
-              onUpgrade={handleUpgradeToPro}
-            >
-              {currentTab === 'conversations' && (
-                <ConversationsView
-                  onOpenOrderForStudio={(name) => {
-                    const matched = orders.find(o => o.clientName.toLowerCase().includes(name.toLowerCase()));
-                    if (matched) openOrderInStudio(matched.id);
-                  }}
-                />
-              )}
-              {currentTab === 'studio_ai' && renderStudioAI()}
-              {currentTab === 'automations' && <AutomationsView />}
-              {currentTab === 'lines' && <WhatsAppLinesView />}
-              {currentTab === 'playground' && <PlaygroundView />}
-            </PlanGate>
-          )}
-
-          {/* PILIER 03 : MES VENTES (Gated par Plan Pro) */}
-          {['revenus', 'ventes', 'analyste'].includes(currentTab) && (
-            <PlanGate
-              isPro={isPro}
-              featureTitle="Dashboard Chiffre d'Affaires & Pipeline"
-              featureDescription="Suivez en direct vos encaissements Wave et Orange Money, gérez vos leads chauds et laissez l'analyste Copilot IA optimiser votre rentabilité."
-              onUpgrade={handleUpgradeToPro}
-            >
-              {currentTab === 'revenus' && (
-                <CockpitView
-                  metrics={metrics ?? EMPTY_STUDIO_METRICS}
-                  orders={orders}
-                  onSelectOrderForStudio={openOrderInStudio}
-                  onOpenQrModal={onOpenQrModal ?? (() => handleTabClick('lines'))}
-                  onOpenNewOrderModal={onOpenNewOrderModal}
-                  onOpenConversations={() => handleTabClick('conversations')}
-                />
-              )}
-              {currentTab === 'ventes' && (
-                <VentesCaisseView
-                  orders={orders}
-                  onSelectOrderForStudio={openOrderInStudio}
-                />
-              )}
-              {currentTab === 'analyste' && (
-                <StudioCopilotView
-                  orders={orders}
-                  metrics={metrics ?? EMPTY_STUDIO_METRICS}
-                  onNavigateToStudio={() => handleTabClick('studio_ai')}
-                  onOpenQrModal={onOpenQrModal ?? (() => handleTabClick('lines'))}
-                />
-              )}
-            </PlanGate>
-          )}
-
-          {/* PILIER 04 : MON AFFILIATION (Accessible à tous) */}
-          {currentTab === 'affiliation' && <AffiliationView />}
-
-          {/* COMPTE & ADMIN */}
-          {currentTab === 'profile' && (
-            <StudioProfileView onOpenWhatsApp={() => handleTabClick('lines')} onSignedOut={onReturnToHome} />
-          )}
-
-          {currentTab === 'admin' && (
-            <AdminConsoleView
-              orders={orders}
-              metrics={metrics ?? EMPTY_STUDIO_METRICS}
-              conversations={liveConversations}
-            />
-          )}
-        </main>
-      </div>
-
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={paletteCommands} />
     </div>
   );
 };

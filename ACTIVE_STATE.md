@@ -25,7 +25,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 23 Novembre 2026 (18:28 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (18:55 UTC)
+- **Refonte Intérieure Épurée & Minimaliste (Zero Clutter & Expérience Directe)** :
+  1. **Purge des Discussions du Site & Suppression du Plein Écran Chat** :
+     - Élimination intégrale du panneau lourd de conversations WhatsApp (`ConversationsView`, 132 Ko) à l'intérieur du site. Le créateur gère ses clients directement sur son application WhatsApp réelle.
+     - Suppression de tous les détournements plein écran intempestifs (`isChatRequested` et `isPlaygroundRequested`).
+  2. **Navigation Intérieure à 4 Onglets Essentiels (`src/components/DjeliaAppLayout.tsx`)** :
+     - Remplacement de la barre latérale surchargée à 12 sous-onglets par une barre supérieure contemporaine épurée :
+       - `1. Académie` : Formation vidéo pas à pas, chapitres clairs, scripts et prompts copyables.
+       - `2. Studio IA` : File de production nette et formulaire de composition libre immédiate (Prénom, Occasion, Style, Détails -> Génération Suno V6).
+       - `3. Mon WhatsApp` : Module dédié à la connexion QR et aux automatisations essentielles.
+       - `4. Mon Compte` : Solde de crédits (30 crédits), statut Pass Créateur (4 900 F CFA), renouvellement et déconnexion.
+  3. **Module WhatsApp & Automatisations Épuré (`src/components/SimpleWhatsAppView.tsx`)** :
+     - **Carte 1 · Connexion WhatsApp Ligne WAHA** : Affichage net de l'état (Connecté avec numéro de téléphone formaté ou affichage direct du QR code prêt à scanner).
+     - **Carte 2 · Pilote Automatique & Encaissement** :
+       - Interrupteur général Pilote Automatique (Activé / En pause).
+       - Personnalisation du message d'accueil.
+       - Coordonnées Mobile Money (Numéro Wave / Orange Money et Nom du compte) pour encaissement direct.
+       - Interrupteur d'envoi du vocal de procédure.
+  4. **Studio IA avec Formulaire Libre Immédiat (`src/components/StudioView.tsx`)** :
+     - Possibilité de créer et composer une chanson sur-le-champ sans dépendre de messages entrants.
 - **Alignement Visuel Conforme à la Plateforme Velarisse (Copie Identique Haute-Horlogerie)** :
   1. **Palette Pitch Obsidian & Champagne Or Pur** :
      - Fond d'écran pitch black (`#020204`) avec maillage ultra-fin 48px et cônes de lumière radiale champagne (`#D4AF37`, `#F5EDD7`).
