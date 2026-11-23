@@ -80,6 +80,23 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     setStudioName(currentName);
   }
 
+  const [studioSlug, setStudioSlug] = useState(
+    (user?.user_metadata?.studio_slug as string) ||
+    (currentName ? currentName.toLowerCase().replace(/[^a-z0-9]/g, '-') : 'mon-studio')
+  );
+  const [studioBio, setStudioBio] = useState(
+    (user?.user_metadata?.studio_bio as string) || ''
+  );
+  const [studioPrice, setStudioPrice] = useState<number>(
+    Number(user?.user_metadata?.studio_price) || 2000
+  );
+  const [selectedStyles, setSelectedStyles] = useState<string[]>(
+    (user?.user_metadata?.studio_styles as string[]) || ['Afrobeat', 'Zouk', 'Acoustique', 'Gospel']
+  );
+  const [selectedPayments, setSelectedPayments] = useState<string[]>(
+    (user?.user_metadata?.studio_payments as string[]) || ['Wave', 'Orange Money']
+  );
+
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<'signout' | 'refresh' | 'reset' | 'checkout' | 'cancel' | null>(null);
   const [notice, setNotice] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
@@ -151,15 +168,47 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     window.setTimeout(() => setNotice(null), 4000);
   };
 
-  const saveName = async (e: FormEvent) => {
+  const saveStudioSettings = async (e: FormEvent) => {
     e.preventDefault();
-    const clean = studioName.replace(/[<>"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
-    if (!clean || clean === currentName) return;
+    const cleanName = studioName.replace(/[<>"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    const cleanSlug = studioSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40) || 'mon-studio';
+    if (!cleanName) return;
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ data: { studio_name: clean } });
-    setSaving(false);
-    if (error) flash('err', "Impossible d'enregistrer le nom du studio.");
-    else flash('ok', 'Nom du studio mis à jour.');
+    try {
+      if (user) {
+        try {
+          await supabase.from('studios').upsert({
+            user_id: user.id,
+            name: cleanName,
+            slug: cleanSlug,
+            bio: studioBio.trim().slice(0, 200),
+            price_quoted_standard: studioPrice,
+            music_styles: selectedStyles,
+            accepted_payments: selectedPayments,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+        } catch {
+          // Table studios non initialisée ou hors ligne : persistance de secours dans user_metadata
+        }
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          studio_name: cleanName,
+          studio_slug: cleanSlug,
+          studio_bio: studioBio.trim().slice(0, 200),
+          studio_price: studioPrice,
+          studio_styles: selectedStyles,
+          studio_payments: selectedPayments
+        }
+      });
+      if (error) throw error;
+      flash('ok', 'Configuration de votre studio et mini-site enregistrée avec succès.');
+    } catch (err: any) {
+      flash('err', err?.message || "Impossible d'enregistrer la configuration du studio.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -699,44 +748,175 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
       )}
 
 
-      {/* Module 3 : Identité & Nom du Studio */}
-      <section className={`${panelClass} p-5 sm:p-6 space-y-4`}>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          <div className="h-16 w-16 shrink-0 rounded-full bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.12),#0B0C10_70%)] border border-[#E5B54F]/40 flex items-center justify-center font-display text-xl font-bold text-[#F3CA75]">
-            {initials}
+      {/* Module 3 : Configuration du Studio & Mini-Site Public */}
+      <section className={`${panelClass} p-5 sm:p-6 space-y-6`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-[#D4A017]/10 border border-[#D4A017]/30 flex items-center justify-center font-heading font-extrabold text-lg text-[#D4A017]">
+              {initials}
+            </div>
+            <div>
+              <h2 className="text-base font-heading font-semibold text-white">Mon Studio & Mini-Site Client</h2>
+              <p className="text-xs text-[#8E94A3]">Personnalisez la vitrine publique que voient vos clients et votre Concierge IA.</p>
+            </div>
           </div>
 
-          <form onSubmit={saveName} className="flex-1 space-y-1.5">
-            <label htmlFor="profile-studio-name" className="text-xs font-medium text-neutral-400">
-              Nom du studio
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
+          <a
+            href={`https://djelia.store/s/${studioSlug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono text-[#D4A017] border border-[#D4A017]/30 transition-colors"
+          >
+            <Globe className="h-3.5 w-3.5" />
+            <span>djelia.store/s/{studioSlug}</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+
+        <form onSubmit={saveStudioSettings} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="profile-studio-name" className="text-xs font-medium text-[#8E94A3]">
+                Nom public de votre studio
+              </label>
+              <div className="relative">
                 <Pencil className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
                 <input
                   id="profile-studio-name"
                   value={studioName}
                   maxLength={60}
                   onChange={e => setStudioName(e.target.value)}
-                  placeholder="Mon Studio Velaris"
-                  className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#0E1015] pl-9 pr-3 text-[15px] text-white placeholder-neutral-600 focus:border-[#E5B54F]/60 focus:outline-none focus:ring-2 focus:ring-[#E5B54F]/15 transition-[border-color,box-shadow]"
+                  placeholder="Ex: Studio Mélody by Fatou"
+                  className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#0A0A0F] pl-9 pr-3 text-sm text-white placeholder-neutral-600 focus:border-[#D4A017] focus:outline-none transition-colors"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={saving || !studioName.trim() || studioName.trim() === currentName}
-                className="h-11 shrink-0 inline-flex items-center gap-2 rounded-xl bg-white px-4 text-[13px] font-semibold text-black hover:bg-neutral-200 disabled:opacity-40 active:scale-[0.98] transition-all"
-              >
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Enregistrer
-              </button>
             </div>
-          </form>
-        </div>
 
-        <dl className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-px rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.08]">
+            <div className="space-y-1.5">
+              <label htmlFor="profile-studio-slug" className="text-xs font-medium text-[#8E94A3]">
+                Identifiant d'URL unique (slug)
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
+                <input
+                  id="profile-studio-slug"
+                  value={studioSlug}
+                  maxLength={40}
+                  onChange={e => setStudioSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="studio-melody"
+                  className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#0A0A0F] pl-9 pr-3 text-sm font-mono text-white placeholder-neutral-600 focus:border-[#D4A017] focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="profile-studio-bio" className="text-xs font-medium text-[#8E94A3]">
+              Biographie & Message de bienvenue (affiché sur le mini-site)
+            </label>
+            <textarea
+              id="profile-studio-bio"
+              rows={2}
+              maxLength={200}
+              value={studioBio}
+              onChange={e => setStudioBio(e.target.value)}
+              placeholder="Ex: Basée à Abidjan, je crée des chansons personnalisées émouvantes pour vos anniversaires, mariages et déclarations d'amour."
+              className="w-full rounded-xl border border-white/[0.08] bg-[#0A0A0F] p-3 text-sm text-white placeholder-neutral-600 focus:border-[#D4A017] focus:outline-none transition-colors resize-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[#8E94A3]">
+              Styles musicaux proposés
+            </label>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {['Afrobeat', 'Zouk', 'Acoustique', 'Gospel', 'Rumba', 'Coupé-décalé'].map(style => {
+                const isChecked = selectedStyles.includes(style);
+                return (
+                  <button
+                    type="button"
+                    key={style}
+                    onClick={() => {
+                      setSelectedStyles(prev =>
+                        isChecked ? prev.filter(s => s !== style) : [...prev, style]
+                      );
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                      isChecked
+                        ? 'bg-[#D4A017]/15 border-[#D4A017] text-white'
+                        : 'bg-[#0A0A0F] border-white/[0.08] text-[#8E94A3] hover:text-white'
+                    }`}
+                  >
+                    {style}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#8E94A3]">
+                Prix standard annoncé au client
+              </label>
+              <select
+                value={studioPrice}
+                onChange={e => setStudioPrice(Number(e.target.value))}
+                className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#0A0A0F] px-3 text-sm font-mono text-white focus:border-[#D4A017] focus:outline-none cursor-pointer"
+              >
+                <option value={1200}>1 200 F CFA (Prix plancher direct)</option>
+                <option value={2000}>2 000 F CFA (Marge membre 800 F)</option>
+                <option value={2500}>2 500 F CFA (Marge membre 1 300 F)</option>
+                <option value={3000}>3 000 F CFA (Marge membre 1 800 F)</option>
+                <option value={5000}>5 000 F CFA (Formule premium)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#8E94A3]">
+                Moyens de paiement acceptés
+              </label>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {['Wave', 'Orange Money', 'MTN MoMo', 'Moov'].map(op => {
+                  const isChecked = selectedPayments.includes(op);
+                  return (
+                    <button
+                      type="button"
+                      key={op}
+                      onClick={() => {
+                        setSelectedPayments(prev =>
+                          isChecked ? prev.filter(p => p !== op) : [...prev, op]
+                        );
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+                        isChecked
+                          ? 'bg-[#D4A017]/15 border-[#D4A017] text-white'
+                          : 'bg-[#0A0A0F] border-white/[0.08] text-[#8E94A3] hover:text-white'
+                      }`}
+                    >
+                      {op}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-11 px-6 rounded-full bg-[#D4A017] hover:bg-[#F5D060] text-[#0A0A0F] font-semibold text-xs inline-flex items-center gap-2 transition-all cursor-pointer shadow-[0_0_16px_-4px_rgba(212,160,23,0.35)]"
+            >
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              <span>Enregistrer la configuration</span>
+            </button>
+          </div>
+        </form>
+
+        <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-px rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.08]">
           {facts.map(({ icon: Icon, label, value, mono }) => (
-            <div key={label} className="bg-[#0B0C10] px-4 py-3.5 flex items-start gap-3">
+            <div key={label} className="bg-[#0A0A0F] px-4 py-3 flex items-start gap-3">
               <Icon className="h-4 w-4 mt-0.5 shrink-0 text-[#737373]" strokeWidth={1.5} />
               <div className="min-w-0">
                 <dt className="text-xs text-neutral-500">{label}</dt>

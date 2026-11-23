@@ -169,12 +169,20 @@ export async function describeScreenshotWithVision(
   }
 }
 
+export interface StudioConfigInfo {
+  name?: string | undefined;
+  slug?: string | undefined;
+  priceQuoted?: number | undefined;
+  paymentMethods?: string[] | undefined;
+}
+
 export interface ConciergeBrainInput {
   incomingMessage: string;
   recentHistory?: Array<{ role: 'user' | 'assistant'; content: string }> | undefined;
   contactName?: string | null | undefined;
   phone?: string | null | undefined;
   videoAlreadySent?: boolean | undefined;
+  studioConfig?: StudioConfigInfo | undefined;
 }
 
 export function isPriceQuestion(text?: string | null): boolean {
@@ -250,8 +258,16 @@ export function isAskingForDemoOrSample(text?: string | null): boolean {
   return demoPatterns.some((p) => p.test(clean));
 }
 
-export function buildConciergeSystemPrompt(country: CountryPaymentInfo, _videoAlreadySent: boolean = true): string {
-  return `Tu es la conseillère clientèle de l'atelier Djélia (https://djelia.store), service de chansons personnalisées en Afrique.
+export function buildConciergeSystemPrompt(
+  country: CountryPaymentInfo,
+  _videoAlreadySent: boolean = true,
+  studioConfig?: StudioConfigInfo | undefined
+): string {
+  const brandName = studioConfig?.name || "l'atelier Djélia";
+  const brandUrl = studioConfig?.slug ? `https://djelia.store/s/${studioConfig.slug}` : "https://djelia.store";
+  const standardPrice = studioConfig?.priceQuoted ? `${studioConfig.priceQuoted} francs` : "1 200 francs";
+
+  return `Tu es la conseillère clientèle de ${brandName} (${brandUrl}), service de chansons personnalisées en Afrique.
 Ton rôle est de conseiller avec chaleur, clarté et bienveillance chaque client, comme une vraie conseillère humaine attentive.
 
 Règles impératives de style et de ton :
@@ -259,17 +275,17 @@ Règles impératives de style et de ton :
 2. Réponses concises et aérées : 1 à 2 phrases directes. Tu peux séparer 2 idées en 2 bulles distinctes avec "---".
 3. Strictement AUCUN émoji dans tes réponses. Pas de symboles décoratifs.
 4. Réponds toujours avec précision à la question posée, puis propose ton aide avec bienveillance.
-5. NE FORCE JAMAIS le lien du site dans chaque réponse. Le client a déjà reçu le lien au tout début. Tu donnes le lien https://djelia.store UNIQUEMENT s'il demande expressément le lien ou où aller pour commander.
+5. NE FORCE JAMAIS le lien du site dans chaque réponse. Le client a déjà reçu le lien au tout début. Tu donnes le lien ${brandUrl} UNIQUEMENT s'il demande expressément le lien ou où aller pour commander.
 6. Ne renvoie jamais de vidéo : le tutoriel a déjà été envoyé plus haut. S'il a un doute, invite-le simplement à revoir la courte vidéo reçue plus haut.
 7. RÈGLE D'HONNÊTETÉ & GARDE-FOU DOUTE : Si la question concerne un litige financier, un problème technique inconnu ou un cas complexe dont tu n'es pas absolument certaine, NE DEVINE RIEN. Réponds exactement :
 "J'ai bien reçu votre message. Je transmets directement votre demande au responsable de l'atelier qui va regarder cela pour vous tout de suite." ou renvoie {"reply": "SILENCE"}.
 
-Connaissances indispensables de l'atelier Djélia :
-- Site officiel : https://djelia.store
-- Formule unique : Chanson personnalisée complète avec 2 versions MP3 différentes pour 1 200 francs.
-- Dis toujours "1 200 francs" (sans mentionner CFA). Il n'y a aucune autre formule ni option vidéo.
+Connaissances indispensables de ${brandName} :
+- Site officiel : ${brandUrl}
+- Formule unique : Chanson personnalisée complète avec 2 versions MP3 différentes pour ${standardPrice}.
+- Dis toujours "${standardPrice}" (sans mentionner CFA). Il n'y a aucune autre formule ni option vidéo.
 - Délais : Les 2 versions MP3 complètes sont prêtes en 15 à 20 minutes après validation de la commande.
-- Étapes sur https://djelia.store : 1) Choix de l'occasion et relation 2) Prénom et souvenirs 3) L'IA écrit les paroles en 15 secondes, modifiables gratuitement à volonté 4) Choix du style musical 5) Paiement sécurisé 1 200 francs 6) Réception sur WhatsApp.
+- Étapes sur ${brandUrl} : 1) Choix de l'occasion et relation 2) Prénom et souvenirs 3) L'IA écrit les paroles en 15 secondes, modifiables gratuitement à volonté 4) Choix du style musical 5) Paiement sécurisé ${standardPrice} 6) Réception sur WhatsApp.
 - Occasions : Anniversaire, mariage, amour, hommage aux parents, remerciement, réconciliation.
 - Moyens de paiement pour son pays (${country.name}) : ${country.methods}.
 - Programme Partenaire : Inscription gratuite sur https://djelia.store/partenaire.html avec son numéro WhatsApp. On reçoit son lien d'affiliation unique et on gagne 25% de commission nette sur chaque commande générée. Retrait instantané dès 1 500 francs sur Wave, Orange Money ou MTN.
@@ -286,7 +302,7 @@ export async function generateConciergeReply(
   log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined
 ): Promise<string> {
   const country = resolveCountryFromPhone(input.phone);
-  const systemPrompt = buildConciergeSystemPrompt(country, input.videoAlreadySent ?? true);
+  const systemPrompt = buildConciergeSystemPrompt(country, input.videoAlreadySent ?? true, input.studioConfig);
 
   const llmMessages: LlmMessage[] = input.recentHistory && input.recentHistory.length > 0
     ? compressRecentHistory(input.recentHistory)

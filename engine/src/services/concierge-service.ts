@@ -763,6 +763,39 @@ export class ConciergeService {
   }
 
   /**
+   * Résolution multi-tenant : charge la configuration du studio rattaché à une session WAHA.
+   * Retourne null si session par défaut (Test/anicet2) ou si aucune configuration spécifique.
+   */
+  private async getStudioConfigForSession(session: string): Promise<{ name?: string; slug?: string; priceQuoted?: number } | null> {
+    if (!session || session === 'Test' || session === 'anicet2') return null;
+    try {
+      if (this.deps.db.queryTable) {
+        const sessions = await this.deps.db.queryTable<Array<{ user_id: string }>>(
+          'wa_sessions',
+          `session_name=eq.${encodeURIComponent(session)}&select=user_id&limit=1`
+        ).catch(() => []);
+        const userId = sessions?.[0]?.user_id;
+        if (!userId) return null;
+
+        const studios = await this.deps.db.queryTable<Array<{ name: string; slug: string; price_quoted_standard?: number }>>(
+          'studios',
+          `user_id=eq.${encodeURIComponent(userId)}&select=name,slug,price_quoted_standard&limit=1`
+        ).catch(() => []);
+        if (studios?.[0]) {
+          return {
+            name: studios[0].name,
+            slug: studios[0].slug,
+            priceQuoted: studios[0].price_quoted_standard || 1200,
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  /**
    * Envoi du pack d'accueil : Note vocale (accueil ou prix) + Vidéo tutoriel (136s, 4.4 Mo) + Message texte avec lien officiel.
    * Le vocal annonce la vidéo, la vidéo suit immédiatement, puis le message donne le lien et invite à poser des questions.
    */
@@ -779,6 +812,11 @@ export class ConciergeService {
       isPrice,
       voiceUrl: targetVoiceUrl,
     });
+
+    // Résolution multi-tenant du studio propriétaire
+    const studioConfig = await this.getStudioConfigForSession(session);
+    const studioUrl = studioConfig?.slug ? `https://djelia.store/s/${studioConfig.slug}` : 'https://djelia.store';
+    const priceText = studioConfig?.priceQuoted ? `${studioConfig.priceQuoted} francs` : '1 200 francs';
 
     // 1. Note vocale PTT (Voix de la sœur clonée, annonce la vidéo)
     await this.deps.waha.send(session, chatId, {
@@ -808,8 +846,8 @@ export class ConciergeService {
 
     // 3. Message texte officiel avec lien direct vers le site
     const onboardingText = isPrice
-      ? "Pour composer votre chanson personnalisée avec vos paroles (2 versions complètes incluses) :\nLe tarif est de 1 200 francs.\n\nVoici le lien de notre site officiel : https://djelia.store\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !"
-      : "Voici le lien de notre site officiel pour composer votre chanson en quelques clics : https://djelia.store\n\nRegardez la courte vidéo ci-dessus et si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.";
+      ? `Pour composer votre chanson personnalisée avec vos paroles (2 versions complètes incluses) :\nLe tarif est de ${priceText}.\n\nVoici le lien de notre site officiel : ${studioUrl}\n\nRegardez la courte vidéo ci-dessus et écrivez-moi directement ici si vous avez la moindre question !`
+      : `Voici le lien de notre site officiel pour composer votre chanson en quelques clics : ${studioUrl}\n\nRegardez la courte vidéo ci-dessus et si vous avez la moindre préoccupation ou si vous bloquez à une étape, écrivez-moi directement ici, je suis là pour vous accompagner.`;
 
     await this.deps.waha.send(session, chatId, {
       kind: 'text',
@@ -1120,6 +1158,8 @@ export class ConciergeService {
         await new Promise((r) => setTimeout(r, 1200));
       }
 
+      const studioConfig = await this.getStudioConfigForSession(session);
+
       const answer = await generateConciergeReply(
         this.deps.llmProvider,
         {
@@ -1128,6 +1168,7 @@ export class ConciergeService {
           contactName: contactName ?? undefined,
           phone,
           videoAlreadySent: videoAlreadySent || shouldSendTutorialNow,
+          studioConfig: studioConfig ?? undefined,
         },
         this.deps.log
       );

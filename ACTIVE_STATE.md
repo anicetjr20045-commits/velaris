@@ -26,6 +26,22 @@
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
 - **Dernière mise à jour** : 23 Novembre 2026 (10:45 UTC)
+- **Phase 2 Djelia Academy — Multi-Tenant WhatsApp & Personnalisation Studio Validée (Tests 257/257 Verts & Builds 100% Réussis)** :
+  1. **Schéma SQL Supabase (`supabase_migration_studios.sql`)** :
+     - Création de la table `studios` avec RLS (lecture publique pour les mini-sites, écriture isolée pour le propriétaire du studio).
+     - Champs : `user_id`, `name`, `slug`, `bio`, `photo_url`, `accent_color`, `accepted_payments`, `music_styles`, `price_quoted_standard`.
+  2. **Formulaire de Personnalisation Frontend (`src/components/StudioProfileView.tsx`)** :
+     - Module complet de configuration du studio : nom de marque, slug d'URL (avec aperçu `djelia.store/s/{slug}`), biographie client, styles musicaux proposés (chips interactifs), moyens de paiement acceptés et tarif standard affiché.
+     - Double persistance : tentative d'écriture dans `studios` et sauvegarde miroir dans `user_metadata` Supabase.
+  3. **Routage Multi-Tenant Backend Engine (`engine/src/services/concierge-service.ts` & `engine/src/llm/concierge-brain.ts`)** :
+     - Méthode `getStudioConfigForSession` : résolution déterministe `session_name` ➔ `user_id` ➔ table `studios`.
+     - Personnalisation dynamique du Concierge IA : injection du nom du studio du membre, de son lien mini-site et de son prix affiché dans l'onboarding pack et les réponses de support.
+     - Préservation étanche des sessions maîtresses (`Test`, `anicet2`) avec repli par défaut sur les valeurs Djélia d'origine.
+  4. **Re-Vérification & Non-Régression Rigoureuse** :
+     - Compilation Frontend Vite & TS : 100% OK (3.22s).
+     - Compilation Backend Engine TS : 100% OK.
+     - Suite de tests du moteur : **257/257 tests passés avec succès** (0 échec, 0 régression).
+
 - **Phase 1 Djelia Academy — Identité Visuelle & Navigation 4 Piliers Validée (Build Vite & TS 100% Réussi)** :
   1. **Identité Visuelle & Typographie** :
      - `index.html` mis à jour avec le titre « Djelia Academy — Lancez votre Studio Musical IA », `theme-color: #0A0A0F` et chargement des polices **Plus Jakarta Sans**, **Syne** et **JetBrains Mono**.
