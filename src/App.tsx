@@ -19,8 +19,33 @@ import { getSharedTrackById } from './services/shared-tracks';
 import { ShieldCheck } from 'lucide-react';
 import { PlaygroundView } from './components/PlaygroundView';
 import { ConversationsView } from './components/ConversationsView';
+import { MiniSiteView } from './components/MiniSiteView';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
+
+/**
+ * Détecte si l'URL courante cible un mini-site public d'un studio membre :
+ * - Chemin : /s/:slug
+ * - Hash : #s/:slug
+ * - Paramètre URL : ?s=:slug ou ?studio=:slug
+ */
+function getMiniSiteSlug(): string | null {
+  if (typeof window === 'undefined') return null;
+  const pathname = window.location.pathname;
+  if (pathname.startsWith('/s/')) {
+    const slug = pathname.slice(3).replace(/^\/+|\/+$/g, '');
+    if (slug) return slug;
+  }
+  const rawHash = window.location.hash.toLowerCase().replace('#', '').trim();
+  if (rawHash.startsWith('s/')) {
+    const slug = rawHash.slice(2).replace(/^\/+|\/+$/g, '');
+    if (slug) return slug;
+  }
+  const searchParams = new URLSearchParams(window.location.search);
+  const qSlug = searchParams.get('s') || searchParams.get('studio');
+  if (qSlug) return qSlug.trim();
+  return null;
+}
 
 /**
  * Détecte si une session d'authentification Supabase est persistée en local.
@@ -135,6 +160,21 @@ export function App() {
   const initialRoute = useMemo(() => parseInitialRoute(), []);
   const [activeTab, setActiveTab] = useState<MainTab>(initialRoute.activeTab);
   const [studioSubTab, setStudioSubTab] = useState<StudioTab>(initialRoute.studioSubTab);
+
+  // Détection d'un mini-site public membre (ex: /s/fatou-music ou ?s=fatou-music)
+  const [miniSiteSlug, setMiniSiteSlug] = useState<string | null>(() => getMiniSiteSlug());
+
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setMiniSiteSlug(getMiniSiteSlug());
+    };
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
 
   // Détection du mode d'écoute publique sécurisé (?listen=...)
   const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(null);
@@ -422,6 +462,21 @@ export function App() {
       }).catch(console.error);
     }
   };
+
+  if (miniSiteSlug) {
+    return (
+      <MiniSiteView
+        slug={miniSiteSlug}
+        onReturnToHome={() => {
+          setMiniSiteSlug(null);
+          if (typeof window !== 'undefined') {
+            window.history.pushState({}, '', '/');
+          }
+          changeTab('home');
+        }}
+      />
+    );
+  }
 
   if (isLoadingListen) {
     return (

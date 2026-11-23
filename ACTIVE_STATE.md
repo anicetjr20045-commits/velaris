@@ -25,7 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (10:45 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (11:05 UTC)
+- **Phase 3 Djelia Academy — Mini-Site Public & Détection Vision des Reçus Validée (Tests 257/257 Verts & Builds 100% Réussis)** :
+  1. **Mini-Site Public Membre (`src/components/MiniSiteView.tsx`)** :
+     - Vitrine publique accessible via `djelia.store/s/{slug}`, `#s/{slug}` ou `?s={slug}`.
+     - Design dark luxury sans aucun émoji (tokens Djelia Academy, bordures architecturales, badges épurés).
+     - Lecteur audio interactif intégré pour les démos du studio.
+     - Chargement dynamique du profil studio depuis Supabase (`studios`) avec repli gracieux.
+     - Call-to-action d'achat directement relié au lien de commande avec tag d'affiliation du membre.
+  2. **Routage Unifié Frontend (`src/App.tsx`)** :
+     - Détecteur de route `getMiniSiteSlug()` captant nativement `/s/:slug`, les ancres `#s/:slug` et les paramètres d'URL.
+     - Rendu conditionnel du mini-site public sans flash ni perturbation de l'espace membre interne.
+  3. **Détection Intelligente des Reçus de Paiement par Vision IA (`engine/src/llm/concierge-brain.ts` & `engine/src/services/concierge-service.ts`)** :
+     - Fonction multimodale `analyzePaymentReceiptWithVision` propulsée par Gemini Flash Vision via le proxy Kie.ai.
+     - Analyse structurée JSON : identification de l'opérateur (Wave, Orange Money, MTN MoMo, Moov, Chariow, Carte), montant, référence de transaction, expéditeur et destinataire.
+     - Règle 8 du Concierge IA : remerciement personnalisé et confirmation immédiate de la mise en production lors de la réception d'une preuve de virement.
+     - Mise à jour déterministe de l'état `ack_log.payment_receipt_detected` en base.
+  4. **Re-Vérification & Non-Régression Rigoureuse** :
+     - Compilation Frontend Vite & TS : 100% OK (3.45s).
+     - Compilation Backend Engine TS : 100% OK.
+     - Suite de tests du moteur : **257/257 tests passés avec succès** (0 échec, 0 régression).
+
 - **Phase 2 Djelia Academy — Multi-Tenant WhatsApp & Personnalisation Studio Validée (Tests 257/257 Verts & Builds 100% Réussis)** :
   1. **Schéma SQL Supabase (`supabase_migration_studios.sql`)** :
      - Création de la table `studios` avec RLS (lecture publique pour les mini-sites, écriture isolée pour le propriétaire du studio).

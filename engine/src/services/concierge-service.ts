@@ -30,6 +30,7 @@ import type { NormalizedEvent, MessageEvent } from '../ingest/normalize.js';
 import {
   generateConciergeReply,
   describeScreenshotWithVision,
+  analyzePaymentReceiptWithVision,
   isAskingForProcedureOrTutorial,
   isAskingForDemoOrSample,
   isPriceQuestion,
@@ -886,16 +887,54 @@ export class ConciergeService {
     const chatId = ev.chatId;
     let messageText = ev.body?.trim() || '';
 
-    // Analyse visuelle si le client a envoyé une capture d'écran
+    // Analyse visuelle si le client a envoyé une image (capture d'écran ou reçu de paiement)
     if (ev.mediaKind === 'image' && ev.mediaUrl && this.kieApiKey) {
       try {
         const imageBuffer = await this.downloadMedia(ev.mediaUrl, ev.waMessageId, chatId);
         if (imageBuffer) {
-          const visionDesc = await describeScreenshotWithVision(this.kieApiKey, imageBuffer, ev.mediaMime || 'image/jpeg');
-          if (visionDesc) {
-            const visionTag = `[Capture d'écran envoyée par le client : ${visionDesc}]`;
+          // 1. Détection de reçu de paiement Mobile Money ou bancaire (Wave, Orange Money, MTN MoMo, Chariow...)
+          const receiptAnalysis = await analyzePaymentReceiptWithVision(
+            this.kieApiKey,
+            imageBuffer,
+            ev.mediaMime || 'image/jpeg'
+          );
+
+          if (receiptAnalysis && receiptAnalysis.isPaymentReceipt && receiptAnalysis.confidence >= 0.6) {
+            const amountStr = receiptAnalysis.amount ? `${receiptAnalysis.amount} ${receiptAnalysis.currency || 'FCFA'}` : 'montant confirmé';
+            const opStr = receiptAnalysis.operator || 'Mobile Money';
+            const refStr = receiptAnalysis.transactionRef ? ` (Réf: ${receiptAnalysis.transactionRef})` : '';
+            const receiptTag = `[Reçu de paiement ${opStr} détecté par l'IA : ${amountStr}${refStr}]`;
+            messageText = messageText ? `${receiptTag}\n${messageText}` : receiptTag;
+            this.deps.log?.('[concierge] Reçu de paiement détecté par Vision IA', {
+              chatId,
+              operator: opStr,
+              amount: receiptAnalysis.amount,
+              ref: receiptAnalysis.transactionRef,
+            });
+
+            if (conversation?.id && this.deps.db.updateRows) {
+              const currentAckLog = conversation.ack_log || {};
+              await this.deps.db.updateRows('conversations', `id=eq.${conversation.id}`, {
+                ack_log: {
+                  ...currentAckLog,
+                  payment_receipt_detected: true,
+                  last_receipt_amount: receiptAnalysis.amount,
+                  last_receipt_operator: opStr,
+                  last_receipt_ref: receiptAnalysis.transactionRef,
+                },
+              }).catch(() => undefined);
+            }
+          } else if (receiptAnalysis?.rawSummary) {
+            const visionTag = `[Capture d'écran envoyée par le client : ${receiptAnalysis.rawSummary}]`;
             messageText = messageText ? `${visionTag}\n${messageText}` : visionTag;
-            this.deps.log?.('[concierge] Capture d\'écran analysée par Vision IA', { chatId, visionDesc });
+            this.deps.log?.('[concierge] Capture d\'écran analysée par Vision IA', { chatId, visionDesc: receiptAnalysis.rawSummary });
+          } else {
+            const visionDesc = await describeScreenshotWithVision(this.kieApiKey, imageBuffer, ev.mediaMime || 'image/jpeg');
+            if (visionDesc) {
+              const visionTag = `[Capture d'écran envoyée par le client : ${visionDesc}]`;
+              messageText = messageText ? `${visionTag}\n${messageText}` : visionTag;
+              this.deps.log?.('[concierge] Capture d\'écran analysée par Vision IA', { chatId, visionDesc });
+            }
           }
         }
       } catch (visErr: any) {

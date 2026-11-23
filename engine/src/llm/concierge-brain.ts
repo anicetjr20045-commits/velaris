@@ -169,6 +169,87 @@ export async function describeScreenshotWithVision(
   }
 }
 
+export interface PaymentReceiptAnalysis {
+  isPaymentReceipt: boolean;
+  operator?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  transactionRef?: string | null;
+  sender?: string | null;
+  recipient?: string | null;
+  confidence: number;
+  rawSummary?: string | null;
+}
+
+/**
+ * Analyse visuelle spécialisée des preuves et reçus de paiement Mobile Money et bancaires
+ * (Wave, Orange Money, MTN MoMo, Moov Money, Chariow, Carte bancaire).
+ * Utilise Gemini Flash Vision via le proxy Kie.ai.
+ */
+export async function analyzePaymentReceiptWithVision(
+  kieApiKey: string,
+  imageBuffer: Buffer,
+  mimeType: string = 'image/jpeg',
+  timeoutMs: number = 20_000
+): Promise<PaymentReceiptAnalysis | null> {
+  try {
+    const base64 = imageBuffer.toString('base64');
+    const dataUri = `data:${mimeType};base64,${base64}`;
+    const endpoint = 'https://api.kie.ai/gemini-3-6-flash-openai/v1/chat/completions';
+
+    const prompt =
+      "Tu es un expert d'analyse de reçus et preuves de transfert Mobile Money et bancaires en Afrique (Wave, Orange Money, MTN Mobile Money, Moov Money, Chariow, Cartes Visa/Mastercard). " +
+      "Analyse cette image envoyée par un client sur WhatsApp. Détermine s'il s'agit d'une capture de preuve ou reçu de paiement/transfert d'argent effectif. " +
+      "Réponds STRICTEMENT par un objet JSON valide avec les clés suivantes :\n" +
+      "{\n" +
+      '  "isPaymentReceipt": boolean,\n' +
+      '  "operator": "Wave" | "Orange Money" | "MTN MoMo" | "Moov" | "Chariow" | "Carte Bancaire" | "Autre" | null,\n' +
+      '  "amount": number | null,\n' +
+      '  "currency": "FCFA" | "EUR" | "USD" | string | null,\n' +
+      '  "transactionRef": string | null,\n' +
+      '  "sender": string | null,\n' +
+      '  "recipient": string | null,\n' +
+      '  "confidence": number,\n' +
+      '  "rawSummary": string\n' +
+      "}\n" +
+      "Si ce n'est PAS un reçu de paiement (par exemple une simple capture d'écran du site web ou une photo sans rapport), mets isPaymentReceipt: false, confidence: 0.9, et décris brièvement l'image dans rawSummary.";
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${kieApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gemini-3-6-flash',
+        stream: false,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: dataUri } },
+            ],
+          },
+        ],
+        response_format: { type: 'json_object' },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    if (!res.ok) return null;
+    const data = (await res.json()) as any;
+    const content = data?.choices?.[0]?.message?.content?.trim();
+    if (!content) return null;
+
+    const jsonStr = content.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+    const parsed = JSON.parse(jsonStr) as PaymentReceiptAnalysis;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export interface StudioConfigInfo {
   name?: string | undefined;
   slug?: string | undefined;
@@ -279,6 +360,7 @@ Règles impératives de style et de ton :
 6. Ne renvoie jamais de vidéo : le tutoriel a déjà été envoyé plus haut. S'il a un doute, invite-le simplement à revoir la courte vidéo reçue plus haut.
 7. RÈGLE D'HONNÊTETÉ & GARDE-FOU DOUTE : Si la question concerne un litige financier, un problème technique inconnu ou un cas complexe dont tu n'es pas absolument certaine, NE DEVINE RIEN. Réponds exactement :
 "J'ai bien reçu votre message. Je transmets directement votre demande au responsable de l'atelier qui va regarder cela pour vous tout de suite." ou renvoie {"reply": "SILENCE"}.
+8. REÇU DE PAIEMENT : Si le message indique qu'un reçu de paiement a été détecté par l'IA, remercie poliment et chaleureusement le client, confirme que le paiement a bien été reçu et rassure-le que la création de sa chanson démarre dans l'atelier.
 
 Connaissances indispensables de ${brandName} :
 - Site officiel : ${brandUrl}
