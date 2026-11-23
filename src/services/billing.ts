@@ -123,7 +123,8 @@ const KIND_TO_TYPE: Record<string, CreditTransaction['type']> = {
 
 function mapSubscription(p: any, lastPayment?: any): SubscriptionInfo {
   if (!p?.subscription_plan || p.subscription_plan === 'free' || !p.subscription_expires_at) return NO_SUBSCRIPTION;
-  const plan = p.subscription_plan === 'quarterly' ? SASPAY_CONFIG.plans.quarterly : SASPAY_CONFIG.plans.monthly;
+  const isPro = p.subscription_plan === 'pro' || p.subscription_plan === 'quarterly';
+  const plan = isPro ? (SASPAY_CONFIG.plans.pro || SASPAY_CONFIG.plans.quarterly) : (SASPAY_CONFIG.plans.start || SASPAY_CONFIG.plans.monthly);
   const expired = new Date(p.subscription_expires_at).getTime() < Date.now();
   const renew = readRenewalPref();
   return {

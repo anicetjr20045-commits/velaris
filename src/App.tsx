@@ -4,7 +4,7 @@ import { LandingPage } from './components/LandingPage';
 import { StudioView } from './components/StudioView';
 import { AcademyView } from './components/AcademyView';
 import { DecouvrirView } from './components/DecouvrirView';
-import { StudioAppLayout, type StudioTab } from './components/StudioAppLayout';
+import { DjeliaAppLayout, type StudioTab } from './components/DjeliaAppLayout';
 import { QrConnectModal } from './components/QrConnectModal';
 import { NewOrderModal } from './components/NewOrderModal';
 import { AuthModal } from './components/AuthModal';
@@ -83,6 +83,9 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
   }
   if (rawHash === 'playground' || rawHash === 'play' || rawHash === 'simulateur' || pathname.includes('simulateur')) {
     return { activeTab: 'studio', studioSubTab: 'playground' };
+  }
+  if (rawHash === 'affiliation' || rawHash === 'partenaire' || pathname === '/affiliation') {
+    return { activeTab: 'studio', studioSubTab: 'affiliation' };
   }
   if (rawHash === 'whatsapp') {
     return { activeTab: 'studio', studioSubTab: 'whatsapp' };
@@ -559,7 +562,7 @@ export function App() {
         {/* Interior Studio OS (Cockpit, Copilot IA, Studio IA, Discussions, Pipeline, Automations, WhatsApp Lines) */}
         {(activeTab === 'cockpit' || activeTab === 'studio' || activeTab === 'academy' || activeTab === 'copilot') && (
           <div className="w-full flex-1">
-            <StudioAppLayout
+            <DjeliaAppLayout
               initialTab={studioSubTab}
               onTabChange={(tab) => {
                 if (tab === 'revenus' || tab === 'ventes') {

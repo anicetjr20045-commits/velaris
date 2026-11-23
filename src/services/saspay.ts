@@ -24,23 +24,37 @@ export const SASPAY_CONFIG = {
     cfaPerCredit: 85,
     minCfaRecharge: 200, // Seuil minimum SasPay
     maxCfaRecharge: 500000,
-    monthlySubscriptionXOF: 3000,
-    quarterlySubscriptionXOF: 7000,
+    monthlySubscriptionXOF: 5000,
+    quarterlySubscriptionXOF: 10000,
   },
   plans: {
+    start: {
+      id: 'start' as SubscriptionPlanId,
+      name: 'Djelia Start',
+      priceXOF: 5000,
+      durationDays: 30,
+      description: 'Académie complète + Programme d\'Affiliation 25% + Cockpit statistiques'
+    },
+    pro: {
+      id: 'pro' as SubscriptionPlanId,
+      name: 'Djelia Pro',
+      priceXOF: 10000,
+      durationDays: 30,
+      description: 'Tout Start + Connexion WhatsApp WAHA + Concierge IA 24/7 + Automatisations'
+    },
     monthly: {
       id: 'monthly' as SubscriptionPlanId,
-      name: 'Pass Studio Mensuel',
-      priceXOF: 3000,
+      name: 'Djelia Start (Mensuel)',
+      priceXOF: 5000,
       durationDays: 30,
-      description: 'Accès complet au Studio Velaris (30 jours) + WAHA WhatsApp + Pipeline CRM'
+      description: 'Académie complète + Programme d\'Affiliation 25%'
     },
     quarterly: {
       id: 'quarterly' as SubscriptionPlanId,
-      name: 'Pass Studio Trimestriel',
-      priceXOF: 7000,
-      durationDays: 90,
-      description: 'Accès complet 3 mois au Studio Velaris (2 000 F CFA d’économie)'
+      name: 'Djelia Pro (Mensuel)',
+      priceXOF: 10000,
+      durationDays: 30,
+      description: 'Tout Start + Connexion WhatsApp WAHA + Concierge IA'
     }
   }
 };

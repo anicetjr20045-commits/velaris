@@ -24,8 +24,50 @@
 
 ## 🎯 Statut Actuel & Point de Reprise
 
-- **Projet** : `velaris` (`/root/projets/velaris`)
-- **Dernière mise à jour** : 21 Novembre 2026 (09:45 UTC)
+- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
+- **Dernière mise à jour** : 23 Novembre 2026 (10:45 UTC)
+- **Phase 1 Djelia Academy — Identité Visuelle & Navigation 4 Piliers Validée (Build Vite & TS 100% Réussi)** :
+  1. **Identité Visuelle & Typographie** :
+     - `index.html` mis à jour avec le titre « Djelia Academy — Lancez votre Studio Musical IA », `theme-color: #0A0A0F` et chargement des polices **Plus Jakarta Sans**, **Syne** et **JetBrains Mono**.
+     - `src/index.css` refondu sur l'univers « Studio doré & nuit profonde » : surfaces `#0A0A0F`, `#12121A`, `#141420`, or chaud `#D4A017`, texte blanc cassé `#F0F0F5`, avec tokens `--dj-*` et rétrocompatibilité `--vx-*`.
+  2. **Tarifs & Modèle d'Abonnement SasPay** :
+     - `src/types/billing.ts` : extension de `SubscriptionPlanId` avec `'start' | 'pro'`.
+     - `src/services/saspay.ts` : plans d'abonnements officiels calibrés :
+       - **Djelia Start** : 5 000 F CFA / mois (Académie complète + Affiliation 25%).
+       - **Djelia Pro** : 10 000 F CFA / mois (Tout Start + WhatsApp 24/7 + Concierge IA + Dashboard des Ventes).
+     - `src/services/billing.ts` : mapping direct des abonnements Start et Pro.
+  3. **Composant de Gating par Plan (`PlanGate.tsx`)** :
+     - Enveloppe d'accès sécurisée affichant un cadenas doré, le récapitulatif des atouts Djelia Pro et un bouton d'action vers le checkout SasPay (10 000 F/mois).
+  4. **Pilier 04 — Espace Affiliation Déployé (`AffiliationView.tsx`)** :
+     - Gestion du lien d'affiliation central (`djelia.store/?ref=...`) et du mini-site personnalisé (`djelia.store/s/{slug}`).
+     - Bento grid de suivi : clics enregistrés, ventes livrées, taux de conversion et solde disponible.
+     - Module de retrait direct par Wave et Orange Money dès le seuil de 1 500 F CFA.
+  5. **Navigation Principale 4 Piliers (`DjeliaAppLayout.tsx` & `src/App.tsx`)** :
+     - `01 Académie` : Accessible à tous les membres.
+     - `02 Mon WhatsApp` : Verrouillé par `PlanGate` pour les membres Start, débloqué pour les membres Pro.
+     - `03 Mes Ventes` : Verrouillé par `PlanGate` pour les membres Start, débloqué pour les membres Pro.
+     - `04 Mon Affiliation` : Accessible à tous les membres.
+     - Prise en charge du profil studio, de la console admin et de la palette de commandes rapide Cmd+K.
+  6. **Validation Technique** :
+     - `npm run build` exécuté avec succès (0 erreur TypeScript, bundle client `dist/` généré en 4.06s).
+
+---
+- **Sécurisation Mémoire VPS (`162.35.113.220`) — Agrandissement Swap à 8 Go** :
+  - Création et activation de `/home/swapfile_6g` (6 Go supplémentaires alloués sur le SSD, configuré dans `/etc/fstab`).
+  - Total swap système porté de 2.0 Go (saturé à 99%) à **8.0 Go** (6.0 Go de marge libre).
+  - Élimination du risque de crash OOM pour les conteneurs de production (`velaris-engine`, `waha`, `whisper`, `caddy`).
+- **Validation Complète Connexion Serveur MCP Lovable Officiel (`https://mcp.lovable.dev`)** :
+  - Pont MCP stdio autonome déployé (`/root/scripts/lovable_mcp.py`) avec filtrage strict des outils autorisés (blocage de `query_database`).
+  - Authentification OAuth 2.0 complétée avec succès (Workspace ID `5c50273d4c68bfb65a53`, Projet `velaris` ID `aaa6947e-31a6-43e3-bcf8-e1d0b6083783`).
+  - Test de communication bidirectionnelle validé avec succès :
+    - Message envoyé : « Antigravity teste la connexion. Confirme simplement que tu as reçu ce message, sans modifier le projet. »
+    - Réponse de l'agent Lovable (`aimsg_01m7z7sq67ey58bjj6tm3sde4c`) : « Message bien reçu. Aucune modification du projet : rien à construire. »
+    - Lecture de code validée via `read_file` sur `package.json`.
+- **Règle Permanente Inviolable Intégrée (`AGENTS.md`, `GEMINI.md`)** :
+  - Zéro modification directe de la base de données.
+  - Toute migration, modification RLS ou de schéma est transmise exclusivement à l'agent Lovable via `send_message` avec le SQL et le résultat attendu.
+  - Zéro publication sans accord préalable.
+
 - **Résolution Incident Automatisations Émojis WhatsApp & Reconnexion Session (21 Novembre 2026)** :
   1. **Reconnexion Passerelle WAHA (Session "Test" +226 56 24 05 33)** :
      - La session avait décroché suite à une déconnexion Chromium à 08:40 UTC (`The browser has been disconnected`).

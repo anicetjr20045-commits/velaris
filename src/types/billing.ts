@@ -24,7 +24,7 @@ export interface CreditTransaction {
   orderId?: string;
 }
 
-export type SubscriptionPlanId = 'free' | 'monthly' | 'quarterly';
+export type SubscriptionPlanId = 'free' | 'start' | 'pro' | 'monthly' | 'quarterly';
 
 export interface SubscriptionInfo {
   planId: SubscriptionPlanId;
