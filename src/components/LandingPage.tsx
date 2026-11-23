@@ -236,54 +236,57 @@ export const LandingPage: FC<LandingPageProps> = ({
         <div className="relative grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
           <div className="vx-view-enter">
             {/* Badge de positionnement */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#D4A017]/30 bg-[#D4A017]/[0.06] px-3.5 py-1.5 text-xs text-[#D4A017] font-mono">
-              <Sparkles className="h-3.5 w-3.5" />
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-[#E5B54F]/30 bg-gradient-to-r from-[#F5D060]/10 to-[#E5B54F]/5 px-5 py-2.5 text-xs sm:text-sm text-[#F5D060] font-mono font-medium shadow-[0_0_20px_rgba(245,208,96,0.15)]">
+              <Sparkles className="h-4 w-4" />
               <span>Académie Officielle · Business Rentable en Afrique & Diaspora</span>
             </div>
 
             {/* Titre H1 percutant */}
-            <h1 className="mt-6 font-heading text-[42px] sm:text-6xl lg:text-[72px] font-bold leading-[1] tracking-[-0.04em] text-white">
+            <h1 className="mt-7 font-heading text-4xl sm:text-6xl lg:text-[76px] font-black leading-[1.02] tracking-[-0.04em] text-white">
               Lancez votre Studio Musical IA.
-              <span className="block text-[#D4A017] mt-2 font-normal italic font-serif">
+              <span className="block bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] bg-clip-text text-transparent mt-3 font-normal italic font-serif">
                 Zéro talent. Zéro stock. 100% sur WhatsApp.
               </span>
             </h1>
 
             {/* Texte sous-titre de conversion directe */}
-            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-[#8E94A3]">
+            <p className="mt-7 max-w-2xl text-lg sm:text-xl leading-relaxed text-[#D2D7E5]">
               Vous en avez assez des business en ligne compliqués qui ne marchent jamais (e-commerce bloqué par les colis rejetés, trading risqué, agences saturées) ?
-              La chanson personnalisée est l’opportunité la plus rentable du continent : <span className="text-white font-medium">90% de marge nette</span>, 0 livraison physique, et des clients qui paient d'avance par <span className="text-white font-medium">Wave et Orange Money</span>.
+              La chanson personnalisée est l’opportunité la plus rentable du continent : <span className="text-white font-semibold">90% de marge nette</span>, 0 livraison physique, et des clients qui paient d'avance par <span className="text-[#F5D060] font-semibold">Wave et Orange Money</span>.
             </p>
 
             {/* Boutons d'Action Principaux */}
-            <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
+            <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
               <button
                 type="button"
                 onClick={handlePrimaryAction}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-8 py-4 text-sm font-semibold text-[#0A0A0F] shadow-[0_0_32px_rgba(212,160,23,0.35)] active:scale-[0.98] transition-all duration-150 cursor-pointer"
+                className="inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-9 py-4.5 text-base sm:text-lg font-bold text-[#0A0A0F] shadow-[0_0_36px_rgba(245,208,96,0.4)] active:scale-[0.98] transition-all duration-150 cursor-pointer"
               >
                 <span>Rejoindre l'Académie & Lancer mon Studio</span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-5 w-5" />
               </button>
 
               <button
                 type="button"
                 onClick={scrollToAudio}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.15] bg-white/[0.03] px-6 py-4 text-sm font-medium text-white hover:bg-white/[0.08] hover:border-white/30 transition-colors duration-200 cursor-pointer"
+                className="inline-flex items-center justify-center gap-3 rounded-full border border-white/[0.18] bg-white/[0.05] hover:bg-white/[0.1] px-7 py-4.5 text-base sm:text-lg font-semibold text-white hover:border-white/40 transition-colors duration-200 cursor-pointer"
               >
-                <AudioLines className="h-4 w-4 text-[#D4A017]" strokeWidth={1.5} />
+                <AudioLines className="h-5 w-5 text-[#F5D060]" strokeWidth={2} />
                 <span>Écouter les démos créées par l'IA</span>
               </button>
             </div>
 
             {/* Preuve de réassurance */}
-            <div className="mt-6 flex items-center gap-3 text-xs text-[#8E94A3]">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                <CheckCircle2 className="h-3.5 w-3.5" />
+            <div className="mt-7 flex flex-wrap items-center gap-4 text-sm sm:text-base text-[#BAC0D4]">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <CheckCircle2 className="h-4.5 w-4.5" />
                 <span>0 F CFA de matériel requis</span>
               </div>
-              <span className="text-white/20">·</span>
-              <span>Encaissement direct sur votre mobile</span>
+              <span className="text-white/30 hidden sm:inline">·</span>
+              <div className="flex items-center gap-2 text-[#CBD2E1] font-medium">
+                <CheckCircle2 className="h-4.5 w-4.5 text-[#F5D060]" />
+                <span>Encaissement direct sur votre mobile Wave / OM</span>
+              </div>
             </div>
           </div>
 
@@ -294,24 +297,24 @@ export const LandingPage: FC<LandingPageProps> = ({
         </div>
 
         {/* Repères chiffrés & métriques d'autorité */}
-        <dl className="relative max-w-6xl mx-auto mt-16 sm:mt-20 grid grid-cols-2 md:grid-cols-4 border-y border-white/[0.08] divide-x divide-white/[0.06] bg-[#12121A]/40 rounded-2xl">
+        <dl className="relative max-w-6xl mx-auto mt-20 sm:mt-24 grid grid-cols-2 md:grid-cols-4 border border-white/[0.1] divide-y md:divide-y-0 md:divide-x divide-white/[0.08] bg-[#0E0F17]/70 backdrop-blur-xl rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           {[
             { label: 'Marge bénéficiaire nette', value: '85 à 95', unit: '%', note: 'Coût de calcul négligeable' },
-            { label: 'Vitesse de composition', value: '15', unit: 'min', note: 'De la note au master MP3' },
+            { label: 'Vitesse de composition', value: '15', unit: 'min', note: 'De la note vocale au master MP3' },
             { label: 'Investissement matériel', value: '0', unit: 'FCFA', note: 'Un simple smartphone suffit' },
             { label: 'Mode d\'encaissement', value: 'Direct', unit: '', note: 'Wave, Orange Money & MTN' },
           ].map((s, i) => (
             <div
               key={s.label}
               style={{ '--i': i + 3 } as CSSProperties}
-              className={`px-5 sm:px-6 py-6 ${i >= 2 ? 'border-t md:border-t-0 border-white/[0.06]' : ''}`}
+              className="p-6 sm:p-8"
             >
-              <dt className="text-xs text-[#8E94A3] font-mono uppercase tracking-wider">{s.label}</dt>
-              <dd className="mt-2 font-mono text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              <dt className="text-xs sm:text-sm text-[#A0A5B5] font-mono uppercase tracking-wider font-semibold">{s.label}</dt>
+              <dd className="mt-3 font-mono text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
                 {s.value}
-                {s.unit && <span className="ml-1 text-sm font-sans text-[#D4A017]">{s.unit}</span>}
+                {s.unit && <span className="ml-1 text-lg sm:text-2xl font-sans text-[#F5D060]">{s.unit}</span>}
               </dd>
-              <dd className="mt-1 text-xs text-[#8E94A3]">{s.note}</dd>
+              <dd className="mt-2 text-xs sm:text-sm text-[#BAC0D4]">{s.note}</dd>
             </div>
           ))}
         </dl>
@@ -320,69 +323,69 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 2. LE DIAGNOSTIC DU PROBLÈME : POURQUOI VOS ANCIENS BUSINESS ONT ÉCHOUÉ */}
       {/* ========================================================================= */}
-      <section className="max-w-6xl mx-auto space-y-10">
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-[#D4A017] uppercase">
-            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+      <section className="max-w-6xl mx-auto space-y-12">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono tracking-widest text-[#F5D060] uppercase font-semibold">
+            <ShieldAlert className="h-4.5 w-4.5 text-amber-400" />
             <span>Le Constat Sans Concession</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
+          <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
             Vous avez déjà essayé d'autres business en ligne ?
           </h2>
-          <p className="text-sm sm:text-base text-[#8E94A3] leading-relaxed">
+          <p className="text-base sm:text-lg text-[#CBD2E1] leading-relaxed">
             La majorité des personnes qui échouent sur internet ne manquent pas de volonté. Elles choisissent simplement des modèles inadaptés au contexte africain.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {COMPARISONS.map((comp) => (
             <div
               key={comp.title}
-              className="rounded-3xl border border-white/[0.08] bg-[#141420]/80 p-7 space-y-4 relative overflow-hidden"
+              className="rounded-3xl border border-white/[0.1] bg-[#11121C] p-8 space-y-5 relative overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-semibold uppercase text-rose-400 px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20">
+                <span className="text-xs sm:text-sm font-mono font-bold uppercase text-rose-400 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
                   {comp.failureRate}
                 </span>
               </div>
-              <h3 className="text-lg font-heading font-semibold text-white">{comp.title}</h3>
-              <p className="text-xs sm:text-sm text-[#8E94A3] leading-relaxed">{comp.pain}</p>
+              <h3 className="text-xl sm:text-2xl font-heading font-bold text-white">{comp.title}</h3>
+              <p className="text-sm sm:text-base text-[#BAC0D4] leading-relaxed">{comp.pain}</p>
             </div>
           ))}
         </div>
 
         {/* Le Pivot Djelia Academy */}
-        <div className="rounded-3xl border border-[#D4A017]/30 bg-gradient-to-br from-[#161622] via-[#141420] to-[#0A0A0F] p-8 sm:p-10 relative overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-8 items-center">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 text-xs font-mono text-[#D4A017] uppercase tracking-wider">
-                <Zap className="h-4 w-4" />
+        <div className="rounded-3xl border border-[#F5D060]/30 bg-gradient-to-br from-[#161726] via-[#12131F] to-[#0A0A0F] p-8 sm:p-12 relative overflow-hidden shadow-[0_20px_60px_-15px_rgba(245,208,96,0.15)]">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
+            <div className="space-y-5">
+              <div className="inline-flex items-center gap-2.5 text-xs sm:text-sm font-mono text-[#F5D060] uppercase tracking-wider font-semibold">
+                <Zap className="h-5 w-5" />
                 <span>Pourquoi la Chanson Personnalisée avec Djelia change tout</span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-heading font-bold text-white tracking-tight">
+              <h3 className="text-2xl sm:text-4xl font-heading font-extrabold text-white tracking-tight leading-snug">
                 Le seul business où le client paie avant la livraison et ne négocie jamais.
               </h3>
-              <p className="text-sm text-[#8E94A3] leading-relaxed">
-                Quand un homme commande une chanson pour demander sa femme en mariage, ou quand une fille veut surprendre sa mère pour ses 60 ans, <strong className="text-white font-medium">ce n'est pas un gadget qu'ils achètent : c'est un souvenir pour la vie.</strong>
+              <p className="text-base sm:text-lg text-[#CBD2E1] leading-relaxed">
+                Quand un homme commande une chanson pour demander sa femme en mariage, ou quand une fille veut surprendre sa mère pour ses 60 ans, <strong className="text-white font-semibold">ce n'est pas un gadget qu'ils achètent : c'est un souvenir pour la vie.</strong>
                 Le taux de retour est de 0%. Vous livrez un fichier audio MP3 de 3 minutes sur WhatsApp, vous encaissez votre argent le jour même.
               </p>
             </div>
 
-            <div className="space-y-3 bg-[#0A0A0F]/80 border border-white/[0.08] rounded-2xl p-6">
-              <div className="flex items-center gap-3 text-sm text-white font-medium">
-                <Check className="h-4 w-4 text-[#D4A017] shrink-0" />
+            <div className="space-y-4 bg-[#08090E]/90 border border-white/[0.1] rounded-3xl p-7">
+              <div className="flex items-center gap-3.5 text-base sm:text-lg text-white font-medium">
+                <Check className="h-5 w-5 text-[#F5D060] shrink-0" strokeWidth={2.5} />
                 <span>0 F CFA de stock immobilisé ou périssable</span>
               </div>
-              <div className="flex items-center gap-3 text-sm text-white font-medium">
-                <Check className="h-4 w-4 text-[#D4A017] shrink-0" />
+              <div className="flex items-center gap-3.5 text-base sm:text-lg text-white font-medium">
+                <Check className="h-5 w-5 text-[#F5D060] shrink-0" strokeWidth={2.5} />
                 <span>0 livreur à moto, 0 colis retourné</span>
               </div>
-              <div className="flex items-center gap-3 text-sm text-white font-medium">
-                <Check className="h-4 w-4 text-[#D4A017] shrink-0" />
-                <span>Paiement immédiat sur votre Wave ou Orange Money</span>
+              <div className="flex items-center gap-3.5 text-base sm:text-lg text-white font-medium">
+                <Check className="h-5 w-5 text-[#F5D060] shrink-0" strokeWidth={2.5} />
+                <span>Paiement immédiat sur Wave ou Orange Money</span>
               </div>
-              <div className="flex items-center gap-3 text-sm text-white font-medium">
-                <Check className="h-4 w-4 text-[#D4A017] shrink-0" />
+              <div className="flex items-center gap-3.5 text-base sm:text-lg text-white font-medium">
+                <Check className="h-5 w-5 text-[#F5D060] shrink-0" strokeWidth={2.5} />
                 <span>L'IA rédige et arrange la musique à votre place</span>
               </div>
             </div>
@@ -393,55 +396,55 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 3. L'OFFRE IRRESISTIBLE : ON VOUS OFFRE TOUT SUR UN PLATEAU */}
       {/* ========================================================================= */}
-      <section id="offre-complete" className="max-w-6xl mx-auto space-y-12">
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-[#D4A017] uppercase">
-            <Layers className="h-3.5 w-3.5" />
+      <section id="offre-complete" className="max-w-6xl mx-auto space-y-14">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono tracking-widest text-[#F5D060] uppercase font-semibold">
+            <Layers className="h-4.5 w-4.5" />
             <span>L'Écosystème Clé en Main</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
+          <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white">
             Nous avons éliminé toutes les barrières.
           </h2>
-          <p className="text-sm sm:text-base text-[#8E94A3] leading-relaxed">
+          <p className="text-base sm:text-lg text-[#CBD2E1] leading-relaxed">
             Vous n'avez pas à deviner comment vendre ni comment créer de la musique. Vous disposez de la formation, de la technologie, des automatisations et de votre propre vitrine en ligne.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
           {BENTO_OFFERS.map((offer) => {
             const Icon = offer.icon;
             return (
               <div
                 key={offer.num}
                 onPointerMove={trackPointer}
-                className="vx-spotlight rounded-3xl border border-white/[0.08] bg-[#141420] p-8 sm:p-9 flex flex-col justify-between hover:border-[#D4A017]/40 transition-all duration-300 relative group"
+                className="vx-spotlight rounded-3xl border border-white/[0.1] bg-[#11121C] p-8 sm:p-10 flex flex-col justify-between hover:border-[#F5D060]/50 transition-all duration-300 relative group shadow-[0_15px_40px_rgba(0,0,0,0.4)]"
               >
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-[#D4A017] tracking-widest uppercase">
+                    <span className="font-mono text-xs sm:text-sm text-[#F5D060] tracking-widest uppercase font-semibold">
                       {offer.num} · {offer.badge}
                     </span>
-                    <div className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[#D4A017] group-hover:bg-[#D4A017]/10 transition-colors">
-                      <Icon className="h-5 w-5" />
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#F5D060]/20 to-[#E5B54F]/5 border border-[#F5D060]/30 flex items-center justify-center text-[#F5D060] group-hover:scale-105 group-hover:bg-[#F5D060]/25 transition-all shadow-[0_0_20px_rgba(245,208,96,0.15)]">
+                      <Icon className="h-7 w-7" />
                     </div>
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-heading font-bold text-white tracking-tight">
+                  <h3 className="text-2xl sm:text-3xl font-heading font-extrabold text-white tracking-tight">
                     {offer.title}
                   </h3>
 
-                  <p className="text-xs sm:text-sm text-[#8E94A3] leading-relaxed">
+                  <p className="text-sm sm:text-base text-[#CBD2E1] leading-relaxed">
                     {offer.desc}
                   </p>
                 </div>
 
-                <div className="mt-8 pt-5 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                <div className="mt-8 pt-6 border-t border-white/[0.08] flex items-center justify-between">
                   <div>
-                    <span className="font-mono font-bold text-white text-sm block">{offer.stat}</span>
-                    <span className="text-[#8E94A3] text-[11px]">{offer.statLabel}</span>
+                    <span className="font-mono font-bold text-white text-base sm:text-lg block">{offer.stat}</span>
+                    <span className="text-[#A0A5B5] text-xs sm:text-sm font-medium">{offer.statLabel}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[#D4A017] font-medium text-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  <div className="flex items-center gap-1.5 text-[#F5D060] font-semibold text-sm">
+                    <CheckCircle2 className="h-4.5 w-4.5" />
                     <span>Inclus dans l'accès</span>
                   </div>
                 </div>
@@ -455,10 +458,10 @@ export const LandingPage: FC<LandingPageProps> = ({
             type="button"
             disabled={checkoutLoading}
             onClick={handlePrimaryAction}
-            className="inline-flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-8 py-3.5 text-xs font-semibold text-[#0A0A0F] shadow-[0_0_24px_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-10 py-4.5 text-base sm:text-lg font-bold text-[#0A0A0F] shadow-[0_0_36px_rgba(245,208,96,0.4)] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
           >
             <span>{checkoutLoading ? 'Initialisation sécurisée…' : 'Activer mon Pass Créateur (4 900 F CFA / mois)'}</span>
-            <ArrowRight className="h-3.5 w-3.5" />
+            <ArrowRight className="h-5 w-5" />
           </button>
         </div>
       </section>
@@ -466,16 +469,16 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 4. PREUVE PAR L'AUDIO : ECOUTEZ CE QUE LE SYSTEME PRODUIT EN 15 MIN */}
       {/* ========================================================================= */}
-      <section id="audio-showcase" className="max-w-5xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 text-xs font-mono text-[#D4A017] uppercase tracking-wider">
-            <Music2 className="h-3.5 w-3.5" />
+      <section id="audio-showcase" className="max-w-5xl mx-auto space-y-10">
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-[#F5D060] uppercase tracking-wider font-semibold">
+            <Music2 className="h-4.5 w-4.5" />
             <span>Preuve Musicale en Direct</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
+          <h2 className="font-heading text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             Écoutez le rendu produit par nos membres
           </h2>
-          <p className="text-sm text-[#8E94A3] max-w-xl mx-auto">
+          <p className="text-base sm:text-lg text-[#CBD2E1] max-w-2xl mx-auto">
             Chaque morceau est arrangé et masterisé avec la suite Djelia en moins de 15 minutes.
           </p>
         </div>
@@ -485,54 +488,54 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 5. LES MATHEMATIQUES DU BUSINESS : SIMULATION DE REVENUS REELS */}
       {/* ========================================================================= */}
-      <section className="max-w-6xl mx-auto space-y-12">
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-[#D4A017] uppercase">
-            <TrendingUp className="h-3.5 w-3.5" />
+      <section className="max-w-6xl mx-auto space-y-14">
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono tracking-widest text-[#F5D060] uppercase font-semibold">
+            <TrendingUp className="h-4.5 w-4.5" />
             <span>Simulateur de Rentabilité</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
+          <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
             Combien pouvez-vous réellement gagner chaque mois ?
           </h2>
-          <p className="text-sm sm:text-base text-[#8E94A3] leading-relaxed">
+          <p className="text-base sm:text-lg text-[#CBD2E1] leading-relaxed">
             Pas de fausses promesses de millions en un jour. Voici les calculs mathématiques réels basés sur le panier moyen de nos studios actifs.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-7 items-stretch">
           {REVENUE_TIERS.map((tier) => (
             <div
               key={tier.tier}
-              className={`rounded-3xl border p-8 flex flex-col justify-between relative transition-all duration-200 ${
+              className={`rounded-3xl border p-8 sm:p-9 flex flex-col justify-between relative transition-all duration-300 shadow-[0_15px_40px_rgba(0,0,0,0.4)] ${
                 tier.isPopular
-                  ? 'bg-[#161626] border-[#D4A017] shadow-[0_0_35px_-5px_rgba(212,160,23,0.3)]'
-                  : 'bg-[#141420] border-white/[0.08]'
+                  ? 'bg-[#151628] border-[#F5D060] shadow-[0_0_40px_-5px_rgba(245,208,96,0.35)]'
+                  : 'bg-[#11121C] border-white/[0.1] hover:border-white/[0.2]'
               }`}
             >
               {tier.isPopular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#D4A017] text-[#0A0A0F] font-mono text-[10px] font-bold uppercase tracking-wider">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F5D060] to-[#E5B54F] text-[#0A0A0F] font-mono text-xs font-extrabold uppercase tracking-wider shadow-lg">
                   Recommandé · Rythme Idéal
                 </div>
               )}
 
-              <div className="space-y-4">
-                <span className="font-mono text-xs text-[#8E94A3] uppercase">{tier.tier}</span>
-                <div className="font-heading text-2xl font-bold text-white">{tier.cadence}</div>
-                <div className="text-xs text-[#8E94A3]">
-                  Tarif facturé au client : <strong className="text-white font-mono">{tier.price}</strong>
+              <div className="space-y-5">
+                <span className="font-mono text-xs sm:text-sm text-[#A0A5B5] uppercase font-semibold tracking-wider">{tier.tier}</span>
+                <div className="font-heading text-2xl sm:text-3xl font-extrabold text-white">{tier.cadence}</div>
+                <div className="text-sm sm:text-base text-[#BAC0D4]">
+                  Tarif facturé au client : <strong className="text-white font-mono font-bold">{tier.price}</strong>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-[#0A0A0F] border border-white/[0.06] space-y-2 mt-4">
-                  <div className="text-[11px] text-[#8E94A3] font-mono uppercase">Revenu Net Mensuel Estimé</div>
-                  <div className="font-mono text-3xl font-bold text-[#D4A017]">
+                <div className="p-5 rounded-2xl bg-[#08090E] border border-white/[0.08] space-y-2.5 mt-5">
+                  <div className="text-xs text-[#A0A5B5] font-mono uppercase font-semibold">Revenu Net Mensuel Estimé</div>
+                  <div className="font-mono text-4xl sm:text-5xl font-black text-[#F5D060]">
                     {tier.monthlyNet}
                   </div>
-                  <div className="text-[10px] text-[#8E94A3]">
+                  <div className="text-xs sm:text-sm text-[#BAC0D4]">
                     CA Brut : {tier.monthlyGross} (hors budget pub léger)
                   </div>
                 </div>
 
-                <p className="text-xs text-[#8E94A3] leading-relaxed pt-2">
+                <p className="text-sm sm:text-base text-[#CBD2E1] leading-relaxed pt-2">
                   {tier.highlight}
                 </p>
               </div>
@@ -540,10 +543,10 @@ export const LandingPage: FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={handlePrimaryAction}
-                className={`w-full py-3 rounded-full font-semibold text-xs transition-colors cursor-pointer mt-8 ${
+                className={`w-full py-4 rounded-full font-bold text-sm sm:text-base transition-all cursor-pointer mt-8 ${
                   tier.isPopular
-                    ? 'bg-[#D4A017] hover:bg-[#F5D060] text-[#0A0A0F]'
-                    : 'bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/[0.08]'
+                    ? 'bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 text-[#0A0A0F] shadow-[0_0_24px_rgba(245,208,96,0.3)]'
+                    : 'bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/[0.1]'
                 }`}
               >
                 Viser cet objectif
@@ -557,40 +560,40 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* 6. TEMOIGNAGES CONCRETS & HISTOIRES DE REUSSITE */}
       {/* ========================================================================= */}
       <section className="max-w-6xl mx-auto space-y-12">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-[#D4A017] uppercase">
-            <Users className="h-3.5 w-3.5" />
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono tracking-widest text-[#F5D060] uppercase font-semibold">
+            <Users className="h-4.5 w-4.5" />
             <span>Retours d'Expérience Réels</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
+          <h2 className="font-heading text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             Ils ont lancé leur studio en Afrique
           </h2>
-          <p className="text-sm text-[#8E94A3]">
+          <p className="text-base sm:text-lg text-[#CBD2E1]">
             Témoignages de membres ayant démarré sans aucune compétence musicale préalable.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
           {TESTIMONIALS.map((t) => (
             <div
               key={t.name}
-              className="rounded-3xl border border-white/[0.08] bg-[#141420] p-7 flex flex-col justify-between space-y-6"
+              className="rounded-3xl border border-white/[0.1] bg-[#11121C] p-8 flex flex-col justify-between space-y-6 shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
             >
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="flex items-center justify-between">
-                  <div className="font-mono text-sm font-bold text-[#D4A017]">{t.revenue} / mois</div>
-                  <span className="text-[10px] text-[#8E94A3] font-mono px-2 py-0.5 rounded bg-white/[0.05]">
+                  <div className="font-mono text-lg sm:text-xl font-extrabold text-[#F5D060]">{t.revenue} / mois</div>
+                  <span className="text-xs sm:text-sm text-[#A0A5B5] font-mono px-3 py-1 rounded-lg bg-white/[0.06] border border-white/[0.08]">
                     {t.city}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-[#F0F0F5] leading-relaxed italic">
+                <p className="text-base sm:text-lg text-[#F0F2FA] leading-relaxed italic">
                   « {t.quote} »
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-white/[0.06]">
-                <div className="text-sm font-semibold text-white">{t.name}</div>
-                <div className="text-[11px] text-[#8E94A3]">{t.context}</div>
+              <div className="pt-5 border-t border-white/[0.08]">
+                <div className="text-base sm:text-lg font-bold text-white">{t.name}</div>
+                <div className="text-xs sm:text-sm text-[#BAC0D4] font-medium">{t.context}</div>
               </div>
             </div>
           ))}
@@ -600,34 +603,34 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 7. FAQ STRATEGIQUE : ELIMINATION RADICALE DES FREINS */}
       {/* ========================================================================= */}
-      <section className="max-w-3xl mx-auto space-y-10">
-        <div className="text-center space-y-2">
-          <h2 className="font-heading text-3xl sm:text-4xl font-bold text-white">
+      <section className="max-w-3xl mx-auto space-y-12">
+        <div className="text-center space-y-3">
+          <h2 className="font-heading text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             Questions Fréquentes
           </h2>
-          <p className="text-sm text-[#8E94A3]">
+          <p className="text-base sm:text-lg text-[#CBD2E1]">
             Toutes les réponses pour démarrer en toute sérénité.
           </p>
         </div>
 
-        <div className="border-t border-white/[0.08]">
+        <div className="border-t border-white/[0.1]">
           {FAQS.map((faq, index) => {
             const open = openFaqIndex === index;
             return (
-              <div key={faq.q} className="border-b border-white/[0.08]">
+              <div key={faq.q} className="border-b border-white/[0.1]">
                 <button
                   type="button"
                   onClick={() => setOpenFaqIndex(open ? null : index)}
                   aria-expanded={open}
-                  className="flex w-full items-center justify-between gap-6 py-5 text-left text-[15px] sm:text-base font-medium text-white cursor-pointer"
+                  className="flex w-full items-center justify-between gap-6 py-6 text-left text-base sm:text-xl font-semibold text-white cursor-pointer"
                 >
                   <span>{faq.q}</span>
                   <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-all duration-300 ease-luxury ${
-                      open ? 'rotate-45 border-[#D4A017] text-[#D4A017]' : 'border-white/[0.12] text-neutral-400'
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all duration-300 ease-luxury ${
+                      open ? 'rotate-45 border-[#F5D060] bg-[#F5D060]/10 text-[#F5D060]' : 'border-white/[0.15] text-neutral-300 hover:text-white'
                     }`}
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-5 w-5" />
                   </span>
                 </button>
                 <div
@@ -636,7 +639,7 @@ export const LandingPage: FC<LandingPageProps> = ({
                   }`}
                 >
                   <div className="overflow-hidden">
-                    <p className="pb-6 pr-6 text-sm leading-relaxed text-[#8E94A3]">{faq.a}</p>
+                    <p className="pb-7 pr-6 text-base sm:text-lg leading-relaxed text-[#CBD2E1]">{faq.a}</p>
                   </div>
                 </div>
               </div>
@@ -648,47 +651,49 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 8. APPEL FINAL A L'ACTION : IL SERAIT IRRESPONSABLE DE DIRE NON */}
       {/* ========================================================================= */}
-      <section className="relative max-w-5xl mx-auto overflow-hidden rounded-[32px] border border-[#D4A017]/30 bg-gradient-to-b from-[#161624] to-[#0A0A0F] px-6 py-16 sm:py-20 text-center vx-grain">
+      <section className="relative max-w-5xl mx-auto overflow-hidden rounded-[36px] border border-[#F5D060]/30 bg-gradient-to-b from-[#181928] via-[#12131F] to-[#0A0A0F] px-8 py-16 sm:py-24 text-center vx-grain shadow-[0_20px_80px_rgba(245,208,96,0.15)]">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_120%,rgba(212,160,23,0.18),transparent_70%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_120%,rgba(245,208,96,0.2),transparent_70%)]"
         />
-        <div className="relative space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#D4A017]/30 bg-[#D4A017]/10 px-3.5 py-1.5 text-xs text-[#D4A017] font-mono">
-            <Sparkles className="h-3.5 w-3.5" />
+        <div className="relative space-y-7">
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-[#F5D060]/30 bg-[#F5D060]/10 px-5 py-2 text-xs sm:text-sm text-[#F5D060] font-mono font-medium shadow-[0_0_20px_rgba(245,208,96,0.15)]">
+            <Sparkles className="h-4 w-4" />
             <span>Accès Immédiat · Démarrage dès Aujourd'hui</span>
           </div>
 
-          <h2 className="mx-auto max-w-3xl font-heading text-4xl sm:text-6xl font-bold leading-[1.05] tracking-tight text-white">
+          <h2 className="mx-auto max-w-3xl font-heading text-4xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight text-white">
             Arrêtez de chercher le business parfait.
-            <span className="block text-[#D4A017] mt-2">Il est sous vos yeux.</span>
+            <span className="block bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] bg-clip-text text-transparent mt-3 font-normal italic font-serif">
+              Il est sous vos yeux.
+            </span>
           </h2>
 
-          <p className="mx-auto max-w-xl text-sm sm:text-base leading-relaxed text-[#8E94A3]">
+          <p className="mx-auto max-w-2xl text-base sm:text-lg md:text-xl leading-relaxed text-[#CBD2E1]">
             Rejoignez Djelia Academy dès aujourd'hui. Configurez votre studio en 10 minutes, accédez à tous les modules de formation et commencez à encaisser vos premières commandes sur votre Wave ou Orange Money.
           </p>
 
-          <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5">
+          <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
             <button
               type="button"
               onClick={handlePrimaryAction}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-9 py-4 text-sm font-semibold text-[#0A0A0F] shadow-[0_0_32px_rgba(212,160,23,0.35)] active:scale-[0.98] transition-all cursor-pointer"
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-10 py-5 text-base sm:text-lg font-bold text-[#0A0A0F] shadow-[0_0_36px_rgba(245,208,96,0.4)] active:scale-[0.98] transition-all cursor-pointer"
             >
               <span>Accéder à l'Académie & Lancer mon Studio</span>
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-5 w-5" />
             </button>
 
             <button
               type="button"
               onClick={scrollToOffer}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.15] bg-white/[0.04] px-7 py-4 text-sm font-medium text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-3 rounded-full border border-white/[0.18] bg-white/[0.05] hover:bg-white/[0.1] px-8 py-5 text-base sm:text-lg font-semibold text-white hover:border-white/40 transition-colors cursor-pointer"
             >
               <span>Revoir l'offre détaillée</span>
             </button>
           </div>
 
-          <p className="text-[11px] text-[#8E94A3] pt-2">
-            Formule Start à 5 000 F CFA / mois · Formule Pro à 10 000 F CFA / mois · Annulation libre à tout moment
+          <p className="text-xs sm:text-sm text-[#A0A5B5] pt-2">
+            Pass Créateur à 4 900 F CFA / mois · 30 crédits inclus · Annulation libre à tout moment
           </p>
         </div>
       </section>
@@ -696,19 +701,19 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 9. PIED DE PAGE SOBRE */}
       {/* ========================================================================= */}
-      <footer className="max-w-6xl mx-auto pt-10 border-t border-white/[0.08]">
+      <footer className="max-w-6xl mx-auto pt-12 border-t border-white/[0.1]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <VelarisMark className="h-6 w-6 text-[#D4A017]" />
-            <span className="font-heading text-base font-bold tracking-tight text-white">Djelia Academy</span>
+          <div className="flex items-center gap-3">
+            <VelarisMark className="h-8 w-8 text-[#F5D060]" />
+            <span className="font-heading text-lg sm:text-xl font-extrabold tracking-tight text-white">Djelia Academy</span>
           </div>
-          <p className="text-xs text-[#8E94A3] max-w-sm">
+          <p className="text-sm text-[#CBD2E1] max-w-md">
             Plateforme et académie pour lancer et piloter votre studio de chansons personnalisées avec l'IA en Afrique.
           </p>
         </div>
-        <div className="mt-8 flex flex-col sm:flex-row justify-between gap-2 border-t border-white/[0.05] pt-5 text-xs text-[#8E94A3]">
+        <div className="mt-8 flex flex-col sm:flex-row justify-between gap-2 border-t border-white/[0.06] pt-6 text-xs sm:text-sm text-[#A0A5B5]">
           <span>© 2026 Djelia Academy. Tous droits réservés.</span>
-          <span>Abidjan · Dakar · Ouagadougou · Douala</span>
+          <span>Abidjan · Dakar · Ouagadougou · Douala · Paris</span>
         </div>
       </footer>
     </div>

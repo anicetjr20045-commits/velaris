@@ -70,43 +70,43 @@ export const Navbar: FC<NavbarProps> = ({
         scrolled ? 'border-white/[0.08] bg-[#050608]/90 backdrop-blur-2xl' : 'border-transparent bg-transparent'
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
         {/* Marque Logo Unique */}
-        <div className="flex shrink-0 items-center gap-2.5 select-none">
-          <div className="h-7 w-7 rounded-lg bg-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-xs">
+        <div className="flex shrink-0 items-center gap-3 select-none">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#F5D060] to-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-sm shadow-[0_0_20px_rgba(229,181,79,0.35)]">
             D
           </div>
-          <span className="font-heading text-[17px] font-bold tracking-tight text-white">
-            DJELIA <span className="text-[#D4A017] font-mono text-xs">ACADEMY</span>
+          <span className="font-heading text-xl font-extrabold tracking-tight text-white">
+            DJELIA <span className="text-[#F5D060] font-mono text-xs font-semibold ml-0.5 tracking-wider">ACADEMY</span>
           </span>
         </div>
 
         {/* Actions utilisateur & Conversion (Zéro menu public) */}
-        <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-3 sm:gap-4">
           {user ? (
             <>
               {/* Badge Studio de l'utilisateur connecté */}
-              <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.03] px-3 py-1.5 text-xs text-neutral-300">
-                <ShieldCheck className={`h-3 w-3 ${isSubscribed ? 'text-emerald-400' : 'text-amber-400'}`} />
-                <span className="max-w-[130px] truncate">{studioName}</span>
+              <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.04] px-4 py-2 text-sm text-neutral-200">
+                <ShieldCheck className={`h-4 w-4 ${isSubscribed ? 'text-emerald-400' : 'text-amber-400'}`} />
+                <span className="max-w-[150px] truncate font-medium">{studioName}</span>
               </div>
 
               {isSubscribed ? (
                 <button
                   type="button"
                   onClick={onEnterStudio}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-4 py-2 text-xs font-semibold text-[#0A0A0F] active:scale-[0.97] transition-all duration-150 whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.35)] cursor-pointer"
+                  className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-5 py-2.5 text-sm font-bold text-[#0A0A0F] active:scale-[0.97] transition-all whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.4)] cursor-pointer"
                 >
                   <span>Accéder à mon Studio</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={onOpenPayment || onEnterStudio}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-4 py-2 text-xs font-semibold text-[#0A0A0F] active:scale-[0.97] transition-all duration-150 whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.35)] cursor-pointer"
+                  className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-5 py-2.5 text-sm font-bold text-[#0A0A0F] active:scale-[0.97] transition-all whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.4)] cursor-pointer"
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Sparkles className="h-4 w-4" />
                   <span>Activer mon Pass (4 900 F)</span>
                 </button>
               )}
@@ -115,26 +115,26 @@ export const Navbar: FC<NavbarProps> = ({
             <button
               type="button"
               onClick={onEnterStudio}
-              className="inline-flex items-center gap-2 rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-4 py-2 text-xs font-semibold text-[#0A0A0F] active:scale-[0.97] transition-all duration-150 whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.35)] cursor-pointer"
+              className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-5 py-2.5 text-sm font-bold text-[#0A0A0F] active:scale-[0.97] transition-all whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.4)] cursor-pointer"
             >
               <span>Accéder au Studio (Aperçu)</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-4 w-4" />
             </button>
           ) : (
             <>
               <button
                 type="button"
                 onClick={() => openAuthModal('login')}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-300 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer whitespace-nowrap"
               >
-                <LogIn className="h-3 w-3" strokeWidth={1.75} />
+                <LogIn className="h-4 w-4" strokeWidth={2} />
                 <span>Connexion</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => openAuthModal('signup')}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[#D4A017] hover:bg-[#F5D060] px-4 py-2 text-xs font-semibold text-[#0A0A0F] active:scale-[0.97] transition-all duration-150 whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.35)] cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 px-5 py-2.5 text-sm font-bold text-[#0A0A0F] active:scale-[0.97] transition-all whitespace-nowrap shadow-[0_0_24px_rgba(212,160,23,0.35)] cursor-pointer"
               >
                 <span>Rejoindre l'Académie</span>
               </button>

@@ -343,29 +343,29 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     return (
       <div className="min-h-screen bg-[#07080A] text-[#F0F0F5] flex flex-col selection:bg-[#D4A017]/30 selection:text-white">
         {/* Header sobre sans aucun menu intérieur */}
-        <header className="h-16 border-b border-white/[0.08] bg-[#0A0A0F]/90 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-xs">
+        <header className="h-20 border-b border-white/[0.08] bg-[#0A0A0F]/90 backdrop-blur-xl px-5 sm:px-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#F5D060] to-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-sm shadow-[0_0_20px_rgba(245,208,96,0.3)]">
               D
             </div>
-            <span className="font-heading text-base font-bold tracking-tight text-white">
-              DJELIA <span className="text-[#D4A017] font-mono text-xs">ACADEMY</span>
+            <span className="font-heading text-lg sm:text-xl font-extrabold tracking-tight text-white">
+              DJELIA <span className="bg-gradient-to-r from-[#F5D060] to-[#E5B54F] bg-clip-text text-transparent font-mono text-sm font-bold">ACADEMY</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <span className="hidden sm:inline-flex text-xs text-[#8E94A3] font-mono">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span className="hidden sm:inline-flex text-xs sm:text-sm text-[#A0A5B5] font-mono">
               {user?.email || 'Non abonné'}
             </span>
             <button
               onClick={onReturnToHome}
-              className="text-xs text-[#8E94A3] hover:text-white px-3 py-1.5 rounded-full border border-white/[0.08] hover:bg-white/[0.03] transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-medium text-[#CBD2E1] hover:text-white px-4 py-2 rounded-full border border-white/[0.12] hover:bg-white/[0.05] transition-colors cursor-pointer"
             >
               Retour à l'accueil
             </button>
             <button
               onClick={() => void signOut()}
-              className="text-xs text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="text-xs sm:text-sm font-semibold text-rose-400 hover:text-rose-300 px-4 py-2 rounded-full border border-rose-500/25 hover:bg-rose-500/10 transition-colors cursor-pointer"
             >
               Déconnexion
             </button>
@@ -451,24 +451,24 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
         } h-screen`}
       >
         {/* Brand Header */}
-        <div className="px-5 py-5 border-b border-white/[0.08] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-[#D4A017]/10 border border-[#D4A017]/30 flex items-center justify-center text-[#D4A017] shrink-0 font-heading font-extrabold text-base shadow-[0_0_16px_-4px_rgba(212,160,23,0.3)]">
+        <div className="px-6 py-6 border-b border-white/[0.08] flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="h-11 w-11 rounded-2xl bg-[#D4A017]/10 border border-[#F5D060]/30 flex items-center justify-center text-[#F5D060] shrink-0 font-heading font-black text-lg shadow-[0_0_20px_-4px_rgba(245,208,96,0.3)]">
               D
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-heading font-bold text-base tracking-wide text-white">
+                <span className="font-heading font-black text-lg tracking-wide text-white">
                   DJELIA
                 </span>
-                <span className="text-[10px] font-semibold tracking-wider px-1.5 py-[1px] rounded bg-[#D4A017] text-[#0A0A0F]">
+                <span className="text-[11px] font-bold tracking-wider px-2 py-0.5 rounded-md bg-gradient-to-r from-[#F5D060] to-[#D4A017] text-[#0A0A0F]">
                   ACADEMY
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] font-mono tracking-wider text-emerald-400">
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <span className="text-xs font-mono tracking-wider text-emerald-400 font-semibold">
                   STUDIO ACTIF 24/7
                 </span>
               </div>
@@ -477,34 +477,34 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
 
           <button
             onClick={() => setIsMobileDrawerOpen(false)}
-            className="md:hidden -mr-2 h-9 w-9 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white"
+            className="md:hidden -mr-2 h-10 w-10 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white"
             aria-label="Fermer"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Bouton retour Vitrine */}
-        <div className="px-3 pt-3">
+        <div className="px-4 pt-3">
           <button
             onClick={onReturnToHome}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-[#8E94A3] hover:text-white hover:bg-white/[0.04] border border-white/[0.06] transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-[#A0A5B5] hover:text-white hover:bg-white/[0.05] border border-white/[0.08] transition-colors cursor-pointer"
           >
-            <span className="flex items-center gap-2">
-              <ArrowLeft className="h-3.5 w-3.5 text-neutral-500" />
+            <span className="flex items-center gap-2.5">
+              <ArrowLeft className="h-4 w-4 text-neutral-400" />
               <span>Retour à la vitrine</span>
             </span>
-            <span className="text-[10px] font-mono text-neutral-600">Site</span>
+            <span className="text-xs font-mono text-neutral-500 font-semibold">Site</span>
           </button>
         </div>
 
         {/* Navigation Principale : Les 4 Piliers */}
-        <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto no-scrollbar">
-          <div className="px-3 text-[10px] font-mono uppercase tracking-widest text-[#8E94A3]/60">
+        <nav className="flex-1 px-4 py-4 space-y-4 overflow-y-auto no-scrollbar">
+          <div className="px-3 text-xs font-mono uppercase tracking-widest text-[#A0A5B5]/70 font-semibold">
             Espace Membre
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {pillarsConfig.map((pillar) => {
               const Icon = pillar.icon;
               const isPillarActive = currentPillar === pillar.id;
@@ -514,26 +514,26 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
                 <div key={pillar.id} className="space-y-1">
                   <button
                     onClick={() => handlePillarClick(pillar.id)}
-                    className={`w-full group relative flex items-center justify-between rounded-xl px-3 py-2.5 text-xs transition-all duration-200 text-left cursor-pointer border ${
+                    className={`w-full group relative flex items-center justify-between rounded-2xl px-3.5 py-3 text-sm transition-all duration-200 text-left cursor-pointer border ${
                       isPillarActive
-                        ? 'bg-[#D4A017]/10 border-[#D4A017]/40 text-white font-semibold shadow-[0_0_20px_-8px_rgba(212,160,23,0.35)]'
-                        : 'bg-transparent border-transparent text-[#8E94A3] hover:bg-white/[0.03] hover:text-white'
+                        ? 'bg-[#F5D060]/10 border-[#F5D060]/40 text-white font-bold shadow-[0_0_24px_-8px_rgba(245,208,96,0.35)]'
+                        : 'bg-transparent border-transparent text-[#CBD2E1] hover:bg-white/[0.04] hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`text-[10px] font-mono font-bold ${isPillarActive ? 'text-[#D4A017]' : 'text-neutral-600'}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`text-xs font-mono font-bold ${isPillarActive ? 'text-[#F5D060]' : 'text-neutral-500'}`}>
                         {pillar.num}
                       </span>
-                      <Icon className={`h-4 w-4 shrink-0 ${isPillarActive ? 'text-[#D4A017]' : 'text-neutral-500 group-hover:text-neutral-300'}`} />
+                      <Icon className={`h-5 w-5 shrink-0 ${isPillarActive ? 'text-[#F5D060]' : 'text-neutral-400 group-hover:text-white'}`} />
                       <div className="truncate">
-                        <div className="truncate">{pillar.label}</div>
+                        <div className="truncate font-semibold">{pillar.label}</div>
                       </div>
                     </div>
 
                     {isLocked ? (
-                      <Lock className="h-3.5 w-3.5 text-[#D4A017]/80 shrink-0" />
+                      <Lock className="h-4 w-4 text-[#F5D060]/80 shrink-0" />
                     ) : (
-                      <span className="text-[10px] font-mono text-neutral-600 group-hover:text-neutral-400">
+                      <span className="text-xs font-mono text-neutral-500 group-hover:text-neutral-300">
                         →
                       </span>
                     )}
@@ -541,7 +541,7 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
 
                   {/* Sous-onglets actifs pour WhatsApp ou Ventes */}
                   {isPillarActive && pillar.subTabs && (
-                    <div className="pl-7 pr-1 py-1 space-y-1">
+                    <div className="pl-8 pr-1 py-1 space-y-1">
                       {pillar.subTabs.map((sub) => {
                         const SubIcon = sub.icon;
                         const isSubActive = currentTab === sub.id;
@@ -549,18 +549,18 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
                           <button
                             key={sub.id}
                             onClick={() => handleTabClick(sub.id)}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
                               isSubActive
-                                ? 'bg-white/[0.08] text-[#D4A017] font-medium'
-                                : 'text-[#8E94A3] hover:text-white hover:bg-white/[0.03]'
+                                ? 'bg-white/[0.1] text-[#F5D060] font-semibold'
+                                : 'text-[#A0A5B5] hover:text-white hover:bg-white/[0.04]'
                             }`}
                           >
-                            <span className="flex items-center gap-2 truncate">
-                              <SubIcon className="h-3 w-3" />
+                            <span className="flex items-center gap-2.5 truncate">
+                              <SubIcon className="h-4 w-4" />
                               <span className="truncate">{sub.label}</span>
                             </span>
                             {!!sub.count && (
-                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#E11D48] text-white text-[10px] font-mono font-bold flex items-center justify-center">
+                              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#E11D48] text-white text-xs font-mono font-bold flex items-center justify-center">
                                 {sub.count}
                               </span>
                             )}
@@ -575,32 +575,32 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
           </div>
 
           {/* Section Paramètres Studio */}
-          <div className="pt-2 border-t border-white/[0.06] space-y-1">
-            <div className="px-3 text-[10px] font-mono uppercase tracking-widest text-[#8E94A3]/60 mb-1">
+          <div className="pt-3 border-t border-white/[0.08] space-y-1.5">
+            <div className="px-3 text-xs font-mono uppercase tracking-widest text-[#A0A5B5]/70 mb-1 font-semibold">
               Configuration
             </div>
             <button
               onClick={() => handleTabClick('profile')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer ${
                 currentTab === 'profile'
-                  ? 'bg-white/[0.08] text-white font-medium'
-                  : 'text-[#8E94A3] hover:text-white hover:bg-white/[0.03]'
+                  ? 'bg-white/[0.1] text-white font-semibold'
+                  : 'text-[#CBD2E1] hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <UserRound className="h-3.5 w-3.5" />
+              <UserRound className="h-4.5 w-4.5" />
               <span>Mon profil studio</span>
             </button>
 
             {user?.email && (user.email.includes('admin') || user.email.includes('anicet')) && (
               <button
                 onClick={() => handleTabClick('admin')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-colors cursor-pointer ${
                   currentTab === 'admin'
-                    ? 'bg-white/[0.08] text-[#D4A017] font-medium'
-                    : 'text-[#8E94A3] hover:text-white hover:bg-white/[0.03]'
+                    ? 'bg-white/[0.1] text-[#F5D060] font-semibold'
+                    : 'text-[#CBD2E1] hover:text-white hover:bg-white/[0.04]'
                 }`}
               >
-                <Crown className="h-3.5 w-3.5 text-[#D4A017]" />
+                <Crown className="h-4.5 w-4.5 text-[#F5D060]" />
                 <span>Console Admin</span>
               </button>
             )}
@@ -631,22 +631,22 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
         )}
 
         {/* Footer Profil Utilisateur */}
-        <div className="p-3 border-t border-white/[0.08]">
+        <div className="p-4 border-t border-white/[0.08]">
           {user ? (
-            <div className="rounded-xl border border-white/[0.08] bg-[#141420] p-2.5 flex items-center justify-between gap-2">
+            <div className="rounded-2xl border border-white/[0.1] bg-[#141420] p-3 flex items-center justify-between gap-3 shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
               <button
                 onClick={() => handleTabClick('profile')}
-                className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
+                className="flex items-center gap-3 min-w-0 text-left cursor-pointer"
               >
-                <div className="h-8 w-8 rounded-full bg-[#D4A017]/15 border border-[#D4A017]/30 flex items-center justify-center text-xs font-bold text-[#D4A017] shrink-0">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#F5D060]/20 to-[#E5B54F]/5 border border-[#F5D060]/30 flex items-center justify-center text-xs font-bold text-[#F5D060] shrink-0 shadow-sm">
                   {userInitials}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-white truncate">
+                  <div className="text-sm font-bold text-white truncate">
                     {userDisplayName}
                   </div>
-                  <div className="text-[10px] text-emerald-400 truncate flex items-center gap-1 font-mono">
-                    <ShieldCheck className="h-2.5 w-2.5" />
+                  <div className="text-xs text-emerald-400 truncate flex items-center gap-1.5 font-mono font-medium">
+                    <ShieldCheck className="h-3.5 w-3.5" />
                     <span>{isPro ? 'Plan Pro Actif' : 'Plan Start'}</span>
                   </div>
                 </div>
@@ -657,18 +657,18 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
                   await signOut();
                   onReturnToHome();
                 }}
-                className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0"
+                className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer shrink-0"
                 title="Se déconnecter"
               >
-                <LogOut className="h-3.5 w-3.5" />
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border border-white/[0.08] bg-[#141420] p-3 space-y-2 text-center">
-              <span className="text-[10px] font-mono text-[#D4A017] block">Session Visiteur</span>
+            <div className="rounded-2xl border border-white/[0.1] bg-[#141420] p-4 space-y-2.5 text-center">
+              <span className="text-xs font-mono text-[#F5D060] block font-semibold">Session Visiteur</span>
               <button
                 onClick={() => openAuthModal('login')}
-                className="w-full py-1.5 px-3 rounded-full bg-[#D4A017] text-[#0A0A0F] font-semibold text-xs cursor-pointer hover:bg-[#F5D060] transition-colors"
+                className="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#F5D060] to-[#D4A017] text-[#0A0A0F] font-bold text-xs cursor-pointer hover:brightness-110 transition-all shadow-[0_0_15px_rgba(245,208,96,0.3)]"
               >
                 Se connecter
               </button>
@@ -680,21 +680,21 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
       {/* Main Column */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Fil d'Ariane Desktop */}
-        <div className="hidden md:flex sticky top-0 z-20 h-14 items-center justify-between px-8 border-b border-white/[0.08] bg-[#0A0A0F]/80 backdrop-blur-xl">
-          <div className="flex items-center gap-2 text-xs font-medium text-[#8E94A3]">
-            <span className="text-[#D4A017] font-mono">Djelia Academy</span>
-            <span>/</span>
-            <span className="text-white capitalize">{currentTab.replace('_', ' ')}</span>
+        <div className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-between px-8 border-b border-white/[0.08] bg-[#0A0A0F]/80 backdrop-blur-xl">
+          <div className="flex items-center gap-2.5 text-sm font-medium text-[#A0A5B5]">
+            <span className="text-[#F5D060] font-mono font-semibold">Djelia Academy</span>
+            <span className="text-neutral-500">/</span>
+            <span className="text-white capitalize font-semibold">{currentTab.replace('_', ' ')}</span>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="inline-flex items-center gap-2 h-8 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 text-xs text-[#8E94A3] hover:text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2.5 h-10 rounded-full border border-white/[0.1] bg-white/[0.03] px-4 text-xs sm:text-sm text-[#CBD2E1] hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
             >
-              <Search className="h-3.5 w-3.5" />
+              <Search className="h-4 w-4" />
               <span>Aller à…</span>
-              <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/[0.05] text-[#8E94A3]">{shortcutLabel}</kbd>
+              <kbd className="text-xs font-mono px-2 py-0.5 rounded bg-white/[0.08] text-[#BAC0D4]">{shortcutLabel}</kbd>
             </button>
 
             <span className="inline-flex items-center gap-1.5 text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/[0.08] bg-white/[0.02] text-emerald-400">

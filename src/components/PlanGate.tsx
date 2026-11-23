@@ -209,88 +209,88 @@ export const PlanGate: FC<PlanGateProps> = ({
     <div className="py-6 sm:py-10 px-4 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-300">
       {/* 1. HERO HEADER DE VENTE */}
       <div className="text-center space-y-4 max-w-2xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#E5B54F]/10 border border-[#E5B54F]/25 text-[11px] font-mono tracking-widest uppercase text-[#E5B54F]">
-          <Sparkles className="h-3 w-3" />
+        <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-[#E5B54F]/10 border border-[#E5B54F]/30 text-xs sm:text-sm font-mono tracking-wider uppercase text-[#F5D060] font-semibold shadow-[0_0_20px_rgba(245,208,96,0.15)]">
+          <Sparkles className="h-4 w-4" />
           <span>Pass Créateur Djelia Academy</span>
         </div>
 
-        <h1 className="text-2xl sm:text-4xl font-heading font-bold text-white tracking-tight">
+        <h1 className="text-3xl sm:text-5xl font-heading font-black text-white tracking-tight leading-tight">
           Activez Votre Studio Musical IA & WhatsApp 24/7
         </h1>
 
-        <p className="text-sm sm:text-base text-[#9DA3B4] leading-relaxed">
+        <p className="text-base sm:text-lg text-[#CBD2E1] leading-relaxed">
           {featureDescription ||
             'Débloquez l’accès complet à l’Atelier de composition, à votre vendeur automatique WhatsApp et à 30 crédits de production musicale pour seulement 4 900 F CFA par mois.'}
         </p>
       </div>
 
       {/* 2. GRILLE CENTRALE : LES 4 PILIERS DU PASS & MODULE DE PAIEMENT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
         {/* Colonne Gauche : Les 4 Piliers Débloqués (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-2xl bg-[#0D0E15] border border-white/[0.08] p-6 space-y-5">
-            <h3 className="text-xs font-mono uppercase tracking-widest text-[#E5B54F] flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4" />
+          <div className="rounded-3xl bg-[#0D0E15] border border-white/[0.1] p-7 space-y-6 shadow-[0_15px_40px_rgba(0,0,0,0.4)]">
+            <h3 className="text-xs sm:text-sm font-mono uppercase tracking-widest text-[#F5D060] flex items-center gap-2.5 font-bold">
+              <ShieldCheck className="h-5 w-5" />
               <span>Inclus immédiatement dans votre Pass (4 900 F CFA / 30 jours)</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-4 space-y-2">
-                <div className="flex items-center gap-2 text-white font-medium text-sm">
-                  <div className="h-7 w-7 rounded-lg bg-[#E5B54F]/10 border border-[#E5B54F]/20 flex items-center justify-center text-[#E5B54F]">
-                    <Music2 className="h-3.5 w-3.5" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-5 space-y-2.5">
+                <div className="flex items-center gap-3 text-white font-bold text-base">
+                  <div className="h-10 w-10 rounded-xl bg-[#E5B54F]/15 border border-[#E5B54F]/30 flex items-center justify-center text-[#F5D060]">
+                    <Music2 className="h-5 w-5" />
                   </div>
                   <span>30 Crédits Chansons IA</span>
                 </div>
-                <p className="text-xs text-[#8E94A3] leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#BAC0D4] leading-relaxed">
                   Composez 30 chansons complètes avec vos paroles et 2 versions MP3 HD livrables à vos clients.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-4 space-y-2">
-                <div className="flex items-center gap-2 text-white font-medium text-sm">
-                  <div className="h-7 w-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                    <Smartphone className="h-3.5 w-3.5" />
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-5 space-y-2.5">
+                <div className="flex items-center gap-3 text-white font-bold text-base">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <Smartphone className="h-5 w-5" />
                   </div>
                   <span>Ligne WhatsApp 24/7</span>
                 </div>
-                <p className="text-xs text-[#8E94A3] leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#BAC0D4] leading-relaxed">
                   Connexion instantanée de votre numéro via QR code. Réponses et relances automatiques jour et nuit.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-4 space-y-2">
-                <div className="flex items-center gap-2 text-white font-medium text-sm">
-                  <div className="h-7 w-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-                    <Zap className="h-3.5 w-3.5" />
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-5 space-y-2.5">
+                <div className="flex items-center gap-3 text-white font-bold text-base">
+                  <div className="h-10 w-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                    <Zap className="h-5 w-5" />
                   </div>
                   <span>Moteur Suno V6 Intégré</span>
                 </div>
-                <p className="text-xs text-[#8E94A3] leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#BAC0D4] leading-relaxed">
                   Génération en 15 secondes : Afrobeat, Coupé Décalé, Amapiano, Zouglou, R&B, Rumba et Gospel.
                 </p>
               </div>
 
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-4 space-y-2">
-                <div className="flex items-center gap-2 text-white font-medium text-sm">
-                  <div className="h-7 w-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                    <TrendingUp className="h-3.5 w-3.5" />
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-5 space-y-2.5">
+                <div className="flex items-center gap-3 text-white font-bold text-base">
+                  <div className="h-10 w-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <TrendingUp className="h-5 w-5" />
                   </div>
                   <span>Mini-Site & Affiliation 25%</span>
                 </div>
-                <p className="text-xs text-[#8E94A3] leading-relaxed">
+                <p className="text-xs sm:text-sm text-[#BAC0D4] leading-relaxed">
                   Votre vitrine en ligne exclusive et 300 F CFA reversés sur chaque commande apportée.
                 </p>
               </div>
             </div>
 
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-between text-xs text-[#9DA3B4]">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+            <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-[#BAC0D4]">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 <span>Sans engagement de durée</span>
               </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 <span>Zéro prélèvement automatique forcé</span>
               </span>
             </div>
@@ -299,45 +299,45 @@ export const PlanGate: FC<PlanGateProps> = ({
 
         {/* Colonne Droite : Module de Paiement Mobile Money Chariow (5 cols) */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="rounded-2xl bg-[#0D0E15] border border-[#E5B54F]/30 p-6 space-y-5 shadow-[0_0_40px_-10px_rgba(229,181,79,0.2)] relative overflow-hidden">
+          <div className="rounded-3xl bg-[#0D0E15] border border-[#F5D060]/40 p-7 space-y-6 shadow-[0_0_50px_-10px_rgba(245,208,96,0.25)] relative overflow-hidden">
             {/* Glow décoratif */}
-            <div className="absolute top-0 right-0 w-40 h-20 bg-[#E5B54F]/10 blur-2xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-44 h-24 bg-[#F5D060]/15 blur-2xl pointer-events-none" />
 
-            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div className="flex items-center justify-between border-b border-white/[0.1] pb-5">
               <div>
-                <span className="text-[10px] font-mono tracking-wider uppercase text-[#E5B54F] font-semibold">
+                <span className="text-xs font-mono tracking-wider uppercase text-[#F5D060] font-bold">
                   Abonnement Mensuel
                 </span>
-                <h4 className="text-lg font-heading font-bold text-white">Pass Créateur 30 Jours</h4>
+                <h4 className="text-xl font-heading font-extrabold text-white">Pass Créateur 30 Jours</h4>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold font-mono text-[#E5B54F]">4 900 F</div>
-                <div className="text-[10px] text-[#8E94A3]">CFA / mois (≈ 7,50 €)</div>
+                <div className="text-3xl sm:text-4xl font-extrabold font-mono text-[#F5D060]">4 900 F</div>
+                <div className="text-xs text-[#BAC0D4]">CFA / mois (≈ 7,50 €)</div>
               </div>
             </div>
 
             {/* SÉLECTEUR DE PAYS AVEC DRAPEAUX */}
             <div className="space-y-2 relative">
-              <label className="block text-xs font-medium text-[#C0C5D5]">
+              <label className="block text-xs sm:text-sm font-semibold text-[#D2D7E5]">
                 Votre pays de paiement (Afrique de l'Ouest & Centrale) :
               </label>
 
               <button
                 type="button"
                 onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                className="w-full h-11 px-3.5 rounded-xl bg-[#08090E] border border-white/[0.12] hover:border-[#E5B54F]/50 flex items-center justify-between text-left text-sm text-white transition-all cursor-pointer"
+                className="w-full h-13 px-4 rounded-2xl bg-[#08090E] border border-white/[0.15] hover:border-[#F5D060]/60 flex items-center justify-between text-left text-base text-white transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-2.5 truncate">
-                  <span className="text-lg leading-none">{selectedCountry.flag}</span>
-                  <span className="font-medium truncate">{selectedCountry.name}</span>
-                  <span className="text-xs font-mono text-[#8E94A3]">({selectedCountry.dialCode})</span>
+                <div className="flex items-center gap-3 truncate">
+                  <span className="text-2xl leading-none">{selectedCountry.flag}</span>
+                  <span className="font-semibold truncate">{selectedCountry.name}</span>
+                  <span className="text-xs sm:text-sm font-mono text-[#A0A5B5]">({selectedCountry.dialCode})</span>
                 </div>
-                <ChevronDown className="h-4 w-4 text-[#8E94A3] shrink-0" />
+                <ChevronDown className="h-5 w-5 text-[#A0A5B5] shrink-0" />
               </button>
 
               {/* Menu Déroulant des Pays avec drapeaux */}
               {isCountryDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 max-h-64 overflow-y-auto rounded-xl bg-[#090A10] border border-white/[0.15] shadow-2xl z-50 p-1.5 space-y-1 divide-y divide-white/[0.04]">
+                <div className="absolute top-full left-0 right-0 mt-2 max-h-72 overflow-y-auto rounded-2xl bg-[#090A10] border border-white/[0.18] shadow-2xl z-50 p-2 space-y-1 divide-y divide-white/[0.06]">
                   {CHARIOW_COUNTRIES.map((country) => (
                     <button
                       key={country.code}
@@ -346,18 +346,18 @@ export const PlanGate: FC<PlanGateProps> = ({
                         setSelectedCountry(country);
                         setIsCountryDropdownOpen(false);
                       }}
-                      className={`w-full px-3 py-2 rounded-lg flex items-center justify-between text-left text-xs transition-colors cursor-pointer ${
+                      className={`w-full px-4 py-3 rounded-xl flex items-center justify-between text-left text-sm transition-colors cursor-pointer ${
                         selectedCountry.code === country.code
-                          ? 'bg-[#E5B54F]/15 text-[#E5B54F]'
-                          : 'text-[#D0D4E0] hover:bg-white/[0.05]'
+                          ? 'bg-[#F5D060]/20 text-[#F5D060] font-bold'
+                          : 'text-[#D0D4E0] hover:bg-white/[0.06]'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <span className="text-base">{country.flag}</span>
-                        <span className="font-medium">{country.name}</span>
-                        <span className="font-mono text-[11px] text-[#8E94A3]">{country.dialCode}</span>
+                      <div className="flex items-center gap-3 truncate">
+                        <span className="text-xl">{country.flag}</span>
+                        <span className="font-semibold">{country.name}</span>
+                        <span className="font-mono text-xs text-[#A0A5B5]">{country.dialCode}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-[#8E94A3] shrink-0 truncate max-w-[110px] text-right">
+                      <span className="text-xs font-mono text-[#A0A5B5] shrink-0 truncate max-w-[130px] text-right font-medium">
                         {country.operators[0]}
                       </span>
                     </button>
@@ -366,11 +366,11 @@ export const PlanGate: FC<PlanGateProps> = ({
               )}
 
               {/* Opérateurs disponibles pour le pays sélectionné */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
+              <div className="flex flex-wrap gap-2 pt-1.5">
                 {selectedCountry.operators.map((op) => (
                   <span
                     key={op}
-                    className="inline-flex items-center text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] text-[#A0A5B5]"
+                    className="inline-flex items-center text-xs font-mono px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#BAC0D4] font-medium"
                   >
                     {op}
                   </span>
@@ -379,12 +379,12 @@ export const PlanGate: FC<PlanGateProps> = ({
             </div>
 
             {/* SAISIE DU NUMÉRO DE TÉLÉPHONE */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-[#C0C5D5]">
+            <div className="space-y-2">
+              <label className="block text-xs sm:text-sm font-semibold text-[#D2D7E5]">
                 Numéro Mobile Money (Wave, Orange, Moov, MTN) :
               </label>
-              <div className="flex items-center rounded-xl bg-[#08090E] border border-white/[0.12] focus-within:border-[#E5B54F] transition-all overflow-hidden">
-                <span className="px-3 text-xs font-mono text-[#8E94A3] bg-white/[0.03] border-r border-white/[0.08] h-11 flex items-center">
+              <div className="flex items-center rounded-2xl bg-[#08090E] border border-white/[0.15] focus-within:border-[#F5D060] transition-all overflow-hidden">
+                <span className="px-4 text-sm font-mono text-[#CBD2E1] bg-white/[0.04] border-r border-white/[0.1] h-13 flex items-center font-bold">
                   {selectedCountry.dialCode}
                 </span>
                 <input
@@ -392,39 +392,39 @@ export const PlanGate: FC<PlanGateProps> = ({
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="ex: 70 00 00 00"
-                  className="flex-1 h-11 px-3 bg-transparent text-sm text-white placeholder-[#505565] focus:outline-none font-mono"
+                  className="flex-1 h-13 px-4 bg-transparent text-base text-white placeholder-[#606575] focus:outline-none font-mono"
                 />
               </div>
             </div>
 
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs sm:text-sm text-red-400">
                 {errorMsg}
               </div>
             )}
 
             {/* BOUTON D'ACTION PRINCIPAL CHARIOW */}
-            <div className="space-y-2.5 pt-1">
+            <div className="space-y-3 pt-2">
               <button
                 type="button"
                 onClick={handleCheckout}
                 disabled={loading}
-                className="w-full h-12 inline-flex items-center justify-center gap-2 rounded-full bg-[#E5B54F] hover:bg-[#F3C766] disabled:opacity-60 text-[#0A0A0F] font-semibold text-sm transition-all duration-200 cursor-pointer shadow-[0_0_24px_-4px_rgba(229,181,79,0.5)] active:scale-[0.98]"
+                className="w-full h-14 inline-flex items-center justify-center gap-3 rounded-full bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 disabled:opacity-60 text-[#0A0A0F] font-bold text-base transition-all duration-200 cursor-pointer shadow-[0_0_30px_rgba(245,208,96,0.4)] active:scale-[0.98]"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                     <span>Redirection Chariow…</span>
                   </>
                 ) : (
                   <>
                     <span>Activer mon Pass (4 900 F CFA)</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-5 w-5" />
                   </>
                 )}
               </button>
 
-              <p className="text-[11px] text-center text-[#8E94A3] leading-relaxed">
+              <p className="text-xs text-center text-[#BAC0D4] leading-relaxed">
                 Paiement instantané et sécurisé par Chariow. Accès immédiat et déblocage de vos 30 crédits dès validation.
               </p>
 
@@ -438,7 +438,7 @@ export const PlanGate: FC<PlanGateProps> = ({
                     } catch {}
                     window.location.reload();
                   }}
-                  className="text-[11px] text-[#8E94A3] hover:text-white underline decoration-white/20 transition-colors cursor-pointer"
+                  className="text-xs font-semibold text-[#CBD2E1] hover:text-[#F5D060] underline decoration-white/20 transition-colors cursor-pointer"
                 >
                   Aperçu direct (Mode Démo / Créateur) →
                 </button>

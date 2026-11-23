@@ -159,52 +159,52 @@ export const StudioAudioShowcase: FC = () => {
               }`}
             >
               {/* Play Button & Title */}
-              <div className="flex items-center gap-4 sm:gap-6 min-w-[200px]">
+              <div className="flex items-center gap-4 sm:gap-6 min-w-[220px]">
                 <button
                   type="button"
                   aria-label={isThisPlaying ? "Pause" : "Écouter " + sample.title}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all ${
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-all ${
                     isThisPlaying
-                      ? 'border-white bg-white text-black'
-                      : 'border-white/30 bg-white/[0.04] text-white hover:border-white hover:bg-white hover:text-black'
+                      ? 'border-[#F5D060] bg-gradient-to-br from-[#F5D060] to-[#E5B54F] text-[#0A0A0F] shadow-[0_0_20px_rgba(245,208,96,0.4)]'
+                      : 'border-white/30 bg-white/[0.05] text-white hover:border-[#F5D060] hover:bg-[#F5D060]/10 hover:text-[#F5D060]'
                   }`}
                 >
                   {isThisPlaying ? (
-                    <Pause className="h-4 w-4 fill-current" />
+                    <Pause className="h-5 w-5 fill-current" />
                   ) : (
-                    <Play className="h-4 w-4 fill-current ml-0.5" />
+                    <Play className="h-5 w-5 fill-current ml-0.5" />
                   )}
                 </button>
 
                 <div>
-                  <h4 className="text-base font-semibold tracking-tight text-white font-heading">
+                  <h4 className="text-base sm:text-lg font-bold tracking-tight text-white font-heading">
                     {sample.title}
                   </h4>
-                  <span className="text-sm text-zinc-400 block sm:hidden">
+                  <span className="text-xs sm:text-sm text-[#A0A5B5] block sm:hidden">
                     {sample.style}
                   </span>
                 </div>
               </div>
 
               {/* Style Column */}
-              <div className="hidden sm:block text-sm text-zinc-300 min-w-[180px]">
+              <div className="hidden sm:block text-sm sm:text-base text-[#CBD2E1] min-w-[180px]">
                 {sample.style}
               </div>
 
               {/* Recipient & Occasion */}
-              <div className="hidden md:block text-sm text-zinc-400 min-w-[180px]">
-                <span className="text-zinc-200 block">{sample.recipient}</span>
-                <span className="text-sm text-zinc-400">{sample.occasion}</span>
+              <div className="hidden md:block text-sm sm:text-base text-[#A0A5B5] min-w-[180px]">
+                <span className="text-white font-medium block">{sample.recipient}</span>
+                <span className="text-xs sm:text-sm text-[#A0A5B5]">{sample.occasion}</span>
               </div>
 
               {/* Duration & Wave animation */}
-              <div className="flex items-center gap-3 text-sm text-zinc-300 font-mono shrink-0">
+              <div className="flex items-center gap-3.5 text-sm sm:text-base text-[#CBD2E1] font-mono shrink-0">
                 <span>{sample.duration}</span>
                 {isThisPlaying && (
-                  <div className="flex items-center gap-0.5 h-3">
-                    <span className="w-0.5 bg-emerald-400 h-full animate-pulse" />
-                    <span className="w-0.5 bg-emerald-400 h-2 animate-pulse" />
-                    <span className="w-0.5 bg-emerald-400 h-3 animate-pulse" />
+                  <div className="flex items-center gap-0.5 h-4">
+                    <span className="w-0.5 bg-[#F5D060] h-full animate-pulse" />
+                    <span className="w-0.5 bg-[#F5D060] h-3 animate-pulse" />
+                    <span className="w-0.5 bg-[#F5D060] h-4 animate-pulse" />
                   </div>
                 )}
               </div>

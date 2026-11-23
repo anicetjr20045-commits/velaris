@@ -336,61 +336,61 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div>
-        <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight">Mon profil studio</h1>
-        <p className="text-sm sm:text-base text-[#A3A3A3] mt-2">
-          Identité, abonnement SasPay, solde de crédits et sécurité de votre studio.
+        <h1 className="font-heading text-3xl sm:text-5xl font-black text-white leading-tight">Mon profil studio</h1>
+        <p className="text-base sm:text-lg text-[#CBD2E1] mt-2">
+          Identité, abonnement Pass Créateur, solde de crédits et sécurité de votre studio.
         </p>
       </div>
 
       {notice && (
         <div
           role="status"
-          className={`vx-fade-in flex items-center gap-2 rounded-xl border p-3.5 text-sm ${
+          className={`vx-fade-in flex items-center gap-2.5 rounded-2xl border p-4 text-sm font-medium ${
             notice.tone === 'ok'
-              ? 'border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-200'
-              : 'border-rose-500/25 bg-rose-500/[0.07] text-rose-200'
+              ? 'border-emerald-500/30 bg-emerald-500/[0.1] text-emerald-200'
+              : 'border-rose-500/30 bg-rose-500/[0.1] text-rose-200'
           }`}
         >
-          {notice.tone === 'ok' ? <Check className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+          {notice.tone === 'ok' ? <Check className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
           {notice.text}
         </div>
       )}
 
       {/* Module 1 : Solde de Crédits Studio & Facturation Chansons (Kie.ai) */}
-      <section className={`${panelClass} p-5 sm:p-6 space-y-5 border-[#E5B54F]/30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0E1015] to-[#08090C]`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl border border-[#E5B54F]/40 bg-[#E5B54F]/10 flex items-center justify-center text-[#F3CA75]">
-              <Coins className="h-6 w-6" strokeWidth={1.5} />
+      <section className={`${panelClass} p-6 sm:p-8 space-y-6 border-[#F5D060]/30 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0E1015] to-[#08090C] rounded-3xl shadow-[0_15px_40px_rgba(0,0,0,0.4)]`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl border border-[#F5D060]/40 bg-[#F5D060]/10 flex items-center justify-center text-[#F5D060] shadow-[0_0_20px_rgba(245,208,96,0.15)]">
+              <Coins className="h-7 w-7" strokeWidth={1.75} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[17px] font-semibold text-white">Solde de Crédits Studio</span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+              <div className="flex items-center gap-2.5">
+                <span className="text-lg sm:text-xl font-bold text-white">Solde de Crédits Studio</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-mono font-semibold text-emerald-300">
                   N'expirent jamais
                 </span>
               </div>
-              <p className="text-xs text-[#A3A3A3] mt-0.5">
-                1 crédit = 1 génération chanson complète (85 F CFA) · Micro-crédits IA inclus
+              <p className="text-xs sm:text-sm text-[#BAC0D4] mt-1">
+                1 crédit = 1 génération chanson complète masterisée · Micro-crédits IA inclus
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div className="text-right">
-              <div className="font-mono text-3xl font-bold tracking-tight tabular-nums text-white">
+              <div className="font-mono text-3xl sm:text-5xl font-black tracking-tight tabular-nums text-white">
                 {credits.source === 'pending' ? '—' : credits.balance.toFixed(2)}
               </div>
-              <div className="text-[11px] text-neutral-400">
+              <div className="text-xs text-neutral-400 font-medium">
                 {credits.source === 'demo' ? 'crédits (démonstration)' : credits.source === 'pending' ? 'synchronisation…' : 'crédits disponibles'}
               </div>
             </div>
             <button
               type="button"
               onClick={() => setShowRechargeModal(true)}
-              className="h-10 px-4 rounded-xl bg-[#E5B54F] text-xs font-semibold text-black hover:bg-[#F0C068] active:scale-[0.98] transition-all flex items-center gap-1.5 shadow-[0_0_20px_-5px_rgba(229,181,79,0.4)]"
+              className="h-12 px-5 rounded-2xl bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 text-xs sm:text-sm font-bold text-black active:scale-[0.98] transition-all flex items-center gap-2 shadow-[0_0_24px_rgba(245,208,96,0.35)] cursor-pointer"
             >
-              <Coins className="h-3.5 w-3.5" />
+              <Coins className="h-4 w-4" />
               Recharger
             </button>
           </div>
@@ -555,14 +555,14 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
         const isExpiringSoon = subscription.status === 'active' && daysRemaining <= 5 && daysRemaining > 0;
 
         return (
-          <section className={`${panelClass} p-5 sm:p-6 space-y-5 border border-[#E5B54F]/25`}>
+          <section className={`${panelClass} p-6 sm:p-8 space-y-6 border border-[#F5D060]/30 rounded-3xl shadow-[0_15px_40px_rgba(0,0,0,0.4)]`}>
             {/* Alerte Dynamique d'Expiration */}
             {isExpired && (
-              <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs text-rose-200 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <strong className="block text-sm text-white font-semibold">Votre Pass Créateur a expiré</strong>
-                  <p className="text-[#C0C5D5] leading-relaxed">
+              <div className="p-5 rounded-2xl border border-rose-500/35 bg-rose-500/10 text-sm text-rose-200 flex items-start gap-3.5">
+                <AlertCircle className="h-6 w-6 text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <strong className="block text-base text-white font-bold">Votre Pass Créateur a expiré</strong>
+                  <p className="text-[#CBD2E1] leading-relaxed">
                     Votre accès a pris fin le {fmtDate(subscription.expiresAt)}. L'accès à vos outils et à votre ligne WhatsApp est suspendu.
                     Renouvelez votre abonnement dès maintenant pour réactiver immédiatement votre studio.
                   </p>
@@ -571,36 +571,36 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
             )}
 
             {isExpiringSoon && (
-              <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 flex items-start gap-3">
-                <CalendarClock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <strong className="block text-sm text-white font-semibold">
+              <div className="p-5 rounded-2xl border border-amber-500/35 bg-amber-500/10 text-sm text-amber-200 flex items-start gap-3.5">
+                <CalendarClock className="h-6 w-6 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <strong className="block text-base text-white font-bold">
                     Renouvellement conseillé : plus que {daysRemaining} jour{daysRemaining > 1 ? 's' : ''}
                   </strong>
-                  <p className="text-[#D0D5E5] leading-relaxed">
+                  <p className="text-[#CBD2E1] leading-relaxed">
                     Votre abonnement expire le {fmtDate(subscription.expiresAt)}. Renouvelez avant l'échéance pour garantir la continuité de votre ligne WhatsApp 24/7.
                   </p>
                 </div>
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl border border-[#E5B54F]/30 bg-[#0E1015] flex items-center justify-center text-[#E5B54F]">
-                  <CreditCard className="h-6 w-6" strokeWidth={1.5} />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl border border-[#F5D060]/40 bg-[#0E1015] flex items-center justify-center text-[#F5D060] shadow-[0_0_20px_rgba(245,208,96,0.15)]">
+                  <CreditCard className="h-7 w-7" strokeWidth={1.75} />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[17px] font-semibold text-white">Pass Créateur Djelia Academy</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-lg sm:text-xl font-bold text-white">Pass Créateur Djelia Academy</span>
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-mono border ${
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-mono font-semibold border ${
                         !isExpired && subscription.status === 'active'
                           ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
                           : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
                       }`}
                     >
                       <span
-                        className={`h-1.5 w-1.5 rounded-full ${
+                        className={`h-2 w-2 rounded-full ${
                           !isExpired && subscription.status === 'active'
                             ? 'bg-emerald-400 animate-pulse'
                             : 'bg-rose-400'
@@ -609,44 +609,44 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                       {!isExpired && subscription.status === 'active' ? 'Actif' : 'Expiré'}
                     </span>
                   </div>
-                  <p className="text-xs text-[#8E94A3] mt-0.5">
+                  <p className="text-xs sm:text-sm text-[#BAC0D4] mt-1">
                     Accès illimité à l'Académie, au Vendeur WhatsApp 24/7 et aux 30 crédits de production Suno V6.
                   </p>
                 </div>
               </div>
 
               <div className="text-left sm:text-right">
-                <div className="font-mono text-2xl font-bold text-[#E5B54F]">4 900 F CFA</div>
-                <div className="text-xs text-[#8E94A3] font-mono">par mois (30 jours)</div>
+                <div className="font-mono text-3xl font-extrabold text-[#F5D060]">4 900 F CFA</div>
+                <div className="text-xs text-[#BAC0D4] font-mono">par mois (30 jours)</div>
               </div>
             </div>
 
             {/* Grille Bento Récapitulative des Dates & Crédits */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-3.5 space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E94A3] block">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-4 space-y-1.5">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#A0A5B5] font-semibold block">
                   Date d'activation
                 </span>
-                <span className="text-xs font-mono text-white font-medium block truncate">
+                <span className="text-sm font-mono text-white font-bold block truncate">
                   {fmtDate(subscription.startedAt) || 'Paiement Chariow'}
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-3.5 space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E94A3] block">
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-4 space-y-1.5">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#A0A5B5] font-semibold block">
                   Date d'expiration
                 </span>
-                <span className="text-xs font-mono text-white font-medium block truncate">
+                <span className="text-sm font-mono text-white font-bold block truncate">
                   {fmtDate(subscription.expiresAt) || '30 jours'}
                 </span>
               </div>
 
-              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-3.5 space-y-1">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E94A3] block">
+              <div className="rounded-2xl bg-[#08090E] border border-white/[0.08] p-4 space-y-1.5">
+                <span className="text-xs font-mono uppercase tracking-wider text-[#A0A5B5] font-semibold block">
                   Temps restant
                 </span>
                 <span
-                  className={`text-xs font-mono font-bold block ${
+                  className={`text-sm font-mono font-black block ${
                     isExpired
                       ? 'text-rose-400'
                       : daysRemaining <= 5
@@ -665,11 +665,11 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                 type="button"
                 disabled={busy === 'checkout'}
                 onClick={handleChariowSubscribe}
-                className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[#E5B54F] text-xs font-bold text-[#0A0A0F] hover:bg-[#F3C766] active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_0_24px_rgba(229,181,79,0.35)] cursor-pointer"
+                className="w-full h-14 inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#F5D060] via-[#E5B54F] to-[#D4A017] hover:brightness-110 text-base font-bold text-[#0A0A0F] active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_0_28px_rgba(245,208,96,0.35)] cursor-pointer"
               >
                 {busy === 'checkout' ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                     <span>Ouverture de la passerelle Chariow…</span>
                   </>
                 ) : (
@@ -679,13 +679,13 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
                         ? 'Réactiver mon Pass Créateur (4 900 F CFA)'
                         : 'Renouveler mon Pass (4 900 F CFA via Wave, Orange Money ou Carte)'}
                     </span>
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-5 w-5" />
                   </>
                 )}
               </button>
             </div>
 
-            <div className="text-xs text-[#8E94A3] pt-1">
+            <div className="text-xs text-[#A0A5B5] pt-1">
               Paiement direct sécurisé via Chariow Mobile Money (Wave, Orange Money, Moov, MTN, Airtel, M-Pesa, Carte).
               Aucun prélèvement forcé : vous renouvelez en toute liberté.
             </div>

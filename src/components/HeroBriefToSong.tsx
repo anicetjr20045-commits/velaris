@@ -23,34 +23,34 @@ const Step: FC<{ n: number; state: 'pending' | 'active' | 'done'; title: string;
   <div className="relative flex gap-4">
     <div className="flex flex-col items-center">
       <span
-        className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border font-mono text-[10px] transition-all duration-500 ease-luxury ${
+        className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-bold transition-all duration-500 ease-luxury ${
           state === 'done'
             ? 'border-white bg-white text-black'
             : state === 'active'
-              ? 'border-[#D6AA60] bg-[#D6AA60]/15 text-[#F1DDB4]'
-              : 'border-white/15 text-neutral-600'
+              ? 'border-[#D6AA60] bg-[#D6AA60]/20 text-[#F5D060] shadow-[0_0_12px_rgba(214,170,96,0.3)]'
+              : 'border-white/20 text-neutral-500'
         }`}
       >
-        {state === 'done' ? <Check className="h-3 w-3" strokeWidth={2.5} /> : String(n).padStart(2, '0')}
+        {state === 'done' ? <Check className="h-4 w-4" strokeWidth={2.5} /> : String(n).padStart(2, '0')}
       </span>
       {!last && (
-        <span className="relative mt-1 w-px flex-1 bg-white/[0.08] overflow-hidden">
+        <span className="relative mt-1.5 w-px flex-1 bg-white/[0.1] overflow-hidden">
           <span
-            className={`absolute inset-x-0 top-0 h-full bg-white/50 origin-top transition-transform duration-700 ease-luxury ${
+            className={`absolute inset-x-0 top-0 h-full bg-white/60 origin-top transition-transform duration-700 ease-luxury ${
               state === 'done' ? 'scale-y-100' : 'scale-y-0'
             }`}
           />
         </span>
       )}
     </div>
-    <div className={`min-w-0 flex-1 ${last ? '' : 'pb-5'}`}>
+    <div className={`min-w-0 flex-1 ${last ? '' : 'pb-6'}`}>
       <div className="flex items-baseline justify-between gap-3">
-        <span className={`text-[13px] font-medium transition-colors duration-500 ${state === 'pending' ? 'text-neutral-600' : 'text-white'}`}>
+        <span className={`text-sm sm:text-base font-semibold transition-colors duration-500 ${state === 'pending' ? 'text-neutral-500' : 'text-white'}`}>
           {title}
         </span>
-        <span className="font-mono text-[10px] text-neutral-500">{meta}</span>
+        <span className="font-mono text-xs text-neutral-400 font-medium">{meta}</span>
       </div>
-      {state !== 'pending' && children && <div className="vx-view-enter mt-2.5">{children}</div>}
+      {state !== 'pending' && children && <div className="vx-view-enter mt-3">{children}</div>}
     </div>
   </div>
 );
@@ -99,50 +99,50 @@ export const HeroBriefToSong: FC = () => {
         aria-hidden="true"
         className="pointer-events-none absolute -inset-10 bg-[radial-gradient(closest-side,rgba(214,170,96,0.14),transparent)] blur-2xl"
       />
-      <div className="vx-hairline relative rounded-[28px] border border-white/[0.09] bg-[#0A0B0F]/90 backdrop-blur-xl shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-3.5">
+      <div className="vx-hairline relative rounded-[28px] border border-white/[0.12] bg-[#0A0B10]/95 backdrop-blur-2xl shadow-[0_40px_120px_-30px_rgba(0,0,0,0.95)] overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-6 py-4 bg-white/[0.02]">
           <div className="min-w-0">
-            <div className="text-[13px] font-medium text-white truncate">Commande d'Aïcha K.</div>
-            <div className="text-[11px] text-neutral-500">Anniversaire, zouk, voix femme</div>
+            <div className="text-sm sm:text-base font-bold text-white truncate">Commande en direct · Aïcha K.</div>
+            <div className="text-xs text-neutral-400 font-medium">Anniversaire maman, Zouk doux, Voix lead</div>
           </div>
           <div className="text-right">
-            <div className={`font-mono text-xl font-bold tracking-tight transition-colors duration-500 ${finished ? 'text-white' : 'text-[#E9CC94]'}`}>
+            <div className={`font-mono text-2xl font-bold tracking-tight transition-colors duration-500 ${finished ? 'text-white' : 'text-[#F5D060]'}`}>
               {clock}
             </div>
-            <div className="text-[10px] text-neutral-500">minutes écoulées</div>
+            <div className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">temps de production</div>
           </div>
         </div>
 
-        <div className="px-5 pt-5 pb-4">
-          <Step n={1} state={stateOf(0)} title="Note vocale reçue" meta="WhatsApp">
-            <div className="rounded-2xl rounded-tl-md border border-white/[0.07] bg-[#111319] p-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-black">
-                  <Play className="h-3 w-3 translate-x-px" fill="currentColor" />
+        <div className="px-6 pt-6 pb-5">
+          <Step n={1} state={stateOf(0)} title="Note vocale WhatsApp reçue" meta="0:24 audio">
+            <div className="rounded-2xl rounded-tl-md border border-white/[0.1] bg-[#12141D] p-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-md">
+                  <Play className="h-4 w-4 translate-x-0.5" fill="currentColor" />
                 </span>
-                <div className="flex h-6 flex-1 items-center gap-[2px]" aria-hidden="true">
+                <div className="flex h-8 flex-1 items-center gap-[3px]" aria-hidden="true">
                   {WAVE.map((h, i) => (
                     <span
                       key={i}
-                      className={`block flex-1 rounded-full transition-colors duration-150 ${i / WAVE.length < voiceProgress ? 'bg-[#D6AA60]' : 'bg-white/20'}`}
+                      className={`block flex-1 rounded-full transition-colors duration-150 ${i / WAVE.length < voiceProgress ? 'bg-[#E5B54F]' : 'bg-white/20'}`}
                       style={{ height: `${h * 100}%` }}
                     />
                   ))}
                 </div>
-                <span className="font-mono text-[10px] text-neutral-500">0:24</span>
+                <span className="font-mono text-xs text-neutral-400 font-semibold">0:24</span>
               </div>
-              <p className="mt-2.5 text-[12px] leading-relaxed text-neutral-400">
+              <p className="mt-3 text-sm leading-relaxed text-[#CBD2E1] italic">
                 « C'est pour les 60 ans de ma mère, Mariam. Elle adore le zouk, elle nous a tout donné. »
               </p>
             </div>
           </Step>
 
-          <Step n={2} state={stateOf(1)} title="Paroles écrites" meta="Sonar">
-            <div className="space-y-0.5 border-l border-[#D6AA60]/40 pl-3.5">
+          <Step n={2} state={stateOf(1)} title="Paroles rédigées par l'IA" meta="Rimes riches">
+            <div className="space-y-1 border-l-2 border-[#E5B54F]/60 pl-4 py-1">
               {LYRICS.map((line, i) => (
                 <p
                   key={line}
-                  className={`font-serif text-[16px] leading-snug text-[#F1E6CF] transition-all duration-500 ease-luxury ${
+                  className={`font-serif text-lg sm:text-xl leading-relaxed text-[#F7F0E1] transition-all duration-500 ease-luxury ${
                     i < linesShown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
                   }`}
                 >
@@ -152,48 +152,48 @@ export const HeroBriefToSong: FC = () => {
             </div>
           </Step>
 
-          <Step n={3} state={stateOf(2)} title="Paiement reçu" meta="Mobile Money">
-            <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-400/[0.07] px-3 py-1.5 text-[12px] text-sky-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-              Wave
-              <span className="font-mono font-semibold text-white">+3 000 F</span>
+          <Step n={3} state={stateOf(2)} title="Paiement validé d'avance" meta="Wave Mobile">
+            <span className="inline-flex items-center gap-2.5 rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-sm text-sky-200 shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-sky-400" />
+              Wave Money
+              <span className="font-mono font-bold text-white text-base">+3 000 F CFA</span>
             </span>
           </Step>
 
-          <Step n={4} state={finished ? 'done' : stateOf(3)} title="Chanson livrée" meta="Master 24-bit" last>
-            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3">
-              <svg viewBox="0 0 40 40" className={`h-10 w-10 shrink-0 vx-vinyl ${finished ? '' : 'vx-vinyl-live'}`} aria-hidden="true">
-                <circle cx="20" cy="20" r="19" fill="#050608" stroke="rgba(255,255,255,0.12)" />
-                <circle cx="20" cy="20" r="13" fill="none" stroke="rgba(255,255,255,0.06)" />
-                <circle cx="20" cy="20" r="9" fill="none" stroke="rgba(255,255,255,0.06)" />
-                <circle cx="20" cy="20" r="5.5" fill="#D6AA60" />
+          <Step n={4} state={finished ? 'done' : stateOf(3)} title="Chanson masterisée et expédiée" meta="Fichier MP3 24-bit" last>
+            <div className="flex items-center gap-3.5 rounded-2xl border border-white/[0.1] bg-white/[0.03] p-4">
+              <svg viewBox="0 0 40 40" className={`h-12 w-12 shrink-0 vx-vinyl ${finished ? '' : 'vx-vinyl-live'}`} aria-hidden="true">
+                <circle cx="20" cy="20" r="19" fill="#050608" stroke="rgba(255,255,255,0.15)" />
+                <circle cx="20" cy="20" r="13" fill="none" stroke="rgba(255,255,255,0.08)" />
+                <circle cx="20" cy="20" r="9" fill="none" stroke="rgba(255,255,255,0.08)" />
+                <circle cx="20" cy="20" r="5.5" fill="#E5B54F" />
                 <circle cx="20" cy="20" r="1.2" fill="#050608" />
               </svg>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[12.5px] font-medium text-white">Mariam, lumière</div>
-                <div className="mt-1.5 h-1 rounded-full bg-white/[0.08] overflow-hidden">
+                <div className="truncate text-sm sm:text-base font-semibold text-white">Mariam, lumière de nos matins (Zouk)</div>
+                <div className="mt-2 h-1.5 rounded-full bg-white/[0.1] overflow-hidden">
                   <span
-                    className="block h-full origin-left rounded-full bg-white"
+                    className="block h-full origin-left rounded-full bg-gradient-to-r from-[#E5B54F] to-white"
                     style={{ transform: `scaleX(${masterProgress})` } as CSSProperties}
                   />
                 </div>
               </div>
-              <span className={`font-mono text-[10.5px] shrink-0 ${finished ? 'text-emerald-300' : 'text-neutral-500'}`}>
-                {finished ? 'Envoyé' : `${Math.round(masterProgress * 100)} %`}
+              <span className={`font-mono text-xs font-bold shrink-0 ${finished ? 'text-emerald-400' : 'text-neutral-400'}`}>
+                {finished ? 'Livré sur WhatsApp' : `${Math.round(masterProgress * 100)} %`}
               </span>
             </div>
           </Step>
         </div>
 
-        <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-3 text-[11px]">
-          <span className="text-neutral-500">Démonstration, d'après une commande réelle</span>
+        <div className="flex items-center justify-between border-t border-white/[0.08] px-6 py-3.5 text-xs bg-white/[0.01]">
+          <span className="text-neutral-400 font-medium">Flux réel d'une commande studio</span>
           <button
             type="button"
             onClick={play}
             disabled={!finished}
-            className="inline-flex items-center gap-1.5 text-neutral-400 hover:text-white disabled:opacity-0 transition-all duration-300 cursor-pointer"
+            className="inline-flex items-center gap-2 text-neutral-300 hover:text-white font-medium disabled:opacity-0 transition-all duration-300 cursor-pointer"
           >
-            <RotateCcw className="h-3 w-3" strokeWidth={1.75} />
+            <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
             Rejouer
           </button>
         </div>
