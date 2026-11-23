@@ -24,8 +24,35 @@
 
 ## 🎯 Statut Actuel & Point de Reprise
 
-- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (17:55 UTC)
+- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `velaris-dun.vercel.app`)
+- **Dernière mise à jour** : 23 Novembre 2026 (18:28 UTC)
+- **Alignement Visuel Conforme à la Plateforme Velarisse (Copie Identique Haute-Horlogerie)** :
+  1. **Palette Pitch Obsidian & Champagne Or Pur** :
+     - Fond d'écran pitch black (`#020204`) avec maillage ultra-fin 48px et cônes de lumière radiale champagne (`#D4AF37`, `#F5EDD7`).
+     - JetBrains Mono pour les données financières, Syne pour les titres monumentaux, Plus Jakarta Sans pour le corps.
+     - Composants de prestige `.spotlight-card` (verre miroir noir avec suivi de souris dynamique), `.btn-apple-pro` (albâtre liquide à reflet spéculaire) et `.btn-titanium-gold` (biseau titanium champagne).
+  2. **Apex Navigation Dock & Marquee Ticker Tape (`src/components/Navbar.tsx`)** :
+     - Monogramme cube géométrique sculpté en verre obsidienne avec double chevron doré minimaliste `V`.
+     - Typographie de marque `VELARIS` (Syne bold) et `ACADEMY` (mono titanium).
+     - Onglets centraux de navigation (`1. Écosystème`, `2. Simulateur Cash-Flow`, `3. Pipeline 24/7`, `4. Démos Studio`).
+     - Sélecteur de devise `XOF` et bouton d'action `.btn-apple-pro`.
+     - Ticker tape infini en direct sous la navbar avec point vert pulsant (`NOEUD CENTRAL EN LIGNE · LATENCE 0.28ms / WAVE DIRECT SETTLEMENT : +18 500 F / ORANGE MONEY INSTANT : +5 000 F / AGENT AUTONOME #04 / CHIFFREMENT QUANTUM-READY / LIVRAISON WHATSAPP : 100% SUCCÈS`).
+  3. **Section Hero Cinématique & Monolithe Core (`src/components/LandingPage.tsx`)** :
+     - Kicker pill doré : `Architecture de Commerce Autonome · Chansons & E-books WhatsApp`.
+     - H1 Syne : `Vendez sans interruption.` avec dégradé `Encaissés directement chez vous.`.
+     - 3 Garanties institutionnelles : `Règlement T+0 Direct`, `Marge Nette 100%`, `Exécution < 15 min`.
+     - Monolithe droit `.spotlight-card` avec badges flottants de télémétrie (`ENCAISSEMENT VÉRIFIÉ ● WAVE +12 500 F`, `ORCHESTRATEUR WHATSAPP · Session #WA-8842 clôturée`) et moteur de conversion `HeroBriefToSong`.
+  4. **Simulateur Cash-Flow Dynamique Interactif (`#cashflow-simulator`)** :
+     - Double curseur interactif réglable en temps réel (Prix moyen par commande de 1 500 F à 25 000 F, Commandes quotidiennes de 1 à 40 / jour).
+     - Calcul dynamique en direct du montant net mensuel e.g. `840 000 F` en chiffres géants dorés Syne.
+     - Badge émeraude `100% crédité sur votre Mobile Money`, détail des transactions mensuelles et commission 0.00%.
+  5. **WhatsApp Autonomous Execution Engine & Terminal Live (`#pipeline-engine`)** :
+     - 4 cartes de nœuds à bordures supérieures colorées (`01 INGESTION` or, `02 NÉGOCIATION & TEXTES` blanc, `03 ENCAISSEMENT` émeraude, `04 CLÔTURE & LIVRAISON` or).
+     - Console de conversation en direct `SESSION #WA-8842` avec horodatages, injection du lien Wave et notification webhook de crédit instantané.
+  6. **Catalogue 3D & Journal des Règlements Autonomes (`#showcase-creations` & `#ledger-table`)** :
+     - Cartes hardcover 3D avec perspective (`card-3d-wrap` et `card-3d-target`), tranche dorée/titanium et boutons d'action.
+     - Intégration du lecteur audio avec oscillateur Web Audio API en direct.
+     - Journal des transactions cryptographiquement vérifié avec statut `● LIVRÉ 100%` et logos Wave / Orange Money.
 - **Mise à l'Échelle Typographique & Iconographique Haut de Gamme (Design Studio Pro)** :
   1. **Hiérarchie Typographique Agrandie & Haut Contraste (`src/components/LandingPage.tsx`)** :
      - Élimination des micros-textes illisibles (`text-[10px]` et `text-xs`).

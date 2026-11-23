@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+@theme {
+  --color-pitch: #020204;
+  --color-obsidian-950: #040507;
+  --color-obsidian-900: #08090D;
+  --color-obsidian-850: #0D0F15;
+  --color-obsidian-800: #12151D;
+  --color-obsidian-700: #1A1E29;
+  --color-obsidian-600: #252B3A;
+
+  --color-champagne-50: #FAF6EE;
+  --color-champagne-100: #F5EDD7;
+  --color-champagne-200: #EBD9AE;
+  --color-champagne-300: #E0C583;
+  --color-champagne-400: #D4AF37;
+  --color-champagne-500: #B89225;
+  --color-champagne-900: rgba(212, 175, 55, 0.09);
+
+  --color-titanium-100: #F0F1F5;
+  --color-titanium-300: #C7CAD4;
+  --color-titanium-400: #A3A8B8;
+  --color-titanium-500: #8E94A3;
+  --color-titanium-800: #2D323E;
+
+  --color-emerald-bright: #00E599;
+  --color-emerald-dim: rgba(0, 229, 153, 0.12);
+
+  --font-display: 'Syne', sans-serif;
+  --font-heading: 'Syne', sans-serif;
+}
+
 @layer base {
   :root {
     --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -41,12 +71,19 @@
   }
 
   body {
-    background-color: #0A0A0F;
-    color: #F0F0F5;
+    background-color: #020204;
+    color: #E2E4E9;
     font-family: var(--font-sans);
     letter-spacing: -0.01em;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    background-image: 
+      radial-gradient(circle at 50% -10%, rgba(212, 175, 55, 0.08) 0%, transparent 60%),
+      radial-gradient(circle at 100% 40%, rgba(255, 255, 255, 0.02) 0%, transparent 40%),
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
   }
 
   h1, h2, h3, h4, .font-heading {
@@ -621,4 +658,155 @@
   .vx-switch::after {
     transition: none;
   }
+}
+
+/* ============================================================
+ * VELARIS INSTITUTIONAL — EXACT DESIGN SYSTEM FROM VELARISSE
+ * ============================================================ */
+
+/* Black Mirror Specular Card with Cursor Spotlight */
+.spotlight-card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(13, 15, 21, 0.85) 0%, rgba(6, 7, 10, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 
+    0 30px 60px -15px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 20px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(24px);
+  border-radius: 18px;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    700px circle at var(--mouse-x, 50%) var(--mouse-y, 0px),
+    rgba(212, 175, 55, 0.10),
+    transparent 45%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.spotlight-card:hover {
+  border-color: rgba(212, 175, 55, 0.32);
+  box-shadow: 
+    0 35px 70px -15px rgba(0, 0, 0, 0.95),
+    0 0 35px -5px rgba(212, 175, 55, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* Precision Luxury Button: Liquid Alabaster (Apple Pro Aesthetic) */
+.btn-apple-pro {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #FFFFFF 0%, #D4D7E0 100%);
+  color: #040507;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: 12px;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 12px 30px -4px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 #FFFFFF,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.btn-apple-pro:hover {
+  transform: translateY(-1.5px);
+  background: linear-gradient(180deg, #FFFFFF 0%, #F5EDD7 100%);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.6),
+    0 16px 40px -4px rgba(212, 175, 55, 0.4),
+    inset 0 1px 0 #FFFFFF;
+}
+
+.btn-apple-pro:active {
+  transform: translateY(0.5px) scale(0.99);
+}
+
+/* Champagne Titanium Bevel Button */
+.btn-titanium-gold {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #181C26 0%, #0B0D13 100%);
+  color: #FAF6EE;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 12px;
+  box-shadow: 
+    0 12px 28px -6px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(245, 237, 215, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.btn-titanium-gold:hover {
+  transform: translateY(-1.5px);
+  border-color: rgba(212, 175, 55, 0.85);
+  background: linear-gradient(180deg, #202634 0%, #0F121B 100%);
+  box-shadow: 
+    0 16px 36px -6px rgba(0, 0, 0, 0.9),
+    0 0 25px -4px rgba(212, 175, 55, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: #FFFFFF;
+}
+
+.btn-titanium-gold:active {
+  transform: translateY(0.5px) scale(0.99);
+}
+
+/* Metallic Typography Textures */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #FFFFFF 0%, #F5EDD7 35%, #D4AF37 75%, #B89225 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-titanium {
+  background: linear-gradient(180deg, #FFFFFF 20%, #8E94A3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Continuous Financial Ticker Animation */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  display: flex;
+  width: 200%;
+  animation: marquee 28s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* 3D Perspective Card Tilt */
+.card-3d-wrap {
+  perspective: 1200px;
+}
+
+.card-3d-target {
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out;
 }
