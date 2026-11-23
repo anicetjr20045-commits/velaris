@@ -25,7 +25,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (17:15 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (17:55 UTC)
+- **Mise à l'Échelle Typographique & Iconographique Haut de Gamme (Design Studio Pro)** :
+  1. **Hiérarchie Typographique Agrandie & Haut Contraste (`src/components/LandingPage.tsx`)** :
+     - Élimination des micros-textes illisibles (`text-[10px]` et `text-xs`).
+     - H1 monumental : `text-4xl sm:text-6xl lg:text-[76px] font-black leading-[1.02] tracking-[-0.04em] text-white` avec sous-titre en dégradé or champagne (`from-[#F5D060] via-[#E5B54F] to-[#D4A017]`).
+     - Sous-titre et corps de texte : portés à `text-lg sm:text-xl md:text-2xl` avec platine lisible (`#D2D7E5`, `#CBD2E1`).
+     - Métriques clés (4 KPIs) : chiffres géants en `text-3xl sm:text-5xl font-mono font-extrabold text-white`.
+     - Bento 4 Piliers, Simulateur financier, Témoignages et FAQ entièrement agrandis pour une lisibilité instantanée sur grand écran comme sur mobile.
+  2. **Icônes SVG Agrandies & Précises (Zero Emoji Rule)** :
+     - Remplacement des micros-icônes 12-14px par des icônes nettes de 20px à 28px (`h-5 w-5` à `h-7 w-7`).
+     - Conteneurs en verre dépoli et bordures dorées spéculaires (`h-14 w-14 rounded-2xl bg-gradient-to-br from-[#F5D060]/20 to-[#E5B54F]/5 border border-[#F5D060]/30`).
+  3. **Module Chariow & Écran de Vente PlanGate Agrandis (`src/components/PlanGate.tsx`)** :
+     - Titre de vente percutant `text-3xl sm:text-5xl font-black text-white`.
+     - 4 cartes des piliers inclus avec icônes 20px (`h-5 w-5`) dans conteneurs `h-10 w-10`.
+     - Panneau de commande : prix `text-3xl sm:text-4xl font-extrabold font-mono text-[#F5D060]`.
+     - Sélecteur de pays avec drapeaux agrandis (`text-2xl`), champs de saisie `h-13` et grand bouton d'action doré `h-14 font-bold text-base`.
+  4. **Console Intérieure & Navigation Agrandie (`src/components/DjeliaAppLayout.tsx`)** :
+     - Entête épurée des non-abonnés portée à `h-20` avec logo mark `h-9 w-9` et typographie `text-lg font-extrabold`.
+     - Barre latérale intérieure : logo de marque `h-11 w-11`, boutons des 4 piliers agrandis à `px-3.5 py-3 text-sm font-semibold` avec icônes `h-5 w-5`, sous-onglets agrandis avec badges de notification nets.
+  5. **Lecteur Audio & Profil Studio Agrandis (`StudioAudioShowcase.tsx` & `StudioProfileView.tsx`)** :
+     - Boutons de lecture audio portés de 36px à 48px (`h-12 w-12`) avec icône `h-5 w-5` et ondes animées dorées.
+     - Cartes de profil et solde de crédits avec typographie géante `text-4xl sm:text-5xl font-mono font-black`.
+     - Bouton de réabonnement Chariow plein format `h-14 font-bold text-base`.
 - **Isolation Stricte du Menu Public & Coupure d'Accès à Expiration (Pass Créateur 4 900 F CFA)** :
   1. **Purge Intégrale de la Barre Publique (`src/components/Navbar.tsx`)** :
      - Élimination totale des liens de navigation interne (Accueil, Académie, WhatsApp, Ventes, Copilot) et du tiroir mobile pour les visiteurs publics et non abonnés.
