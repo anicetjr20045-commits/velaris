@@ -25,7 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (13:20 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (13:25 UTC)
+- **Déploiement en Production Effectué & Validé (`https://velaris-dun.vercel.app`)** :
+  - **Git Remote** : Poussé avec succès sur `origin/main` (commit `25721a7`).
+  - **Vercel Production** : Déployé via `vercel build --prod && vercel deploy --prebuilt --prod`.
+  - **Statut HTTP Production** : HTTP 200 direct sur `https://velaris-dun.vercel.app`.
+  - **Fonctionnalités Live en Prod** :
+    1. Nouvelle Landing Page Djelia Academy (copywriting conversion Alex Hormozi, comparatif PAS, grille 4 piliers, sans émojis).
+    2. Mini-Sites Publics membres (`/s/:slug`, `#s/:slug`).
+    3. Bouton 1-clic Google OAuth + champ WhatsApp dans le modal d'inscription.
+    4. Navbar 100% axée acquisition (« Rejoindre l'Académie »).
+    5. Gestion des retraits d'affiliation et analyse vision IA des reçus de paiement.
+
 - **Authentification Hybride & Expérience d'Entrée Friction-Free (Commit c5a40a1)** :
   1. **Bouton 1-Clic Google OAuth (`src/components/AuthModal.tsx` & `src/contexts/AuthContext.tsx`)** :
      - Connexion et inscription instantanées via `signInWithGoogle` (`supabase.auth.signInWithOAuth({ provider: 'google' })`).
