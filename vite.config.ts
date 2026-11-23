@@ -2,13 +2,21 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import authWhatsappHandler from './api/auth-whatsapp.ts'
+import chariowCheckoutHandler from './api/chariow-checkout.ts'
+import chariowWebhookHandler from './api/chariow-webhook.ts'
 
-function apiAuthWhatsappPlugin(): Plugin {
+function apiDevHandlersPlugin(): Plugin {
   return {
-    name: 'api-auth-whatsapp',
+    name: 'api-dev-handlers',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (req.url && req.url.startsWith('/api/auth-whatsapp')) {
+        const url = req.url || '';
+        let handler: any = null;
+        if (url.startsWith('/api/auth-whatsapp')) handler = authWhatsappHandler;
+        else if (url.startsWith('/api/chariow-checkout')) handler = chariowCheckoutHandler;
+        else if (url.startsWith('/api/chariow-webhook')) handler = chariowWebhookHandler;
+
+        if (handler) {
           let bodyStr = ''
           req.on('data', (chunk) => {
             bodyStr += chunk
@@ -38,7 +46,7 @@ function apiAuthWhatsappPlugin(): Plugin {
                 res.end()
               },
             }
-            await authWhatsappHandler(req, fakeRes)
+            await handler(req, fakeRes)
           })
         } else {
           next()
@@ -53,7 +61,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    apiAuthWhatsappPlugin(),
+    apiDevHandlersPlugin(),
   ],
   server: {
     port: 5173,

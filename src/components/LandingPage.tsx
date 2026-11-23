@@ -20,6 +20,7 @@ import { StudioAudioShowcase } from './StudioAudioShowcase';
 import { HeroBriefToSong } from './HeroBriefToSong';
 import { VelarisMark } from './VelarisMark';
 import { useAuth } from '../hooks/useAuth';
+import { initiateChariowCheckout } from '../services/chariow';
 
 interface LandingPageProps {
   onOpenStudio?: () => void;
@@ -184,13 +185,29 @@ export const LandingPage: FC<LandingPageProps> = ({
 }) => {
   const { user, openAuthModal } = useAuth();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  const handlePrimaryAction = () => {
+  const handlePrimaryAction = async () => {
     if (user) {
-      if (onOpenAcademy) {
-        onOpenAcademy();
-      } else if (onOpenStudio) {
-        onOpenStudio();
+      setCheckoutLoading(true);
+      const res = await initiateChariowCheckout({
+        userId: user.id,
+        email: user.email || '',
+        fullName:
+          (user.user_metadata?.studio_name as string) ||
+          (user.user_metadata?.full_name as string) ||
+          'Créateur Djelia',
+        phone: (user.user_metadata?.phone as string) || '',
+      });
+      setCheckoutLoading(false);
+      if (res.success && res.checkoutUrl) {
+        window.location.assign(res.checkoutUrl);
+      } else {
+        if (onOpenAcademy) {
+          onOpenAcademy();
+        } else if (onOpenStudio) {
+          onOpenStudio();
+        }
       }
     } else {
       openAuthModal('signup');
@@ -436,10 +453,11 @@ export const LandingPage: FC<LandingPageProps> = ({
         <div className="text-center">
           <button
             type="button"
+            disabled={checkoutLoading}
             onClick={handlePrimaryAction}
-            className="inline-flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-8 py-3.5 text-xs font-semibold text-[#0A0A0F] shadow-[0_0_24px_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-8 py-3.5 text-xs font-semibold text-[#0A0A0F] shadow-[0_0_24px_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
           >
-            <span>Démarrer avec la formule Djelia Start (5 000 F CFA)</span>
+            <span>{checkoutLoading ? 'Initialisation sécurisée…' : 'Activer mon Pass Créateur (4 900 F CFA / mois)'}</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>

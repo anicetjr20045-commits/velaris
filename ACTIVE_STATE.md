@@ -25,7 +25,20 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (15:30 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (16:07 UTC)
+- **Intégration Paiement Mobile Money Chariow (Pass Créateur 4 900 F CFA / mois)** :
+  1. **Passerelle Chariow Validée & Opérationnelle (`api/chariow-checkout.ts`)** :
+     - Produit vérifié via l'API Chariow : `prd_bh3vpcup` (« Djelia abonnement academy », 4 900 F CFA, type `license`).
+     - Clé API configurée côté serveur Vercel et `.env.local` (`CHARIOW_API_KEY`).
+     - Session de paiement Mobile Money (Wave, Orange Money, Moov, MTN, Carte) générée dynamiquement avec redirection checkout Orqex.
+  2. **Webhook d'Activation Automatique (`api/chariow-webhook.ts`)** :
+     - URL de webhook sécurisée par jeton : `https://velaris-dun.vercel.app/api/chariow-webhook?token=chariow_sec_djelia_2026_9dc757c6`.
+     - Événements `successful.sale` et `license.activated` : activation du profil (`subscription_status = 'ACTIVE'`, durée 30 jours renouvelable) + crédit immédiat de **30 crédits** de production.
+     - Enregistrement comptable dans le grand livre `credit_transactions` (idempotence garantie sur `sale_id`).
+     - Notification de célébration envoyée directement sur le WhatsApp du créateur via WAHA.
+  3. **Branchement Frontend (`src/services/chariow.ts`, `LandingPage.tsx`, `StudioProfileView.tsx`)** :
+     - Boutons d'action « Activer mon Pass Créateur (4 900 F CFA / mois) » sur la landing page et le cockpit profil.
+     - Redirection fluide vers le checkout sécurisé Chariow pour les utilisateurs connectés, et invitation préalable à l'inscription si non connecté.
 - **Refonte Front-End Élite & Hiérarchie d'Authentification (`src/components/AuthModal.tsx`)** :
   1. **Purge du Double Étage d'Onglets & Hiérarchie Visuelle Impeccable** :
      - Élimination de la superposition confuse de deux rangées de boutons.

@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Ban,
   ExternalLink,
-  Globe
+  Globe,
+  ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
@@ -40,7 +41,7 @@ import {
   SASPAY_CONFIG
 } from '../services/saspay';
 import { useAdminAccess } from '../hooks/useAdmin';
-import type { SubscriptionPlanId } from '../types/billing';
+import { initiateChariowCheckout } from '../services/chariow';
 
 interface StudioProfileViewProps {
   onSignedOut?: () => void;
@@ -262,9 +263,25 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     }
   };
 
-  const handleSubscribe = (planId: SubscriptionPlanId) => {
-    const plan = planId === 'quarterly' ? SASPAY_CONFIG.plans.quarterly : SASPAY_CONFIG.plans.monthly;
-    return startCheckout(() => createSubscriptionCheckout(planId), `${plan.name} (${plan.priceXOF.toLocaleString('fr-FR')} F CFA)`);
+  const handleChariowSubscribe = async () => {
+    if (!user) {
+      flash('err', 'Connectez-vous à votre studio pour effectuer un paiement.');
+      return;
+    }
+    setBusy('checkout');
+    const res = await initiateChariowCheckout({
+      userId: user.id,
+      email: user.email || '',
+      fullName: (user.user_metadata?.studio_name as string) || (user.user_metadata?.full_name as string) || 'Créateur Djelia',
+      phone: (user.user_metadata?.phone as string) || '',
+    });
+    setBusy(null);
+    if (res.success && res.checkoutUrl) {
+      flash('ok', 'Redirection vers Chariow (Wave, Orange Money, Moov, MTN, Carte)...');
+      window.location.assign(res.checkoutUrl);
+    } else {
+      flash('err', res.error || 'Impossible d’initialiser le paiement Chariow.');
+    }
   };
 
   const handleRechargeFreeAmount = (amountCfa: number) => {
@@ -572,46 +589,53 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
           </div>
         </div>
 
-        {/* Détails et actions abonnement */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-          <div className="p-3.5 rounded-xl border border-white/[0.08] bg-[#0E1015] space-y-1">
-            <div className="text-xs text-neutral-400">Pass Mensuel (30 jours)</div>
-            <div className="font-mono text-base font-semibold text-white">3 000 F CFA / mois</div>
-            <p className="text-[11px] text-neutral-500 leading-tight">Accès studio illimité, passerelle WhatsApp et CRM.</p>
-            <button
-              type="button"
-              disabled={busy === 'checkout'}
-              onClick={() => handleSubscribe('monthly')}
-              className="mt-2 w-full h-8 rounded-lg bg-white/5 border border-white/10 text-xs font-semibold text-white hover:bg-white/10 active:scale-[0.98] transition-all"
-            >
-              Souscrire mensuel
-            </button>
+        {/* Détails et actions abonnement Pass Créateur Chariow */}
+        <div className="p-4 rounded-xl border border-[#E5B54F]/30 bg-[#E5B54F]/[0.03] space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#E5B54F]">
+                <ShieldCheck className="h-3 w-3" />
+                <span>Formule Recommandée</span>
+              </div>
+              <div className="font-heading text-lg font-bold text-white mt-0.5">
+                Pass Créateur Djelia Academy
+              </div>
+              <p className="text-xs text-neutral-400 mt-1">
+                Accès complet Académie, 30 crédits de production inclus chaque mois, mini-site studio et vendeur WhatsApp.
+              </p>
+            </div>
+            <div className="text-left sm:text-right shrink-0">
+              <div className="font-mono text-2xl font-bold text-[#F3CA75]">4 900 F CFA</div>
+              <div className="text-[11px] text-neutral-500 font-mono">par mois (30 jours)</div>
+            </div>
           </div>
 
-          <div className="p-3.5 rounded-xl border border-[#E5B54F]/30 bg-[#E5B54F]/[0.04] space-y-1 relative">
-            <span className="absolute top-3 right-3 text-[10px] font-bold text-[#F3CA75] uppercase tracking-wider">
-              - 2 000 F CFA
-            </span>
-            <div className="text-xs text-neutral-400">Pass 3 Mois (Trimestriel)</div>
-            <div className="font-mono text-base font-semibold text-[#F3CA75]">7 000 F CFA / 3 mois</div>
-            <p className="text-[11px] text-neutral-500 leading-tight">Idéal pour les studios actifs (2 333 F/mois).</p>
-            <button
-              type="button"
-              disabled={busy === 'checkout'}
-              onClick={() => handleSubscribe('quarterly')}
-              className="mt-2 w-full h-8 rounded-lg bg-[#E5B54F] text-xs font-semibold text-black hover:bg-[#F0C068] active:scale-[0.98] transition-all"
-            >
-              Souscrire 3 mois
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={busy === 'checkout'}
+            onClick={handleChariowSubscribe}
+            className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.1)] cursor-pointer"
+          >
+            {busy === 'checkout' ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Initialisation Chariow sécurisée…</span>
+              </>
+            ) : (
+              <>
+                <span>Activer mon Pass (4 900 F CFA via Wave, Orange Money ou Carte)</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
         </div>
 
-        {/* Résiliation */}
+        {/* Résiliation & Infos */}
         <div className="pt-2 border-t border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="text-xs text-neutral-500">
             {subscription.lastPaymentRef
-              ? `Dernier paiement : ${subscription.lastPaymentRef} via ${subscription.lastPaymentMethod || 'Mobile Money'}`
-              : 'Paiements ponctuels SasPay : aucun prélèvement automatique, vous renouvelez quand vous le souhaitez.'}
+              ? `Dernier paiement : ${subscription.lastPaymentRef}`
+              : 'Paiements ponctuels Chariow : aucun prélèvement automatique imprévu, vous renouvelez quand vous le souhaitez.'}
           </div>
 
           {subscription.status === 'active' && !showCancelConfirm && (
