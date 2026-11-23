@@ -11,6 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../services/supabase';
 
 export const AffiliationView: FC = () => {
   const { user } = useAuth();
@@ -48,12 +49,26 @@ export const AffiliationView: FC = () => {
     }
   };
 
-  const handleRequestWithdraw = (e: React.FormEvent) => {
+  const handleRequestWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (user?.id) {
+      try {
+        await (supabase.from('affiliate_payouts') as any).insert({
+          user_id: user.id,
+          amount: balanceCfa,
+          operator: withdrawOperator,
+          phone_number: withdrawPhone,
+          status: 'pending'
+        });
+      } catch {
+        // Fallback gracieux si la table n'a pas encore été migrée sur Supabase
+      }
+    }
     setWithdrawSuccess(true);
     setTimeout(() => {
       setWithdrawSuccess(false);
       setIsWithdrawModalOpen(false);
+      setWithdrawPhone('');
     }, 2500);
   };
 

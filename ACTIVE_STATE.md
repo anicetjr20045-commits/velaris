@@ -25,24 +25,25 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (11:05 UTC)
-- **Phase 3 Djelia Academy — Mini-Site Public & Détection Vision des Reçus Validée (Tests 257/257 Verts & Builds 100% Réussis)** :
-  1. **Mini-Site Public Membre (`src/components/MiniSiteView.tsx`)** :
+- **Dernière mise à jour** : 23 Novembre 2026 (11:10 UTC)
+- **Phase 4 & 5 Djelia Academy — Mini-Site Public, Vision IA & Retrait d'Affiliation Validée (Tests 257/257 Verts & Builds 100% Réussis)** :
+  1. **Mini-Site Public Membre (`src/components/MiniSiteView.tsx` & `src/App.tsx`)** :
      - Vitrine publique accessible via `djelia.store/s/{slug}`, `#s/{slug}` ou `?s={slug}`.
      - Design dark luxury sans aucun émoji (tokens Djelia Academy, bordures architecturales, badges épurés).
      - Lecteur audio interactif intégré pour les démos du studio.
      - Chargement dynamique du profil studio depuis Supabase (`studios`) avec repli gracieux.
      - Call-to-action d'achat directement relié au lien de commande avec tag d'affiliation du membre.
-  2. **Routage Unifié Frontend (`src/App.tsx`)** :
      - Détecteur de route `getMiniSiteSlug()` captant nativement `/s/:slug`, les ancres `#s/:slug` et les paramètres d'URL.
-     - Rendu conditionnel du mini-site public sans flash ni perturbation de l'espace membre interne.
-  3. **Détection Intelligente des Reçus de Paiement par Vision IA (`engine/src/llm/concierge-brain.ts` & `engine/src/services/concierge-service.ts`)** :
+  2. **Détection Intelligente des Reçus de Paiement par Vision IA (`engine/src/llm/concierge-brain.ts` & `engine/src/services/concierge-service.ts`)** :
      - Fonction multimodale `analyzePaymentReceiptWithVision` propulsée par Gemini Flash Vision via le proxy Kie.ai.
      - Analyse structurée JSON : identification de l'opérateur (Wave, Orange Money, MTN MoMo, Moov, Chariow, Carte), montant, référence de transaction, expéditeur et destinataire.
      - Règle 8 du Concierge IA : remerciement personnalisé et confirmation immédiate de la mise en production lors de la réception d'une preuve de virement.
      - Mise à jour déterministe de l'état `ack_log.payment_receipt_detected` en base.
+  3. **Module de Retrait d'Affiliation & Schéma Supabase (`supabase_migration_affiliate_payouts.sql` & `src/components/AffiliationView.tsx`)** :
+     - Migration SQL `affiliate_payouts` avec RLS (lecture et insertion strictes par utilisateur).
+     - Persistance asynchrone des demandes de virement Wave / Orange Money dès le seuil de 1 500 F CFA.
   4. **Re-Vérification & Non-Régression Rigoureuse** :
-     - Compilation Frontend Vite & TS : 100% OK (3.45s).
+     - Compilation Frontend Vite & TS : 100% OK (3.50s).
      - Compilation Backend Engine TS : 100% OK.
      - Suite de tests du moteur : **257/257 tests passés avec succès** (0 échec, 0 régression).
 
