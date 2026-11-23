@@ -25,7 +25,28 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (11:10 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (12:56 UTC)
+- **Refonte Complète Page d'Accueil — Ciblage Précis & Offre Irrésistible Alex Hormozi (Build 100% Réussi & Déployé Preview)** :
+  1. **Recadrage Radical du Public Cible (`src/components/LandingPage.tsx`)** :
+     - Élimination de la confusion client final vs entrepreneur. La page d'accueil s'adresse désormais 100% aux créateurs et entrepreneurs africains / diaspora souhaitant faire de l'argent en ligne avec un business sans stock, sans tracas et immédiatement rentable.
+     - **Accroche H1** : « Lancez votre Studio Musical IA. Zéro talent. Zéro stock. 100% sur WhatsApp. »
+  2. **Diagnostic PAS (Problem - Agitation - Solution)** :
+     - Comparatif choc mettant en lumière les échecs des business traditionnels (E-commerce bloqué par les colis rejetés et livreurs perdus, Trading/Forex risqué avec 90% de pertes, Agences et Freelance épuisants).
+     - Démonstration pourquoi la Chanson Personnalisée est imbattable : produit purement digital livré en 15 secondes sur WhatsApp, marge nette de 90%, paiement d'avance sur Wave/OM, zéro négociation sur un achat émotionnel (amour, anniversaire maman, mariage).
+  3. **L'Offre Complète ("Impossible de dire non") — Grille Bento 4 Piliers** :
+     - *Pilier 01* : Académie vidéo pas-à-pas (pub TikTok 5 000 F, scripts WhatsApp mot à mot).
+     - *Pilier 02* : Moteur IA Suno V6 (composition musicale complète en 15 min sans savoir chanter).
+     - *Pilier 03* : Concierge WhatsApp 24/7 (vendeur infatigable jour et nuit).
+     - *Pilier 04* : Mini-site personnalisé et affiliation 25% (300 F / vente même sans gérer de clients).
+  4. **Mathématiques Réelles & Paliers de Rentabilité** :
+     - Démarrage : 2 chansons/jour = 105 000 F CFA net / mois.
+     - Régulier : 5 chansons/jour = 330 000 F CFA net / mois.
+     - Studio Pro : 10 chansons/jour = 920 000 F CFA net / mois.
+  5. **Design & Validation Strictes** :
+     - Zéro émoji dans toute la page (icônes Lucide SVG uniquement).
+     - Build Vite & TypeScript : 100% propre (3.48s).
+     - Déploiement Preview Vercel actualisé : `https://velaris-5i8q8r3i5-velaris6.vercel.app`.
+
 - **Phase 4 & 5 Djelia Academy — Mini-Site Public, Vision IA & Retrait d'Affiliation Validée (Tests 257/257 Verts & Builds 100% Réussis)** :
   1. **Mini-Site Public Membre (`src/components/MiniSiteView.tsx` & `src/App.tsx`)** :
      - Vitrine publique accessible via `djelia.store/s/{slug}`, `#s/{slug}` ou `?s={slug}`.
