@@ -12,6 +12,12 @@
       "destination": "/index.html"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/check-expirations",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

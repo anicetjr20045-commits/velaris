@@ -577,18 +577,14 @@ export function App() {
         {/* Public Navigation Bar (only on home & decouvrir) */}
         {(activeTab === 'home' || activeTab === 'decouvrir') && (
           <Navbar
-            activeTab={activeTab}
-            setActiveTab={(tab) => {
-              if (tab === 'qr') {
-                setIsQrModalOpen(true);
-              } else {
-                changeTab(tab);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
+            onEnterStudio={() => {
+              changeTab('studio', 'studio_ai');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            isWhatsAppConnected={isWhatsAppConnected}
-            onOpenQrModal={() => setIsQrModalOpen(true)}
-            onOpenNewOrderModal={() => setIsNewOrderModalOpen(true)}
+            onOpenPayment={() => {
+              changeTab('studio', 'studio_ai');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 

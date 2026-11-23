@@ -120,7 +120,10 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     // Si l'utilisateur est admin ou a un abonnement actif (Pass Créateur Chariow ou Pro)
     if (user?.email && (user.email.includes('admin') || user.email.includes('anicet'))) return true;
     if (user?.user_metadata?.plan === 'pro') return true;
-    return subscription.status === 'active';
+    const hasActiveDate = subscription.expiresAt
+      ? new Date(subscription.expiresAt).getTime() > Date.now()
+      : false;
+    return subscription.status === 'active' && hasActiveDate;
   }, [subscription, user]);
 
   // Synchronisation avec l'onglet initial si transmis par le parent
@@ -300,6 +303,74 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
   }, [user, onOpenNewOrderModal, onOpenQrModal, onReturnToHome]);
 
   const shortcutLabel = isMacPlatform() ? '⌘K' : 'Ctrl K';
+
+  // Si l'utilisateur n'est pas abonné ou si son abonnement a expiré :
+  // STRICTEMENT AUCUN MENU INTÉRIEUR VISIBLE -> Redirection et affichage direct du Paywall Pass Créateur
+  if (!isPro) {
+    const isExpired =
+      subscription.status === 'expired' ||
+      Boolean(subscription.expiresAt && new Date(subscription.expiresAt).getTime() <= Date.now());
+
+    return (
+      <div className="min-h-screen bg-[#07080A] text-[#F0F0F5] flex flex-col selection:bg-[#D4A017]/30 selection:text-white">
+        {/* Header sobre sans aucun menu intérieur */}
+        <header className="h-16 border-b border-white/[0.08] bg-[#0A0A0F]/90 backdrop-blur-xl px-4 sm:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-[#D4A017] flex items-center justify-center text-[#0A0A0F] font-heading font-black text-xs">
+              D
+            </div>
+            <span className="font-heading text-base font-bold tracking-tight text-white">
+              DJELIA <span className="text-[#D4A017] font-mono text-xs">ACADEMY</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <span className="hidden sm:inline-flex text-xs text-[#8E94A3] font-mono">
+              {user?.email || 'Non abonné'}
+            </span>
+            <button
+              onClick={onReturnToHome}
+              className="text-xs text-[#8E94A3] hover:text-white px-3 py-1.5 rounded-full border border-white/[0.08] hover:bg-white/[0.03] transition-colors cursor-pointer"
+            >
+              Retour à l'accueil
+            </button>
+            <button
+              onClick={() => void signOut()}
+              className="text-xs text-rose-400 hover:text-rose-300 px-3 py-1.5 rounded-full border border-rose-500/20 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            >
+              Déconnexion
+            </button>
+          </div>
+        </header>
+
+        {/* Zone centrale : Paywall Pass Créateur avec Alerte Expiration si nécessaire */}
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+          {isExpired && (
+            <div className="mb-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 p-4 text-xs text-rose-200 flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-rose-400 shrink-0" />
+              <div>
+                <strong className="block text-sm text-white font-semibold">Votre Pass Créateur a expiré</strong>
+                <span>
+                  L'accès à votre studio, à vos outils et à votre ligne WhatsApp est suspendu. Renouvelez votre abonnement ci-dessous pour 4 900 F CFA pour réactiver immédiatement l'ensemble de vos outils.
+                </span>
+              </div>
+            </div>
+          )}
+
+          <PlanGate
+            isPro={false}
+            featureDescription={
+              isExpired
+                ? 'Votre abonnement mensuel a pris fin. Réactivez votre Pass Créateur pour 4 900 F CFA pour débloquer votre studio et récupérer vos 30 crédits.'
+                : 'Activez votre Pass Créateur (4 900 F CFA / 30 jours) pour débloquer l’ensemble des outils du studio, votre ligne WhatsApp et vos 30 crédits.'
+            }
+          >
+            {null}
+          </PlanGate>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-[#F0F0F5] flex flex-col md:flex-row relative selection:bg-[#D4A017]/30 selection:text-white">

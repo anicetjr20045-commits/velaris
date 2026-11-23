@@ -14,9 +14,7 @@ import {
   Pencil,
   Coins,
   CreditCard,
-  Calendar,
   AlertCircle,
-  Ban,
   ExternalLink,
   Globe,
   ArrowRight
@@ -26,8 +24,6 @@ import { supabase } from '../services/supabase';
 import {
   getStudioCredits,
   getStudioSubscription,
-  cancelSubscription,
-  resumeSubscriptionRenewal,
   refreshBilling,
   subscribeToBilling
 } from '../services/billing';
@@ -58,15 +54,6 @@ const fmtDate = (iso?: string | null) =>
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      })
-    : '—';
-
-const fmtShortDate = (iso?: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric'
       })
     : '—';
 
@@ -108,7 +95,6 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
   const [subscription, setSubscription] = useState(getStudioSubscription());
   const [freeAmountCfa, setFreeAmountCfa] = useState<number>(1000);
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRechargeModal, setShowRechargeModal] = useState(false);
 
   const adminAccess = useAdminAccess();
@@ -333,12 +319,6 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
     } catch {
       // clip failed
     }
-  };
-
-  const handleCancelSub = () => {
-    cancelSubscription();
-    setShowCancelConfirm(false);
-    flash('ok', 'Renouvellement arrêté. Votre accès reste garanti jusqu’à l’échéance déjà payée.');
   };
 
   const facts = [
@@ -566,152 +546,152 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut, onO
         </div>
       </section>
 
-      {/* Module 2 : Abonnement SasPay */}
-      <section className={`${panelClass} p-5 sm:p-6 space-y-5`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl border border-white/[0.12] bg-[#0E1015] flex items-center justify-center text-[#E5B54F]">
-              <CreditCard className="h-6 w-6" strokeWidth={1.5} />
+      {/* Module 2 : Abonnement Pass Créateur Chariow */}
+      {(() => {
+        const expiresTime = subscription.expiresAt ? new Date(subscription.expiresAt).getTime() : 0;
+        const now = Date.now();
+        const daysRemaining = expiresTime > now ? Math.ceil((expiresTime - now) / (1000 * 3600 * 24)) : 0;
+        const isExpired = subscription.status === 'expired' || (Boolean(subscription.expiresAt) && expiresTime <= now);
+        const isExpiringSoon = subscription.status === 'active' && daysRemaining <= 5 && daysRemaining > 0;
+
+        return (
+          <section className={`${panelClass} p-5 sm:p-6 space-y-5 border border-[#E5B54F]/25`}>
+            {/* Alerte Dynamique d'Expiration */}
+            {isExpired && (
+              <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs text-rose-200 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <strong className="block text-sm text-white font-semibold">Votre Pass Créateur a expiré</strong>
+                  <p className="text-[#C0C5D5] leading-relaxed">
+                    Votre accès a pris fin le {fmtDate(subscription.expiresAt)}. L'accès à vos outils et à votre ligne WhatsApp est suspendu.
+                    Renouvelez votre abonnement dès maintenant pour réactiver immédiatement votre studio.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isExpiringSoon && (
+              <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 flex items-start gap-3">
+                <CalendarClock className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <strong className="block text-sm text-white font-semibold">
+                    Renouvellement conseillé : plus que {daysRemaining} jour{daysRemaining > 1 ? 's' : ''}
+                  </strong>
+                  <p className="text-[#D0D5E5] leading-relaxed">
+                    Votre abonnement expire le {fmtDate(subscription.expiresAt)}. Renouvelez avant l'échéance pour garantir la continuité de votre ligne WhatsApp 24/7.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-xl border border-[#E5B54F]/30 bg-[#0E1015] flex items-center justify-center text-[#E5B54F]">
+                  <CreditCard className="h-6 w-6" strokeWidth={1.5} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[17px] font-semibold text-white">Pass Créateur Djelia Academy</span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-mono border ${
+                        !isExpired && subscription.status === 'active'
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                          : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          !isExpired && subscription.status === 'active'
+                            ? 'bg-emerald-400 animate-pulse'
+                            : 'bg-rose-400'
+                        }`}
+                      />
+                      {!isExpired && subscription.status === 'active' ? 'Actif' : 'Expiré'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8E94A3] mt-0.5">
+                    Accès illimité à l'Académie, au Vendeur WhatsApp 24/7 et aux 30 crédits de production Suno V6.
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-left sm:text-right">
+                <div className="font-mono text-2xl font-bold text-[#E5B54F]">4 900 F CFA</div>
+                <div className="text-xs text-[#8E94A3] font-mono">par mois (30 jours)</div>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[17px] font-semibold text-white">{subscription.planName}</span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border ${
-                    subscription.status === 'active'
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                      : subscription.status === 'canceled'
-                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-                      : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      subscription.status === 'active'
-                        ? 'bg-emerald-400'
-                        : subscription.status === 'canceled'
-                        ? 'bg-amber-400'
-                        : 'bg-rose-400'
-                    }`}
-                  />
-                  {subscription.status === 'active'
-                    ? 'Actif'
-                    : subscription.status === 'canceled'
-                    ? 'Sans renouvellement (actif jusqu’à échéance)'
-                    : subscription.status === 'inactive'
-                    ? 'Aucun pass'
-                    : 'Expiré'}
+
+            {/* Grille Bento Récapitulative des Dates & Crédits */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-3.5 space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E94A3] block">
+                  Date d'activation
+                </span>
+                <span className="text-xs font-mono text-white font-medium block truncate">
+                  {fmtDate(subscription.startedAt) || 'Paiement Chariow'}
                 </span>
               </div>
-              <p className="text-xs text-[#A3A3A3] mt-0.5">
-                Pass d'accès à la plateforme Studio Velaris · Paiement sécurisé SasPay
-              </p>
-            </div>
-          </div>
 
-          <div className="text-left sm:text-right">
-            <div className="font-mono text-2xl font-bold text-white">
-              {subscription.priceXOF.toLocaleString('fr-FR')} F CFA
-            </div>
-            <div className="text-xs text-[#A3A3A3] flex items-center gap-1 sm:justify-end mt-0.5">
-              <Calendar className="h-3.5 w-3.5 text-[#E5B54F]" />
-              Expire le :{' '}
-              <strong className="text-neutral-200">{fmtShortDate(subscription.expiresAt)}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Détails et actions abonnement Pass Créateur Chariow */}
-        <div className="p-4 rounded-xl border border-[#E5B54F]/30 bg-[#E5B54F]/[0.03] space-y-3">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#E5B54F]">
-                <ShieldCheck className="h-3 w-3" />
-                <span>Formule Recommandée</span>
+              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-3.5 space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E94A3] block">
+                  Date d'expiration
+                </span>
+                <span className="text-xs font-mono text-white font-medium block truncate">
+                  {fmtDate(subscription.expiresAt) || '30 jours'}
+                </span>
               </div>
-              <div className="font-heading text-lg font-bold text-white mt-0.5">
-                Pass Créateur Djelia Academy
+
+              <div className="rounded-xl bg-[#08090E] border border-white/[0.06] p-3.5 space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#8E94A3] block">
+                  Temps restant
+                </span>
+                <span
+                  className={`text-xs font-mono font-bold block ${
+                    isExpired
+                      ? 'text-rose-400'
+                      : daysRemaining <= 5
+                      ? 'text-amber-400'
+                      : 'text-emerald-400'
+                  }`}
+                >
+                  {isExpired ? '0 jour (Expiré)' : `${daysRemaining} jour${daysRemaining > 1 ? 's' : ''} restant${daysRemaining > 1 ? 's' : ''}`}
+                </span>
               </div>
-              <p className="text-xs text-neutral-400 mt-1">
-                Accès complet Académie, 30 crédits de production inclus chaque mois, mini-site studio et vendeur WhatsApp.
-              </p>
             </div>
-            <div className="text-left sm:text-right shrink-0">
-              <div className="font-mono text-2xl font-bold text-[#F3CA75]">4 900 F CFA</div>
-              <div className="text-[11px] text-neutral-500 font-mono">par mois (30 jours)</div>
-            </div>
-          </div>
 
-          <button
-            type="button"
-            disabled={busy === 'checkout'}
-            onClick={handleChariowSubscribe}
-            className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.1)] cursor-pointer"
-          >
-            {busy === 'checkout' ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Initialisation Chariow sécurisée…</span>
-              </>
-            ) : (
-              <>
-                <span>Activer mon Pass (4 900 F CFA via Wave, Orange Money ou Carte)</span>
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Résiliation & Infos */}
-        <div className="pt-2 border-t border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="text-xs text-neutral-500">
-            {subscription.lastPaymentRef
-              ? `Dernier paiement : ${subscription.lastPaymentRef}`
-              : 'Paiements ponctuels Chariow : aucun prélèvement automatique imprévu, vous renouvelez quand vous le souhaitez.'}
-          </div>
-
-          {subscription.status === 'active' && !showCancelConfirm && (
-            <button
-              type="button"
-              onClick={() => setShowCancelConfirm(true)}
-              className="text-xs text-neutral-400 hover:text-rose-400 transition-colors flex items-center gap-1"
-            >
-              <Ban className="h-3 w-3" />
-              Ne pas renouveler
-            </button>
-          )}
-
-          {subscription.status === 'canceled' && (
-            <button
-              type="button"
-              onClick={() => resumeSubscriptionRenewal()}
-              className="text-xs text-neutral-400 hover:text-white transition-colors"
-            >
-              Réactiver le rappel de renouvellement
-            </button>
-          )}
-
-          {showCancelConfirm && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-rose-300">Arrêter le renouvellement ?</span>
+            {/* Bouton de Réabonnement / Renouvellement */}
+            <div className="pt-2">
               <button
                 type="button"
-                onClick={handleCancelSub}
-                className="px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 text-xs font-semibold hover:bg-rose-500/30"
+                disabled={busy === 'checkout'}
+                onClick={handleChariowSubscribe}
+                className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[#E5B54F] text-xs font-bold text-[#0A0A0F] hover:bg-[#F3C766] active:scale-[0.98] transition-all disabled:opacity-50 shadow-[0_0_24px_rgba(229,181,79,0.35)] cursor-pointer"
               >
-                Confirmer
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCancelConfirm(false)}
-                className="px-2.5 py-1 rounded bg-neutral-800 text-neutral-400 text-xs hover:text-white"
-              >
-                Annuler
+                {busy === 'checkout' ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Ouverture de la passerelle Chariow…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      {isExpired
+                        ? 'Réactiver mon Pass Créateur (4 900 F CFA)'
+                        : 'Renouveler mon Pass (4 900 F CFA via Wave, Orange Money ou Carte)'}
+                    </span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
-          )}
-        </div>
-      </section>
+
+            <div className="text-xs text-[#8E94A3] pt-1">
+              Paiement direct sécurisé via Chariow Mobile Money (Wave, Orange Money, Moov, MTN, Airtel, M-Pesa, Carte).
+              Aucun prélèvement forcé : vous renouvelez en toute liberté.
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Module 2-bis : Webhook SasPay (configuration plateforme, réservée à la direction) */}
       {isDirection && (

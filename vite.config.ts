@@ -5,6 +5,7 @@ import authWhatsappHandler from './api/auth-whatsapp.ts'
 import chariowCheckoutHandler from './api/chariow-checkout.ts'
 import chariowWebhookHandler from './api/chariow-webhook.ts'
 import chariowVerifyHandler from './api/chariow-verify.ts'
+import checkExpirationsHandler from './api/check-expirations.ts'
 
 function apiDevHandlersPlugin(): Plugin {
   return {
@@ -17,6 +18,7 @@ function apiDevHandlersPlugin(): Plugin {
         else if (url.startsWith('/api/chariow-checkout')) handler = chariowCheckoutHandler;
         else if (url.startsWith('/api/chariow-webhook')) handler = chariowWebhookHandler;
         else if (url.startsWith('/api/chariow-verify')) handler = chariowVerifyHandler;
+        else if (url.startsWith('/api/check-expirations')) handler = checkExpirationsHandler;
 
         if (handler) {
           let bodyStr = ''

@@ -53,18 +53,6 @@ const NO_SUBSCRIPTION: SubscriptionInfo = {
   autoRenew: false,
 };
 
-const DEMO_SUBSCRIPTION: SubscriptionInfo = {
-  planId: 'monthly',
-  planName: SASPAY_CONFIG.plans.monthly.name,
-  priceXOF: 3000,
-  status: 'active',
-  startedAt: new Date(Date.now() - 3600000 * 24 * 5).toISOString(),
-  expiresAt: new Date(Date.now() + 3600000 * 24 * 25).toISOString(),
-  autoRenew: true,
-  lastPaymentRef: 'DEMO-SASPAY',
-  lastPaymentMethod: 'Wave'
-};
-
 /* ------------------------------------------------------------------ */
 /* État partagé                                                       */
 /* ------------------------------------------------------------------ */
@@ -236,12 +224,21 @@ export function getStudioSubscription(): SubscriptionInfo {
   if (state.userId) return state.subscription ?? NO_SUBSCRIPTION;
   try {
     const raw = localStorage.getItem(DEMO_SUBSCRIPTION_KEY);
-    const parsed: SubscriptionInfo = raw ? JSON.parse(raw) : DEMO_SUBSCRIPTION;
+    const parsed: SubscriptionInfo = raw ? JSON.parse(raw) : NO_SUBSCRIPTION;
     if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) parsed.status = 'expired';
     return parsed;
   } catch {
-    return DEMO_SUBSCRIPTION;
+    return NO_SUBSCRIPTION;
   }
+}
+
+export function isStudioSubscribed(user?: any): boolean {
+  if (user?.email && (user.email.includes('admin') || user.email.includes('anicet'))) return true;
+  if (user?.user_metadata?.plan === 'pro') return true;
+  const sub = getStudioSubscription();
+  if (sub.status !== 'active') return false;
+  if (!sub.expiresAt) return false;
+  return new Date(sub.expiresAt).getTime() > Date.now();
 }
 
 /* ------------------------------------------------------------------ */
