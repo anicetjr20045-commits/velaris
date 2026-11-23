@@ -112,6 +112,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const sendWhatsAppOtp = async (phone: string) => {
+    try {
+      const res = await fetch('/api/auth-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send-code', phone }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Impossible d\'envoyer le code WhatsApp' };
+      }
+      return { success: true, challengeToken: data.challengeToken };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Passerelle WhatsApp injoignable' };
+    }
+  };
+
+  const verifyWhatsAppOtp = async (phone: string, code: string, challengeToken: string, studioName?: string) => {
+    try {
+      const res = await fetch('/api/auth-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify-code', phone, code, challengeToken, studioName }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { error: data.error || 'Code de vérification incorrect' };
+      }
+      const { email, emailOtp } = data;
+      const verifyRes = await supabase.auth.verifyOtp({
+        email,
+        token: emailOtp,
+        type: 'email',
+      });
+      if (verifyRes.error) {
+        return { error: verifyRes.error.message };
+      }
+      setAuthModalOpen(false);
+      setIsDemoMode(false);
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Erreur lors de la validation' };
+    }
+  };
+
+  const signInWithMagicLink = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: authRedirectUrl(),
+        },
+      });
+      if (error) return { error: error.message };
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Erreur lors de l\'envoi du lien magique' };
+    }
+  };
+
+  const verifyEmailOtp = async (email: string, token: string) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+        type: 'email',
+      });
+      if (error) return { error: error.message };
+      if (data.session) {
+        setAuthModalOpen(false);
+        setIsDemoMode(false);
+      }
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Code email invalide' };
+    }
+  };
+
   const signUp = async (email: string, password: string, studioName?: string, phone?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -220,6 +298,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setDemoMode,
         signIn,
         signInWithGoogle,
+        sendWhatsAppOtp,
+        verifyWhatsAppOtp,
+        signInWithMagicLink,
+        verifyEmailOtp,
         signUp,
         signOut,
         resetPassword,

@@ -1,52 +1,61 @@
-import { useEffect, useRef, useState, type FC, type FormEvent, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type FC, type FormEvent, type ReactNode } from 'react';
 import {
-  X,
   Mail,
   Lock,
-  Building2,
-  ArrowRight,
-  ArrowLeft,
-  ShieldCheck,
   Eye,
   EyeOff,
+  Building2,
+  ShieldCheck,
+  ArrowRight,
+  ArrowLeft,
+  X,
   Loader2,
   MailCheck,
   KeyRound,
   RotateCw,
   Check,
-  Smartphone
+  Smartphone,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const MAX_ATTEMPTS = 5;
 const LOCK_SECONDS = 30;
-const RESEND_COOLDOWN = 45;
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-/** Traduit les messages Supabase Auth ; ne révèle jamais si un compte existe. */
-function humanizeAuthError(raw: string): string {
-  const m = raw.toLowerCase();
-  if (m.includes('invalid login credentials')) return 'Email ou mot de passe incorrect.';
-  if (m.includes('email not confirmed')) return 'Adresse email non confirmée. Ouvrez le lien reçu par email ou renvoyez-le ci-dessous.';
-  if (m.includes('already registered') || m.includes('already been registered')) return 'Impossible de créer ce compte. Essayez de vous connecter ou de réinitialiser le mot de passe.';
-  if (m.includes('rate limit') || m.includes('too many') || m.includes('security purposes')) return 'Trop de tentatives. Patientez quelques instants avant de réessayer.';
-  if (m.includes('password should be') || m.includes('weak')) return 'Mot de passe trop faible : 8 caractères minimum, avec lettres et chiffres.';
-  if (m.includes('same password') || m.includes('different from the old')) return 'Le nouveau mot de passe doit être différent de l\'ancien.';
-  if (m.includes('failed to fetch') || m.includes('network')) return 'Connexion réseau indisponible. Vérifiez votre accès internet.';
-  return 'Une erreur est survenue. Réessayez dans un instant.';
-}
-
-/** Score 0-4 : longueur, casse, chiffres, symboles */
-function passwordScore(pw: string): number {
-  if (!pw) return 0;
+function passwordScore(pwd: string): number {
+  if (!pwd) return 0;
   let score = 0;
-  if (pw.length >= 8) score++;
-  if (pw.length >= 12) score++;
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
-  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) score++;
+  if (pwd.length >= 8) score += 1;
+  if (pwd.length >= 12) score += 1;
+  if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score += 1;
+  if (/\d/.test(pwd)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
   return Math.min(score, 4);
 }
+
+function humanizeAuthError(err: string): string {
+  const l = err.toLowerCase();
+  if (l.includes('invalid login credentials')) return 'Adresse email ou mot de passe incorrect.';
+  if (l.includes('user already registered')) return 'Ce compte existe déjà. Connectez-vous avec vos identifiants.';
+  if (l.includes('password should be at least')) return 'Le mot de passe doit contenir au moins 6 caractères.';
+  if (l.includes('email not confirmed')) return 'Veuillez confirmer votre adresse email avant de vous connecter.';
+  if (l.includes('rate limit') || l.includes('too many requests')) return 'Trop de tentatives rapprochées. Veuillez patienter un instant.';
+  return err;
+}
+
+const COUNTRY_PREFIXES = [
+  { code: '+225', name: 'Côte d\'Ivoire (+225)' },
+  { code: '+226', name: 'Burkina Faso (+226)' },
+  { code: '+221', name: 'Sénégal (+221)' },
+  { code: '+237', name: 'Cameroun (+237)' },
+  { code: '+223', name: 'Mali (+223)' },
+  { code: '+228', name: 'Togo (+228)' },
+  { code: '+229', name: 'Bénin (+229)' },
+  { code: '+224', name: 'Guinée (+224)' },
+  { code: '+33', name: 'France (+33)' },
+  { code: '+1', name: 'USA / Canada (+1)' },
+  { code: '+', name: 'Autre pays (+)' },
+];
 
 const SCORE_LABELS = ['Trop court', 'Faible', 'Correct', 'Solide', 'Excellent'];
 const SCORE_COLORS = ['bg-white/[0.12]', 'bg-rose-500', 'bg-amber-400', 'bg-[#E5B54F]', 'bg-emerald-400'];
@@ -67,6 +76,8 @@ const Field: FC<{ id: string; label: string; icon: typeof Mail; children: ReactN
   </div>
 );
 
+type AuthChannel = 'whatsapp' | 'magiclink' | 'password';
+
 export const AuthModal: FC = () => {
   const {
     authModalOpen,
@@ -74,7 +85,10 @@ export const AuthModal: FC = () => {
     closeAuthModal,
     openAuthModal,
     signIn,
-    signInWithGoogle,
+    sendWhatsAppOtp,
+    verifyWhatsAppOtp,
+    signInWithMagicLink,
+    verifyEmailOtp,
     signUp,
     setDemoMode,
     resetPassword,
@@ -82,35 +96,56 @@ export const AuthModal: FC = () => {
     resendConfirmation
   } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // Canal d'authentification principal (WhatsApp par défaut pour maximiser la conversion africaine)
+  const [channel, setChannel] = useState<AuthChannel>('whatsapp');
+
+  // Champs partagés
   const [studioName, setStudioName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
-  // Écran « vérifiez vos emails » après inscription ou demande de réinitialisation
-  const [sentTo, setSentTo] = useState<{ email: string; kind: 'confirm' | 'reset' } | null>(null);
+
+  // État WhatsApp OTP
+  const [countryPrefix, setCountryPrefix] = useState('+225');
+  const [phoneLocal, setPhoneLocal] = useState('');
+  const [whatsappStep, setWhatsappStep] = useState<'phone' | 'otp'>('phone');
+  const [whatsappOtp, setWhatsappOtp] = useState('');
+  const [challengeToken, setChallengeToken] = useState('');
+  const [whatsappCooldown, setWhatsappCooldown] = useState(0);
+
+  // État Lien Magique
+  const [magicEmail, setMagicEmail] = useState('');
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicEmailOtp, setMagicEmailOtp] = useState('');
+
+  // État Mot de passe classique
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Sécurité et verrouillage
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [sentTo, setSentTo] = useState<{ email: string; kind: 'confirm' | 'reset' } | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const lockRemaining = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
   const resendRemaining = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
-  // Horloge pour les comptes à rebours (verrouillage / renvoi)
+  // Compteur d'horloge pour verrouillage et cooldown WhatsApp
   useEffect(() => {
-    if (lockRemaining <= 0 && resendRemaining <= 0) return;
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    const t = window.setInterval(() => {
+      setNow(Date.now());
+      setWhatsappCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
     return () => window.clearInterval(t);
-  }, [lockRemaining, resendRemaining]);
+  }, []);
 
-  // Échap pour fermer + focus sur le premier champ à chaque changement de mode
+  // Échap pour fermer + reset
   const closeRef = useRef(closeAuthModal);
   closeRef.current = closeAuthModal;
   useEffect(() => {
@@ -123,7 +158,7 @@ export const AuthModal: FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [authModalOpen, authModalMode]);
 
-  // Jamais de mot de passe conservé en mémoire après fermeture
+  // Reset à la fermeture
   useEffect(() => {
     if (authModalOpen) return;
     setPassword('');
@@ -133,9 +168,17 @@ export const AuthModal: FC = () => {
     setSuccessInfo(null);
     setSentTo(null);
     setNeedsConfirmation(false);
+    setWhatsappStep('phone');
+    setWhatsappOtp('');
+    setMagicLinkSent(false);
+    setMagicEmailOtp('');
   }, [authModalOpen]);
 
   if (!authModalOpen) return null;
+
+  const fullPhone = countryPrefix === '+'
+    ? (phoneLocal.startsWith('+') ? phoneLocal : `+${phoneLocal}`)
+    : `${countryPrefix}${phoneLocal.replace(/^0+/, '')}`;
 
   const switchMode = (mode: 'login' | 'signup' | 'reset') => {
     openAuthModal(mode);
@@ -145,6 +188,9 @@ export const AuthModal: FC = () => {
     setNeedsConfirmation(false);
     setPassword('');
     setConfirmPassword('');
+    setWhatsappStep('phone');
+    setWhatsappOtp('');
+    setMagicLinkSent(false);
   };
 
   const registerFailure = () => {
@@ -158,105 +204,176 @@ export const AuthModal: FC = () => {
     }
   };
 
-  const score = passwordScore(password);
-  const cleanEmail = email.trim().toLowerCase();
-
-  const handleGoogleSignIn = async () => {
-    if (loading) return;
+  // 1. Envoi du code WhatsApp
+  const handleSendWhatsAppCode = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    if (loading || whatsappCooldown > 0) return;
+    const digits = fullPhone.replace(/\D/g, '');
+    if (digits.length < 8) {
+      setErrorMessage('Numéro WhatsApp trop court. Vérifiez l\'indicatif et le numéro.');
+      return;
+    }
     setLoading(true);
     setErrorMessage(null);
-    const res = await signInWithGoogle();
+    setSuccessInfo(null);
+
+    const res = await sendWhatsAppOtp(fullPhone);
+    setLoading(false);
+    if (!res.success || !res.challengeToken) {
+      setErrorMessage(res.error || 'Impossible d\'envoyer le code WhatsApp.');
+    } else {
+      setChallengeToken(res.challengeToken);
+      setWhatsappStep('otp');
+      setWhatsappCooldown(60);
+      setSuccessInfo(`Code de sécurité envoyé sur votre WhatsApp au ${fullPhone}`);
+    }
+  };
+
+  // 2. Vérification du code WhatsApp
+  const handleVerifyWhatsAppCode = async (e: FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    if (whatsappOtp.trim().length !== 6) {
+      setErrorMessage('Veuillez saisir le code complet à 6 chiffres reçu sur WhatsApp.');
+      return;
+    }
+    setLoading(true);
+    setErrorMessage(null);
+
+    const res = await verifyWhatsAppOtp(fullPhone, whatsappOtp.trim(), challengeToken, studioName);
+    setLoading(false);
     if (res.error) {
-      setLoading(false);
+      setErrorMessage(res.error);
+    } else {
+      setSuccessInfo('Connexion réussie.');
+    }
+  };
+
+  // 3. Envoi Lien Magique Email
+  const handleSendMagicLink = async (e: FormEvent) => {
+    e.preventDefault();
+    const clean = magicEmail.trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      setErrorMessage('Veuillez entrer une adresse email valide.');
+      return;
+    }
+    setLoading(true);
+    setErrorMessage(null);
+    setSuccessInfo(null);
+
+    const res = await signInWithMagicLink(clean);
+    setLoading(false);
+    if (res.error) {
+      setErrorMessage(humanizeAuthError(res.error));
+    } else {
+      setMagicLinkSent(true);
+      setSuccessInfo('Lien magique et code de confirmation envoyés à votre adresse email.');
+    }
+  };
+
+  // 4. Validation OTP Email (pour ceux qui tapent le code reçu au lieu de cliquer sur le lien)
+  const handleVerifyEmailOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    if (!magicEmailOtp.trim()) {
+      setErrorMessage('Veuillez saisir le code reçu par email.');
+      return;
+    }
+    setLoading(true);
+    setErrorMessage(null);
+
+    const res = await verifyEmailOtp(magicEmail.trim(), magicEmailOtp.trim());
+    setLoading(false);
+    if (res.error) {
       setErrorMessage(humanizeAuthError(res.error));
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  // 5. Soumission Mot de passe classique
+  const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (loading || lockRemaining > 0) return;
     setErrorMessage(null);
     setSuccessInfo(null);
     setNeedsConfirmation(false);
 
-    if (authModalMode !== 'recovery' && !EMAIL_RE.test(cleanEmail)) {
-      setErrorMessage('Adresse email invalide.');
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (authModalMode === 'reset') {
+      setLoading(true);
+      const res = await resetPassword(cleanEmail);
+      setLoading(false);
+      if (res.error) {
+        setErrorMessage(humanizeAuthError(res.error));
+      } else {
+        setSentTo({ email: cleanEmail, kind: 'reset' });
+        setResendAt(Date.now() + 60000);
+      }
       return;
     }
 
-    if ((authModalMode === 'signup' || authModalMode === 'recovery') && (password.length < 8 || score < 2)) {
-      setErrorMessage('Choisissez un mot de passe d\'au moins 8 caractères mêlant lettres, chiffres ou symboles.');
+    if (authModalMode === 'recovery') {
+      if (password.length < 8) {
+        setErrorMessage('Le mot de passe doit comporter au moins 8 caractères.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage('Les deux mots de passe ne correspondent pas.');
+        return;
+      }
+      setLoading(true);
+      const res = await updatePassword(password);
+      setLoading(false);
+      if (res.error) {
+        setErrorMessage(humanizeAuthError(res.error));
+      } else {
+        setSuccessInfo('Mot de passe mis à jour. Vous êtes maintenant connecté.');
+        setTimeout(closeAuthModal, 1500);
+      }
       return;
     }
-
-    if (authModalMode === 'recovery' && password !== confirmPassword) {
-      setErrorMessage('Les deux mots de passe ne correspondent pas.');
-      return;
-    }
-
-    setLoading(true);
 
     if (authModalMode === 'login') {
+      setLoading(true);
       const res = await signIn(cleanEmail, password);
+      setLoading(false);
       if (res.error) {
         registerFailure();
-        setErrorMessage(humanizeAuthError(res.error));
-        setNeedsConfirmation(res.error.toLowerCase().includes('email not confirmed'));
+        const msg = humanizeAuthError(res.error);
+        setErrorMessage(msg);
+        if (res.error.toLowerCase().includes('email not confirmed')) {
+          setNeedsConfirmation(true);
+          setResendAt(Date.now() + 30000);
+        }
       } else {
         setFailedAttempts(0);
       }
     } else if (authModalMode === 'signup') {
       const name = studioName.replace(/[<>]/g, '').trim().slice(0, 60);
-      const res = await signUp(cleanEmail, password, name, phone);
+      setLoading(true);
+      const res = await signUp(cleanEmail, password, name);
+      setLoading(false);
       if (res.error) {
         setErrorMessage(humanizeAuthError(res.error));
       } else if (res.requiresEmailConfirmation) {
         setSentTo({ email: cleanEmail, kind: 'confirm' });
-        setResendAt(Date.now() + RESEND_COOLDOWN * 1000);
-        setNow(Date.now());
-        setPassword('');
-      }
-    } else if (authModalMode === 'reset') {
-      const res = await resetPassword(cleanEmail);
-      // Réponse identique que le compte existe ou non (anti-énumération)
-      if (res.error && /rate limit|too many|security purposes|network|fetch/i.test(res.error)) {
-        setErrorMessage(humanizeAuthError(res.error));
-      } else {
-        setSentTo({ email: cleanEmail, kind: 'reset' });
-        setResendAt(Date.now() + RESEND_COOLDOWN * 1000);
-        setNow(Date.now());
-      }
-    } else {
-      const res = await updatePassword(password);
-      if (res.error) {
-        setErrorMessage(humanizeAuthError(res.error));
-      } else {
-        setPassword('');
-        setConfirmPassword('');
-        setSuccessInfo('Mot de passe mis à jour. Votre session studio est active.');
-        window.setTimeout(closeAuthModal, 1400);
+        setResendAt(Date.now() + 60000);
       }
     }
-
-    setLoading(false);
   };
 
   const handleResend = async () => {
-    if (resendRemaining > 0 || (!sentTo && !EMAIL_RE.test(cleanEmail))) return;
-    const target = sentTo?.email ?? cleanEmail;
-    const kind = sentTo?.kind ?? 'confirm';
+    if (loading || resendRemaining > 0 || !sentTo) return;
     setLoading(true);
     setErrorMessage(null);
-    const res = kind === 'reset' ? await resetPassword(target) : await resendConfirmation(target);
+    const res = await resendConfirmation(sentTo.email);
     setLoading(false);
-    if (res.error && /rate limit|too many|security purposes|network|fetch/i.test(res.error)) {
+    if (res.error) {
       setErrorMessage(humanizeAuthError(res.error));
-      return;
+    } else {
+      setResendAt(Date.now() + 60000);
+      setSuccessInfo('Nouvel email envoyé avec succès.');
     }
-    setResendAt(Date.now() + RESEND_COOLDOWN * 1000);
-    setNow(Date.now());
-    if (!sentTo) setSentTo({ email: target, kind });
-    else setSuccessInfo('Nouvel email envoyé.');
   };
 
   const handleDemoAccess = () => {
@@ -264,149 +381,158 @@ export const AuthModal: FC = () => {
     closeAuthModal();
   };
 
-  const titles: Record<typeof authModalMode, { title: string; subtitle: string }> = {
-    login: { title: 'Connexion à votre Studio', subtitle: 'Accédez à votre cockpit privé, vos ventes et vos lignes WhatsApp.' },
-    signup: { title: 'Créer votre Studio OS', subtitle: 'Isolation totale de vos clients, automatisations et encaissements.' },
-    reset: { title: 'Mot de passe oublié', subtitle: 'Recevez un lien sécurisé à usage unique pour définir un nouveau mot de passe.' },
-    recovery: { title: 'Nouveau mot de passe', subtitle: 'Définissez le mot de passe de votre espace studio.' }
-  };
+  const score = passwordScore(password);
 
-  const strengthMeter = (authModalMode === 'signup' || authModalMode === 'recovery') && password.length > 0 && (
-    <div className="space-y-1.5" aria-live="polite">
-      <div className="grid grid-cols-4 gap-1">
-        {[0, 1, 2, 3].map((i) => (
-          <span
-            key={i}
-            className={`h-1 rounded-full transition-colors duration-300 ease-luxury ${i < score ? SCORE_COLORS[score] : 'bg-white/[0.08]'}`}
+  const strengthMeter = authModalMode === 'signup' && channel === 'password' && password && (
+    <div className="space-y-1.5 pt-1">
+      <div className="flex justify-between items-center text-[11px]">
+        <span className="text-neutral-500">Sécurité du mot de passe</span>
+        <span className="font-medium text-neutral-400">{SCORE_LABELS[score]}</span>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {[0, 1, 2, 3].map((idx) => (
+          <div
+            key={idx}
+            className={`h-1 rounded-full transition-colors duration-200 ${
+              score > idx ? SCORE_COLORS[score] : 'bg-white/[0.08]'
+            }`}
           />
         ))}
-      </div>
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="text-neutral-500">Robustesse</span>
-        <span className="font-mono text-neutral-300">{SCORE_LABELS[score]}</span>
       </div>
     </div>
   );
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-md vx-palette-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && authModalMode !== 'recovery') closeAuthModal();
-      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 overflow-y-auto"
     >
+      {/* Arrière-plan flouté */}
+      <div
+        onClick={() => authModalMode !== 'recovery' && closeAuthModal()}
+        className="fixed inset-0 bg-black/85 backdrop-blur-md transition-opacity duration-300"
+      />
+
+      {/* Conteneur de modal épuré Dark Luxury */}
       <div
         ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="auth-title"
-        className="vx-palette relative w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-white/[0.08] bg-[#0B0C10] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9)] p-6 sm:p-8 space-y-6 vx-hairline"
+        className="relative w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0A0A0F] p-6 sm:p-7 shadow-2xl z-10 space-y-5 my-8 transition-transform duration-300"
       >
-        <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-[#E5B54F]/[0.06] blur-3xl pointer-events-none" />
+        {/* Bouton de fermeture */}
+        {authModalMode !== 'recovery' && (
+          <button
+            type="button"
+            onClick={closeAuthModal}
+            aria-label="Fermer la fenêtre"
+            className="absolute right-4 top-4 h-9 w-9 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
 
         {/* En-tête */}
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#E5B54F]/40 bg-[#E5B54F]/[0.08]">
-                <ShieldCheck className="h-3 w-3 text-[#E5B54F]" strokeWidth={1.8} />
-              </span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-                Espace Studio Sécurisé
-              </span>
-            </div>
-            <h2 id="auth-title" className="font-display text-2xl font-bold tracking-tight text-white">
-              {sentTo ? 'Vérifiez vos emails' : titles[authModalMode].title}
-            </h2>
-            {!sentTo && <p className="text-[13px] text-neutral-400 leading-relaxed">{titles[authModalMode].subtitle}</p>}
-          </div>
-
-          {authModalMode !== 'recovery' && (
-            <button
-              onClick={closeAuthModal}
-              className="-mr-2 -mt-2 h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
-              aria-label="Fermer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        <div className="space-y-1.5 pr-8">
+          <p className="text-[11px] font-mono uppercase tracking-widest text-[#E5B54F]">
+            Djelia Academy
+          </p>
+          <h2 id="auth-modal-title" className="text-xl font-bold tracking-tight text-white font-serif">
+            {authModalMode === 'login' && 'Connexion à votre Studio'}
+            {authModalMode === 'signup' && 'Lancer votre Studio Musical'}
+            {authModalMode === 'reset' && 'Réinitialiser votre mot de passe'}
+            {authModalMode === 'recovery' && 'Nouveau mot de passe'}
+          </h2>
+          <p className="text-xs text-neutral-400 leading-relaxed">
+            {authModalMode === 'login' && 'Accédez à votre conciergerie IA, vos créations et vos commissions.'}
+            {authModalMode === 'signup' && 'Rejoignez l\'académie et configurez votre vendeur WhatsApp 24/7.'}
+            {authModalMode === 'reset' && 'Entrez votre email pour recevoir les instructions.'}
+            {authModalMode === 'recovery' && 'Définissez votre nouveau mot de passe sécurisé.'}
+          </p>
         </div>
 
-        {/* Onglets connexion / inscription */}
-        {!sentTo && (authModalMode === 'login' || authModalMode === 'signup') && (
-          <div className="relative grid grid-cols-2 rounded-xl bg-white/[0.03] p-1 border border-white/[0.05]" role="tablist">
-            <span
-              aria-hidden
-              className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white transition-transform duration-300 ease-luxury"
-              style={{ transform: authModalMode === 'signup' ? 'translate3d(100%,0,0)' : 'translate3d(0,0,0)' }}
-            />
-            {(['login', 'signup'] as const).map((mode) => (
+        {/* Onglets Connexion vs Inscription */}
+        {authModalMode !== 'recovery' && authModalMode !== 'reset' && !sentTo && (
+          <div className="grid grid-cols-2 rounded-xl bg-white/[0.04] p-1 border border-white/[0.06]">
+            {(['signup', 'login'] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
-                role="tab"
-                aria-selected={authModalMode === mode}
                 onClick={() => switchMode(mode)}
-                className={`relative z-10 h-9 text-[13px] font-semibold rounded-lg transition-colors duration-200 ${
-                  authModalMode === mode ? 'text-black' : 'text-neutral-400 hover:text-white'
+                className={`h-9 text-xs font-semibold rounded-lg transition-all ${
+                  authModalMode === mode
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                {mode === 'login' ? 'Se connecter' : 'Créer un studio'}
+                {mode === 'signup' ? 'Créer mon studio' : 'Se connecter'}
               </button>
             ))}
           </div>
         )}
 
-        {/* Bouton Connexion / Inscription rapide avec Google */}
-        {!sentTo && (authModalMode === 'login' || authModalMode === 'signup') && (
-          <div className="space-y-3 pt-1">
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-              className="w-full h-11 px-4 rounded-xl border border-white/[0.12] bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/30 text-white font-medium text-xs inline-flex items-center justify-center gap-3 transition-all duration-150 cursor-pointer disabled:opacity-50"
-            >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Continuer avec Google</span>
-            </button>
+        {/* Sélecteur de canal d'authentification */}
+        {authModalMode !== 'recovery' && authModalMode !== 'reset' && !sentTo && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider">
+              Mode de connexion sécurisée
+            </p>
+            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+              <button
+                type="button"
+                onClick={() => { setChannel('whatsapp'); setErrorMessage(null); }}
+                className={`py-2 px-2 rounded-lg text-xs font-medium inline-flex flex-col items-center justify-center gap-1 transition-all ${
+                  channel === 'whatsapp'
+                    ? 'bg-white/[0.10] text-[#F3CA75] border border-[#E5B54F]/30'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <Smartphone className="h-4 w-4" />
+                <span className="text-[11px] font-semibold">WhatsApp</span>
+                <span className="text-[9px] font-mono uppercase text-[#E5B54F]">Rapide</span>
+              </button>
 
-            <div className="relative flex items-center justify-center my-1.5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/[0.08]" />
-              </div>
-              <div className="relative px-3 bg-[#141420] text-[10px] text-[#8E94A3] uppercase font-mono tracking-wider">
-                ou avec votre email
-              </div>
+              <button
+                type="button"
+                onClick={() => { setChannel('magiclink'); setErrorMessage(null); }}
+                className={`py-2 px-2 rounded-lg text-xs font-medium inline-flex flex-col items-center justify-center gap-1 transition-all ${
+                  channel === 'magiclink'
+                    ? 'bg-white/[0.10] text-[#F3CA75] border border-[#E5B54F]/30'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <MailCheck className="h-4 w-4" />
+                <span className="text-[11px] font-semibold">Lien Magique</span>
+                <span className="text-[9px] font-mono uppercase text-neutral-500">Sans MDP</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setChannel('password'); setErrorMessage(null); }}
+                className={`py-2 px-2 rounded-lg text-xs font-medium inline-flex flex-col items-center justify-center gap-1 transition-all ${
+                  channel === 'password'
+                    ? 'bg-white/[0.10] text-white border border-white/20'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <KeyRound className="h-4 w-4" />
+                <span className="text-[11px] font-semibold">Classique</span>
+                <span className="text-[9px] font-mono uppercase text-neutral-500">Mot de passe</span>
+              </button>
             </div>
           </div>
         )}
 
+        {/* Messages d'erreur & succès */}
         {errorMessage && (
-          <div role="alert" className="vx-fade-in rounded-xl border border-rose-500/25 bg-rose-500/[0.08] p-3 text-[13px] text-rose-200 leading-relaxed">
+          <div role="alert" className="vx-fade-in rounded-xl border border-rose-500/25 bg-rose-500/[0.08] p-3 text-xs text-rose-200 leading-relaxed">
             {errorMessage}
             {needsConfirmation && (
               <button
                 type="button"
                 onClick={handleResend}
                 disabled={loading || resendRemaining > 0}
-                className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-[#F3CA75] hover:text-white disabled:opacity-50"
+                className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[#F3CA75] hover:text-white disabled:opacity-50"
               >
                 <RotateCw className="h-3.5 w-3.5" />
                 {resendRemaining > 0 ? `Renvoyer dans ${resendRemaining}s` : 'Renvoyer l\'email de confirmation'}
@@ -416,80 +542,285 @@ export const AuthModal: FC = () => {
         )}
 
         {successInfo && (
-          <div role="status" className="vx-fade-in flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] p-3 text-[13px] text-emerald-200">
+          <div role="status" className="vx-fade-in flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.08] p-3 text-xs text-emerald-200">
             <Check className="h-4 w-4 shrink-0" />
-            {successInfo}
+            <span>{successInfo}</span>
           </div>
         )}
 
-        {sentTo ? (
-          /* Écran de confirmation d'envoi */
-          <div className="vx-fade-in space-y-5">
-            <div className="flex flex-col items-center text-center gap-4 py-2">
-              <div className="h-14 w-14 rounded-2xl border border-[#E5B54F]/40 bg-[#E5B54F]/[0.08] flex items-center justify-center">
-                <MailCheck className="h-6 w-6 text-[#F3CA75]" strokeWidth={1.5} />
-              </div>
-              <p className="text-sm text-neutral-300 leading-relaxed">
-                {sentTo.kind === 'confirm'
-                  ? 'Un lien de confirmation a été envoyé à'
-                  : 'Si un studio est associé à cette adresse, un lien de réinitialisation a été envoyé à'}
-                <br />
-                <span className="font-mono text-[13px] text-white break-all">{sentTo.email}</span>
-              </p>
-              <p className="text-xs text-neutral-500 leading-relaxed">
-                Le lien est à usage unique et expire après 1 heure. Pensez à vérifier vos courriers indésirables.
-              </p>
-            </div>
+        {/* ---------------- CANAL 1 : WHATSAPP OTP ---------------- */}
+        {authModalMode !== 'recovery' && authModalMode !== 'reset' && channel === 'whatsapp' && (
+          <div className="space-y-4">
+            {whatsappStep === 'phone' ? (
+              <form onSubmit={handleSendWhatsAppCode} className="space-y-4">
+                {authModalMode === 'signup' && (
+                  <Field id="wa-studio" label="Nom de votre Studio" icon={Building2}>
+                    <input
+                      id="wa-studio"
+                      type="text"
+                      required
+                      maxLength={60}
+                      autoComplete="organization"
+                      value={studioName}
+                      onChange={(e) => setStudioName(e.target.value)}
+                      placeholder="Ex : Studio Sahel Beats"
+                      className={inputClass}
+                    />
+                  </Field>
+                )}
 
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={loading || resendRemaining > 0}
-              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] text-[13px] font-semibold text-neutral-200 hover:border-[#E5B54F]/50 hover:text-white disabled:opacity-50 transition-colors"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" strokeWidth={1.6} />}
-              {resendRemaining > 0 ? <span className="font-mono">Renvoyer dans {resendRemaining}s</span> : 'Renvoyer l\'email'}
-            </button>
+                <div className="space-y-1.5">
+                  <label htmlFor="wa-phone-number" className="text-xs font-medium text-neutral-300">
+                    Numéro WhatsApp actif
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative w-36 shrink-0">
+                      <select
+                        aria-label="Indicatif pays WhatsApp"
+                        value={countryPrefix}
+                        onChange={(e) => setCountryPrefix(e.target.value)}
+                        className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#0E1015] px-2.5 text-xs text-white focus:border-[#E5B54F]/60 focus:outline-none appearance-none cursor-pointer"
+                      >
+                        {COUNTRY_PREFIXES.map((c) => (
+                          <option key={c.code} value={c.code} className="bg-[#141420] text-white">
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-500 pointer-events-none" />
+                    </div>
 
-            <button
-              type="button"
-              onClick={() => switchMode('login')}
-              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-[13px] font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Retour à la connexion
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {authModalMode === 'signup' && (
-              <>
-                <Field id="auth-studio" label="Nom de votre Studio ou Entreprise" icon={Building2}>
+                    <div className="relative flex-1">
+                      <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500 pointer-events-none" />
+                      <input
+                        id="wa-phone-number"
+                        type="tel"
+                        required
+                        autoComplete="tel"
+                        value={phoneLocal}
+                        onChange={(e) => setPhoneLocal(e.target.value)}
+                        placeholder="Ex : 07 12 34 56 78"
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-neutral-500">
+                    Un code sécurisé à 6 chiffres vous sera expédié sur WhatsApp.
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || whatsappCooldown > 0}
+                  className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Envoi en cours sur WhatsApp…</span>
+                    </>
+                  ) : whatsappCooldown > 0 ? (
+                    <span className="font-mono">Patientez {whatsappCooldown}s</span>
+                  ) : (
+                    <>
+                      <span>Recevoir mon code WhatsApp</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyWhatsAppCode} className="space-y-4 vx-fade-in">
+                <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-[#F3CA75]" />
+                    <span className="font-mono text-white">{fullPhone}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWhatsappStep('phone')}
+                    className="text-[11px] font-semibold text-[#E5B54F] hover:underline"
+                  >
+                    Modifier
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="wa-otp-input" className="text-xs font-medium text-neutral-300">
+                    Saisissez le code à 6 chiffres reçu
+                  </label>
                   <input
-                    id="auth-studio"
+                    id="wa-otp-input"
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                    value={whatsappOtp}
+                    onChange={(e) => setWhatsappOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••••"
+                    className="w-full h-12 rounded-xl border border-[#E5B54F]/40 bg-[#0E1015] text-center font-mono text-xl tracking-[0.4em] text-white focus:outline-none focus:ring-2 focus:ring-[#E5B54F]/20"
+                  />
+                  <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-1">
+                    <span>Valable 5 minutes</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSendWhatsAppCode()}
+                      disabled={loading || whatsappCooldown > 0}
+                      className="text-[#E5B54F] hover:underline disabled:opacity-50"
+                    >
+                      {whatsappCooldown > 0 ? `Renvoyer (${whatsappCooldown}s)` : 'Renvoyer le code'}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || whatsappOtp.length !== 6}
+                  className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Vérification sécurisée…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Confirmer et accéder au Studio</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* ---------------- CANAL 2 : LIEN MAGIQUE EMAIL ---------------- */}
+        {authModalMode !== 'recovery' && authModalMode !== 'reset' && channel === 'magiclink' && (
+          <div className="space-y-4">
+            {!magicLinkSent ? (
+              <form onSubmit={handleSendMagicLink} className="space-y-4">
+                {authModalMode === 'signup' && (
+                  <Field id="magic-studio" label="Nom de votre Studio" icon={Building2}>
+                    <input
+                      id="magic-studio"
+                      type="text"
+                      maxLength={60}
+                      value={studioName}
+                      onChange={(e) => setStudioName(e.target.value)}
+                      placeholder="Ex : Studio Sahel Beats"
+                      className={inputClass}
+                    />
+                  </Field>
+                )}
+
+                <Field id="magic-email" label="Votre adresse email" icon={Mail}>
+                  <input
+                    id="magic-email"
+                    type="email"
                     required
-                    maxLength={60}
-                    autoComplete="organization"
-                    value={studioName}
-                    onChange={(e) => setStudioName(e.target.value)}
-                    placeholder="Ex : Studio Mélodie Sahel"
+                    maxLength={254}
+                    autoComplete="email"
+                    value={magicEmail}
+                    onChange={(e) => setMagicEmail(e.target.value)}
+                    placeholder="nom@exemple.com"
                     className={inputClass}
                   />
                 </Field>
 
-                <Field id="auth-phone" label="Numéro WhatsApp (recommandé)" icon={Smartphone}>
+                <p className="text-[11px] text-neutral-500 leading-relaxed">
+                  Vous recevrez un lien de connexion direct en 1 clic. Aucun mot de passe requis.
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Envoi en cours…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>M'envoyer le lien de connexion</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyEmailOtp} className="space-y-4 vx-fade-in">
+                <div className="p-3 rounded-xl border border-white/[0.08] bg-white/[0.02] space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-white break-all">{magicEmail}</span>
+                    <button
+                      type="button"
+                      onClick={() => setMagicLinkSent(false)}
+                      className="text-[11px] font-semibold text-[#E5B54F] hover:underline"
+                    >
+                      Modifier
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-neutral-400">
+                    Cliquez sur le lien dans votre boîte mail ou saisissez ci-dessous le code à 6 chiffres reçu :
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="magic-otp-input" className="text-xs font-medium text-neutral-300">
+                    Code de confirmation reçu par email
+                  </label>
                   <input
-                    id="auth-phone"
-                    type="tel"
-                    autoComplete="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ex : +225 07 ... ou +226 ..."
-                    className={inputClass}
+                    id="magic-otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={8}
+                    value={magicEmailOtp}
+                    onChange={(e) => setMagicEmailOtp(e.target.value)}
+                    placeholder="Ex : 123456"
+                    className="w-full h-12 rounded-xl border border-white/[0.12] bg-[#0E1015] text-center font-mono text-lg text-white focus:outline-none focus:border-[#E5B54F]"
                   />
-                </Field>
-              </>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !magicEmailOtp.trim()}
+                  className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Valider le code</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* ---------------- CANAL 3 : MOT DE PASSE CLASSIQUE ---------------- */}
+        {(channel === 'password' || authModalMode === 'recovery' || authModalMode === 'reset') && (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4" noValidate>
+            {authModalMode === 'signup' && (
+              <Field id="auth-studio" label="Nom de votre Studio" icon={Building2}>
+                <input
+                  id="auth-studio"
+                  type="text"
+                  required
+                  maxLength={60}
+                  autoComplete="organization"
+                  value={studioName}
+                  onChange={(e) => setStudioName(e.target.value)}
+                  placeholder="Ex : Studio Sahel Beats"
+                  className={inputClass}
+                />
+              </Field>
             )}
 
             {authModalMode !== 'recovery' && (
@@ -501,7 +832,6 @@ export const AuthModal: FC = () => {
                   maxLength={254}
                   autoComplete="email"
                   inputMode="email"
-                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="contact@monstudio.com"
@@ -569,7 +899,7 @@ export const AuthModal: FC = () => {
             <button
               type="submit"
               disabled={loading || lockRemaining > 0}
-              className="w-full mt-2 h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 text-[13px] font-bold text-black transition-all hover:bg-neutral-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+              className="w-full mt-2 h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-bold text-black transition-all hover:bg-neutral-200 active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -577,7 +907,7 @@ export const AuthModal: FC = () => {
                   <span>Vérification sécurisée…</span>
                 </>
               ) : lockRemaining > 0 ? (
-                <span className="font-mono">Trop d'essais · réessayez dans {lockRemaining}s</span>
+                <span className="font-mono">Réessayez dans {lockRemaining}s</span>
               ) : (
                 <>
                   <span>
@@ -597,7 +927,7 @@ export const AuthModal: FC = () => {
               <button
                 type="button"
                 onClick={() => switchMode('login')}
-                className="w-full h-11 inline-flex items-center justify-center gap-2 text-[13px] text-neutral-400 hover:text-white transition-colors"
+                className="w-full h-11 inline-flex items-center justify-center gap-2 text-xs text-neutral-400 hover:text-white transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Retour à la connexion
@@ -610,16 +940,16 @@ export const AuthModal: FC = () => {
         {authModalMode !== 'recovery' && (
           <div className="pt-4 border-t border-white/[0.08] space-y-3">
             <div className="flex items-center justify-center gap-4 text-[11px] font-mono text-neutral-500">
-              <span className="flex items-center gap-1.5"><Lock className="h-3 w-3" /> TLS chiffré</span>
+              <span className="flex items-center gap-1.5"><Lock className="h-3 w-3" /> Chiffrement TLS</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" /> Données isolées RLS</span>
             </div>
             <div className="text-center">
               <button
                 type="button"
                 onClick={handleDemoAccess}
-                className="min-h-[44px] text-[13px] font-medium text-neutral-300 hover:text-white underline underline-offset-4 decoration-white/[0.12] hover:decoration-[#E5B54F] transition-colors"
+                className="min-h-[44px] text-xs font-medium text-neutral-300 hover:text-white underline underline-offset-4 decoration-white/[0.12] hover:decoration-[#E5B54F] transition-colors"
               >
-                Continuer en mode démonstration
+                Explorer la plateforme en mode démo
               </button>
             </div>
           </div>

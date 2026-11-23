@@ -25,7 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (13:25 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (13:54 UTC)
+- **Authentification Double Canal Anti-Fraude : WhatsApp OTP & Lien Magique Email (Build 100% Réussi & Validé)** :
+  1. **Architecture & Sécurité Zéro Fraude (`api/auth-whatsapp.ts`)** :
+     - Code OTP à 6 chiffres cryptographiquement aléatoire (`crypto.randomInt(100000, 1000000)`).
+     - Durée de vie stricte de 5 minutes avec jeton challenge signé en HMAC-SHA256 (inviolable et infalsifiable).
+     - Rate-limiting étanche : maximum 1 code toutes les 60 secondes par numéro, plafond de 5 codes max par heure.
+     - Brute-force lockout : 3 tentatives max par code avant révocation immédiate et verrouillage.
+     - Envoi WhatsApp ultra-rapide (< 2s) via la passerelle WAHA (`https://waha.velarisagent.life/api/sendText`) session `Test`.
+     - Intégration Supabase native : génération d'un token sécurisé `generateLink` et validation de session officielle dans le navigateur (`verifyOtp`) sans toucher ni altérer le schéma SQL de la base de données.
+  2. **Expérience Frontend Élite (`src/components/AuthModal.tsx` & `src/contexts/AuthContext.tsx`)** :
+     - Sélecteur de canal à 3 modes : **WhatsApp** (Rapide, recommandé), **Lien Magique** (Sans mot de passe par email), **Classique** (Email + Mot de passe pour anciens comptes).
+     - Sélecteur d'indicatifs pays africains rapide (+225 Côte d'Ivoire, +226 Burkina, +221 Sénégal, +237 Cameroun, +223 Mali, +228 Togo, +229 Bénin, +224 Guinée, +33 France, etc.).
+     - Saisie OTP ergonomique avec typographie monospace, espacement large et compte à rebours de sécurité.
+     - Respect absolu de la règle zéro émoji (icônes fines SVG `Smartphone`, `MailCheck`, `KeyRound`, `ShieldCheck`).
+  3. **Compatibilité Vercel & Vite Dev** :
+     - Route API Serverless Vercel configurée dans `vercel.json` (`/api/(.*)` ➔ `/api/$1`).
+     - Plugin dev Vite intégré dans `vite.config.ts` pour que l'authentification WhatsApp fonctionne à l'identique en local et en production.
+     - Tests du moteur : 257/257 passés avec succès. Build Vite : 100% propre (4.03s).
 - **Déploiement en Production Effectué & Validé (`https://velaris-dun.vercel.app`)** :
   - **Git Remote** : Poussé avec succès sur `origin/main` (commit `25721a7`).
   - **Vercel Production** : Déployé via `vercel build --prod && vercel deploy --prebuilt --prod`.

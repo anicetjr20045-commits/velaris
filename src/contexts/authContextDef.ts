@@ -16,6 +16,10 @@ export interface AuthContextType {
   setDemoMode: (enabled: boolean) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
+  sendWhatsAppOtp: (phone: string) => Promise<{ success: boolean; challengeToken?: string; error?: string }>;
+  verifyWhatsAppOtp: (phone: string, code: string, challengeToken: string, studioName?: string) => Promise<{ error: string | null }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: string | null }>;
+  verifyEmailOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, studioName?: string, phone?: string) => Promise<{ error: string | null; requiresEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
