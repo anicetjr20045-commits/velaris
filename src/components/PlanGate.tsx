@@ -427,6 +427,22 @@ export const PlanGate: FC<PlanGateProps> = ({
               <p className="text-[11px] text-center text-[#8E94A3] leading-relaxed">
                 Paiement instantané et sécurisé par Chariow. Accès immédiat et déblocage de vos 30 crédits dès validation.
               </p>
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem('velaris_preview_mode', 'true');
+                      localStorage.setItem('velaris_preview_mode', 'true');
+                    } catch {}
+                    window.location.reload();
+                  }}
+                  className="text-[11px] text-[#8E94A3] hover:text-white underline decoration-white/20 transition-colors cursor-pointer"
+                >
+                  Aperçu direct (Mode Démo / Créateur) →
+                </button>
+              </div>
             </div>
           </div>
         </div>

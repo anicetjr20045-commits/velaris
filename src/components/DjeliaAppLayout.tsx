@@ -117,9 +117,38 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
   }, []);
 
   const isPro = useMemo(() => {
-    // Si l'utilisateur est admin ou a un abonnement actif (Pass Créateur Chariow ou Pro)
-    if (user?.email && (user.email.includes('admin') || user.email.includes('anicet'))) return true;
-    if (user?.user_metadata?.plan === 'pro') return true;
+    // 0. Mode Démo / Aperçu Développeur
+    if (typeof window !== 'undefined') {
+      const search = window.location.search;
+      const hash = window.location.hash.toLowerCase();
+      if (
+        search.includes('preview=true') ||
+        search.includes('demo=1') ||
+        hash.includes('preview=true') ||
+        hash.includes('demo=1')
+      ) {
+        try {
+          sessionStorage.setItem('velaris_preview_mode', 'true');
+        } catch {}
+        return true;
+      }
+      try {
+        if (
+          sessionStorage.getItem('velaris_preview_mode') === 'true' ||
+          localStorage.getItem('velaris_preview_mode') === 'true'
+        ) {
+          return true;
+        }
+      } catch {}
+    }
+
+    // 1. Si l'utilisateur est admin ou créateur (email ou téléphone)
+    if (user?.email && (user.email.includes('admin') || user.email.includes('anicet') || user.email.includes('05777308'))) return true;
+    const phone = String(user?.user_metadata?.phone || user?.phone || '');
+    if (phone.includes('05777308') || phone.includes('56240533') || phone.includes('58357772')) return true;
+    if (user?.user_metadata?.plan === 'pro' || user?.user_metadata?.subscription_status === 'ACTIVE') return true;
+
+    // 2. Vérification d'abonnement actif Chariow
     const hasActiveDate = subscription.expiresAt
       ? new Date(subscription.expiresAt).getTime() > Date.now()
       : false;
