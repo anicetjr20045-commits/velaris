@@ -25,24 +25,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (14:26 UTC)
-- **Authentification Double Canal Anti-Fraude : WhatsApp OTP & Lien Magique Email (Opérationnelle & Déployée)** :
-  1. **Correction Formatage Indicatifs & Numéros Africains (`src/components/AuthModal.tsx`)** :
-     - Préservation du `0` initial pour les numéros ouest-africains (ex: Burkina Faso `05777308` formaté en `+22605777308` pour WhatsApp, au lieu d'une troncature erronée).
-     - Règle de suppression du `0` réservée uniquement à la France (+33).
-     - Badge visuel en temps réel affichant le numéro formaté exact sous le champ de saisie.
-  2. **Variables d'Environnement Vercel Production & Sécurité** :
-     - Les 6 variables critiques ont été injectées sur les environnements Vercel (Production, Preview, Development) : `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `WAHA_BASE_URL`, `WAHA_API_KEY`, `WAHA_SESSION`, `AUTH_HMAC_SECRET`.
-     - `api/auth-whatsapp.ts` peut désormais exécuter `admin.auth.admin.generateLink` et créer la session Supabase officielle sans interruption.
-  3. **Résilience & Rollback Rate-Limiter** :
-     - En cas d'erreur ou d'échec d'envoi WAHA, le rate-limiter local est immédiatement libéré (`phoneRateLimits.delete(phone)`) et le timer côté client est remis à zéro, permettant une réessai immédiat sans blocage de 60s.
-  4. **Architecture & Sécurité Zéro Fraude (`api/auth-whatsapp.ts`)** :
-     - Code OTP à 6 chiffres cryptographiquement aléatoire (`crypto.randomInt(100000, 1000000)`).
-     - Durée de vie stricte de 5 minutes avec jeton challenge signé en HMAC-SHA256 (inviolable et infalsifiable).
-     - Rate-limiting étanche : maximum 1 code toutes les 60 secondes par numéro, plafond de 5 codes max par heure.
-     - Brute-force lockout : 3 tentatives max par code avant révocation immédiate et verrouillage.
-     - Envoi WhatsApp ultra-rapide (< 2s) via la passerelle WAHA (`https://waha.velarisagent.life/api/sendText`) session `Test`.
-     - Intégration Supabase native : génération d'un token sécurisé `generateLink` et validation de session officielle dans le navigateur (`verifyOtp`) sans toucher ni altérer le schéma SQL de la base de données.
+- **Dernière mise à jour** : 23 Novembre 2026 (15:30 UTC)
+- **Refonte Front-End Élite & Hiérarchie d'Authentification (`src/components/AuthModal.tsx`)** :
+  1. **Purge du Double Étage d'Onglets & Hiérarchie Visuelle Impeccable** :
+     - Élimination de la superposition confuse de deux rangées de boutons.
+     - Introduction d'un sélecteur unique et sobre à 2 canaux : **WhatsApp (Recommandé / Rapide)** vs **Email**.
+     - Inversion fluide et naturelle Connexion vs Inscription sous le formulaire principal (« Déjà membre ? Se connecter » / « Nouveau sur Djelia ? Créer mon studio »).
+  2. **Composant Téléphonique Unifié Style Matériel Hardware** :
+     - Fusion de l'indicatif pays et du numéro dans un conteneur unique aux bordures architecturales discrètes (`border-white/[0.08]`, focus doré `border-[#E5B54F]`).
+     - Sélecteur de pays avec division verticale intégrée et prévisualisation instantanée du numéro complet formaté avec indicateur d'état émeraude.
+  3. **Écran de Vérification OTP Haute Fidélité** :
+     - Carte récapitulative du numéro destinataire avec bouton « Modifier » direct.
+     - Champ OTP grand format monospace centré avec tracking accentué et synchronisation directe.
+     - Compte à rebours de validité de 5 minutes et temporisateur de réexpédition sécurisé.
+  4. **Flux Complet Email & Mot de Passe Oublié** :
+     - Prise en charge transparente du lien magique 1-clic ou du mot de passe traditionnel.
+     - Option « Mot de passe oublié ? » parfaitement intégrée avec confirmation d'expédition et écran de nouveau mot de passe (`recovery`).
+     - Respect strict de la règle zéro émoji, design sombre graphite luxueux et boutons monochromes.
   2. **Expérience Frontend Élite (`src/components/AuthModal.tsx` & `src/contexts/AuthContext.tsx`)** :
      - Sélecteur de canal à 3 modes : **WhatsApp** (Rapide, recommandé), **Lien Magique** (Sans mot de passe par email), **Classique** (Email + Mot de passe pour anciens comptes).
      - Sélecteur d'indicatifs pays africains rapide (+225 Côte d'Ivoire, +226 Burkina, +221 Sénégal, +237 Cameroun, +223 Mali, +228 Togo, +229 Bénin, +224 Guinée, +33 France, etc.).
