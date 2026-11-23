@@ -200,8 +200,15 @@ export default async function handler(req: any, res: any) {
       });
 
       if (!wahaRes.ok) {
+        phoneRateLimits.delete(phone);
         const errJson = await wahaRes.json().catch(() => ({}));
         console.error('Erreur WAHA sendText:', errJson);
+        const errMsg = String((errJson as any)?.exception?.message || '');
+        if (errMsg.includes('No LID') || errMsg.includes('not registered')) {
+          return res.status(400).json({
+            error: `Le numéro ${phone} n'est pas reconnu sur WhatsApp. Assurez-vous d'avoir saisi le bon numéro.`,
+          });
+        }
         return res.status(502).json({
           error: 'Impossible d\'envoyer le message WhatsApp. Vérifiez que votre numéro a bien WhatsApp actif.',
         });
@@ -215,6 +222,7 @@ export default async function handler(req: any, res: any) {
         message: 'Code envoyé sur votre WhatsApp avec succès.',
       });
     } catch (err: any) {
+      phoneRateLimits.delete(phone);
       console.error('Exception WAHA:', err);
       return res.status(503).json({ error: 'Passerelle WhatsApp temporairement indisponible.' });
     }

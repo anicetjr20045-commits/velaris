@@ -25,9 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (13:54 UTC)
-- **Authentification Double Canal Anti-Fraude : WhatsApp OTP & Lien Magique Email (Build 100% Réussi & Validé)** :
-  1. **Architecture & Sécurité Zéro Fraude (`api/auth-whatsapp.ts`)** :
+- **Dernière mise à jour** : 23 Novembre 2026 (14:26 UTC)
+- **Authentification Double Canal Anti-Fraude : WhatsApp OTP & Lien Magique Email (Opérationnelle & Déployée)** :
+  1. **Correction Formatage Indicatifs & Numéros Africains (`src/components/AuthModal.tsx`)** :
+     - Préservation du `0` initial pour les numéros ouest-africains (ex: Burkina Faso `05777308` formaté en `+22605777308` pour WhatsApp, au lieu d'une troncature erronée).
+     - Règle de suppression du `0` réservée uniquement à la France (+33).
+     - Badge visuel en temps réel affichant le numéro formaté exact sous le champ de saisie.
+  2. **Variables d'Environnement Vercel Production & Sécurité** :
+     - Les 6 variables critiques ont été injectées sur les environnements Vercel (Production, Preview, Development) : `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `WAHA_BASE_URL`, `WAHA_API_KEY`, `WAHA_SESSION`, `AUTH_HMAC_SECRET`.
+     - `api/auth-whatsapp.ts` peut désormais exécuter `admin.auth.admin.generateLink` et créer la session Supabase officielle sans interruption.
+  3. **Résilience & Rollback Rate-Limiter** :
+     - En cas d'erreur ou d'échec d'envoi WAHA, le rate-limiter local est immédiatement libéré (`phoneRateLimits.delete(phone)`) et le timer côté client est remis à zéro, permettant une réessai immédiat sans blocage de 60s.
+  4. **Architecture & Sécurité Zéro Fraude (`api/auth-whatsapp.ts`)** :
      - Code OTP à 6 chiffres cryptographiquement aléatoire (`crypto.randomInt(100000, 1000000)`).
      - Durée de vie stricte de 5 minutes avec jeton challenge signé en HMAC-SHA256 (inviolable et infalsifiable).
      - Rate-limiting étanche : maximum 1 code toutes les 60 secondes par numéro, plafond de 5 codes max par heure.

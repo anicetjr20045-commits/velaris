@@ -44,8 +44,8 @@ function humanizeAuthError(err: string): string {
 }
 
 const COUNTRY_PREFIXES = [
-  { code: '+225', name: 'Côte d\'Ivoire (+225)' },
   { code: '+226', name: 'Burkina Faso (+226)' },
+  { code: '+225', name: 'Côte d\'Ivoire (+225)' },
   { code: '+221', name: 'Sénégal (+221)' },
   { code: '+237', name: 'Cameroun (+237)' },
   { code: '+223', name: 'Mali (+223)' },
@@ -56,6 +56,17 @@ const COUNTRY_PREFIXES = [
   { code: '+1', name: 'USA / Canada (+1)' },
   { code: '+', name: 'Autre pays (+)' },
 ];
+
+function formatFullPhone(prefix: string, local: string): string {
+  const raw = local.trim().replace(/[\s\-\(\)\.]/g, '');
+  if (!raw) return '';
+  if (raw.startsWith('+')) return raw;
+  const prefixDigits = prefix.replace(/\D/g, '');
+  if (prefixDigits && raw.startsWith(prefixDigits)) return `+${raw}`;
+  if (prefix === '+33' && raw.startsWith('0')) return `+33${raw.slice(1)}`;
+  if (prefix === '+') return `+${raw}`;
+  return `${prefix}${raw}`;
+}
 
 const SCORE_LABELS = ['Trop court', 'Faible', 'Correct', 'Solide', 'Excellent'];
 const SCORE_COLORS = ['bg-white/[0.12]', 'bg-rose-500', 'bg-amber-400', 'bg-[#E5B54F]', 'bg-emerald-400'];
@@ -176,9 +187,7 @@ export const AuthModal: FC = () => {
 
   if (!authModalOpen) return null;
 
-  const fullPhone = countryPrefix === '+'
-    ? (phoneLocal.startsWith('+') ? phoneLocal : `+${phoneLocal}`)
-    : `${countryPrefix}${phoneLocal.replace(/^0+/, '')}`;
+  const fullPhone = formatFullPhone(countryPrefix, phoneLocal);
 
   const switchMode = (mode: 'login' | 'signup' | 'reset') => {
     openAuthModal(mode);
@@ -220,6 +229,7 @@ export const AuthModal: FC = () => {
     const res = await sendWhatsAppOtp(fullPhone);
     setLoading(false);
     if (!res.success || !res.challengeToken) {
+      setWhatsappCooldown(0);
       setErrorMessage(res.error || 'Impossible d\'envoyer le code WhatsApp.');
     } else {
       setChallengeToken(res.challengeToken);
@@ -607,6 +617,12 @@ export const AuthModal: FC = () => {
                   <p className="text-[11px] text-neutral-500">
                     Un code sécurisé à 6 chiffres vous sera expédié sur WhatsApp.
                   </p>
+                  {phoneLocal.trim() && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#F3CA75] bg-white/[0.03] px-2.5 py-1 rounded-lg border border-white/[0.06]">
+                      <span className="text-neutral-500">Numéro formaté :</span>
+                      <span className="font-semibold text-white">{fullPhone}</span>
+                    </div>
+                  )}
                 </div>
 
                 <button
