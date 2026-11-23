@@ -41,3 +41,5 @@ serve.js
 # Scratch and runtime data
 scratch/
 *.pid
+.vercel
+.env*
