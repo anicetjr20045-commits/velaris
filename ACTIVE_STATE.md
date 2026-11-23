@@ -25,7 +25,22 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Djelia Academy** (`academy.djelia.store`)
-- **Dernière mise à jour** : 23 Novembre 2026 (12:56 UTC)
+- **Dernière mise à jour** : 23 Novembre 2026 (13:20 UTC)
+- **Authentification Hybride & Expérience d'Entrée Friction-Free (Commit c5a40a1)** :
+  1. **Bouton 1-Clic Google OAuth (`src/components/AuthModal.tsx` & `src/contexts/AuthContext.tsx`)** :
+     - Connexion et inscription instantanées via `signInWithGoogle` (`supabase.auth.signInWithOAuth({ provider: 'google' })`).
+     - Bouton épuré avec SVG vectoriel Google officiel aux normes de marque, sans émoji, placé en tête de modal avec séparateur discret « OU AVEC VOTRE EMAIL ».
+     - Élimine la friction des mots de passe oubliés sur mobile (95% du marché Android en Afrique).
+  2. **Collecte du Numéro WhatsApp à l'Inscription (`src/components/AuthModal.tsx`)** :
+     - Nouveau champ optionnel et recommandé « Numéro WhatsApp » avec icône SVG `Smartphone` fine.
+     - Sauvegarde du numéro dans les métadonnées de l'utilisateur (`raw_user_meta_data.phone`) à la création de compte pour le suivi onboarding et la configuration du studio.
+  3. **Nettoyage Intégral de la Barre de Navigation (`src/components/Navbar.tsx` - Commit 0fed73f)** :
+     - Suppression définitive de « Commander sur WhatsApp » et de tout lien direct de commande client final.
+     - Boutons d'action clairs et orientés acquisition : « Rejoindre l'Académie » sur desktop et « Rejoindre » sur mobile, ouvrant directement le modal d'inscription.
+  4. **Validation Complète & Hygiène du Code** :
+     - Build Vite & TypeScript : 100% propre (3.42s).
+     - Suite de tests du moteur : 257/257 passés avec succès.
+
 - **Refonte Complète Page d'Accueil — Ciblage Précis & Offre Irrésistible Alex Hormozi (Build 100% Réussi & Déployé Preview)** :
   1. **Recadrage Radical du Public Cible (`src/components/LandingPage.tsx`)** :
      - Élimination de la confusion client final vs entrepreneur. La page d'accueil s'adresse désormais 100% aux créateurs et entrepreneurs africains / diaspora souhaitant faire de l'argent en ligne avec un business sans stock, sans tracas et immédiatement rentable.
