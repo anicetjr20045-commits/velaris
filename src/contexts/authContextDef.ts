@@ -15,7 +15,8 @@ export interface AuthContextType {
   closeAuthModal: () => void;
   setDemoMode: (enabled: boolean) => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, studioName?: string) => Promise<{ error: string | null; requiresEmailConfirmation?: boolean }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, studioName?: string, phone?: string) => Promise<{ error: string | null; requiresEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;

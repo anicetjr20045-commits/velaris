@@ -97,7 +97,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, studioName?: string) => {
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: authRedirectUrl(),
+        },
+      });
+      if (error) return { error: error.message };
+      return { error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Erreur lors de la connexion Google' };
+    }
+  };
+
+  const signUp = async (email: string, password: string, studioName?: string, phone?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -105,8 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           emailRedirectTo: authRedirectUrl(),
           data: {
-            studio_name: studioName?.trim() || 'Mon Studio Velaris',
+            studio_name: studioName?.trim() || 'Mon Studio Djelia',
             full_name: studioName?.trim() || email.split('@')[0],
+            phone: phone?.trim() || undefined,
           },
         },
       });
@@ -203,6 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         closeAuthModal,
         setDemoMode,
         signIn,
+        signInWithGoogle,
         signUp,
         signOut,
         resetPassword,
