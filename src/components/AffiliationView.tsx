@@ -92,7 +92,8 @@ export const AffiliationView: FC = () => {
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
   const cleanSlug = studioSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || 'mon-studio';
-  const miniSiteUrl = `https://djelia.store/s/${cleanSlug}`;
+  const miniSiteUrl = `https://djelia.store/studio.html?ref=${cleanSlug}`;
+  const shortSlugUrl = `https://djelia.store/s/${cleanSlug}`;
 
   // Métriques d'Affiliation 50% (Split 50/50 : 600 F CFA net par vente de 1 200 F)
   const totalClicks = 34;
@@ -207,6 +208,38 @@ export const AffiliationView: FC = () => {
           });
         } catch {
           // Table studios optionnelle
+        }
+
+        // 4. Publication publique dans automation_rules pour diffusion mondiale vers djelia.store
+        try {
+          const { data: existing } = await supabase
+            .from('automation_rules')
+            .select('id')
+            .eq('trigger_type', 'studio_config')
+            .eq('trigger_value', cleanSlug)
+            .maybeSingle();
+
+          if (existing?.id) {
+            await supabase
+              .from('automation_rules')
+              .update({
+                name: studioName.trim(),
+                text_body: JSON.stringify(fullConfig),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existing.id);
+          } else {
+            await supabase.from('automation_rules').insert({
+              user_id: user.id,
+              name: studioName.trim(),
+              trigger_type: 'studio_config',
+              trigger_value: cleanSlug,
+              text_body: JSON.stringify(fullConfig),
+              enabled: true,
+            });
+          }
+        } catch {
+          // Non bloquant
         }
       }
 
@@ -996,28 +1029,52 @@ export const AffiliationView: FC = () => {
             </div>
           </section>
 
-          {/* Lien de partage unique */}
+          {/* Liens de partage uniques */}
           <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Share2 className="w-4 h-4 text-[#E2BD6B]" />
-              <h3 className="text-sm font-semibold text-white">Votre Lien de Diffusion (50% de commission)</h3>
+              <h3 className="text-sm font-semibold text-white">Vos Liens de Diffusion (50% de commission nette)</h3>
             </div>
             <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Partagez ce lien sur vos statuts WhatsApp, TikTok ou Instagram. Toute personne qui commande via ce lien génère automatiquement 600 F CFA crédités sur votre compte.
+              Partagez l'un de ces liens sur vos statuts WhatsApp, TikTok ou Instagram. Le site s'habillera automatiquement à vos couleurs et chaque vente vous rapportera automatiquement 600 F CFA.
             </p>
 
-            <div className="flex items-center gap-2">
-              <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
-                {miniSiteUrl}
+            <div className="space-y-3">
+              {/* Lien 1 : Studio complet djelia.store */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-white/70">1. Lien Direct vers votre Studio en ligne :</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
+                    {miniSiteUrl}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(miniSiteUrl, 'mini')}
+                    className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
+                  >
+                    {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'mini' ? 'Copié' : 'Copier'}</span>
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => handleCopy(miniSiteUrl, 'mini')}
-                className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
-              >
-                {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedKey === 'mini' ? 'Copié' : 'Copier'}</span>
-              </button>
+
+              {/* Lien 2 : Lien court vitrine */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-white/70">2. Adresse courte personnalisée :</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
+                    {shortSlugUrl}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(shortSlugUrl, 'mini')}
+                    className="px-4 py-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copier</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </section>
         </div>
