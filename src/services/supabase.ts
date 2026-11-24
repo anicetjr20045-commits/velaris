@@ -98,6 +98,7 @@ export async function getLiveConversations(): Promise<ConversationItem[]> {
       .limit(LIST_LIMIT);
 
     if (error) {
+      console.error('[Supabase] getLiveConversations error:', error);
       return [];
     }
 
@@ -213,6 +214,7 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
       .limit(200);
 
     if (error) {
+      console.error('[Supabase] getLiveConversations error:', error);
       return [];
     }
 
@@ -463,6 +465,13 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
       supabase.from('conversations').select('id', { count: 'exact', head: true }),
     ]);
 
+    if (ordersRes.error) {
+      console.error('[Supabase] getLiveStudioMetrics orders error:', ordersRes.error);
+    }
+    if (convRes.error) {
+      console.error('[Supabase] getLiveStudioMetrics convs error:', convRes.error);
+    }
+
     const opening = balanceRes.data?.amount_cents ? Number(balanceRes.data.amount_cents) / 100 : 0;
     let ordersSum = 0;
     let deliveredCount = 0;
@@ -499,14 +508,32 @@ export async function getLiveStudioMetrics(): Promise<StudioMetrics> {
  */
 export async function getLiveOrders(): Promise<Order[]> {
   try {
+    let rawOrders: any[] | null = null;
     const { data, error } = await supabase
       .from('orders')
       .select('id, conversation_id, amount_cents, currency, status, payment_method, notes, created_at, stage, lyrics, recipient_name, occasion, style, voice, memories, contacts(name, phone, occasion)')
       .order('created_at', { ascending: false })
       .limit(ORDER_LIMIT);
 
-    if (error || !data) return [];
-    return data.map((o: any) => {
+    if (error) {
+      console.error('[Supabase] getLiveOrders erreur avec jointure contacts:', error);
+      // Fallback sans jointure pour garantir la résilience des commandes
+      const fallback = await supabase
+        .from('orders')
+        .select('id, conversation_id, amount_cents, currency, status, payment_method, notes, created_at, stage, lyrics, recipient_name, occasion, style, voice, memories')
+        .order('created_at', { ascending: false })
+        .limit(ORDER_LIMIT);
+      if (fallback.error) {
+        console.error('[Supabase] getLiveOrders fallback erreur:', fallback.error);
+        return [];
+      }
+      rawOrders = fallback.data;
+    } else {
+      rawOrders = data;
+    }
+
+    if (!rawOrders) return [];
+    return rawOrders.map((o: any) => {
       let parsedLyrics: Order['lyrics'] | undefined = undefined;
       if (o.lyrics) {
         if (typeof o.lyrics === 'object' && o.lyrics.title && o.lyrics.verse1) {

@@ -22,10 +22,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authModalMode, setAuthModalMode] = useState<AuthModalMode>('login');
 
   useEffect(() => {
-    // 1. Initial Session Check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // 1. Initial Session Check avec auto-guérison des jetons volumineux
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      let activeSession = session;
+      if (activeSession) {
+        const rawToken = activeSession.access_token || '';
+        const rawPhoto = (activeSession.user?.user_metadata as any)?.studio_photo_url;
+        if (rawToken.length > 8000 || (typeof rawPhoto === 'string' && (rawPhoto.startsWith('data:') || rawPhoto.length > 500))) {
+          console.warn('[Auth] Jeton anormalement volumineux ou base64 détecté, rafraîchissement immédiat...');
+          try {
+            const { data: refreshed, error: refErr } = await supabase.auth.refreshSession();
+            if (refreshed?.session) {
+              activeSession = refreshed.session;
+              console.log('[Auth] Session rafraîchie avec succès (taille nettoyée).');
+            } else if (refErr) {
+              console.error('[Auth] Échec rafraîchissement:', refErr);
+            }
+          } catch (err) {
+            console.error('[Auth] Erreur rafraîchissement session:', err);
+          }
+        }
+      }
+
+      setSession(activeSession);
+      setUser(activeSession?.user ?? null);
       setLoading(false);
     }).catch(() => {
       setLoading(false);

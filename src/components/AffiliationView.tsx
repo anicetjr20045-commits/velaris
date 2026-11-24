@@ -339,7 +339,8 @@ export const AffiliationView: FC = () => {
         localStorage.setItem('djelia_current_studio_config', JSON.stringify(fullConfig));
       } catch {}
 
-      // 2. Sauvegarde dans user_metadata Supabase Auth
+      // 2. Sauvegarde dans user_metadata Supabase Auth (strictement sans base64 pour ne pas gonfler le JWT)
+      const safePhotoUrl = photoUrl && !photoUrl.startsWith('data:') && photoUrl.length <= 500 ? photoUrl : '';
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           studio_name: studioName.trim(),
@@ -348,7 +349,7 @@ export const AffiliationView: FC = () => {
           studio_bio: textMode === 'custom' ? bio.trim() : '',
           studio_cta_text: ctaText.trim(),
           studio_delivery_promise: deliveryPromise.trim(),
-          studio_photo_url: photoUrl,
+          studio_photo_url: safePhotoUrl,
           studio_color: accentColor,
           studio_theme: themeMode,
           studio_show_badge: showBadge,

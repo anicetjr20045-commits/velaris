@@ -25,24 +25,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (21:45 UTC)
-- **Revenus 100% Tracés (979 600 F CFA), Journal Enrichi (Pays, Heure, Téléphone) & Navigation Directe vers Discussions** :
-  1. **Purge du Solde d'Ouverture Virtuel & Respect Strict des Ventes Tracées** :
-     - Conformément à la décision métier, la ligne de solde d'ouverture historique (2 749 400 F CFA) a été réinitialisée à zéro en base (`revenue_opening_balances`).
-     - Seules les **571 commandes confirmées** et réelles sont comptabilisées, pour un chiffre d'affaires exact et vérifié de **979 600 F CFA** (avec 75 commandes en cours représentant 135 000 F CFA).
-  2. **Journal des Transactions Enrichi & Redirection Conversationnelle (`RevenusView.tsx`)** :
-     - Extraction déterministe et affichage du nom client, du numéro de téléphone complet, du pays (`CI` Côte d'Ivoire, `BF` Burkina Faso, `SN` Sénégal, `ML` Mali, `TG` Togo, `BJ` Bénin, etc.) et de l'horodatage exact à la minute près (`24 nov. 2026 à 14:32`).
-     - **Interactivité Totale** : chaque transaction est cliquable et redirige instantanément vers l'onglet **Discussions** (`ConversationsView`) avec la conversation ciblée ouverte.
-     - Bouton d'action directe *« WhatsApp »* pour ouvrir le chat natif WhatsApp en un tap.
-     - Pagination fluide avec affichage initial de 50 transactions et bouton pour charger les 50 suivantes.
-  3. **Résolution du Domaine `app.djelia.store` (Éradication du Flash Landing Page Commerciale)** :
-     - Tout visiteur ou créateur accédant à `https://app.djelia.store` arrive désormais **directement dans le Studio OS** (cockpit des revenus et discussions) sans jamais être renvoyé vers la vitrine commerciale de l'Académie.
-     - Ouverture automatique de la modale de connexion WhatsApp/téléphone si l'utilisateur n'est pas encore identifié.
-     - Débridage complet de l'accès Studio sur `app.djelia.store` sans blocage par paywall.
-  4. **Onglet Dédié Discussions Intégré dans le Studio (`DjeliaAppLayout.tsx`)** :
-     - Intégration directe de `ConversationsView` dans la navigation principale aux côtés des Revenus et de la Connexion WhatsApp.
-  5. **Build & Tests** :
-     - Vite build passé avec succès en 5.01s, 0 erreur TypeScript.
+- **Dernière mise à jour** : 24 Novembre 2026 (23:50 UTC)
+- **Résolution Critique du Bug Dashboard Vierge ("Tout aussi vierge") & Chargement Complet des 754 Commandes (987 600 - 1 122 600 F CFA)** :
+  1. **Diagnostic Chirurgical de la Cause Racine (JWT Bloaté & Erreur 400 Cloudflare)** :
+     - Une image de studio encodée en base64 de 370 Ko (`data:image/jpeg;base64,...`) avait été enregistrée dans `user_metadata.studio_photo_url` du compte `5756a961-04ce-467d-be49-311ccff6bad9` (`wa_22605777308@djelia.store`).
+     - Supabase Auth embarque l'intégralité de `user_metadata` dans le jeton d'accès JWT (`access_token`). Le jeton pesait **495 622 octets (500 Ko)** !
+     - À chaque requête du navigateur (`orders`, `conversations`, `contacts`, `metrics`), Cloudflare (reverse-proxy de Supabase) rejetait immédiatement avec HTTP `400 Request Header Or Cookie Too Large`.
+     - Le frontend avalait l'erreur et renvoyait un tableau vide `[]`, laissant l'interface complètement vierge (0 F CFA, 0 commandes, 0 discussions).
+  2. **Nettoyage Immédiat de la Base & Réduction du Jeton JWT de 99.6%** :
+     - Purge via l'Admin Supabase de `studio_photo_url` dans `user_metadata` pour `5756a961-04ce-467d-be49-311ccff6bad9`.
+     - La taille du jeton JWT a été réduite de 495 622 octets à **1 890 octets**.
+     - Les requêtes authentifiées Supabase REST fonctionnent désormais instantanément (754 commandes, 100 conversations, 857 contacts renvoyés avec succès).
+  3. **Auto-Guérison de la Session Locale (`AuthContext.tsx`)** :
+     - Ajout au démarrage de l'application d'une vérification de la taille du jeton (`> 8000` octets) ou de la présence de `data:image` dans `user_metadata`.
+     - Si un vieux jeton volumineux est détecté dans le `localStorage` du navigateur, l'application appelle automatiquement `supabase.auth.refreshSession()` pour échanger le vieux jeton corrompu contre le nouveau jeton léger (1.8 Ko), sans déconnecter l'utilisateur.
+  4. **Blindage Définitif contre le Base64 (`AffiliationView.tsx`)** :
+     - Interdiction stricte de sauvegarder des chaînes base64 (`data:`) dans `user_metadata` lors de la configuration du studio.
+  5. **Affichage Global par Défaut des Revenus (`RevenusView.tsx`)** :
+     - Période par défaut basculée de `30d` à `all` pour afficher immédiatement l'ensemble des 754 commandes et les revenus réels cumulés (987 600 F CFA confirmés / 1 122 600 F CFA total).
+     - Rétablissement du calcul direct du chiffre d'affaires et parsing de dates résilient (`rawCreatedAt || createdAt`).
+  6. **Résilience & Fallback Supabase (`supabase.ts`)** :
+     - Ajout de logs explicites `console.error` et d'une requête de repli sans jointure `contacts` pour garantir que les commandes ne soient jamais perdues.
+  7. **Build & Validation** :
+     - Build Vite réussi en 4.96s, 0 erreur TypeScript.
 - **Détection & Enregistrement Automatique des Ventes par Réaction Emoji WhatsApp Déployés** :
   1. **Configuration Fine des Formules & Encaissements (`SimpleWhatsAppView.tsx`)** :
      - Type d'action d'automatisation dédié `payment` (*« Encaisser Vente »*) avec icône `BadgeCheck`.

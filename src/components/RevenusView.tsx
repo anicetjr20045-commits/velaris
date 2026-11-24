@@ -48,7 +48,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
   onSelectOrder,
 }) => {
   const { user } = useAuth();
-  const [period, setPeriod] = useState<PeriodKey>('30d');
+  const [period, setPeriod] = useState<PeriodKey>('all');
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
 
   // Slug d'affiliation pour récupérer les commissions 50%
@@ -99,7 +99,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
     const cutoff = now - days * 24 * 3600 * 1000;
 
     return orders.filter((o) => {
-      const parsed = Date.parse(o.createdAt);
+      const parsed = Date.parse(o.rawCreatedAt || o.createdAt);
       if (Number.isNaN(parsed)) return true;
       return parsed >= cutoff;
     });
@@ -121,15 +121,16 @@ export const RevenusView: FC<RevenusViewProps> = ({
 
   // Calculs financiers consolidés
   const directWhatsAppRevenue = useMemo(() => {
+    const ordersSum = filteredWhatsAppOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
     if (
       period === 'all' &&
-      metrics?.totalRevenue !== undefined &&
-      filteredWhatsAppOrders.length === orders.length
+      typeof metrics?.totalRevenue === 'number' &&
+      metrics.totalRevenue > ordersSum
     ) {
       return metrics.totalRevenue;
     }
-    return filteredWhatsAppOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
-  }, [filteredWhatsAppOrders, metrics?.totalRevenue, orders.length, period]);
+    return ordersSum;
+  }, [filteredWhatsAppOrders, metrics?.totalRevenue, period]);
 
   const affiliateRevenue = useMemo(() => {
     if (period === 'all' && affiliateStats.total_earned > 0) {
