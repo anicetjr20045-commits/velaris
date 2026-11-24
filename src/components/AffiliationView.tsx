@@ -146,7 +146,6 @@ export const AffiliationView: FC = () => {
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
   const cleanSlug = studioSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || 'mon-studio';
-  const miniSiteUrl = `https://djelia.store/?ref=${cleanSlug}`;
   const shortSlugUrl = `https://djelia.store/s/${cleanSlug}`;
 
   // Métriques d'Affiliation 50% en Temps Réel depuis le serveur
@@ -627,60 +626,38 @@ export const AffiliationView: FC = () => {
             </button>
           </div>
 
-          {/* LIENS DE DIFFUSION UNIQUES (50% NET) */}
+          {/* LIEN DE DIFFUSION UNIQUE (50% NET) */}
           <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Share2 className="w-4 h-4 text-[#E2BD6B]" />
-              <h3 className="text-sm font-semibold text-white">Vos Liens de Diffusion (Commission 50% garantie)</h3>
+              <h3 className="text-sm font-semibold text-white">Votre Lien d'Affiliation Unique (50% net garanti)</h3>
             </div>
             <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Partagez ce lien sur vos statuts WhatsApp, TikTok ou Instagram. Tout client qui clique sera rattaché à votre compte pendant toute sa navigation et vous rapportera automatiquement 600 F CFA à l'achat.
+              Partagez ce lien sur vos statuts WhatsApp, TikTok ou Instagram. Tout client qui clique arrive directement sur votre site personnalisé et vous rapporte automatiquement 600 F CFA dès qu'il commande.
             </p>
 
-            <div className="space-y-3 pt-1">
-              {/* Lien 1 : Adresse courte vitrine */}
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-white/70">1. Votre lien personnalisé (Recommandé) :</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
-                    {shortSlugUrl}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(shortSlugUrl, 'short')}
-                    className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-bold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
-                  >
-                    {copiedKey === 'short' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'short' ? 'Copié' : 'Copier'}</span>
-                  </button>
-                  <a
-                    href={shortSlugUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white"
-                    title="Tester en direct"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+            <div className="pt-1">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 px-4 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs sm:text-sm text-white/90 font-mono truncate">
+                  {shortSlugUrl}
                 </div>
-              </div>
-
-              {/* Lien 2 : Lien direct complet */}
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-white/70">2. Lien direct complet :</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
-                    {miniSiteUrl}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(miniSiteUrl, 'mini')}
-                    className="px-4 py-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                  >
-                    {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>Copier</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(shortSlugUrl, 'short')}
+                  className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-bold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
+                >
+                  {copiedKey === 'short' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === 'short' ? 'Copié' : 'Copier'}</span>
+                </button>
+                <a
+                  href={shortSlugUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors"
+                  title="Ouvrir mon site en plein écran"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               </div>
             </div>
           </section>
