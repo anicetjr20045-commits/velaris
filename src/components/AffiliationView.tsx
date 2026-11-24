@@ -1,4 +1,4 @@
-import { useState, useRef, type FC, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, type FC, type FormEvent, type ChangeEvent } from 'react';
 import {
   Copy,
   Check,
@@ -92,14 +92,58 @@ export const AffiliationView: FC = () => {
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
   const cleanSlug = studioSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || 'mon-studio';
-  const miniSiteUrl = `https://djelia.store/studio.html?ref=${cleanSlug}`;
+  const miniSiteUrl = `https://djelia.store/?ref=${cleanSlug}`;
   const shortSlugUrl = `https://djelia.store/s/${cleanSlug}`;
 
-  // Métriques d'Affiliation 50% (Split 50/50 : 600 F CFA net par vente de 1 200 F)
-  const totalClicks = 34;
-  const totalSales = 6;
+  // Métriques d'Affiliation 50% en Temps Réel depuis le serveur
+  const [stats, setStats] = useState<{
+    clicks_count: number;
+    sales_count: number;
+    conversion_rate: number;
+    total_earned: number;
+    balance: number;
+    commissions: Array<{
+      order_id: string;
+      created_at: string;
+      order_price: number;
+      commission: number;
+      formula: string;
+      status: string;
+    }>;
+  }>({
+    clicks_count: 0,
+    sales_count: 0,
+    conversion_rate: 0,
+    total_earned: 0,
+    balance: 0,
+    commissions: []
+  });
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAffiliateStats = async () => {
+      setLoadingStats(true);
+      try {
+        const res = await fetch(`https://waha.velarisagent.life/api/stt/pay/affiliate/stats?slug=${encodeURIComponent(cleanSlug)}`);
+        const json = await res.json();
+        if (!cancelled && json.code === 200 && json.data) {
+          setStats(json.data);
+        }
+      } catch {
+        // En cas de coupure réseau, conserve les valeurs par défaut
+      } finally {
+        if (!cancelled) setLoadingStats(false);
+      }
+    };
+    fetchAffiliateStats();
+    return () => { cancelled = true; };
+  }, [cleanSlug]);
+
+  const totalClicks = stats.clicks_count;
+  const totalSales = stats.sales_count;
   const commissionPerSale = 600;
-  const balanceCfa = totalSales * commissionPerSale;
+  const balanceCfa = stats.balance || (totalSales * commissionPerSale);
   const minWithdrawThreshold = 1500;
 
   const handleCopy = (text: string, type: 'mini') => {
@@ -807,7 +851,7 @@ export const AffiliationView: FC = () => {
                 </div>
               )}
 
-              {/* Header de la vitrine preview */}
+              {/* Header officiel djelia.store personnalisé */}
               <div
                 className="px-4 py-3 border-b flex items-center justify-between"
                 style={{
@@ -815,150 +859,177 @@ export const AffiliationView: FC = () => {
                   borderColor: currentTheme.border,
                 }}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   {photoUrl ? (
                     <img
                       src={photoUrl}
                       alt="Logo"
-                      className="w-7 h-7 rounded-xl object-cover shrink-0 border"
+                      className="w-7 h-7 rounded-lg object-cover shrink-0 border"
                       style={{ borderColor: accentColor }}
                     />
                   ) : (
                     <div
-                      className="w-7 h-7 rounded-xl flex items-center justify-center text-black font-black text-xs shrink-0"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-black font-black text-xs shrink-0"
                       style={{ backgroundColor: accentColor }}
                     >
                       {initials}
                     </div>
                   )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{studioName || 'Mon Studio'}</p>
-                    {showBadge && (
-                      <span
-                        className="text-[9px] font-mono px-1.5 py-0.2 rounded-full border truncate inline-block"
-                        style={{
-                          borderColor: `${accentColor}40`,
-                          backgroundColor: `${accentColor}15`,
-                          color: accentColor,
-                        }}
-                      >
-                        {badgeText}
-                      </span>
-                    )}
-                  </div>
+                  <span className="font-extrabold text-xs text-white tracking-tight truncate">
+                    {studioName || 'Mon Studio'}
+                    <span style={{ color: accentColor }}>.</span>
+                  </span>
                 </div>
 
-                <div className="font-mono font-bold text-xs shrink-0" style={{ color: accentColor }}>
-                  1 200 F
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-white/70">
+                    Étape <strong>1/6</strong> · Style
+                  </span>
+                  <div className="font-mono font-bold text-xs shrink-0" style={{ color: accentColor }}>
+                    1 200 F
+                  </div>
                 </div>
               </div>
 
-              {/* Contenu de la vitrine preview */}
-              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
-                {/* Hero miniature */}
-                <div className="text-center space-y-2 py-2">
-                  <h4 className="text-sm font-extrabold text-white leading-snug">
-                    {headline || 'Vos plus beaux souvenirs en musique'}
-                  </h4>
-                  <p className="text-[11px] text-[#8A90A0] line-clamp-2">
-                    {bio || 'Création musicale sur-mesure en 15 minutes.'}
+              {/* Barre de progression aux couleurs du studio */}
+              <div className="h-1 w-full bg-white/[0.06]">
+                <div className="h-full w-1/6" style={{ backgroundColor: accentColor }} />
+              </div>
+
+              {/* Contenu réel djelia.store preview */}
+              <div className="p-4 space-y-5 max-h-[520px] overflow-y-auto custom-scrollbar relative">
+                {/* Vinyl & Hero Section djelia.store */}
+                <div className="relative pt-2 pb-1 text-center space-y-2.5">
+                  {/* Disque vinyle stylisé en arrière-plan */}
+                  <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-[#050608] via-[#15171F] to-[#050608] border border-white/10 flex items-center justify-center shadow-xl relative">
+                    <div className="w-14 h-14 rounded-full border border-white/5 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center" style={{ backgroundColor: `${accentColor}25` }}>
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: accentColor }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/60">
+                    {badgeText || (studioName || 'Mon Studio')} — Chansons personnalisées
                   </p>
+
+                  <h4 className="text-base font-black text-white leading-tight">
+                    {headline || (
+                      <>
+                        Offre une chanson <br />
+                        qui fera <em className="italic" style={{ color: accentColor }}>pleurer de joie</em>.
+                      </>
+                    )}
+                  </h4>
+
+                  <p className="text-[11px] text-[#8A90A0] max-w-[280px] mx-auto leading-relaxed">
+                    {bio || 'En 30 secondes, crée la surprise dont on parlera pendant des années.'}
+                  </p>
+
+                  {/* Bouton CTA Principal */}
+                  <div className="pt-1">
+                    <div
+                      className="w-full py-2.5 px-4 rounded-xl text-center font-bold text-xs text-white shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      Commencer ma chanson →
+                    </div>
+                    <p className="text-[9px] text-white/50 mt-1.5">
+                      Commande aujourd'hui, reçois ta chanson en moins de 5 min.
+                    </p>
+                  </div>
+
+                  {/* Badges de réassurance djelia.store */}
+                  <div className="flex items-center justify-center gap-1.5 text-[8px] font-mono text-white/60 pt-1">
+                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">Moins de 5 min</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">2 versions</span>
+                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">100% sur-mesure</span>
+                  </div>
                 </div>
 
-                {/* Formulaire brief miniature */}
+                {/* Tunnel de Commande — Étape 1 : Styles Musicaux */}
                 <div
-                  className="p-3.5 rounded-2xl border space-y-2.5"
+                  className="p-3.5 rounded-2xl border space-y-3"
                   style={{
                     backgroundColor: currentTheme.card,
                     borderColor: currentTheme.border,
                   }}
                 >
-                  <div className="flex items-center justify-between text-[11px] pb-1 border-b border-white/[0.06]">
-                    <span className="font-semibold text-white">Brief de votre chanson</span>
-                    <span className="font-mono text-[#E2BD6B] font-bold">1 200 F CFA</span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-[#8A90A0]">Pour qui ?</span>
-                    <div className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/[0.08] text-[11px] text-white/50">
-                      Ex : Mariam, Ibrahim...
+                  <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-1.5">
+                      <Music2 className="w-3.5 h-3.5" style={{ color: accentColor }} />
+                      <span className="text-[11px] font-bold text-white">1. Choisis le style musical</span>
                     </div>
+                    <span className="text-[10px] font-mono text-[#E2BD6B] font-bold">1 200 F</span>
                   </div>
 
+                  {/* Guide vocal */}
+                  <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${accentColor}25`, color: accentColor }}>
+                      <Music2 className="w-3 h-3" />
+                    </div>
+                    <p className="text-[9px] text-white/70 leading-snug">
+                      <strong>Tu hésites ?</strong> Écoute les démos studio ci-dessous.
+                    </p>
+                  </div>
+
+                  {/* Grille de 6 styles comme sur djelia.store */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { name: 'Zouk', active: true, tag: 'Romantique' },
+                      { name: 'Afrobeat', active: false, tag: 'Rythmé' },
+                      { name: 'Coupé-décalé', active: false, tag: 'Festif' },
+                      { name: 'Rumba', active: false, tag: 'Doux' },
+                      { name: 'Pop Love', active: false, tag: 'Moderne' },
+                      { name: 'Gospel', active: false, tag: 'Émouvant' },
+                    ].map((st) => (
+                      <div
+                        key={st.name}
+                        className={`p-2 rounded-xl border text-left transition-all ${
+                          st.active
+                            ? 'bg-white/[0.08] shadow-sm'
+                            : 'bg-black/30 border-white/[0.06] opacity-75'
+                        }`}
+                        style={{
+                          borderColor: st.active ? accentColor : undefined,
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-white">{st.name}</span>
+                          {st.active && (
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: accentColor }}
+                            />
+                          )}
+                        </div>
+                        <span className="text-[8px] text-[#8A90A0]">{st.tag}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Bouton de passage à l'étape suivante */}
                   <div
-                    className="py-2 rounded-xl text-center font-bold text-xs text-black shadow-sm"
+                    className="py-2 rounded-xl text-center font-bold text-[11px] text-black shadow-sm cursor-pointer"
                     style={{ backgroundColor: accentColor }}
                   >
-                    Valider & Commander (1 200 F)
+                    Continuer avec ce style →
                   </div>
                 </div>
 
-                {/* Démos miniature */}
-                {showDemos && (
-                  <div className="space-y-1.5 pt-1">
-                    <p className="text-[10px] font-semibold text-white/70 uppercase tracking-wider font-mono">
-                      Extraits studio
-                    </p>
-                    <div
-                      className="p-2.5 rounded-xl border flex items-center justify-between"
-                      style={{
-                        backgroundColor: currentTheme.card,
-                        borderColor: currentTheme.border,
-                      }}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-white truncate">Anniversaire — Mariam</p>
-                        <p className="text-[9px] text-[#8A90A0]">Afro-Love Acoustique</p>
-                      </div>
-                      <div
-                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                      >
-                        <Music2 className="w-3 h-3" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Garanties miniature */}
-                {showGuarantees && (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div
-                      className="p-2 rounded-xl border text-center space-y-0.5"
-                      style={{
-                        backgroundColor: currentTheme.card,
-                        borderColor: currentTheme.border,
-                      }}
-                    >
-                      <p className="text-[10px] font-bold text-white">Direct Web</p>
-                      <p className="text-[8px] text-[#8A90A0]">Livraison immédiate</p>
-                    </div>
-                    <div
-                      className="p-2 rounded-xl border text-center space-y-0.5"
-                      style={{
-                        backgroundColor: currentTheme.card,
-                        borderColor: currentTheme.border,
-                      }}
-                    >
-                      <p className="text-[10px] font-bold text-white">Wave / OM</p>
-                      <p className="text-[8px] text-[#8A90A0]">100% Sécurisé</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bouton WhatsApp miniature */}
+                {/* Bouton WhatsApp Flottant dans l'aperçu */}
                 {showWhatsApp && (
-                  <div className="pt-1">
-                    <div className="p-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 flex items-center justify-center gap-1.5 text-[#25D366] text-[10px] font-bold">
+                  <div className="sticky bottom-2 flex justify-end pointer-events-none">
+                    <div className="px-3 py-1.5 rounded-full bg-[#121B17] border border-[#25D366]/60 shadow-xl flex items-center gap-1.5 text-[#25D366] text-[10px] font-bold pointer-events-auto">
                       <MessageCircle className="w-3 h-3 fill-[#25D366]" />
-                      <span>Assistance WhatsApp disponible</span>
+                      <span>Aide {studioName || 'Mon Studio'}</span>
                     </div>
                   </div>
                 )}
 
-                {/* Footer miniature */}
+                {/* Footer djelia.store */}
                 <div className="pt-2 text-center text-[9px] text-white/40">
-                  © {new Date().getFullYear()} {studioName || 'Mon Studio'} · Tous droits réservés
+                  © {new Date().getFullYear()} {studioName || 'Mon Studio'} · Moteur djelia.store · 1 200 F CFA
                 </div>
               </div>
             </div>
@@ -1076,6 +1147,59 @@ export const AffiliationView: FC = () => {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* Historique des Commandes & Commissions en Direct */}
+          <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#10D98E]" />
+                <h3 className="text-sm font-semibold text-white">Journal des Ventes & Commissions</h3>
+              </div>
+              {loadingStats && (
+                <div className="flex items-center gap-1 text-[10px] text-white/50 font-mono">
+                  <Loader2 className="w-3 h-3 animate-spin text-[#E2BD6B]" />
+                  <span>Synchronisation...</span>
+                </div>
+              )}
+            </div>
+
+            {stats.commissions && stats.commissions.length > 0 ? (
+              <div className="space-y-2">
+                {stats.commissions.map((c, i) => (
+                  <div
+                    key={c.order_id || i}
+                    className="p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.06] flex items-center justify-between"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white font-mono">Réf: {c.order_id?.substring(0, 8) || 'CMD'}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 font-mono font-semibold">
+                          Confirmée
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#8A90A0]">
+                        {c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Récemment'} · Formule 1 200 F
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-sm font-extrabold text-[#10D98E] font-mono">
+                        +{c.commission || 600} F CFA
+                      </span>
+                      <p className="text-[9px] text-white/40">50% net</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#06070A] border border-white/[0.04] text-center space-y-2">
+                <p className="text-xs font-semibold text-white/80">Aucune commande enregistrée pour l'instant</p>
+                <p className="text-[11px] text-[#8A90A0] max-w-sm mx-auto leading-relaxed">
+                  Dès qu'un client passe commande via votre lien ou votre vitrine personnalisée sur djelia.store, votre commission de 600 F CFA s'affichera ici en temps réel.
+                </p>
+              </div>
+            )}
           </section>
         </div>
       )}
