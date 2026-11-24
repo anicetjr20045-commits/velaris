@@ -2,8 +2,40 @@ import { createClient } from '@supabase/supabase-js';
 import type { ConversationItem, AutomationRule, AutomationMediaKind, PipelineLead, StudioMetrics, Order } from '../types';
 
 /* Bornes des listes chargées par le Studio (protège les quotas gratuits Supabase) */
-const LIST_LIMIT = 300;
-const ORDER_LIMIT = 500;
+const LIST_LIMIT = 500;
+const ORDER_LIMIT = 2000;
+
+export function detectCountryFromPhone(phone?: string): { name: string; code: string } {
+  if (!phone) return { name: 'Afrique de l’Ouest', code: 'AFR' };
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('225')) return { name: 'Côte d’Ivoire', code: 'CI' };
+  if (digits.startsWith('226')) return { name: 'Burkina Faso', code: 'BF' };
+  if (digits.startsWith('221')) return { name: 'Sénégal', code: 'SN' };
+  if (digits.startsWith('223')) return { name: 'Mali', code: 'ML' };
+  if (digits.startsWith('228')) return { name: 'Togo', code: 'TG' };
+  if (digits.startsWith('229')) return { name: 'Bénin', code: 'BJ' };
+  if (digits.startsWith('227')) return { name: 'Niger', code: 'NE' };
+  if (digits.startsWith('224')) return { name: 'Guinée', code: 'GN' };
+  if (digits.startsWith('237')) return { name: 'Cameroun', code: 'CM' };
+  if (digits.startsWith('241')) return { name: 'Gabon', code: 'GA' };
+  if (digits.startsWith('242')) return { name: 'Congo', code: 'CG' };
+  if (digits.startsWith('243')) return { name: 'RDC', code: 'CD' };
+  if (digits.startsWith('33')) return { name: 'France', code: 'FR' };
+  return { name: 'International', code: 'INT' };
+}
+
+function formatExactOrderTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 const metaEnv = (import.meta as any)?.env || {};
 export const SUPABASE_CONFIG = {
@@ -469,7 +501,7 @@ export async function getLiveOrders(): Promise<Order[]> {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('id, amount_cents, currency, status, payment_method, notes, created_at, stage, lyrics, recipient_name, occasion, style, voice, memories, contacts(name, phone, occasion)')
+      .select('id, conversation_id, amount_cents, currency, status, payment_method, notes, created_at, stage, lyrics, recipient_name, occasion, style, voice, memories, contacts(name, phone, occasion)')
       .order('created_at', { ascending: false })
       .limit(ORDER_LIMIT);
 
@@ -521,10 +553,19 @@ export async function getLiveOrders(): Promise<Order[]> {
         transcription = o.notes;
       }
 
+      const phone = o.contacts?.phone || '';
+      const geo = detectCountryFromPhone(phone);
+      const exactTime = formatExactOrderTime(o.created_at);
+
       return {
         id: o.id,
+        conversationId: o.conversation_id || undefined,
         clientName: o.contacts?.name || 'Client WhatsApp',
-        clientPhone: o.contacts?.phone || '',
+        clientPhone: phone,
+        country: geo.name,
+        countryCode: geo.code,
+        exactTime,
+        rawCreatedAt: o.created_at,
         occasion: o.occasion || o.contacts?.occasion || 'Commande personnalisée',
         recipient: o.recipient_name || o.contacts?.name || 'Destinataire',
         style: o.style || 'afro_love',

@@ -9,11 +9,13 @@ import {
   LogOut,
   Menu,
   X,
-  ArrowUpRight
+  ArrowUpRight,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
 import { RevenusView } from './RevenusView';
+import { ConversationsView } from './ConversationsView';
 import { SimpleWhatsAppView } from './SimpleWhatsAppView';
 import { AffiliationView } from './AffiliationView';
 import { StudioProfileView } from './StudioProfileView';
@@ -37,7 +39,7 @@ export type StudioTab =
   | 'pipeline'
   | 'admin';
 
-type PrimaryTab = 'revenus' | 'whatsapp' | 'affiliation' | 'academy' | 'studio_ai' | 'profile';
+type PrimaryTab = 'revenus' | 'conversations' | 'whatsapp' | 'affiliation' | 'academy' | 'studio_ai' | 'profile';
 
 interface DjeliaAppLayoutProps {
   initialTab?: StudioTab;
@@ -66,10 +68,13 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
 }) => {
   const { user, signOut, openAuthModal } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeConversationId, setActiveConversationId] = useState<string>('');
+  const [activeConversationSearch, setActiveConversationSearch] = useState<string>('');
 
   const normalizeTab = (t: StudioTab): PrimaryTab => {
     if (['revenus', 'ventes', 'analyste', 'pipeline'].includes(t)) return 'revenus';
-    if (['whatsapp', 'conversations', 'automations', 'lines', 'playground'].includes(t)) return 'whatsapp';
+    if (['conversations', 'chat', 'discussions'].includes(t)) return 'conversations';
+    if (['whatsapp', 'automations', 'lines', 'playground'].includes(t)) return 'whatsapp';
     if (t === 'affiliation') return 'affiliation';
     if (t === 'academy') return 'academy';
     if (t === 'studio_ai') return 'studio_ai';
@@ -105,6 +110,10 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
 
   const isPro = useMemo(() => {
     if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname.toLowerCase();
+      if (hostname === 'app.djelia.store' || hostname.startsWith('app.') || hostname.includes('velaris-dun')) {
+        return true;
+      }
       const search = window.location.search;
       const hash = window.location.hash.toLowerCase();
       if (
@@ -169,6 +178,17 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     (user?.user_metadata?.full_name as string) ||
     (user?.email ? user.email.split('@')[0] : 'Mon Studio');
 
+  const handleOpenConversation = (_orderId: string, conversationId?: string, clientPhone?: string) => {
+    if (conversationId) {
+      setActiveConversationId(conversationId);
+      setActiveConversationSearch('');
+    } else if (clientPhone) {
+      setActiveConversationId('');
+      setActiveConversationSearch(clientPhone);
+    }
+    handleTabClick('conversations');
+  };
+
   const navItems: Array<{
     id: PrimaryTab;
     label: string;
@@ -176,7 +196,8 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     showOnlineDot?: boolean;
   }> = [
     { id: 'revenus', label: 'Revenus', icon: TrendingUp },
-    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, showOnlineDot: true },
+    { id: 'conversations', label: 'Discussions', icon: MessageCircle },
+    { id: 'whatsapp', label: 'Connexion WhatsApp', icon: Smartphone, showOnlineDot: true },
     { id: 'affiliation', label: 'Site & Affiliation', icon: Globe },
     { id: 'academy', label: 'Académie', icon: GraduationCap },
     { id: 'studio_ai', label: 'Studio IA', icon: Music2 },
@@ -391,10 +412,19 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
               orders={orders}
               metrics={metrics}
               isWhatsAppConnected={isWhatsAppConnected}
-              onOpenConversations={() => handleTabClick('whatsapp')}
+              onOpenConversations={() => handleTabClick('conversations')}
               onOpenVentes={() => handleTabClick('studio_ai')}
-              onSelectOrder={onSelectOrderForStudio}
+              onSelectOrder={handleOpenConversation}
             />
+          )}
+          {currentTab === 'conversations' && (
+            <div className="rounded-3xl bg-[#08090C] border border-white/[0.06] overflow-hidden -mx-2 sm:mx-0 min-h-[750px]">
+              <ConversationsView
+                initialConversationId={activeConversationId}
+                initialSearch={activeConversationSearch}
+                onOpenOrderForStudio={onSelectOrderForStudio}
+              />
+            </div>
           )}
           {currentTab === 'whatsapp' && <SimpleWhatsAppView />}
           {currentTab === 'affiliation' && <AffiliationView />}

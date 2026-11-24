@@ -8,7 +8,7 @@ interface RevenusViewProps {
   metrics?: StudioMetrics;
   onOpenConversations?: () => void;
   onOpenVentes?: () => void;
-  onSelectOrder?: (orderId: string) => void;
+  onSelectOrder?: (orderId: string, conversationId?: string, clientPhone?: string) => void;
   isWhatsAppConnected?: boolean;
 }
 
@@ -143,12 +143,18 @@ export const RevenusView: FC<RevenusViewProps> = ({
   const totalSalesCount = filteredWhatsAppOrders.length + filteredCommissions.length;
   const avgBasket = totalSalesCount > 0 ? Math.round(totalConsolidatedRevenue / totalSalesCount) : 0;
 
+  const [visibleCount, setVisibleCount] = useState<number>(50);
+
   // Liste unifiée des transactions récentes (WhatsApp + Affiliation)
   interface UnifiedTransaction {
     id: string;
     type: 'whatsapp' | 'affiliate';
     clientName: string;
     clientPhone?: string;
+    country?: string;
+    countryCode?: string;
+    exactTime?: string;
+    conversationId?: string;
     subtitle: string;
     amount: number;
     rawDate: string;
@@ -167,12 +173,16 @@ export const RevenusView: FC<RevenusViewProps> = ({
         type: 'whatsapp',
         clientName: o.clientName || 'Client WhatsApp',
         clientPhone: o.clientPhone,
+        country: o.country || 'Afrique de l’Ouest',
+        countryCode: o.countryCode || 'AFR',
+        exactTime: o.exactTime || o.createdAt,
+        conversationId: o.conversationId,
         subtitle: `${o.occasion || 'Chanson personnalisée'}${
           o.paymentMethod ? ` · ${o.paymentMethod}` : ''
         }`,
         amount: o.amount || 0,
-        rawDate: o.createdAt || new Date().toISOString(),
-        status: o.status === 'livre' ? 'Livré' : 'En cours',
+        rawDate: o.rawCreatedAt || o.createdAt || new Date().toISOString(),
+        status: o.status === 'livre' ? 'Livré' : 'Validé',
         orderRef: o,
       });
     });
@@ -418,87 +428,119 @@ export const RevenusView: FC<RevenusViewProps> = ({
 
         {/* Liste des transactions unifiées */}
         {unifiedTransactions.length > 0 ? (
-          <div className="divide-y divide-white/[0.06] rounded-3xl bg-[#08090C] border border-white/[0.06] overflow-hidden px-4 sm:px-6">
-            {unifiedTransactions.slice(0, 20).map((tx) => {
-              const cleanPhone = tx.clientPhone?.replace(/[^0-9]/g, '');
-              const isWhatsApp = tx.type === 'whatsapp';
+          <div className="space-y-4">
+            <div className="divide-y divide-white/[0.06] rounded-3xl bg-[#08090C] border border-white/[0.06] overflow-hidden px-4 sm:px-6">
+              {unifiedTransactions.slice(0, visibleCount).map((tx) => {
+                const cleanPhone = tx.clientPhone?.replace(/[^0-9]/g, '');
+                const isWhatsApp = tx.type === 'whatsapp';
 
-              return (
-                <div
-                  key={tx.id}
-                  onClick={() => {
-                    if (isWhatsApp && tx.orderRef?.id) {
-                      onSelectOrder?.(tx.orderRef.id);
-                    }
-                  }}
-                  className={`py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                    isWhatsApp ? 'hover:bg-white/[0.02] cursor-pointer' : ''
-                  }`}
-                >
-                  {/* Côté gauche : Avatar + Nom + Sous-titre */}
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                        isWhatsApp
-                          ? 'bg-[#10D98E]/10 border border-[#10D98E]/25 text-[#10D98E]'
-                          : 'bg-[#E2BD6B]/15 border border-[#E2BD6B]/30 text-[#E2BD6B]'
-                      }`}
-                    >
-                      {isWhatsApp ? getInitials(tx.clientName) : '50%'}
-                    </div>
-
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-white truncate">
-                          {tx.clientName}
-                        </p>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-medium ${
-                            isWhatsApp
-                              ? 'bg-[#10D98E]/15 text-[#10D98E]'
-                              : 'bg-[#E2BD6B]/20 text-[#E2BD6B]'
-                          }`}
-                        >
-                          {isWhatsApp ? 'WhatsApp Direct' : 'Affiliation 50%'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#8A90A0] truncate">{tx.subtitle}</p>
-                    </div>
-                  </div>
-
-                  {/* Côté droit : Bouton WhatsApp direct + Montant + Statut */}
-                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-13 sm:pl-0">
-                    {/* Bouton Redirection WhatsApp Direct si numéro disponible */}
-                    {isWhatsApp && cleanPhone && (
-                      <a
-                        href={`https://wa.me/${cleanPhone}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#10D98E]/10 hover:bg-[#10D98E]/20 text-[#10D98E] text-xs font-semibold border border-[#10D98E]/25 transition-colors cursor-pointer"
-                        title={`Ouvrir la conversation WhatsApp avec ${tx.clientName}`}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Ouvrir WhatsApp</span>
-                      </a>
-                    )}
-
-                    <div className="text-right">
-                      <p
-                        className={`text-sm font-bold tabular-nums ${
-                          isWhatsApp ? 'text-[#10D98E]' : 'text-[#E2BD6B]'
+                return (
+                  <div
+                    key={tx.id}
+                    onClick={() => {
+                      if (isWhatsApp) {
+                        onSelectOrder?.(tx.orderRef?.id || '', tx.conversationId, tx.clientPhone);
+                      }
+                    }}
+                    className={`py-4 px-2 -mx-2 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                      isWhatsApp ? 'hover:bg-white/[0.04] cursor-pointer' : ''
+                    }`}
+                  >
+                    {/* Côté gauche : Avatar + Nom + Téléphone + Pays + Heure */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex flex-col items-center justify-center shrink-0 ${
+                          isWhatsApp
+                            ? 'bg-[#10D98E]/10 border border-[#10D98E]/25 text-[#10D98E]'
+                            : 'bg-[#E2BD6B]/15 border border-[#E2BD6B]/30 text-[#E2BD6B]'
                         }`}
                       >
-                        +{fmtFCFA(tx.amount)}
-                      </p>
-                      <p className="text-[11px] text-[#8A90A0] mt-0.5">
-                        {tx.status}
-                      </p>
+                        <span className="text-xs font-bold leading-none">
+                          {isWhatsApp ? getInitials(tx.clientName) : '50%'}
+                        </span>
+                        {isWhatsApp && tx.countryCode && (
+                          <span className="text-[9px] font-mono font-semibold tracking-wider opacity-80 mt-0.5">
+                            {tx.countryCode}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-white truncate">
+                            {tx.clientName}
+                          </p>
+                          {tx.clientPhone && (
+                            <span className="text-xs font-mono text-[#C7CAD4] px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06]">
+                              {tx.clientPhone}
+                            </span>
+                          )}
+                          {tx.country && (
+                            <span className="text-[10px] font-medium text-[#A6ABB9] px-2 py-0.5 rounded-md bg-white/[0.03]">
+                              {tx.country}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#8A90A0]">
+                          <span>{tx.subtitle}</span>
+                          {tx.exactTime && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-[11px] text-[#A6ABB9]">
+                                {tx.exactTime}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Côté droit : Bouton WhatsApp direct + Montant + Statut */}
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pl-14 sm:pl-0">
+                      {isWhatsApp && cleanPhone && (
+                        <a
+                          href={`https://wa.me/${cleanPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#10D98E]/10 hover:bg-[#10D98E]/20 text-[#10D98E] text-xs font-semibold border border-[#10D98E]/25 transition-colors cursor-pointer"
+                          title={`Ouvrir WhatsApp avec ${tx.clientName}`}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      )}
+
+                      <div className="text-right">
+                        <p
+                          className={`text-sm font-bold tabular-nums ${
+                            isWhatsApp ? 'text-[#10D98E]' : 'text-[#E2BD6B]'
+                          }`}
+                        >
+                          +{fmtFCFA(tx.amount)}
+                        </p>
+                        <p className="text-[11px] text-[#8A90A0] mt-0.5 font-mono">
+                          {tx.status}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {/* Pagination / Voir plus */}
+            {unifiedTransactions.length > visibleCount && (
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + 50)}
+                  className="px-5 py-2.5 rounded-2xl bg-[#0D0F14] hover:bg-[#141720] border border-white/[0.08] text-xs font-semibold text-white transition-all cursor-pointer inline-flex items-center gap-2 shadow-md"
+                >
+                  <span>Afficher 50 transactions supplémentaires ({visibleCount} / {unifiedTransactions.length})</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-8 text-center space-y-2">

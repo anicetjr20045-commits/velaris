@@ -87,6 +87,8 @@ import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 
 interface ConversationsViewProps {
   onOpenOrderForStudio?: (name: string) => void;
+  initialConversationId?: string;
+  initialSearch?: string;
 }
 
 type InboxSection = 'discussions' | 'archived';
@@ -1234,7 +1236,11 @@ const CashOrderModal: FC<CashOrderModalProps> = ({
 const ACK_POLL_MS = 5000;
 const ACK_WATCH_MS = 3 * 60 * 1000;
 
-export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForStudio: _onOpenOrderForStudio }) => {
+export const ConversationsView: FC<ConversationsViewProps> = ({
+  onOpenOrderForStudio: _onOpenOrderForStudio,
+  initialConversationId,
+  initialSearch,
+}) => {
   const { user } = useAuth();
   const sessionName = wahaSessionNameFor(user?.id);
 
@@ -1266,8 +1272,21 @@ export const ConversationsView: FC<ConversationsViewProps> = ({ onOpenOrderForSt
     });
   }, [rawConversations, readState, conversationPatches]);
 
-  const [selectedId, setSelectedId] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedId, setSelectedId] = useState<string>(initialConversationId || '');
+  const [searchTerm, setSearchTerm] = useState(initialSearch || '');
+
+  useEffect(() => {
+    if (initialConversationId) {
+      setSelectedId(initialConversationId);
+      setMobileThreadOpen(true);
+    }
+  }, [initialConversationId]);
+
+  useEffect(() => {
+    if (initialSearch) {
+      setSearchTerm(initialSearch);
+    }
+  }, [initialSearch]);
   const [section, setSection] = useState<InboxSection>('discussions');
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [replyText, setReplyText] = useState('');

@@ -2,6 +2,11 @@ export interface Order {
   id: string;
   clientName: string;
   clientPhone: string;
+  country?: string;
+  countryCode?: string;
+  exactTime?: string;
+  conversationId?: string;
+  rawCreatedAt?: string;
   occasion: string;
   recipient: string;
   style: 'afro_love' | 'acoustique' | 'zouk' | 'rumba' | 'gospel' | 'mandingue' | string;
