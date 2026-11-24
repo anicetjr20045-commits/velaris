@@ -1,4 +1,4 @@
-import { useState, type FC, type FormEvent } from 'react';
+import { useState, useRef, type FC, type FormEvent, type ChangeEvent } from 'react';
 import {
   Copy,
   Check,
@@ -12,50 +12,82 @@ import {
   Palette,
   Globe,
   Share2,
+  Upload,
+  Trash2,
+  Eye,
+  Sliders,
+  MessageCircle,
+  Music2,
+  ShieldCheck,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
+import { THEME_STYLES } from './MiniSiteView';
 
-const ACCENT_COLORS = [
+const COLOR_PRESETS = [
   { id: '#E2BD6B', name: 'Or Champagne', class: 'bg-[#E2BD6B]' },
   { id: '#10D98E', name: 'Émeraude Royale', class: 'bg-[#10D98E]' },
   { id: '#00E5FF', name: 'Cyan Électrique', class: 'bg-[#00E5FF]' },
-  { id: '#F43F5E', name: 'Rose Amour', class: 'bg-[#F43F5E]' },
+  { id: '#F43F5E', name: 'Rose Passion', class: 'bg-[#F43F5E]' },
   { id: '#A855F7', name: 'Violet Studio', class: 'bg-[#A855F7]' },
+  { id: '#EF4444', name: 'Rubis Impérial', class: 'bg-[#EF4444]' },
+  { id: '#F59E0B', name: 'Ambre Solaire', class: 'bg-[#F59E0B]' },
+  { id: '#FFFFFF', name: 'Blanc Pur', class: 'bg-[#FFFFFF]' },
+];
+
+const THEME_OPTIONS = [
+  { id: 'obsidian', name: 'Obsidienne Pure', desc: 'Noir profond luxe', bg: '#06070A', border: 'rgba(255,255,255,0.08)' },
+  { id: 'midnight', name: 'Nuit Bleue Midnight', desc: 'Bleu nuit discret', bg: '#070A12', border: 'rgba(59,130,246,0.2)' },
+  { id: 'emerald', name: 'Émeraude Sombre', desc: 'Végétal haut de gamme', bg: '#050F0B', border: 'rgba(16,217,142,0.2)' },
+  { id: 'carbon', name: 'Café Carbone', desc: 'Brun sombre boisé', bg: '#0C0A09', border: 'rgba(226,189,107,0.2)' },
 ];
 
 export const AffiliationView: FC = () => {
   const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'site' | 'affiliate'>('site');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // État du mini-site co-brandé (synchronisé avec Supabase user_metadata et table studios)
-  const initialName = (user?.user_metadata?.studio_name as string) || 'Mon Studio';
+  // Données de configuration du studio (user_metadata ou valeurs par défaut)
+  const meta = user?.user_metadata || {};
+  const initialName = (meta.studio_name as string) || 'Mon Studio';
+  const initialSlug = (meta.studio_slug as string) || initialName.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'mon-studio';
+
   const [studioName, setStudioName] = useState(initialName);
-  const [studioSlug, setStudioSlug] = useState(
-    (user?.user_metadata?.studio_slug as string) ||
-      initialName.toLowerCase().replace(/[^a-z0-9]/g, '-') ||
-      'mon-studio'
+  const [studioSlug, setStudioSlug] = useState(initialSlug);
+  const [headline, setHeadline] = useState(
+    (meta.studio_headline as string) || 'Vos plus beaux souvenirs transformés en chansons d’exception'
   );
-  const [studioBio, setStudioBio] = useState(
-    (user?.user_metadata?.studio_bio as string) ||
-      'Création de chansons personnalisées émouvantes, livrées en 15 minutes sur WhatsApp.'
+  const [bio, setBio] = useState(
+    (meta.studio_bio as string) || 'Création musicale sur-mesure en 15 minutes, paroles écrites spécialement pour vos proches.'
   );
-  const [studioColor, setStudioColor] = useState<string>(
-    (user?.user_metadata?.studio_color as string) || '#E2BD6B'
+  const [photoUrl, setPhotoUrl] = useState<string>((meta.studio_photo_url as string) || '');
+  const [accentColor, setAccentColor] = useState<string>((meta.studio_color as string) || '#E2BD6B');
+  const [themeMode, setThemeMode] = useState<'obsidian' | 'midnight' | 'emerald' | 'carbon'>(
+    (meta.studio_theme as any) || 'obsidian'
   );
 
+  // Toggles de personnalisation modulaire
+  const [showBadge, setShowBadge] = useState<boolean>(meta.studio_show_badge ?? true);
+  const [badgeText, setBadgeText] = useState<string>((meta.studio_badge_text as string) || 'Studio de Création Musicale');
+  const [showDemos, setShowDemos] = useState<boolean>(meta.studio_show_demos ?? true);
+  const [showGuarantees, setShowGuarantees] = useState<boolean>(meta.studio_show_guarantees ?? true);
+  const [showWhatsApp, setShowWhatsApp] = useState<boolean>(meta.studio_show_whatsapp ?? false);
+  const [whatsAppPhone, setWhatsAppPhone] = useState<string>((meta.studio_whatsapp_phone as string) || '');
+  const [whatsAppPrompt, setWhatsAppPrompt] = useState<string>(
+    (meta.studio_whatsapp_prompt as string) || 'Bonjour ! J’ai une question concernant ma commande de chanson.'
+  );
+
+  // État de sauvegarde & affichage
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [savingSite, setSavingSite] = useState(false);
   const [siteSavedNotice, setSiteSavedNotice] = useState<string | null>(null);
 
   // État Affiliation 50% & Retrait WhatsApp
-  const [copiedKey, setCopiedKey] = useState<'ref' | 'mini' | null>(null);
+  const [copiedKey, setCopiedKey] = useState<'mini' | null>(null);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [withdrawPhone, setWithdrawPhone] = useState(
-    (user?.user_metadata?.phone as string) || ''
-  );
-  const [withdrawName, setWithdrawName] = useState(
-    (user?.user_metadata?.full_name as string) || ''
-  );
+  const [withdrawPhone, setWithdrawPhone] = useState((meta.phone as string) || '');
+  const [withdrawName, setWithdrawName] = useState((meta.full_name as string) || '');
   const [withdrawOperator, setWithdrawOperator] = useState('Wave');
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
@@ -65,50 +97,121 @@ export const AffiliationView: FC = () => {
   // Métriques d'Affiliation 50% (Split 50/50 : 600 F CFA net par vente de 1 200 F)
   const totalClicks = 34;
   const totalSales = 6;
-  const commissionPerSale = 600; // 50% de 1 200 F CFA
-  const balanceCfa = totalSales * commissionPerSale; // 3 600 F CFA
+  const commissionPerSale = 600;
+  const balanceCfa = totalSales * commissionPerSale;
   const minWithdrawThreshold = 1500;
 
-  const handleCopy = (text: string, type: 'ref' | 'mini') => {
+  const handleCopy = (text: string, type: 'mini') => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedKey(type);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  // Upload d'image local / converti en DataURL
+  const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Veuillez choisir une image de moins de 3 Mo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (typeof event.target?.result === 'string') {
+        setPhotoUrl(event.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Enregistrement et publication sur Supabase (Auth + table studios + localStorage)
   const handleSaveSite = async (e: FormEvent) => {
     e.preventDefault();
     setSavingSite(true);
     setSiteSavedNotice(null);
+
+    const fullConfig = {
+      id: user?.id || 'local-partner',
+      user_id: user?.id || 'partner',
+      name: studioName.trim() || 'Mon Studio',
+      slug: cleanSlug,
+      headline: headline.trim(),
+      bio: bio.trim(),
+      photo_url: photoUrl || null,
+      accent_color: accentColor,
+      theme_mode: themeMode,
+      show_badge: showBadge,
+      badge_text: badgeText.trim(),
+      show_demos: showDemos,
+      show_guarantees: showGuarantees,
+      show_whatsapp: showWhatsApp,
+      whatsapp_phone: whatsAppPhone.trim() || null,
+      whatsapp_prompt: whatsAppPrompt.trim() || null,
+      price_quoted_standard: 1200,
+    };
+
     try {
-      const { error } = await supabase.auth.updateUser({
+      // 1. Sauvegarde instantanée en localStorage pour affichage direct à zéro latence
+      try {
+        localStorage.setItem(`djelia_custom_studio_${cleanSlug}`, JSON.stringify(fullConfig));
+        localStorage.setItem('djelia_current_studio_config', JSON.stringify(fullConfig));
+      } catch {}
+
+      // 2. Sauvegarde dans user_metadata Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({
         data: {
           studio_name: studioName.trim(),
           studio_slug: cleanSlug,
-          studio_bio: studioBio.trim().slice(0, 200),
-          studio_color: studioColor,
+          studio_headline: headline.trim(),
+          studio_bio: bio.trim(),
+          studio_photo_url: photoUrl,
+          studio_color: accentColor,
+          studio_theme: themeMode,
+          studio_show_badge: showBadge,
+          studio_badge_text: badgeText.trim(),
+          studio_show_demos: showDemos,
+          studio_show_guarantees: showGuarantees,
+          studio_show_whatsapp: showWhatsApp,
+          studio_whatsapp_phone: whatsAppPhone.trim(),
+          studio_whatsapp_prompt: whatsAppPrompt.trim(),
           studio_price: 1200,
         },
       });
-      if (error) throw error;
+      if (authError) throw authError;
 
-      // Tentative miroir dans la table studios si présente
+      // 3. Persistance dans la table studios
       if (user?.id) {
         try {
           await (supabase.from('studios') as any).upsert({
             user_id: user.id,
             name: studioName.trim(),
             slug: cleanSlug,
-            bio: studioBio.trim().slice(0, 200),
-            accent_color: studioColor,
+            bio: bio.trim(),
+            photo_url: photoUrl || null,
+            accent_color: accentColor,
+            social_links: {
+              headline: headline.trim(),
+              theme_mode: themeMode,
+              show_badge: showBadge,
+              badge_text: badgeText.trim(),
+              show_demos: showDemos,
+              show_guarantees: showGuarantees,
+              show_whatsapp: showWhatsApp,
+              whatsapp_phone: whatsAppPhone.trim(),
+              whatsapp_prompt: whatsAppPrompt.trim(),
+            },
             price_quoted_standard: 1200,
+            updated_at: new Date().toISOString(),
           });
         } catch {
-          // Ignorer si table non migrée
+          // Table studios optionnelle
         }
       }
 
-      setSiteSavedNotice('Votre site co-brandé a été mis à jour avec succès.');
-      setTimeout(() => setSiteSavedNotice(null), 3000);
+      setSiteSavedNotice('Votre vitrine personnalisée a été enregistrée et publiée avec succès !');
+      setTimeout(() => setSiteSavedNotice(null), 4000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur lors de la mise à jour.';
       setSiteSavedNotice(msg);
@@ -130,17 +233,14 @@ export const AffiliationView: FC = () => {
           phone_number: withdrawPhone.trim(),
           status: 'pending',
         });
-      } catch {
-        // Fallback gracieux si la table n'est pas encore migrée
-      }
+      } catch {}
     }
 
     setWithdrawSuccess(true);
 
-    // Redirection directe vers le WhatsApp officiel avec message pré-rempli
     const textMsg =
-      `Bonjour l'équipe Djélia ! Je souhaite effectuer un retrait de mes commissions d'affiliation de ${balanceCfa.toLocaleString('fr-FR')} F CFA (50% de mes ventes).\n\n` +
-      `Studio : ${studioName} (ID: ${cleanSlug})\n` +
+      `Bonjour l’équipe ! Je souhaite effectuer un retrait de mes commissions d'affiliation de ${balanceCfa.toLocaleString('fr-FR')} F CFA (50% de mes ventes).\n\n` +
+      `Studio : ${studioName} (Slug: ${cleanSlug})\n` +
       `Opérateur : ${withdrawOperator}\n` +
       `Numéro de réception : ${withdrawPhone.trim()}\n` +
       `Nom du titulaire : ${withdrawName.trim() || studioName}\n\n` +
@@ -156,18 +256,45 @@ export const AffiliationView: FC = () => {
   };
 
   const initials = (studioName || 'Studio').slice(0, 2).toUpperCase();
+  const currentTheme = THEME_STYLES[themeMode] || THEME_STYLES.obsidian;
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-12">
       {/* En-tête de la page */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white">Site & Affiliation 50%</h1>
-        <p className="text-sm text-[#8A90A0]">
-          Diffusez votre propre vitrine personnalisée et encaissez 50% de commission nette (600 F CFA) sur chaque vente.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Mon Site Vitrine & Affiliation</h1>
+          <p className="text-sm text-[#8A90A0]">
+            Personnalisez votre propre site de vente et encaissez 50% de commission nette (600 F CFA) sur chaque commande.
+          </p>
+        </div>
+
+        {/* Lien direct et bouton aperçu */}
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-white/90">
+          <Globe className="w-3.5 h-3.5 text-[#E2BD6B]" />
+          <span className="font-mono text-[11px] truncate max-w-[180px] sm:max-w-xs">
+            djelia.store/s/{cleanSlug}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleCopy(miniSiteUrl, 'mini')}
+            className="text-[#E2BD6B] font-semibold text-[11px] hover:underline cursor-pointer"
+          >
+            {copiedKey === 'mini' ? 'Copié' : 'Copier'}
+          </button>
+          <a
+            href={miniSiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/70 hover:text-white p-0.5"
+            title="Voir en direct"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
 
-      {/* Sélecteur 2 onglets */}
+      {/* Sélecteur 2 onglets principaux */}
       <div className="flex gap-2 p-1 rounded-2xl bg-[#0D0F14] border border-white/[0.06]">
         <button
           type="button"
@@ -178,8 +305,8 @@ export const AffiliationView: FC = () => {
               : 'text-[#8A90A0] hover:text-white'
           }`}
         >
-          <Globe className="w-3.5 h-3.5" />
-          <span>Mon Site en ligne</span>
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Personnalisation & Aperçu Live</span>
         </button>
         <button
           type="button"
@@ -196,177 +323,618 @@ export const AffiliationView: FC = () => {
       </div>
 
       {activeSubTab === 'site' ? (
-        <div className="space-y-6">
-          {/* Carte de Prévisualisation Haute-Horlogerie */}
-          <section className="stripe-glow-card rounded-[28px] p-6 space-y-5 border border-white/[0.12] relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-black font-extrabold text-sm shadow-lg shrink-0"
-                  style={{ backgroundColor: studioColor }}
-                >
-                  {initials}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* ============================================================ */}
+          {/* COLONNE GAUCHE (7/12) : FORMULAIRE DE PERSONNALISATION ÉTENDU */}
+          {/* ============================================================ */}
+          <div className="lg:col-span-7 space-y-6">
+            <form onSubmit={handleSaveSite} className="space-y-6">
+              {siteSavedNotice && (
+                <div className="p-4 rounded-2xl bg-[#10D98E]/15 border border-[#10D98E]/30 text-[#10D98E] text-xs font-medium flex items-center gap-2 animate-in fade-in">
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>{siteSavedNotice}</span>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-bold text-white">{studioName || 'Mon Studio'}</h2>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-mono border border-emerald-500/25">
-                      ● Partenaire Officiel
-                    </span>
+              )}
+
+              {/* 1. IDENTITÉ VISUELLE & LOGO */}
+              <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
+                <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+                  <Layers className="w-4 h-4 text-[#E2BD6B]" />
+                  <h3 className="text-sm font-semibold text-white">1. Identité Visuelle & Logo</h3>
+                </div>
+
+                {/* Upload Logo ou Photo */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-[#8A90A0]">
+                    Logo ou Photo de profil du studio
+                  </label>
+
+                  <div className="flex items-center gap-4">
+                    {photoUrl ? (
+                      <div className="relative group">
+                        <img
+                          src={photoUrl}
+                          alt="Logo Studio"
+                          className="w-16 h-16 rounded-2xl object-cover border-2 shadow-md"
+                          style={{ borderColor: accentColor }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPhotoUrl('')}
+                          className="absolute -top-1.5 -right-1.5 p-1 rounded-full bg-red-600 text-white shadow-md hover:bg-red-700 transition-colors"
+                          title="Supprimer la photo"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-black font-black text-lg shadow-md shrink-0 tracking-wider"
+                        style={{ backgroundColor: accentColor }}
+                      >
+                        {initials}
+                      </div>
+                    )}
+
+                    <div className="flex-1 space-y-2">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3.5 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-xs font-medium text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Téléverser une image</span>
+                        </button>
+
+                        {photoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPhotoUrl('')}
+                            className="px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-xs font-medium text-red-400 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Retirer</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#8A90A0]">
+                        JPG, PNG ou WEBP. Si aucune photo n’est choisie, votre monogramme sera affiché.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#8A90A0] mt-0.5">
-                    Certifié · Technologie Studio Djélia Engine
-                  </p>
                 </div>
+
+                {/* Nom du Studio */}
+                <div className="space-y-1.5">
+                  <label htmlFor="st-name" className="block text-xs font-medium text-[#8A90A0]">
+                    Nom de votre studio de musique
+                  </label>
+                  <input
+                    id="st-name"
+                    type="text"
+                    value={studioName}
+                    onChange={(e) => setStudioName(e.target.value)}
+                    placeholder="Ex : Fatou Music, Awa Studio, Mélodies d’Afrique..."
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
+                  />
+                </div>
+
+                {/* Slug d'URL */}
+                <div className="space-y-1.5">
+                  <label htmlFor="st-slug" className="block text-xs font-medium text-[#8A90A0]">
+                    Votre adresse exclusive sur le web
+                  </label>
+                  <div className="flex items-center rounded-2xl bg-[#06070A] border border-white/[0.08] overflow-hidden focus-within:border-[#E2BD6B]">
+                    <span className="px-3.5 py-2.5 text-xs text-[#8A90A0] bg-white/[0.02] border-r border-white/[0.06] select-none font-mono">
+                      djelia.store/s/
+                    </span>
+                    <input
+                      id="st-slug"
+                      type="text"
+                      value={studioSlug}
+                      onChange={(e) => setStudioSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="mon-studio"
+                      required
+                      className="flex-1 px-3.5 py-2.5 bg-transparent text-sm text-white focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Badge de Confiance / Label d'Accroche */}
+                <div className="pt-2 border-t border-white/[0.06] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-white">Badge d'expertise en tête de page</p>
+                      <p className="text-[11px] text-[#8A90A0]">Affiche une puce de réassurance personnalisée</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showBadge}
+                        onChange={(e) => setShowBadge(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                    </label>
+                  </div>
+
+                  {showBadge && (
+                    <input
+                      type="text"
+                      value={badgeText}
+                      onChange={(e) => setBadgeText(e.target.value)}
+                      placeholder="Ex : Studio de Création Musicale, 100% Original..."
+                      className="w-full px-3.5 py-2 rounded-xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                    />
+                  )}
+                </div>
+              </section>
+
+              {/* 2. COULEURS & AMBIANCE */}
+              <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
+                <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+                  <Palette className="w-4 h-4 text-[#E2BD6B]" />
+                  <h3 className="text-sm font-semibold text-white">2. Couleurs & Ambiance Graphique</h3>
+                </div>
+
+                {/* Couleur d'accentuation */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-[#8A90A0]">
+                    Couleur d'accentuation (boutons, bordures et reflets)
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {COLOR_PRESETS.map((c) => {
+                      const isSelected = accentColor.toLowerCase() === c.id.toLowerCase();
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setAccentColor(c.id)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-medium inline-flex items-center gap-2 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-white bg-white/10 text-white shadow-sm'
+                              : 'border-white/[0.08] bg-[#06070A] text-[#8A90A0] hover:text-white'
+                          }`}
+                        >
+                          <span className={`w-3.5 h-3.5 rounded-full ${c.class} shadow-sm`} />
+                          <span>{c.name}</span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Color picker libre */}
+                    <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-[#06070A] border border-white/[0.08]">
+                      <input
+                        type="color"
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="w-5 h-5 rounded cursor-pointer bg-transparent border-0"
+                        title="Choisir une couleur sur-mesure"
+                      />
+                      <span className="font-mono text-xs text-white/90 uppercase">{accentColor}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ambiance de fond sombre */}
+                <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+                  <label className="block text-xs font-medium text-[#8A90A0]">
+                    Ambiance de fond du site
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {THEME_OPTIONS.map((th) => {
+                      const isSelected = themeMode === th.id;
+                      return (
+                        <button
+                          key={th.id}
+                          type="button"
+                          onClick={() => setThemeMode(th.id as any)}
+                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-white text-white shadow-md'
+                              : 'border-white/[0.08] text-[#8A90A0] hover:text-white'
+                          }`}
+                          style={{
+                            backgroundColor: th.bg,
+                            borderColor: isSelected ? accentColor : undefined,
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-white">{th.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5" style={{ color: accentColor }} />}
+                          </div>
+                          <p className="text-[11px] text-[#8A90A0] mt-0.5">{th.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+
+              {/* 3. TEXTES & ACCROCHE PROSPECT */}
+              <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+                  <Sparkles className="w-4 h-4 text-[#E2BD6B]" />
+                  <h3 className="text-sm font-semibold text-white">3. Textes & Promesse Client</h3>
+                </div>
+
+                {/* Headline principale */}
+                <div className="space-y-1.5">
+                  <label htmlFor="st-headline" className="block text-xs font-medium text-[#8A90A0]">
+                    Grand titre d'accroche
+                  </label>
+                  <input
+                    id="st-headline"
+                    type="text"
+                    value={headline}
+                    onChange={(e) => setHeadline(e.target.value)}
+                    placeholder="Ex : Vos plus beaux souvenirs transformés en chansons d’exception"
+                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
+                  />
+                </div>
+
+                {/* Phrase d'accueil (Bio) */}
+                <div className="space-y-1.5">
+                  <label htmlFor="st-bio" className="block text-xs font-medium text-[#8A90A0]">
+                    Sous-titre et présentation de votre studio
+                  </label>
+                  <textarea
+                    id="st-bio"
+                    rows={2}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Ex : Création sur-mesure en 15 minutes, paroles écrites spécialement pour vos proches..."
+                    className="w-full p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
+                  />
+                </div>
+              </section>
+
+              {/* 4. MODULES DU SITE (AJOUTER / ENLEVER) */}
+              <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
+                <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
+                  <Sliders className="w-4 h-4 text-[#E2BD6B]" />
+                  <h3 className="text-sm font-semibold text-white">4. Modules & Toggles (Ajouter ou Enlever)</h3>
+                </div>
+
+                {/* Toggle Démos Audios */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Music2 className="w-4 h-4 text-[#E2BD6B]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Lecteur d’extraits audio</p>
+                      <p className="text-[11px] text-[#8A90A0]">Affiche 3 morceaux réels de démonstration avec paroles</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDemos}
+                      onChange={(e) => setShowDemos(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
+
+                {/* Toggle Garanties */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-[#10D98E]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Bloc des 3 garanties d’excellence</p>
+                      <p className="text-[11px] text-[#8A90A0]">Livraison express, format audio MP3 HD, paiement sécurisé</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showGuarantees}
+                      onChange={(e) => setShowGuarantees(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
+
+                {/* Toggle Bouton WhatsApp d'Assistance Direct */}
+                <div className="pt-2 border-t border-white/[0.06] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                      <div>
+                        <p className="text-xs font-semibold text-white">Bouton d’assistance WhatsApp direct</p>
+                        <p className="text-[11px] text-[#8A90A0]">Permet à vos clients de vous contacter directement en cas de besoin</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showWhatsApp}
+                        onChange={(e) => setShowWhatsApp(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#25D366]" />
+                    </label>
+                  </div>
+
+                  {showWhatsApp && (
+                    <div className="p-4 rounded-2xl bg-[#06070A] border border-white/[0.08] space-y-3">
+                      <div className="space-y-1">
+                        <label htmlFor="wa-phone" className="block text-xs font-medium text-[#8A90A0]">
+                          Votre numéro WhatsApp (avec indicatif pays)
+                        </label>
+                        <input
+                          id="wa-phone"
+                          type="tel"
+                          value={whatsAppPhone}
+                          onChange={(e) => setWhatsAppPhone(e.target.value)}
+                          placeholder="+225 07 00 00 00 ou +226 70 00 00 00"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#25D366]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label htmlFor="wa-prompt" className="block text-xs font-medium text-[#8A90A0]">
+                          Message d'accueil pré-rempli pour vos clients
+                        </label>
+                        <input
+                          id="wa-prompt"
+                          type="text"
+                          value={whatsAppPrompt}
+                          onChange={(e) => setWhatsAppPrompt(e.target.value)}
+                          placeholder="Ex : Bonjour ! J’ai une question concernant la création d'une chanson."
+                          className="w-full px-3.5 py-2 rounded-xl bg-black/40 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#25D366]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {/* Bouton d'enregistrement / publication */}
+              <button
+                type="submit"
+                disabled={savingSite}
+                className="w-full py-4 rounded-2xl bg-white text-black text-sm font-bold hover:bg-neutral-200 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl disabled:opacity-50"
+              >
+                {savingSite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                <span>{savingSite ? 'Publication en cours…' : 'Enregistrer et publier mon site'}</span>
+              </button>
+            </form>
+          </div>
+
+          {/* ============================================================ */}
+          {/* COLONNE DROITE (5/12) : APERÇU LIVE EN TEMPS RÉEL (MOCKUP)   */}
+          {/* ============================================================ */}
+          <div className="lg:col-span-5 sticky top-20 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-[#E2BD6B]" />
+                <h3 className="text-sm font-semibold text-white">Aperçu en direct</h3>
               </div>
 
-              {/* Ligne URL & Boutons */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 border border-white/[0.08] text-xs text-white/80 shrink-0">
-                <span className="font-mono text-[11px] truncate max-w-[200px] sm:max-w-xs">
-                  djelia.store/s/{cleanSlug}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(miniSiteUrl, 'mini')}
-                  className="text-[#E2BD6B] font-semibold shrink-0 cursor-pointer hover:underline text-[11px]"
-                >
-                  {copiedKey === 'mini' ? 'Copié' : 'Copier'}
-                </button>
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-xl bg-[#0D0F14] border border-white/[0.08] p-0.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice('mobile')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                      previewDevice === 'mobile' ? 'bg-white text-black font-semibold' : 'text-[#8A90A0]'
+                    }`}
+                  >
+                    Mobile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice('desktop')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                      previewDevice === 'desktop' ? 'bg-white text-black font-semibold' : 'text-[#8A90A0]'
+                    }`}
+                  >
+                    Plein
+                  </button>
+                </div>
+
                 <a
                   href={miniSiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-white/70 hover:text-white shrink-0 p-0.5"
-                  title="Voir mon site"
+                  className="p-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white"
+                  title="Ouvrir dans un nouvel onglet"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>
 
-            {/* Aperçu du pitch & Offre */}
-            <div className="rounded-2xl bg-black/30 p-4 border border-white/[0.06] space-y-2">
-              <p className="text-xs text-white/90 italic">
-                « {studioBio || 'Présentez votre studio en une phrase percutante.'} »
-              </p>
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/[0.06] text-xs">
-                <div className="flex items-center gap-2 text-white">
-                  <span className="font-bold">Chanson Personnalisée complète :</span>
-                  <span className="font-mono font-bold text-[#E2BD6B]">1 200 F CFA</span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 text-emerald-400 text-[11px] font-medium">
-                  <Sparkles className="w-3 h-3" />
-                  <span>50% reversés à chaque vente (600 F CFA)</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Formulaire de personnalisation */}
-          <form onSubmit={handleSaveSite} className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-              <h3 className="text-sm font-semibold text-white">Personnalisation de votre Vitrine</h3>
-              <span className="text-[11px] text-[#8A90A0]">Même entonnoir de vente éprouvé à 1 200 F</span>
-            </div>
-
-            {siteSavedNotice && (
-              <div className="p-3.5 rounded-2xl bg-[#10D98E]/15 border border-[#10D98E]/30 text-[#10D98E] text-xs font-medium flex items-center gap-2">
-                <Check className="w-4 h-4 shrink-0" />
-                <span>{siteSavedNotice}</span>
-              </div>
-            )}
-
-            {/* Nom du Studio */}
-            <div className="space-y-2">
-              <label htmlFor="site-name" className="block text-xs font-medium text-[#8A90A0]">
-                Nom officiel de votre studio
-              </label>
-              <input
-                id="site-name"
-                type="text"
-                value={studioName}
-                onChange={(e) => setStudioName(e.target.value)}
-                placeholder="Ex : Fatou Music, Awa Studio, Mélodies d'Afrique..."
-                required
-                className="w-full px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
-              />
-            </div>
-
-            {/* Slug d'URL */}
-            <div className="space-y-2">
-              <label htmlFor="site-slug" className="block text-xs font-medium text-[#8A90A0]">
-                Votre adresse exclusive (djelia.store/s/...)
-              </label>
-              <div className="flex items-center rounded-2xl bg-[#06070A] border border-white/[0.08] overflow-hidden focus-within:border-[#E2BD6B]">
-                <span className="px-3.5 py-3 text-xs text-[#8A90A0] bg-white/[0.02] border-r border-white/[0.06] select-none">
-                  djelia.store/s/
-                </span>
-                <input
-                  id="site-slug"
-                  type="text"
-                  value={studioSlug}
-                  onChange={(e) => setStudioSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="mon-studio"
-                  required
-                  className="flex-1 px-3.5 py-3 bg-transparent text-sm text-white focus:outline-none font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Couleur d'accentuation */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-[#8A90A0] flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5 text-[#E2BD6B]" />
-                <span>Couleur d'accentuation de votre vitrine</span>
-              </label>
-              <div className="flex flex-wrap items-center gap-3">
-                {ACCENT_COLORS.map((c) => {
-                  const isSelected = studioColor.toLowerCase() === c.id.toLowerCase();
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setStudioColor(c.id)}
-                      className={`px-3.5 py-2 rounded-xl border text-xs font-medium inline-flex items-center gap-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-white bg-white/10 text-white shadow-sm'
-                          : 'border-white/[0.08] bg-[#06070A] text-[#8A90A0] hover:text-white'
-                      }`}
-                    >
-                      <span className={`w-3.5 h-3.5 rounded-full ${c.class} shadow-sm`} />
-                      <span>{c.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Phrase d'accroche */}
-            <div className="space-y-2">
-              <label htmlFor="site-bio" className="block text-xs font-medium text-[#8A90A0]">
-                Phrase d'accroche pour vos prospects
-              </label>
-              <textarea
-                id="site-bio"
-                rows={2}
-                value={studioBio}
-                onChange={(e) => setStudioBio(e.target.value)}
-                placeholder="Ex : Création de chansons personnalisées émouvantes, livrées en 15 minutes sur WhatsApp..."
-                className="w-full p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingSite}
-              className="w-full py-3.5 rounded-2xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            {/* Cadre du Mockup en Temps Réel */}
+            <div
+              className={`rounded-[32px] border overflow-hidden shadow-2xl transition-all duration-300 mx-auto ${
+                previewDevice === 'mobile' ? 'max-w-[360px] border-white/[0.14]' : 'w-full border-white/[0.12]'
+              }`}
+              style={{ backgroundColor: currentTheme.bg }}
             >
-              {savingSite && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{savingSite ? 'Publication en cours…' : 'Enregistrer et publier mon site'}</span>
-            </button>
-          </form>
+              {/* Fake status bar pour le mobile */}
+              {previewDevice === 'mobile' && (
+                <div className="px-5 pt-3 pb-2 flex items-center justify-between text-[10px] text-white/40 font-mono select-none">
+                  <span>9:41</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full border border-white/40" />
+                    <span className="w-3.5 h-2 rounded border border-white/40" />
+                  </div>
+                </div>
+              )}
+
+              {/* Header de la vitrine preview */}
+              <div
+                className="px-4 py-3 border-b flex items-center justify-between"
+                style={{
+                  backgroundColor: `${currentTheme.bg}F0`,
+                  borderColor: currentTheme.border,
+                }}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {photoUrl ? (
+                    <img
+                      src={photoUrl}
+                      alt="Logo"
+                      className="w-7 h-7 rounded-xl object-cover shrink-0 border"
+                      style={{ borderColor: accentColor }}
+                    />
+                  ) : (
+                    <div
+                      className="w-7 h-7 rounded-xl flex items-center justify-center text-black font-black text-xs shrink-0"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      {initials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{studioName || 'Mon Studio'}</p>
+                    {showBadge && (
+                      <span
+                        className="text-[9px] font-mono px-1.5 py-0.2 rounded-full border truncate inline-block"
+                        style={{
+                          borderColor: `${accentColor}40`,
+                          backgroundColor: `${accentColor}15`,
+                          color: accentColor,
+                        }}
+                      >
+                        {badgeText}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="font-mono font-bold text-xs shrink-0" style={{ color: accentColor }}>
+                  1 200 F
+                </div>
+              </div>
+
+              {/* Contenu de la vitrine preview */}
+              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
+                {/* Hero miniature */}
+                <div className="text-center space-y-2 py-2">
+                  <h4 className="text-sm font-extrabold text-white leading-snug">
+                    {headline || 'Vos plus beaux souvenirs en musique'}
+                  </h4>
+                  <p className="text-[11px] text-[#8A90A0] line-clamp-2">
+                    {bio || 'Création musicale sur-mesure en 15 minutes.'}
+                  </p>
+                </div>
+
+                {/* Formulaire brief miniature */}
+                <div
+                  className="p-3.5 rounded-2xl border space-y-2.5"
+                  style={{
+                    backgroundColor: currentTheme.card,
+                    borderColor: currentTheme.border,
+                  }}
+                >
+                  <div className="flex items-center justify-between text-[11px] pb-1 border-b border-white/[0.06]">
+                    <span className="font-semibold text-white">Brief de votre chanson</span>
+                    <span className="font-mono text-[#E2BD6B] font-bold">1 200 F CFA</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-[#8A90A0]">Pour qui ?</span>
+                    <div className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/[0.08] text-[11px] text-white/50">
+                      Ex : Mariam, Ibrahim...
+                    </div>
+                  </div>
+
+                  <div
+                    className="py-2 rounded-xl text-center font-bold text-xs text-black shadow-sm"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    Valider & Commander (1 200 F)
+                  </div>
+                </div>
+
+                {/* Démos miniature */}
+                {showDemos && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[10px] font-semibold text-white/70 uppercase tracking-wider font-mono">
+                      Extraits studio
+                    </p>
+                    <div
+                      className="p-2.5 rounded-xl border flex items-center justify-between"
+                      style={{
+                        backgroundColor: currentTheme.card,
+                        borderColor: currentTheme.border,
+                      }}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold text-white truncate">Anniversaire — Mariam</p>
+                        <p className="text-[9px] text-[#8A90A0]">Afro-Love Acoustique</p>
+                      </div>
+                      <div
+                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+                      >
+                        <Music2 className="w-3 h-3" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Garanties miniature */}
+                {showGuarantees && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div
+                      className="p-2 rounded-xl border text-center space-y-0.5"
+                      style={{
+                        backgroundColor: currentTheme.card,
+                        borderColor: currentTheme.border,
+                      }}
+                    >
+                      <p className="text-[10px] font-bold text-white">Direct Web</p>
+                      <p className="text-[8px] text-[#8A90A0]">Livraison immédiate</p>
+                    </div>
+                    <div
+                      className="p-2 rounded-xl border text-center space-y-0.5"
+                      style={{
+                        backgroundColor: currentTheme.card,
+                        borderColor: currentTheme.border,
+                      }}
+                    >
+                      <p className="text-[10px] font-bold text-white">Wave / OM</p>
+                      <p className="text-[8px] text-[#8A90A0]">100% Sécurisé</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bouton WhatsApp miniature */}
+                {showWhatsApp && (
+                  <div className="pt-1">
+                    <div className="p-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/30 flex items-center justify-center gap-1.5 text-[#25D366] text-[10px] font-bold">
+                      <MessageCircle className="w-3 h-3 fill-[#25D366]" />
+                      <span>Assistance WhatsApp disponible</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer miniature */}
+                <div className="pt-2 text-center text-[9px] text-white/40">
+                  © {new Date().getFullYear()} {studioName || 'Mon Studio'} · Tous droits réservés
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
+        /* ============================================================ */
+        /* ONGLET 2 : AFFILIATION 50% & RETRAITS DIRECTS WHATSAPP       */
+        /* ============================================================ */
         <div className="space-y-6">
           {/* CARTE SOLDE 50% GÉANTE (Stripe Glow) */}
           <section className="stripe-glow-card rounded-[28px] p-6 space-y-5 border border-white/[0.12]">
@@ -473,7 +1041,6 @@ export const AffiliationView: FC = () => {
               </button>
             </div>
 
-            {/* Récapitulatif montant */}
             <div className="p-4 rounded-2xl bg-[#06070A] border border-white/[0.08] text-center space-y-1">
               <p className="text-xs text-[#8A90A0]">Montant à verser sur votre compte :</p>
               <p className="text-2xl font-black text-white font-mono">
@@ -483,7 +1050,6 @@ export const AffiliationView: FC = () => {
             </div>
 
             <form onSubmit={handleRequestWithdraw} className="space-y-4">
-              {/* Choix de l'opérateur */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-[#8A90A0]">
                   Opérateur Mobile Money
@@ -506,7 +1072,6 @@ export const AffiliationView: FC = () => {
                 </div>
               </div>
 
-              {/* Numéro de téléphone de réception */}
               <div className="space-y-1.5">
                 <label htmlFor="payout-phone" className="block text-xs font-medium text-[#8A90A0]">
                   Numéro de réception ({withdrawOperator})
@@ -522,7 +1087,6 @@ export const AffiliationView: FC = () => {
                 />
               </div>
 
-              {/* Nom du titulaire */}
               <div className="space-y-1.5">
                 <label htmlFor="payout-name" className="block text-xs font-medium text-[#8A90A0]">
                   Nom et prénom du titulaire du compte
@@ -538,7 +1102,6 @@ export const AffiliationView: FC = () => {
                 />
               </div>
 
-              {/* Bouton d'action WhatsApp */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -560,7 +1123,7 @@ export const AffiliationView: FC = () => {
               </div>
 
               <p className="text-[11px] text-[#8A90A0] text-center leading-relaxed">
-                Vous serez redirigé sur le WhatsApp officiel de l'équipe Djélia avec votre message déjà rédigé.
+                Vous serez redirigé sur le WhatsApp officiel de l'équipe avec votre message déjà rédigé.
               </p>
             </form>
           </div>

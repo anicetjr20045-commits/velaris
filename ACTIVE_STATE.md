@@ -25,7 +25,29 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (13:20 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (13:42 UTC)
+- **Personnalisation Front-End Maximale des Vitrines Partenaires & Mockup Live (`AffiliationView.tsx` & `MiniSiteView.tsx`)** :
+  1. **Personnalisation Poussée à l'Extrême (White-Label Intégral)** :
+     - **Identité Visuelle & Logo** : Téléversement direct d'une photo / logo de profil (avec conversion DataURL) ou saisie d'URL d'image, bouton de suppression instantanée, monogramme stylisé automatique en fallback.
+     - **Zéro Mention Forcée de Djélia** : Suppression complète de toute mention « Partenaire Officiel Djélia » ou « Technologie Djélia Engine ». Le site appartient 100% à l'utilisateur.
+     - **Badge de Confiance Modulaire** : Interrupteur on/off et saisie libre du texte de réassurance (ex: « Studio de Création Musicale », « 100% Original »).
+     - **Ambiance & Couleurs Libres** : 8 presets de prestige (Or Champagne, Émeraude Royale, Cyan Électrique, Rose Passion, Violet Studio, Rubis Vif, Ambre Solaire, Blanc Pur) + Sélecteur de couleur hexadécimale libre (`<input type="color">`).
+     - **4 Thèmes de Fond Sombre** : Obsidienne Pure (`#06070A`), Nuit Bleue Midnight (`#070A12`), Émeraude Sombre (`#050F0B`), Café Carbone (`#0C0A09`).
+     - **Promesse & Textes Libres** : Grand titre d'accroche (Headline) et biographie/citation d'accueil personnalisables en direct.
+     - **Modules & Toggles Débrayables** :
+       - Activer / Masquer les 3 démos audio avec paroles.
+       - Activer / Masquer le bento des 3 garanties d'excellence.
+       - Activer / Masquer le **Bouton d'Assistance WhatsApp Direct** avec saisie du numéro WhatsApp propre au créateur et message d'accueil pré-rempli (avec bouton flottant persistant en bas à droite).
+  2. **Aperçu Live Interactif en Temps Réel (Split-Screen)** :
+     - Colonne de gauche avec l'ensemble des contrôles bento hiérarchisés.
+     - Colonne de droite avec le mockup interactif (bascule vue Mobile Smartphone iPhone / Plein Format) qui réagit instantanément à chaque frappe, upload d'image, changement de couleur ou toggle.
+     - Bouton « Tester en plein écran » ouvrant la vitrine réelle `djelia.store/s/:slug`.
+  3. **Persistance Étanche Tri-Niveaux** :
+     - Supabase Auth `user_metadata`.
+     - Supabase table `studios` (y compris colonne `social_links` JSONB pour tous les paramètres étendus).
+     - Cache local `localStorage` (`djelia_custom_studio_${slug}`) pour un affichage instantané sans scintillement.
+  4. **Parcours Commande 100% Web Autonome** :
+     - Validation du brief sur la vitrine partenaire sauvegardant le panier (`djelia_draft`) et redirigeant directement vers le tunnel web de composition et paiement en direct (`djelia.store/studio.html`).
 - **Refonte Complète du Programme d'Affiliation 50% & Mini-Sites Co-Brandés (`djelia.store/s/:slug`)** :
   1. **Modèle Économique & Partage 50/50 Validé** :
      - Prix de vente unique et harmonisé : **1 200 F CFA** la chanson personnalisée (identique sur le site principal et toutes les vitrines partenaires).
