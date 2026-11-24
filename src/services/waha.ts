@@ -401,16 +401,18 @@ export async function sendWahaVoiceMessage(
   audio: Blob,
   sessionName: string = WAHA_CONFIG.defaultSession
 ): Promise<WahaSendTextResponse> {
+  const effectiveSession = sessionName || WAHA_CONFIG.defaultSession || 'Test';
   const mime = audio.type || 'audio/ogg';
-  const isOgg = mime.includes('ogg');
+  const isOgg = mime.includes('ogg') || mime.includes('opus');
   const data = await blobToBase64(audio);
+  const ext = mime.includes('mp4') ? 'm4a' : (mime.includes('mpeg') || mime.includes('mp3')) ? 'mp3' : 'webm';
   return postSend('/api/sendVoice', {
-    session: sessionName,
+    session: effectiveSession,
     chatId: toChatId(chatId),
     convert: !isOgg,
     file: {
       mimetype: isOgg ? 'audio/ogg; codecs=opus' : mime.split(';')[0],
-      filename: isOgg ? 'voice.ogg' : `voice.${mime.includes('mp4') ? 'm4a' : mime.includes('mpeg') ? 'mp3' : 'webm'}`,
+      filename: isOgg ? 'voice.ogg' : `voice.${ext}`,
       data,
     },
   });

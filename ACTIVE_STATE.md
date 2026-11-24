@@ -25,27 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (18:35 UTC)
-- **Studio Vocal & Voix IA Fish Audio Déployé en Production (Pôle 04 Studio IA)** :
-  1. **Atelier Studio Vocal (`VoiceLabView.tsx` & `src/services/fishVoice.ts`)** :
-     - Intégration du **Pôle 04** dans le hub du Studio IA avec carte violette de prestige.
-     - **Catalogue de 6 Voix Authentiques Fish Audio (`s2.1-pro-free`)** :
-       - *Awa* (Ivoirienne Chaleureuse · Signature Studio · Accueil & Vocal de procédure)
-       - *Koffi* (Ivoirien Posé · Confiance & Devis · Confirmation de commandes)
-       - *Fatou* (Africaine Énergique · Relance Souriante · Suivi des indécis)
-       - *Samba* (Conteur Chaleureux · Storytelling & Émotion)
-       - *Céleste* (Studio Douceur · Douceur & Mariages)
-       - *Adrien* (Studio Prestige · Élégance Radio & Tarifs)
-     - Écoute d'échantillon vocal en 1 clic pour chaque voix avant génération.
-     - **Modèles de messages prêts à l'emploi** : Vocal de procédure officiel, Accueil & Brief, Validation de paiement, Avis de livraison prête, Relance bienveillante.
-  2. **Deux Débouchés Immédiats pour Chaque Note Vocale Générée** :
-     - **Action A : Envoi Flash WhatsApp Direct** : Sélection d'un client dans la liste des commandes ou saisie d'un numéro libre (`+226...`, `+225...`), et expédition en vraie note vocale WhatsApp PTT via WAHA en 1 clic.
-     - **Action B : Enregistrer comme Règle d'Automatisation** : Association à un emoji de réaction (ex: 🎵, 🎙️, ✨), téléversement automatique sur Supabase Storage et activation instantanée dans `automation_rules`.
-  3. **Backend Serverless Dédié (`/api/fish-voice.ts`)** :
-     - Endpoint API Node.js/Vercel relayant les requêtes Fish Audio TTS avec gestion du modèle `s2.1-pro-free`, support MP3 et Opus WhatsApp PTT, et mise en cache.
+- **Dernière mise à jour** : 24 Novembre 2026 (18:48 UTC)
+- **Studio Vocal & Speech-to-Speech Automatique Déployé en Production (Pôle 04 Studio IA)** :
+  1. **Enregistrement Vocal Direct & Speech-to-Speech Automatique (`VoiceLabView.tsx` & `VoiceNoteRecorder.tsx`)** :
+     - **Suppression intégrale des modèles de messages prêts à l'emploi** : interface 100% épurée et libre de suggestions imposées.
+     - **Mode Micro Direct** : l'utilisateur clique sur le micro pour parler directement.
+     - **Transformation Automatique Instantanée** : dès qu'il clique sur « Terminer », sa note vocale est automatiquement envoyée au moteur Whisper (`https://waha.velarisagent.life/api/stt/transcribe`), retranscrite en texte et synthétisée dans la voix choisie (Fish Audio `s2.1-pro-free`).
+     - **Retouches Libres Possibles** : le texte retranscrit s'affiche sous forme de citation avec un bouton « Regénérer » en cas d'ajustement.
+     - **Mode Saisie Clavier Débrayable** : un onglet sobre permet de saisir manuellement son message si l'on préfère écrire.
+  2. **Garantie Réception WhatsApp en Vraie Note Vocale Native (PTT)** :
+     - Intégration dans `src/services/waha.ts` de la conformité PTT WhatsApp (`audio/ogg; codecs=opus`, fallback `convert: true` ffmpeg via WAHA).
+     - Le destinataire reçoit le vocal sous forme de note vocale WhatsApp native (forme d'onde verte, photo de profil et bouton lecture vert) et non comme un simple fichier audio joint.
+  3. **Catalogue de 6 Voix Authentiques Fish Audio (`s2.1-pro-free`)** :
+     - *Awa* (Ivoirienne Chaleureuse · Signature Studio · Accueil & Vocal de procédure)
+     - *Koffi* (Ivoirien Posé · Confiance & Devis · Confirmation de commandes)
+     - *Fatou* (Africaine Énergique · Relance Souriante · Suivi des indécis)
+     - *Samba* (Conteur Chaleureux · Storytelling & Émotion)
+     - *Céleste* (Studio Douceur · Douceur & Mariages)
+     - *Adrien* (Studio Prestige · Élégance Radio & Tarifs)
   4. **Déploiements Production Validés** :
-     - Vercel Production : `https://velaris-dun.vercel.app` (Build Vite réussi en 4.20s, vérification curl OK).
-     - Dépôt GitHub synchronisé : `main` (`a2297b7`).
+     - Vercel Production : `https://velaris-dun.vercel.app` (Build Vite réussi en 4.11s).
+     - Dépôt GitHub synchronisé : `main`.
 - **Refonte Complète de l'Académie : Studio Masterclass Vidéo Épuré Déployé en Production** :
   1. **Architecture Studio 8/4 Épurée (`AcademyView.tsx`)** :
      - Remplacement de l'ancien système de défilement textuel lourd par un **Studio Vidéo Masterclass** immersif et sobre.

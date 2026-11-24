@@ -19,6 +19,8 @@ interface VoiceNoteRecorderProps {
   confirmLabel?: string;
   /** Démarre l'enregistrement dès l'ouverture */
   autoStart?: boolean;
+  /** Valide et transmet l'audio dès l'arrêt sans étape intermédiaire de revue */
+  autoSubmitOnStop?: boolean;
 }
 
 type Phase = 'idle' | 'requesting' | 'recording' | 'review' | 'error';
@@ -47,6 +49,7 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
   maxSeconds = 120,
   confirmLabel = 'Utiliser ce vocal',
   autoStart = false,
+  autoSubmitOnStop = false,
 }) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
@@ -152,8 +155,21 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
         const blob = new Blob(chunks, { type });
         const url = URL.createObjectURL(blob);
         ownedUrlRef.current = url;
-        setRecording({ blob, url, mimeType: type, durationSec: (performance.now() - t0) / 1000, peaks: peaksRef.current.slice() });
-        setPhase('review');
+        const recData: VoiceRecording = {
+          blob,
+          url,
+          mimeType: type,
+          durationSec: (performance.now() - t0) / 1000,
+          peaks: peaksRef.current.slice(),
+        };
+        setRecording(recData);
+        if (autoSubmitOnStop) {
+          ownedUrlRef.current = null;
+          setPhase('idle');
+          onComplete(recData);
+        } else {
+          setPhase('review');
+        }
       };
 
       let lastSample = 0;
