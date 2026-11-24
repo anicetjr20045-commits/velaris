@@ -198,6 +198,17 @@ export const AffiliationView: FC = () => {
     };
 
     try {
+      // 0. Publication directe et infaillible sur le serveur VPS (orders.db / affiliate_configs)
+      try {
+        await fetch('https://waha.velarisagent.life/api/stt/pay/affiliate/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: cleanSlug, config: fullConfig }),
+        });
+      } catch {
+        // En cas de coupure, continue vers le stockage local/Supabase
+      }
+
       // 1. Sauvegarde instantanée en localStorage pour affichage direct à zéro latence
       try {
         localStorage.setItem(`djelia_custom_studio_${cleanSlug}`, JSON.stringify(fullConfig));
@@ -287,8 +298,8 @@ export const AffiliationView: FC = () => {
         }
       }
 
-      setSiteSavedNotice('Votre vitrine personnalisée a été enregistrée et publiée avec succès !');
-      setTimeout(() => setSiteSavedNotice(null), 4000);
+      setSiteSavedNotice(`Votre site a été enregistré et publié en direct sur https://djelia.store/s/${cleanSlug}`);
+      setTimeout(() => setSiteSavedNotice(null), 6000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur lors de la mise à jour.';
       setSiteSavedNotice(msg);
