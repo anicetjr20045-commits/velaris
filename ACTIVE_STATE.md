@@ -25,26 +25,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (18:48 UTC)
-- **Studio Vocal & Speech-to-Speech Automatique Déployé en Production (Pôle 04 Studio IA)** :
-  1. **Enregistrement Vocal Direct & Speech-to-Speech Automatique (`VoiceLabView.tsx` & `VoiceNoteRecorder.tsx`)** :
-     - **Suppression intégrale des modèles de messages prêts à l'emploi** : interface 100% épurée et libre de suggestions imposées.
-     - **Mode Micro Direct** : l'utilisateur clique sur le micro pour parler directement.
-     - **Transformation Automatique Instantanée** : dès qu'il clique sur « Terminer », sa note vocale est automatiquement envoyée au moteur Whisper (`https://waha.velarisagent.life/api/stt/transcribe`), retranscrite en texte et synthétisée dans la voix choisie (Fish Audio `s2.1-pro-free`).
-     - **Retouches Libres Possibles** : le texte retranscrit s'affiche sous forme de citation avec un bouton « Regénérer » en cas d'ajustement.
-     - **Mode Saisie Clavier Débrayable** : un onglet sobre permet de saisir manuellement son message si l'on préfère écrire.
+- **Dernière mise à jour** : 24 Novembre 2026 (18:59 UTC)
+- **Studio Vocal Voice-to-Voice Direct avec Voix Originale Conservée Déployé en Production (Pôle 04 Studio IA)** :
+  1. **Conservation Stricte de la Voix Originale & Métamorphose Voice-to-Voice (`VoiceLabView.tsx`)** :
+     - **La voix brute enregistrée au micro est précieusement conservée** : l'utilisateur dispose de son propre lecteur audio pour réécouter sa prise originale (`01. Votre Voix Originale`).
+     - **Transformation Directe Voice-to-Voice vers la Voix Cible** : la voix enregistrée est instantanément métamorphosée vers la voix Fish Audio active (`02. Voix Transformée · Awa/Koffi/Fatou...`).
+     - **Bascule Multi-Voix Instantanée (Zero Ré-enregistrement)** : l'utilisateur peut tester son enregistrement brut avec n'importe quelle autre voix du catalogue (Koffi, Samba, Fatou, Céleste, Adrien) en un seul clic sans avoir à ré-enregistrer sa voix.
+     - **Suppression intégrale des modèles de messages prêts à l'emploi** : interface libre, sobre et sans artifice.
+     - **Mode Saisie Clavier Débrayable** : accessible en un clic pour ceux qui préfèrent taper leur texte.
   2. **Garantie Réception WhatsApp en Vraie Note Vocale Native (PTT)** :
-     - Intégration dans `src/services/waha.ts` de la conformité PTT WhatsApp (`audio/ogg; codecs=opus`, fallback `convert: true` ffmpeg via WAHA).
-     - Le destinataire reçoit le vocal sous forme de note vocale WhatsApp native (forme d'onde verte, photo de profil et bouton lecture vert) et non comme un simple fichier audio joint.
-  3. **Catalogue de 6 Voix Authentiques Fish Audio (`s2.1-pro-free`)** :
-     - *Awa* (Ivoirienne Chaleureuse · Signature Studio · Accueil & Vocal de procédure)
-     - *Koffi* (Ivoirien Posé · Confiance & Devis · Confirmation de commandes)
-     - *Fatou* (Africaine Énergique · Relance Souriante · Suivi des indécis)
-     - *Samba* (Conteur Chaleureux · Storytelling & Émotion)
-     - *Céleste* (Studio Douceur · Douceur & Mariages)
-     - *Adrien* (Studio Prestige · Élégance Radio & Tarifs)
-  4. **Déploiements Production Validés** :
-     - Vercel Production : `https://velaris-dun.vercel.app` (Build Vite réussi en 4.11s).
+     - Route WAHA `/api/sendVoice` avec encodage PTT natif et conversion ffmpeg.
+     - Le client reçoit sur WhatsApp une vraie note vocale verte avec forme d'onde, photo de profil et lecture au doigt.
+  3. **Déploiements Production Validés** :
+     - Vercel Production : `https://velaris-dun.vercel.app` (Build Vite réussi en 3.95s).
      - Dépôt GitHub synchronisé : `main`.
 - **Refonte Complète de l'Académie : Studio Masterclass Vidéo Épuré Déployé en Production** :
   1. **Architecture Studio 8/4 Épurée (`AcademyView.tsx`)** :
