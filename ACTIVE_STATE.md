@@ -25,26 +25,25 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (14:07 UTC)
-- **Synchronisation White-Label Complète sur le Site Principal `djelia.store`** :
-  1. **Convergence Totale du Moteur & Personnalisation Front-End** :
-     - Les affiliés ne sont plus cantonnés à une sous-page : **leur lien donne directement accès au vrai site de composition `djelia.store` (et `djelia.store/studio.html`)**, qui s'habille dynamiquement à leurs couleurs.
-     - Prise en charge universelle des URLs :
-       - `https://djelia.store/s/:slug` (réécriture Vercel instantanée vers `studio.html` sans changer l'URL du navigateur).
-       - `https://djelia.store/studio.html?ref=:slug` (accès direct au studio musical avec attribution).
-       - `https://djelia.store/?ref=:slug` (landing page grand public personnalisée).
+- **Dernière mise à jour** : 24 Novembre 2026 (14:20 UTC)
+- **Aiguillage Public Garanti vers le Vrai Site `djelia.store` (`index.html`) & Zéro Exposition de `/studio`** :
+  1. **Correction d'Aiguillage Définitive** :
+     - `/studio.html` (ou `/studio`) est la console régie privée de travail réservée au gérant pour ses tests et compositions directes.
+     - Les affiliés et leurs prospects sont aiguillés à 100% vers **le vrai site public de commande `djelia.store` (`index.html`)**, avec le tunnel complet en 6 étapes (styles, démos, brief, paroles, formule et paiement en ligne à 1 200 F CFA sur `paiement.html`).
+     - Prise en charge universelle des URLs affiliées :
+       - `https://djelia.store/s/:slug` (réécriture Vercel transparente vers `/index.html` sans altérer l'URL).
+       - `https://djelia.store/?ref=:slug` (accès direct au tunnel grand public avec attribution).
+       - Aucune redirection ne pointe vers `/studio` pour les visiteurs ou affiliés.
   2. **Moteur d'Injection Dynamique (`djelia-white-label.js`) Déployé sur `djelia.store`** :
-     - Remplacement dynamique du nom du studio dans la navbar desktop & mobile.
-     - Remplacement de l'icône par le logo/photo personnalisé ou le monogramme stylisé.
-     - Colorisation dynamique de tout le site (variables CSS `--gold`, boutons, reflets, bordures) selon la couleur d'accent choisie par l'affilié.
-     - Adaptation de l'ambiance de fond (Obsidienne, Midnight, Émeraude, Carbone).
+     - Remplacement dynamique du nom du studio dans la marque (`.wordmark`).
+     - Remplacement du logo/photo par l'image téléversée ou le monogramme stylisé.
+     - Colorisation dynamique de tout le site (variables CSS `--terracotta`, `--gold`, boutons, reflets, bordures) selon la couleur d'accent choisie par l'affilié.
      - Bouton d'assistance WhatsApp flottant persistant en bas à droite relié au **numéro propre de l'affilié**.
-     - Attribution automatique et persistante des commissions (50% net, soit 600 F CFA sur chaque commande de 1 200 F).
+     - Attribution automatique et persistante des commissions (50% net, soit 600 F CFA sur chaque commande de 1 200 F) stockée dans `localStorage` et transmise à `paiement.html`.
   3. **Vérifications en Production Validées** :
-     - Déploiement Vercel `djelia.store` (`velaris-site`) : HTTP 200 OK.
-     - Réécriture `/s/:slug` ➔ `/studio.html` : HTTP 200 OK.
+     - Déploiement Vercel `djelia.store` (`velaris-site`) : HTTP 200 OK sur `https://djelia.store/s/:slug` servant `index.html`.
      - Espace créateur `velaris-dun.vercel.app` (`velaris`) : HTTP 200 OK.
-     - 260/260 tests backend unitaires au vert (`npm test`).
+     - Liens de partage affiliés (`AffiliationView.tsx` et `MiniSiteView.tsx`) pointant exclusivement sur `https://djelia.store/?ref=...` et `https://djelia.store/s/...`.
 - **Personnalisation Front-End Maximale des Vitrines Partenaires & Mockup Live (`AffiliationView.tsx` & `MiniSiteView.tsx`)** :
   1. **Personnalisation Poussée à l'Extrême (White-Label Intégral)** :
      - **Identité Visuelle & Logo** : Téléversement direct d'une photo / logo de profil (avec conversion DataURL) ou saisie d'URL d'image, bouton de suppression instantanée, monogramme stylisé automatique en fallback.
