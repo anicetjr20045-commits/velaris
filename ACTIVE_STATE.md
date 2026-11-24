@@ -25,8 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 23 Novembre 2026 (19:05 UTC)
-- **Déploiement Production Vercel Validé** : `https://velaris-dun.vercel.app` (HTTP 200, Commit `e7fa072`).
+- **Dernière mise à jour** : 24 Novembre 2026 (08:38 UTC)
+- **Déploiement Production Vercel Validé** : `https://velaris-dun.vercel.app`
+- **Refonte Design Intérieur Épuré & Élimination du "Touffu" (Conforme aux Choix Utilisateur)** :
+  1. **Header Sticky Épuré (`src/components/DjeliaAppLayout.tsx`)** :
+     - Élimination des badges superflus (plus de "Serveur Live 24/7", plus de badge de crédits dans le header car déjà présent dans la sidebar).
+     - Remplacement du long fil d'ariane par le titre sobre de l'onglet actif (`Académie`, `Studio IA`, `WhatsApp`, `Mon Compte`) avec le hamburger sur mobile.
+  2. **Studio IA Ultra-Minimaliste (`src/components/StudioView.tsx`)** :
+     - Suppression du split colonnes 5/7 qui surchargeait l'écran.
+     - Suppression des sous-onglets complexes (Lien Protégé, Découpeur Audio), des filtres et du gros bouton "Confirmer comme fait".
+     - Espace de travail centré en pleine largeur : sélecteur de commandes en pilules discrètes, champ de consigne rapide, boutons icônes épurés (Modifier, Générer, Copier), paroles et bouton d'envoi WhatsApp direct.
+     - Formulaire de composition libre clair et aéré.
+  3. **Mon Compte Découpé & Épuré (`src/components/StudioProfileView.tsx`)** :
+     - Réduction drastique de 1060 lignes à 365 lignes.
+     - Suppression de tout le superflu visible : webhooks SasPay admin masqués, grille de facts techniques supprimée, carte de ligne WhatsApp redondante retirée, historique kilométrique des micro-transactions condensé.
+     - Vue principale focalisée sur l'essentiel : Carte Utilisateur & Pass Créateur (Actif/Expiré avec date, alerte compacte et bouton renouveler Chariow 4 900 F), Carte Solde de Crédits (chiffre géant mono et modal recharge), Modal "Paramètres du Studio" pour les réglages avancés (nom, slug, bio, prix), et Déconnexion.
+  4. **Académie Allégée (`src/components/AcademyView.tsx`)** :
+     - Remplacement du pavé d'en-tête de 50 lignes par un header compact (Titre "Académie", compteurs de modules/chapitres et barre de progression fluide).
+     - Suppression des descriptions redondantes pour laisser respirer les cartes de cours et la boîte à outils.
+  5. **Performance & Poids du Bundle** :
+     - Poids JS minifié tombé à 733 kB (contre 1 205 kB à l'origine).
+     - 0 erreur TypeScript sur `tsc -b && vite build`.
 - **Intégration d'un Vrai Menu Applicatif (Sidebar Fixe Desktop & Drawer Mobile Hamburger)** :
   1. **Menu Latéral Professionnel (Desktop Sidebar `w-72`)** :
      - En-tête de marque avec le monogramme géométrique `V` sculpté en obsidienne et or champagne, et le titre `VELARIS STUDIO OS`.

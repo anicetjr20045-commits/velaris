@@ -8,9 +8,7 @@ import {
   LogOut,
   Menu,
   X,
-  Sparkles,
   ShieldCheck,
-  ChevronRight,
   ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -425,46 +423,24 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
       {/* ===================================================================== */}
       <div className="flex-1 md:pl-72 flex flex-col min-w-0">
         
-        {/* Header supérieur avec Fil d'Ariane & Bouton Menu Mobile */}
-        <header className="sticky top-0 z-30 h-16 border-b border-white/[0.08] bg-[#040507]/80 backdrop-blur-2xl px-4 sm:px-8 flex items-center justify-between gap-4">
-          
-          <div className="flex items-center gap-3">
-            {/* Bouton Hamburger Vrai Menu Mobile */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 rounded-xl text-white hover:bg-white/[0.08] transition cursor-pointer"
-              aria-label="Ouvrir le menu"
-            >
-              <Menu className="w-5 h-5 text-[#E0C583]" />
-            </button>
+        {/* Header supérieur épuré */}
+        <header className="sticky top-0 z-30 h-14 border-b border-white/[0.06] bg-[#040507]/90 backdrop-blur-2xl px-4 sm:px-8 flex items-center gap-3">
+          {/* Bouton Hamburger Vrai Menu Mobile */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden p-2 rounded-xl text-[#C7CAD4] hover:text-white hover:bg-white/[0.06] transition cursor-pointer"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu className="w-5 h-5 text-[#E0C583]" />
+          </button>
 
-            {/* Fil d'Ariane épuré */}
-            <div className="flex items-center gap-2 text-xs sm:text-sm font-medium">
-              <span className="text-[#8E94A3] font-mono">Velaris Studio</span>
-              <ChevronRight className="w-3.5 h-3.5 text-neutral-600" />
-              <span className="text-white font-bold capitalize">
-                {currentTab === 'academy' && 'Académie & Cursus'}
-                {currentTab === 'studio_ai' && 'Studio IA de Musique'}
-                {currentTab === 'whatsapp' && 'Mon WhatsApp & Pilote'}
-                {currentTab === 'profile' && 'Mon Compte & Pass'}
-              </span>
-            </div>
-          </div>
-
-          {/* Badges d'état droits */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-xs font-mono font-bold text-[#E0C583]">
-              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>{credits.balance} crédits</span>
-            </div>
-
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.02] text-[#00E599]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00E599] animate-pulse" />
-              Serveur Live 24/7
-            </span>
-          </div>
-
+          <span className="text-sm font-semibold text-white">
+            {currentTab === 'academy' && 'Académie & Cursus'}
+            {currentTab === 'studio_ai' && 'Studio IA de Musique'}
+            {currentTab === 'whatsapp' && 'Mon WhatsApp & Pilote'}
+            {currentTab === 'profile' && 'Mon Compte & Pass'}
+          </span>
         </header>
 
         {/* Zone centrale de travail */}

@@ -423,36 +423,20 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
 
   return (
     <div className="space-y-6 pb-20 md:pb-8 max-w-6xl mx-auto vx-view-enter">
-      {/* En-tête du cursus */}
-      <header className="rounded-[22px] border border-white/[0.08] bg-[#08090C] p-6 sm:p-7 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="text-xs font-mono uppercase tracking-[0.14em] text-[#A3A3A3]">Académie du studio</div>
-            <h1 className="font-display text-3xl sm:text-4xl font-bold text-white leading-tight mt-2">
-              Formation et maîtrise du studio WhatsApp
-            </h1>
-            <p className="text-sm sm:text-base text-[#A3A3A3] mt-2 leading-relaxed">
-              De zéro à vos premières ventes quotidiennes de chansons personnalisées, avec Facebook Ads et Suno.
-            </p>
+      {/* En-tête du cursus épuré */}
+      <header className="rounded-2xl border border-white/[0.08] bg-[#08090C] p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-white">Académie</h2>
+          <div className="flex items-center gap-4 text-xs font-mono text-[#A3A3A3]">
+            <span>{totals.modulesDone}/{modules.length} modules</span>
+            <span>{totals.chaptersSeen}/{totals.chaptersTotal} chapitres</span>
+            <span>{formatMinutes(totals.minutesLeft)} restant</span>
           </div>
-          <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.08] shrink-0">
-            {[
-              { label: 'Modules', value: `${totals.modulesDone}/${modules.length}` },
-              { label: 'Chapitres', value: `${totals.chaptersSeen}/${totals.chaptersTotal}` },
-              { label: 'Restant', value: formatMinutes(totals.minutesLeft) },
-            ].map(s => (
-              <div key={s.label} className="bg-[#0B0C10] px-4 py-3 min-w-[6.5rem]">
-                <dt className="text-[11px] font-mono uppercase tracking-[0.1em] text-[#737373]">{s.label}</dt>
-                <dd className="mt-1 font-mono text-lg font-semibold tabular-nums text-white">{s.value}</dd>
-              </div>
-            ))}
-          </dl>
         </div>
 
-        {/* Barre de progression studio : un segment par module, proportionnel à ses chapitres */}
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between text-sm">
-            <span className="text-[#A3A3A3]">Progression du cursus</span>
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between text-xs">
+            <span className="text-[#8E94A3]">Progression</span>
             <span className="font-mono font-semibold tabular-nums text-[#F3CA75]">{overallPercent} %</span>
           </div>
           <div className="flex gap-1.5" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={overallPercent} aria-label="Progression du cursus">
@@ -696,8 +680,7 @@ export const AcademyView: FC<AcademyViewProps> = ({ modules }) => {
       <section className="rounded-[22px] border border-white/[0.08] bg-[#08090C] p-5 sm:p-7 space-y-5" aria-label="Boîte à outils">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-white">Boîte à outils</h2>
-            <p className="mt-1 text-sm text-[#A3A3A3]">Scripts de vente et prompts Suno, personnalisés puis copiés en un clic.</p>
+            <h2 className="text-lg font-semibold text-white">Boîte à outils</h2>
           </div>
           <div className="grid grid-cols-2 gap-2.5 lg:w-[26rem]">
             <label className="block space-y-1">
