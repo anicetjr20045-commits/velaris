@@ -25,7 +25,19 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (17:05 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (17:28 UTC)
+- **Refonte Complète de l'Académie : Studio Masterclass Vidéo Épuré Déployé en Production** :
+  1. **Architecture Studio 8/4 Épurée (`AcademyView.tsx`)** :
+     - Remplacement de l'ancien système de défilement textuel lourd par un **Studio Vidéo Masterclass** immersif et sobre.
+     - **Colonne Gauche (8/12)** : Grand lecteur vidéo 16:9 haute fidélité (support natif HTML5 / MP4 / embeds et interface de lecture interactive avec timeline scrubbable, play/pause, reset, vitesse 1x-2x, et mute), barre d'action de complétion avec bouton « Marquer comme terminée », et navigation « Leçon suivante ».
+     - **Deux Onglets Clairs sous la Vidéo** :
+       - *Points clés de la leçon* : les 3 enseignements fondamentaux rédigés de manière concrète et mémorisable.
+       - *Ressources & Copier-Coller* : les scripts WhatsApp, prompts Suno et liens externes utiles associés à chaque leçon, avec bouton de copie en 1 clic et feedback visuel instantané.
+     - **Colonne Droite (4/12)** : Playlist verticale ordonnée des leçons du module avec durée, numérotation et coches de validation, plus une boîte à outils essentielle d'accès rapide (Prompts Afro-Love, Pitch Paroles, Coordonnées Wave/OM).
+     - **En-tête Sobre & Progression Globale** : Barre fine de progression, compteur de leçons validées (`X / 22 leçons · Y% terminé`), et sélecteur horizontal des 4 modules de formation.
+     - **Persistance LocalStorage** : Sauvegarde automatique de l'avancement (`velaris_academy_progress_v2`) pour reprendre exactement où l'utilisateur s'est arrêté.
+  2. **Déploiements Production Validés** :
+     - Plateforme Membres Velaris : `https://velaris-dun.vercel.app` (Build Vite en 4.89s, Vercel prod aliased).
 - **Affiliation 50% par Défaut & Studio 3 Formats Déployés en Production** :
   1. **Vue par Défaut Immédiate sur les Gains & Retraits (`AffiliationView.tsx`)** :
      - À l'ouverture de l'onglet Affiliation, l'utilisateur atterrit directement sur son **Tableau de Bord Affiliation 50% & Retraits** (Solde disponible, Clics, Ventes générées, Taux de conversion, Bouton de demande de retrait Wave / OM, Lien unique d'affiliation `djelia.store/s/:slug`, Journal des commissions).
