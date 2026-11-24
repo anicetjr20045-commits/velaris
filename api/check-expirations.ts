@@ -101,7 +101,7 @@ export default async function handler(req: any, res: any) {
         expiredProfilesUpdated.push(u.id);
 
         if (cleanPhone) {
-          const msg = `Djelia Academy : Bonjour ${studioName}.\nVotre Pass Créateur a expiré le ${formattedDate}.\nL'accès à votre studio, à vos outils et à votre ligne WhatsApp a été suspendu.\nPour réactiver immédiatement vos accès et obtenir 30 nouveaux crédits : https://velaris-dun.vercel.app`;
+          const msg = `Djelia Academy : Bonjour ${studioName}.\nVotre Pass Créateur a expiré le ${formattedDate}.\nL'accès à votre studio, à vos outils et à votre ligne WhatsApp a été suspendu.\nPour réactiver immédiatement vos accès et obtenir 30 nouveaux crédits : https://app.djelia.store`;
 
           await fetch(`${config.wahaBaseUrl}/api/sendText`, {
             method: 'POST',
@@ -126,7 +126,7 @@ export default async function handler(req: any, res: any) {
         const alreadySentToday = lastWarning && new Date(lastWarning).toDateString() === now.toDateString();
 
         if (cleanPhone && !alreadySentToday) {
-          const msg = `Djelia Academy : Bonjour ${studioName} !\nVotre Pass Créateur expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''} (le ${formattedDate}).\nPensez à renouveler dès maintenant pour éviter l'interruption de votre ligne WhatsApp et conserver vos crédits : https://velaris-dun.vercel.app`;
+          const msg = `Djelia Academy : Bonjour ${studioName} !\nVotre Pass Créateur expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''} (le ${formattedDate}).\nPensez à renouveler dès maintenant pour éviter l'interruption de votre ligne WhatsApp et conserver vos crédits : https://app.djelia.store`;
 
           await fetch(`${config.wahaBaseUrl}/api/sendText`, {
             method: 'POST',

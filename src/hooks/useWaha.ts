@@ -6,7 +6,9 @@ import {
   ensureWahaSession,
   isProtectedSession,
   stopWahaSession,
+  logoutWahaSession,
   restartWahaSession,
+  requestWahaPairingCode,
   sendWahaTextMessage,
   startWahaHeartbeat,
   type WahaHeartbeat,
@@ -58,6 +60,8 @@ export interface UseWahaReturn {
   refresh: () => Promise<void>;
   restart: () => Promise<boolean>;
   stop: () => Promise<boolean>;
+  logout: () => Promise<boolean>;
+  requestPairingCode: (phone: string) => Promise<{ ok: boolean; code?: string; error?: string }>;
   sendText: (chatId: string, text: string) => Promise<WahaSendTextResponse>;
 }
 
@@ -161,6 +165,27 @@ export function useWahaSession(sessionName: string = WAHA_CONFIG.defaultSession,
     return ok;
   }, [sessionName, refresh, readOnly]);
 
+  const logout = useCallback(async () => {
+    if (readOnly) return false;
+    setIsLoading(true);
+    setQrUrl(null);
+    const ok = await logoutWahaSession(sessionName);
+    await new Promise(r => setTimeout(r, 1500));
+    await restartWahaSession(sessionName);
+    await new Promise(r => setTimeout(r, 1500));
+    await refresh();
+    setQrNonce(n => n + 1);
+    return ok;
+  }, [sessionName, refresh, readOnly]);
+
+  const requestPairingCode = useCallback(
+    async (phone: string) => {
+      if (readOnly) return { ok: false, error: 'Session protégée en lecture seule.' };
+      return requestWahaPairingCode(sessionName, phone);
+    },
+    [sessionName, readOnly]
+  );
+
   const sendText = useCallback(
     (chatId: string, text: string) => sendWahaTextMessage(chatId, text, sessionName),
     [sessionName]
@@ -231,6 +256,8 @@ export function useWahaSession(sessionName: string = WAHA_CONFIG.defaultSession,
     refresh,
     restart,
     stop,
+    logout,
+    requestPairingCode,
     sendText,
   };
 }

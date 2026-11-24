@@ -22,7 +22,7 @@ export interface ChariowCheckoutResponse {
 
 export async function initiateChariowCheckout(options: ChariowCheckoutOptions): Promise<ChariowCheckoutResponse> {
   try {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://velaris-dun.vercel.app';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.djelia.store';
     const redirectUrl = options.redirectUrl || `${origin}/studio?payment=success&sale_id={sale_id}`;
 
     const res = await fetch('/api/chariow-checkout', {

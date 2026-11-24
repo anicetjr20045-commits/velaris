@@ -646,3 +646,64 @@ test('Règle dynamique automation_rules : send_media (Musique MP3) via réaction
   assert.equal(sent[0].content.caption, 'Voici un extrait de chanson personnalisée créé pour un mariage.');
   assert.equal(sent[0].content.mimetype, 'audio/mpeg');
 });
+
+test('Isolation multi-utilisateurs studio_* : ignore les presets admin et filtre automation_rules par user_id', async () => {
+  const sent: any[] = [];
+  const queries: Array<{ table: string; filter: string }> = [];
+  const mockWaha: any = {
+    send: async (session: string, chatId: string, content: any) => {
+      sent.push({ session, chatId, content });
+      return { status: 'sent', waMessageId: 'wa_iso_1' };
+    },
+  };
+
+  const mockDb: any = {
+    queryTable: async (table: string, filter: string) => {
+      queries.push({ table, filter });
+      if (table === 'wa_sessions' && filter.includes('studio_userA999')) {
+        return [{ user_id: 'userA999-1111-2222' }];
+      }
+      if (table === 'automation_rules' && filter.includes('user_id=eq.userA999-1111-2222')) {
+        return [
+          {
+            id: 'rule_userA_1',
+            name: 'Accueil Perso Membre A',
+            trigger_value: '✨',
+            action_type: 'send_text',
+            text_body: 'Bienvenue dans MON propre studio !',
+            media_path: null,
+            caption: null,
+          },
+        ];
+      }
+      return [];
+    },
+  };
+
+  // 1. ✨ sur studio_userA999 ne doit JAMAIS déclencher les tarifs hardcodés de Test,
+  // mais uniquement la règle propre à userA999-1111-2222.
+  const res = await executeEmojiAutomation(
+    'studio_userA999',
+    '22507000000@c.us',
+    '✨',
+    'key_iso_star',
+    { waha: mockWaha, db: mockDb }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(res.action, 'Accueil Perso Membre A');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].content.text, 'Bienvenue dans MON propre studio !');
+  assert.ok(queries.some((q) => q.table === 'automation_rules' && q.filter.includes('user_id=eq.userA999-1111-2222')));
+
+  // 2. 🙏 sur studio_userA999 sans règle configurée par le membre ne doit JAMAIS fuiter le numéro OM de l'admin
+  const resOm = await executeEmojiAutomation(
+    'studio_userA999',
+    '22507000000@c.us',
+    '🙏',
+    'key_iso_om',
+    { waha: mockWaha, db: mockDb }
+  );
+  assert.equal(resOm.executed, false);
+  assert.equal(sent.length, 1);
+});

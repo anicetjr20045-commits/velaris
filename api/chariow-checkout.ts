@@ -65,7 +65,7 @@ export default async function handler(req: any, res: any) {
   const email = String(body.email || '').trim().toLowerCase();
   const rawPhone = String(body.phone || '');
   const fullName = String(body.fullName || '').trim() || 'Créateur Djelia';
-  const redirectUrl = String(body.redirectUrl || '').trim() || 'https://velaris-dun.vercel.app/studio?payment=success&sale_id={sale_id}';
+  const redirectUrl = String(body.redirectUrl || '').trim() || 'https://app.djelia.store/studio?payment=success&sale_id={sale_id}';
 
   if (!email || !email.includes('@')) {
     return res.status(400).json({ error: 'Adresse email valide requise pour initier le paiement.' });

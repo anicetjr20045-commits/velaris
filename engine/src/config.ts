@@ -11,6 +11,8 @@ export interface EngineConfig {
   supabaseSecretKey: string;
   wahaUrl: string;
   wahaApiKey: string;
+  wahaGowsUrl?: string | undefined;
+  wahaGowsApiKey?: string | undefined;
   wahaWebhookHmacKey: string;
   /** Clé d'administration pour les endpoints sensibles (/api/test/*, /api/copilot, /api/qr/restart...).
    *  Optionnelle : si absente, ces endpoints sont désactivés (503). */
@@ -67,6 +69,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
     supabaseSecretKey: required(env, 'SUPABASE_SECRET_KEY'),
     wahaUrl: required(env, 'WAHA_URL').replace(/\/$/, ''),
     wahaApiKey: required(env, 'WAHA_API_KEY'),
+    wahaGowsUrl: env.WAHA_GOWS_URL?.trim() ? env.WAHA_GOWS_URL.trim().replace(/\/$/, '') : undefined,
+    wahaGowsApiKey: env.WAHA_GOWS_API_KEY?.trim() || undefined,
     wahaWebhookHmacKey: hmac,
     adminApiKey: env.ADMIN_API_KEY?.trim() || '',
     protectedSessions: (env.WAHA_PROTECTED_SESSIONS ?? 'anicet2').split(',').map((s) => s.trim()).filter(Boolean),

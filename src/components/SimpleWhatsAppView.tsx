@@ -15,9 +15,14 @@ import {
   FileText,
   AlertCircle,
   Smartphone,
+  QrCode,
+  KeyRound,
+  Copy,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import { useWahaSession } from '../hooks/useWaha';
+import { wahaSessionNameFor } from '../services/waha';
 import { useAuth } from '../hooks/useAuth';
 import { useStudioLive } from '../hooks/useStudioLive';
 import type { AutomationMediaKind, AutomationRule } from '../types';
@@ -176,11 +181,17 @@ interface DraftRule {
 
 export const SimpleWhatsAppView: FC = () => {
   const { user } = useAuth();
-  const sessionName = user ? `studio_${user.id.slice(0, 8)}` : 'Test';
+  const sessionName = wahaSessionNameFor(user?.id);
   const waha = useWahaSession(sessionName, { enabled: true, syncToStudio: true });
 
   const [activeTab, setActiveTab] = useState<'qr' | 'automations'>('qr');
   const [showQrWhenConnected, setShowQrWhenConnected] = useState(false);
+  const [pairMode, setPairMode] = useState<'qr' | 'code'>('qr');
+  const [pairingPhone, setPairingPhone] = useState<string>('');
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [pairingError, setPairingError] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // Synchronisation des règles Supabase
   const { data: dbRules, setData: setDbRules } = useStudioLive<AutomationRule[]>(
@@ -208,11 +219,16 @@ export const SimpleWhatsAppView: FC = () => {
     return DEFAULT_STUDIO_PRESETS;
   });
 
-  // Liste unifiée des règles (règles personnalisées + règles prédéfinies non écrasées)
-  const allRules: AutomationRule[] = [
-    ...dbRules,
-    ...presetRules.filter((p) => !dbRules.some((r) => sameReaction(r.emoji, p.emoji))),
-  ];
+  // Liste unifiée des règles :
+  // - Pour chaque membre (`studio_*`) : isolation stricte sur ses propres règles en base (aucune donnée admin hardcodée)
+  // - Pour la session studio principale `Test` : règles personnalisées + presets officiels
+  const isMemberSession = !!user && sessionName.startsWith('studio_');
+  const allRules: AutomationRule[] = isMemberSession
+    ? dbRules
+    : [
+        ...dbRules,
+        ...presetRules.filter((p) => !dbRules.some((r) => sameReaction(r.emoji, p.emoji))),
+      ];
 
   // Filtre d'affichage
   const [filterKind, setFilterKind] = useState<string>('all');
@@ -510,10 +526,37 @@ export const SimpleWhatsAppView: FC = () => {
   };
 
   const connectedPhone = waha.session?.me?.id
-    ? '+' + waha.session.me.id.split('@')[0]
+    ? '+' + waha.session.me.id.split('@')[0].split(':')[0]
     : null;
 
   const shouldShowQr = !waha.isOnline || showQrWhenConnected;
+
+  const handleRequestPairingCode = async (e: FormEvent) => {
+    e.preventDefault();
+    setPairingError(null);
+    setPairingCode(null);
+    const digits = pairingPhone.replace(/\D/g, '');
+    if (digits.length < 8) {
+      setPairingError('Indiquez votre numéro complet avec l’indicatif (ex : +225 07... ou +226 70...).');
+      return;
+    }
+    setIsRequestingCode(true);
+    const res = await waha.requestPairingCode(digits);
+    setIsRequestingCode(false);
+    if (res.ok && res.code) {
+      setPairingCode(res.code);
+      showToast('Code d’association généré. Saisissez-le dans WhatsApp.');
+    } else {
+      setPairingError(res.error || 'Impossible d’obtenir le code pour ce numéro.');
+    }
+  };
+
+  const handleCopyCode = () => {
+    if (!pairingCode) return;
+    navigator.clipboard?.writeText(pairingCode).catch(() => {});
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
 
   return (
     <div className="space-y-8 pb-12">
@@ -599,13 +642,24 @@ export const SimpleWhatsAppView: FC = () => {
 
             <div className="flex items-center gap-2 shrink-0">
               {waha.isOnline && (
-                <button
-                  type="button"
-                  onClick={() => setShowQrWhenConnected((prev) => !prev)}
-                  className="px-3.5 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium text-white transition-colors cursor-pointer"
-                >
-                  {showQrWhenConnected ? 'Masquer QR' : 'Afficher QR'}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrWhenConnected((prev) => !prev)}
+                    className="px-3.5 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium text-white transition-colors cursor-pointer"
+                  >
+                    {showQrWhenConnected ? 'Masquer' : 'Gérer'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => waha.logout()}
+                    title="Déconnecter et changer de numéro"
+                    className="px-3.5 py-2 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-xs font-medium text-rose-300 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Changer de numéro</span>
+                  </button>
+                </>
               )}
               <button
                 type="button"
@@ -614,55 +668,149 @@ export const SimpleWhatsAppView: FC = () => {
                 title="Rafraîchir la connexion"
                 className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8A90A0] hover:text-white transition-colors cursor-pointer"
               >
-                <RotateCw className="w-4 h-4" />
+                <RotateCw className={`w-4 h-4 ${waha.isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </section>
 
-          {/* Grand QR Code épuré */}
+          {/* Module d'appairage WhatsApp (QR Code ou Code à 8 chiffres) */}
           {shouldShowQr && (
             <section className="rounded-3xl bg-[#0D0F14] p-6 sm:p-8 flex flex-col items-center text-center space-y-6 border border-white/[0.06]">
-              <div className="p-4 rounded-3xl bg-white flex items-center justify-center min-h-[220px] min-w-[220px] shadow-2xl">
-                {waha.qrUrl ? (
-                  <img
-                    src={waha.qrUrl}
-                    alt="QR Code WhatsApp"
-                    className="w-52 h-52 object-contain"
-                  />
-                ) : (
-                  <div className="text-center text-black/60 text-xs space-y-2 py-10 px-4">
-                    <RotateCw className="w-5 h-5 animate-spin mx-auto text-black/40" />
-                    <p>Génération du QR Code…</p>
+              {/* Sélecteur de méthode d'appairage */}
+              <div className="inline-flex p-1 rounded-2xl bg-[#08090C] border border-white/[0.06] gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPairMode('qr')}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    pairMode === 'qr' ? 'bg-white text-black shadow-sm' : 'text-[#8A90A0] hover:text-white'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Scanner le QR Code</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPairMode('code')}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    pairMode === 'code' ? 'bg-white text-black shadow-sm' : 'text-[#8A90A0] hover:text-white'
+                  }`}
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Code à 8 chiffres (1 seul téléphone)</span>
+                </button>
+              </div>
+
+              {pairMode === 'qr' ? (
+                <>
+                  <div className="p-4 rounded-3xl bg-white flex items-center justify-center min-h-[220px] min-w-[220px] shadow-2xl">
+                    {waha.qrUrl ? (
+                      <img
+                        src={waha.qrUrl}
+                        alt="QR Code WhatsApp"
+                        className="w-52 h-52 object-contain"
+                      />
+                    ) : (
+                      <div className="text-center text-black/60 text-xs space-y-2 py-10 px-4 max-w-[200px]">
+                        <RotateCw className="w-5 h-5 animate-spin mx-auto text-black/40" />
+                        <p>Préparation du QR Code sécurisé…</p>
+                        {waha.error && (
+                          <p className="text-[11px] text-rose-600 font-medium">{waha.error}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div className="space-y-3 max-w-sm text-center">
-                <p className="text-base font-semibold text-white">Scanner avec votre WhatsApp</p>
-                <div className="space-y-2 text-xs text-[#8A90A0] text-left bg-[#08090C] p-4 rounded-2xl border border-white/[0.05]">
-                  <p className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
-                    <span>Ouvrez <strong>WhatsApp</strong> sur votre smartphone</span>
-                  </p>
-                  <p className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
-                    <span>Accédez à <strong>Réglages</strong> (ou ⋮) &gt; <strong>Appareils connectés</strong></span>
-                  </p>
-                  <p className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
-                    <span>Appuyez sur <strong>Connecter un appareil</strong> et scannez ce code</span>
-                  </p>
+                  <div className="space-y-3 max-w-sm text-center">
+                    <p className="text-base font-semibold text-white">Scanner avec votre WhatsApp</p>
+                    <div className="space-y-2 text-xs text-[#8A90A0] text-left bg-[#08090C] p-4 rounded-2xl border border-white/[0.05]">
+                      <p className="flex items-center gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
+                        <span>Ouvrez <strong>WhatsApp</strong> sur votre smartphone</span>
+                      </p>
+                      <p className="flex items-center gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
+                        <span>Accédez à <strong>Réglages</strong> (ou ⋮) &gt; <strong>Appareils connectés</strong></span>
+                      </p>
+                      <p className="flex items-center gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
+                        <span>Appuyez sur <strong>Connecter un appareil</strong> et scannez ce code</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => waha.restart()}
+                    className="px-5 py-2.5 rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium text-white inline-flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    <span>Régénérer le QR Code</span>
+                  </button>
+                </>
+              ) : (
+                <div className="w-full max-w-md space-y-5">
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-white">Connexion par numéro de téléphone</p>
+                    <p className="text-xs text-[#8A90A0]">
+                      Idéal si vous ouvrez l’application sur le même téléphone que votre WhatsApp.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleRequestPairingCode} className="space-y-3">
+                    <input
+                      type="tel"
+                      value={pairingPhone}
+                      onChange={(e) => setPairingPhone(e.target.value)}
+                      placeholder="Ex : +225 07 00 00 00 00 ou +226 70 00 00 00"
+                      className="w-full px-4 py-3 rounded-2xl bg-[#08090C] border border-white/[0.08] text-sm text-white text-center font-mono tabular-nums focus:outline-none focus:border-[#E2BD6B]"
+                    />
+                    {pairingError && (
+                      <p className="text-xs text-rose-400">{pairingError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={isRequestingCode}
+                      className="w-full py-3 rounded-2xl bg-white text-black font-semibold text-xs hover:bg-white/90 transition-colors inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {isRequestingCode ? (
+                        <>
+                          <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Génération du code…</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Obtenir mon code à 8 chiffres</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {pairingCode && (
+                    <div className="p-5 rounded-2xl bg-[#08090C] border border-[#E2BD6B]/30 space-y-3">
+                      <p className="text-[11px] font-mono uppercase tracking-wider text-[#E2BD6B]">
+                        Votre code d’association
+                      </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <span className="text-2xl sm:text-3xl font-mono font-bold tracking-[0.2em] text-white">
+                          {pairingCode}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleCopyCode}
+                          className="p-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white cursor-pointer"
+                          title="Copier le code"
+                        >
+                          {copiedCode ? <Check className="w-4 h-4 text-[#10D98E]" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-[#8A90A0] leading-relaxed text-left">
+                        Sur votre téléphone : ouvrez WhatsApp &gt; <strong>Appareils connectés</strong> &gt; <strong>Connecter un appareil</strong> &gt; appuyez en bas sur <strong>Lier avec le numéro de téléphone</strong> et entrez ce code.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => waha.restart()}
-                className="px-5 py-2.5 rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium text-white inline-flex items-center gap-2 transition-colors cursor-pointer"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-                <span>Régénérer le QR Code</span>
-              </button>
+              )}
             </section>
           )}
 
@@ -738,6 +886,27 @@ export const SimpleWhatsAppView: FC = () => {
         </div>
 
         {/* Grille des automatisations */}
+        {filteredRules.length === 0 ? (
+          <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-8 sm:p-10 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.05] text-[#E2BD6B] flex items-center justify-center mx-auto">
+              <Zap className="w-5 h-5" />
+            </div>
+            <div className="space-y-1 max-w-md mx-auto">
+              <p className="text-sm font-semibold text-white">Aucune automatisation configurée</p>
+              <p className="text-xs text-[#8A90A0] leading-relaxed">
+                Créez votre première règle ou enregistrez une note vocale depuis le Studio Vocal : dès que vous réagirez avec l’emoji choisi sur WhatsApp, le message partira automatiquement.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="px-5 py-2.5 rounded-full bg-white text-black font-semibold text-xs hover:bg-white/90 transition-colors inline-flex items-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Créer ma première automatisation</span>
+            </button>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredRules.map((rule) => {
             const triggerInfo = findReactionTrigger(rule.emoji);
@@ -880,6 +1049,7 @@ export const SimpleWhatsAppView: FC = () => {
             );
           })}
         </div>
+        )}
       </section>
       )}
 

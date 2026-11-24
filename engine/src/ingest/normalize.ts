@@ -149,7 +149,7 @@ export function normalizeWahaEvent(body: unknown): NormalizeResult {
     const reacted = waMessageIdKey(normalizeWaMessageId(reaction?.messageId ?? rawData?.messageId));
     if (!reacted) return { ok: false, reason: 'reaction_without_target' };
 
-    let chatId = str(payload.to) ?? str(payload.from);
+    let chatId = str(payload.to) ?? str(payload.from) ?? str(payload.chatId);
     // Résolution haute fidélité du chatId depuis le messageId de la réaction
     // Format WhatsApp standard sérialisé : [fromMe]_[remoteJid]_[id] (ex: false_22670000000@c.us_3EB0...)
     const rawMsgId = str(reaction?.messageId) || (rawData ? str(rawData.messageId) : '') || '';

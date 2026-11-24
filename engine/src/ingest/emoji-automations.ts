@@ -112,6 +112,33 @@ https://www.facebook.com/share/v/1DWErPGbXx/`,
 };
 
 const handledReactions = new Set<string>();
+const sessionOwnerCache = new Map<string, { userId: string | null; expiresAt: number }>();
+const SESSION_OWNER_TTL_MS = 5 * 60 * 1000;
+
+export async function resolveSessionOwnerUserId(db: Db | undefined, session: string): Promise<string | null> {
+  if (!db?.queryTable || !session) return null;
+  const now = Date.now();
+  const cached = sessionOwnerCache.get(session);
+  if (cached && cached.expiresAt > now) return cached.userId;
+
+  try {
+    const rows = await db.queryTable<Array<{ user_id: string }>>(
+      'wa_sessions',
+      `session_name=eq.${encodeURIComponent(session)}&select=user_id&limit=1`,
+    ).catch(() => []);
+    const userId = rows?.[0]?.user_id || null;
+    if (sessionOwnerCache.size >= 1000) {
+      const oldest = sessionOwnerCache.keys().next();
+      if (!oldest.done) sessionOwnerCache.delete(oldest.value);
+    }
+    if (userId) {
+      sessionOwnerCache.set(session, { userId, expiresAt: now + SESSION_OWNER_TTL_MS });
+    }
+    return userId;
+  } catch {
+    return null;
+  }
+}
 
 export function shouldProcessReaction(msgId: string, emoji: string): boolean {
   const key = `${msgId}_${emoji}_${Math.floor(Date.now() / 4000)}`;
@@ -845,11 +872,11 @@ export async function executeEmojiAutomation(
     return { executed: false, action: 'deduplicated' };
   }
 
-  const defaultAction = EMOJI_AUTOMATIONS[emoji];
+  const isMemberSession = session.startsWith('studio_');
+  const defaultAction = isMemberSession ? undefined : EMOJI_AUTOMATIONS[emoji];
 
-  // OPTIMISATION ULTRA-RÉACTIVE (0ms de latence DB) :
-  // Si l'action est l'une des actions directes standard du studio (texte, vocal, vidéo)
-  // et que le destinataire est déjà un numéro standard WhatsApp (@c.us), on expédie instantanément.
+  // OPTIMISATION ULTRA-RÉACTIVE (0ms de latence DB) — uniquement pour la session studio principale (`Test`),
+  // jamais pour les sessions membres `studio_*` qui utilisent exclusivement leurs propres règles.
   if (defaultAction && defaultAction.type !== 'custom' && !chatId.includes('@lid')) {
     log?.(`⚡ [ACTION DIRECTE STUDIO ${rawEmoji}] : "${defaultAction.label}" vers ${chatId}`);
 
@@ -884,7 +911,7 @@ export async function executeEmojiAutomation(
     }
   }
 
-  // RECHERCHE DYNAMIQUE DANS LA TABLE automation_rules (pour déclencheurs personnalisés ou actions complexes)
+  // RECHERCHE DYNAMIQUE DANS LA TABLE automation_rules (strictement isolée par user_id sur les sessions membres)
   let customRule: {
     id: string;
     name: string;
@@ -897,6 +924,16 @@ export async function executeEmojiAutomation(
 
   if (ctx.db?.queryTable) {
     try {
+      let ownerFilter = '';
+      if (isMemberSession) {
+        const ownerUserId = await resolveSessionOwnerUserId(ctx.db, session);
+        if (!ownerUserId) {
+          log?.(`⚠️ [reaction-automation] Propriétaire introuvable pour session ${session}`);
+          return { executed: false, error: 'session_owner_not_found' };
+        }
+        ownerFilter = `user_id=eq.${encodeURIComponent(ownerUserId)}&`;
+      }
+
       const dbRules = await ctx.db.queryTable<Array<{
         id: string;
         name: string;
@@ -907,7 +944,7 @@ export async function executeEmojiAutomation(
         caption: string | null;
       }>>(
         'automation_rules',
-        `trigger_type=eq.reaction&enabled=eq.true&select=id,name,trigger_value,action_type,text_body,media_path,caption&limit=100`,
+        `${ownerFilter}trigger_type=eq.reaction&enabled=eq.true&select=id,name,trigger_value,action_type,text_body,media_path,caption&limit=100`,
       ).catch(() => []);
       customRule = dbRules?.find((r) => cleanEmoji(r.trigger_value) === emoji) || null;
     } catch (err: any) {
@@ -921,9 +958,14 @@ export async function executeEmojiAutomation(
 
   // Résolution du destinataire standard (@c.us) en cas d'identifiant LID WhatsApp
   let targetChatId = chatId;
-  if (chatId.includes('@lid') || defaultAction?.type === 'custom') {
+  if (!isMemberSession && (chatId.includes('@lid') || defaultAction?.type === 'custom')) {
     const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
     targetChatId = resolved.realChatId || chatId;
+  } else if (isMemberSession && targetChatId.endsWith('@lid') && ctx.waha) {
+    const c = await ctx.waha.getContact(session, targetChatId).catch(() => null);
+    if (c?.id && c.id.endsWith('@c.us')) {
+      targetChatId = c.id;
+    }
   }
 
   // EXÉCUTION D'UNE RÈGLE DYNAMIQUE CRÉÉE PAR L'UTILISATEUR

@@ -6,6 +6,7 @@ import chariowCheckoutHandler from './api/chariow-checkout.ts'
 import chariowWebhookHandler from './api/chariow-webhook.ts'
 import chariowVerifyHandler from './api/chariow-verify.ts'
 import checkExpirationsHandler from './api/check-expirations.ts'
+import wahaProxyHandler from './api/waha-proxy.ts'
 
 function apiDevHandlersPlugin(): Plugin {
   return {
@@ -19,6 +20,7 @@ function apiDevHandlersPlugin(): Plugin {
         else if (url.startsWith('/api/chariow-webhook')) handler = chariowWebhookHandler;
         else if (url.startsWith('/api/chariow-verify')) handler = chariowVerifyHandler;
         else if (url.startsWith('/api/check-expirations')) handler = checkExpirationsHandler;
+        else if (url.startsWith('/api/waha-proxy')) handler = wahaProxyHandler;
 
         if (handler) {
           let bodyStr = ''

@@ -1,27 +1,26 @@
 /**
  * Service Client WAHA (WhatsApp HTTP API) pour Velaris Studio OS
  *
- * Deux transports :
- * - `proxy` (production) : chaque appel passe par l'Edge Function `waha-proxy`
- *   avec le JWT du studio ; la clé WAHA reste sur le serveur et un studio ne
- *   peut agir que sur sa propre session.
- * - `direct` (transition / développement) : appel direct avec `VITE_WAHA_API_KEY`.
- *   Activé seulement si cette variable est définie (jamais en dur dans le code).
+ * Routage sécurisé via `/api/waha-proxy` (Vercel Serverless authentifié par JWT Supabase) :
+ * - aucune clé WAHA ni clé admin exposée côté navigateur ;
+ * - les sessions créateurs `studio_<8chars>` sont automatiquement routées vers
+ *   le moteur léger `waha-gows` (Go WebSocket, zéro Chrome, faible RAM) ;
+ * - la session historique `Test` reste routée vers `waha` (Chrome).
  */
 
-import { supabase, SUPABASE_CONFIG } from './supabase';
+import { supabase } from './supabase';
 
 const env = (import.meta as any)?.env || {};
 const directKey: string = env.VITE_WAHA_API_KEY || '';
 
 export const WAHA_CONFIG = {
-  baseUrl: env.VITE_WAHA_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://waha.velarisagent.life'),
-  mode: (env.VITE_WAHA_MODE || 'direct') as 'proxy' | 'direct',
-  proxyUrl: `${SUPABASE_CONFIG.url}/functions/v1/waha-proxy`,
-  defaultSession: (typeof window !== 'undefined' && localStorage.getItem('waha_session')) || 'Test', // Session principale (+22656240533)
-  secondarySession: 'anicet2', // Session préservée +22658357772 : lecture seule depuis le web
+  baseUrl: (env.VITE_WAHA_BASE_URL || 'https://waha.velarisagent.life').replace(/\/+$/, ''),
+  mode: (env.VITE_WAHA_MODE || 'proxy') as 'proxy' | 'direct',
+  proxyUrl: '/api/waha-proxy',
+  defaultSession: (typeof window !== 'undefined' && localStorage.getItem('waha_session')) || 'Test',
+  secondarySession: 'anicet2',
   protectedSessions: ['anicet2'] as readonly string[],
-  webhookHmacKey: 'f50ca6dc4b9626c26d95ff0d4b3155076cc5c7b57c70621524ac9a4d00ff6066',
+  webhookHmacKey: '5a883800d77cd375559c3bdb8f99d71000b3c177a0affa9907b1cfe0535e824f',
 };
 
 export const isProtectedSession = (name: string) => WAHA_CONFIG.protectedSessions.includes(name);
@@ -46,11 +45,14 @@ export interface WahaSendTextResponse {
 }
 
 /**
- * Nom de session WAHA : 'Test' en production active, ou session personnalisée si définie
+ * Nom de session WAHA :
+ * - Surcharge explicite locale si définie par un administrateur (`localStorage.waha_session`)
+ * - Sinon `studio_<8 premiers caractères de l'id utilisateur>` pour isoler chaque membre
  */
-export function wahaSessionNameFor(_userId?: string | null): string {
+export function wahaSessionNameFor(userId?: string | null): string {
   const custom = typeof window !== 'undefined' ? localStorage.getItem('waha_session') : null;
   if (custom) return custom;
+  if (userId) return `studio_${userId.slice(0, 8)}`;
   return WAHA_CONFIG.defaultSession || 'Test';
 }
 
@@ -61,45 +63,34 @@ export function toChatId(phoneOrChatId: string): string {
   return phoneOrChatId.includes('@') ? phoneOrChatId : `${phoneOrChatId.replace(/[^0-9]/g, '')}@c.us`;
 }
 
-/**
- * fetch borné dans le temps : un serveur WAHA figé ne doit jamais bloquer l'interface.
- * En mode proxy, la requête est enveloppée pour l'Edge Function (JWT du studio).
- */
-async function wahaFetch(path: string, init: { method?: 'GET' | 'POST'; body?: string } = {}, timeoutMs = 10000): Promise<Response> {
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+async function proxyCall(
+  action: string,
+  sessionName: string,
+  extra: Record<string, unknown> = {},
+  timeoutMs = 15000
+): Promise<Response | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const method = init.method ?? 'GET';
   try {
-    if (WAHA_CONFIG.mode === 'direct' || !directKey) {
-      const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
-      if (directKey) headers['X-Api-Key'] = directKey;
-      return await fetch(`${WAHA_CONFIG.baseUrl}${path}`, {
-        method,
-        body: init.body,
-        headers,
-        signal: controller.signal,
-      });
-    }
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      // Repli direct si pas de session Auth pour que le cockpit chat.html reste toujours opérationnel
-      const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
-      if (directKey) headers['X-Api-Key'] = directKey;
-      return await fetch(`${WAHA_CONFIG.baseUrl}${path}`, {
-        method,
-        body: init.body,
-        headers,
-        signal: controller.signal,
-      });
-    }
     return await fetch(WAHA_CONFIG.proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-        apikey: SUPABASE_CONFIG.publishableKey,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ method, path, body: init.body ? JSON.parse(init.body) : undefined }),
+      body: JSON.stringify({ action, session: sessionName, ...extra }),
       signal: controller.signal,
     });
   } finally {
@@ -108,7 +99,28 @@ async function wahaFetch(path: string, init: { method?: 'GET' | 'POST'; body?: s
 }
 
 /**
- * Ping du serveur WAHA (latence mesurée par l'appelant)
+ * fetch direct borné dans le temps (utilisé uniquement en fallback hors session utilisateur)
+ */
+async function wahaFetch(path: string, init: { method?: 'GET' | 'POST'; body?: string } = {}, timeoutMs = 10000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const method = init.method ?? 'GET';
+  try {
+    const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' };
+    if (directKey) headers['X-Api-Key'] = directKey;
+    return await fetch(`${WAHA_CONFIG.baseUrl}${path}`, {
+      method,
+      body: init.body,
+      headers,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Ping du serveur WAHA
  */
 export async function pingWaha(): Promise<boolean> {
   const controller = new AbortController();
@@ -128,7 +140,7 @@ export async function pingWaha(): Promise<boolean> {
 }
 
 /**
- * Récupère toutes les sessions (administration uniquement en mode proxy)
+ * Récupère toutes les sessions (admin uniquement)
  */
 export async function fetchWahaSessions(): Promise<WahaSession[]> {
   try {
@@ -142,15 +154,29 @@ export async function fetchWahaSessions(): Promise<WahaSession[]> {
 }
 
 /**
- * Récupère le statut d'une session spécifique (null si absente ou injoignable)
+ * Récupère le statut d'une session spécifique (null si absente ou injoignable).
+ * Auto-provisionne côté serveur les sessions `studio_*` si l'utilisateur est authentifié.
  */
 export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<WahaSession | null> {
-  // Essai prioritaire via le relais public sécurisé du moteur
+  try {
+    const pRes = await proxyCall('status', sessionName, {}, 12000);
+    if (pRes) {
+      if (!pRes.ok) return null;
+      const pData = await pRes.json().catch(() => null);
+      if (pData?.ok && pData.session) {
+        return pData.session as WahaSession;
+      }
+      return null;
+    }
+  } catch {
+    // Repli direct uniquement si aucun JWT
+  }
+
   try {
     const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/status?session=${encodeURIComponent(sessionName)}&t=${Date.now()}`);
     if (qRes.ok) {
       const qData = await qRes.json();
-      if (qData && qData.session) {
+      if (qData && qData.session && qData.status !== 'UNREACHABLE') {
         return {
           name: qData.session,
           status: qData.status || (qData.isOnline ? 'WORKING' : 'FAILED'),
@@ -163,85 +189,42 @@ export async function fetchWahaSession(sessionName: string = WAHA_CONFIG.default
     // repli standard
   }
 
-  try {
-    const res = await wahaFetch(`/api/sessions/${encodeURIComponent(sessionName)}`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 /**
- * Assure qu'une session studio existe sur WAHA (la provisionne et la démarre si inexistante)
+ * Assure qu'une session studio existe et tourne sur WAHA GOWS
  */
 export async function ensureWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<WahaSession | null> {
   if (isProtectedSession(sessionName)) return fetchWahaSession(sessionName);
   try {
-    // 1. Appel du relais direct VPS qui provisionne automatiquement la session
-    const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/restart?session=${encodeURIComponent(sessionName)}`, { method: 'POST' });
-    if (qRes.ok) {
-      await new Promise(r => setTimeout(r, 1200));
-      const s = await fetchWahaSession(sessionName);
-      if (s) return s;
+    const pRes = await proxyCall('ensure', sessionName, {}, 18000);
+    if (pRes && pRes.ok) {
+      const pData = await pRes.json().catch(() => null);
+      if (pData?.ok && pData.session) return pData.session as WahaSession;
+    }
+  } catch {
+    // ignore
+  }
+  return fetchWahaSession(sessionName);
+}
+
+async function sessionAction(sessionName: string, action: 'start' | 'stop' | 'restart' | 'logout'): Promise<boolean> {
+  if (isProtectedSession(sessionName)) {
+    console.warn(`[WAHA] Session ${sessionName} protégée : action « ${action} » refusée`);
+    return false;
+  }
+
+  try {
+    const mapped = action === 'start' ? 'ensure' : action;
+    const pRes = await proxyCall(mapped, sessionName, {}, 22000);
+    if (pRes) {
+      return pRes.ok;
     }
   } catch {
     // repli
   }
 
-  try {
-    const existing = await fetchWahaSession(sessionName);
-    if (existing) {
-      if (existing.status === 'STOPPED') await startWahaSession(sessionName);
-      else if (existing.status === 'FAILED') await restartWahaSession(sessionName);
-      return existing;
-    }
-
-    // Création avec configuration haute stabilité (anti-déconnexion) ; en mode proxy,
-    // le serveur impose lui-même cette configuration et le nom de session.
-    const res = await wahaFetch('/api/sessions', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: sessionName,
-        start: true,
-        config: {
-          noweb: { markOnline: false, store: { enabled: true, fullSync: true } },
-          webhooks: [
-            {
-              url: 'http://waha-bridge:3001/webhook',
-              events: ['message', 'message.any', 'message.reaction', 'message.ack', 'chat.archive', 'session.status'],
-              hmac: {
-                key: WAHA_CONFIG.webhookHmacKey,
-              },
-            },
-          ],
-        },
-      }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
-async function sessionAction(sessionName: string, action: 'start' | 'stop' | 'restart'): Promise<boolean> {
-  if (isProtectedSession(sessionName)) {
-    console.warn(`[WAHA] Session ${sessionName} protégée : action « ${action} » refusée`);
-    return false;
-  }
-  // Essai via le relais public sécurisé du moteur si restart/start
-  if (action === 'restart' || action === 'start') {
-    try {
-      const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/restart?session=${encodeURIComponent(sessionName)}`, { method: 'POST' });
-      if (qRes.ok) {
-        const qData = await qRes.json();
-        if (qData?.ok) return true;
-      }
-    } catch {
-      // repli standard
-    }
-  }
   try {
     const res = await wahaFetch(`/api/sessions/${encodeURIComponent(sessionName)}/${action}`, { method: 'POST' }, 15000);
     return res.ok;
@@ -256,21 +239,19 @@ export const startWahaSession = (sessionName: string = WAHA_CONFIG.defaultSessio
 /** Arrête une session WAHA */
 export const stopWahaSession = (sessionName: string = WAHA_CONFIG.defaultSession) => sessionAction(sessionName, 'stop');
 
+/** Déconnecte proprement un téléphone (pour changer de numéro) */
+export const logoutWahaSession = (sessionName: string = WAHA_CONFIG.defaultSession) => sessionAction(sessionName, 'logout');
+
 /**
- * Redémarre proprement une session WAHA (état FAILED ou bloquée en STARTING)
+ * Redémarre proprement une session WAHA (état FAILED, STOPPED ou régénération QR)
  */
 export async function restartWahaSession(sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
-  if (await sessionAction(sessionName, 'restart')) return true;
   if (isProtectedSession(sessionName)) return false;
-  // Repli pour les versions WAHA sans /restart : stop puis start
-  await stopWahaSession(sessionName);
-  await new Promise(r => setTimeout(r, 1500));
-  return startWahaSession(sessionName);
+  return sessionAction(sessionName, 'restart');
 }
 
 /**
- * Récupère le QR code sous forme de Blob validé (jamais d'image cassée sur un 422 JSON,
- * jamais de clé API dans une URL d'image). L'appelant libère l'URL objet.
+ * Récupère le QR code sous forme de Blob PNG validé. L'appelant libère l'URL objet.
  */
 export async function fetchWahaQrBlob(sessionName: string = WAHA_CONFIG.defaultSession): Promise<{
   success: boolean;
@@ -278,35 +259,59 @@ export async function fetchWahaQrBlob(sessionName: string = WAHA_CONFIG.defaultS
   status?: string;
   error?: string;
 }> {
-  // Essai direct via le relais public sécurisé du moteur
+  try {
+    const pRes = await proxyCall('qr', sessionName, {}, 15000);
+    if (pRes) {
+      if (pRes.ok && pRes.headers.get('content-type')?.includes('image')) {
+        const blob = await pRes.blob();
+        return { success: true, blobUrl: URL.createObjectURL(blob), status: 'SCAN_QR_CODE' };
+      }
+      const errData = await pRes.json().catch(() => null);
+      return { success: false, status: 'STARTING', error: errData?.error || `HTTP ${pRes.status}` };
+    }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Impossible de récupérer le QR Code' };
+  }
+
   try {
     const qRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/qr/image?session=${encodeURIComponent(sessionName)}&t=${Date.now()}`);
     if (qRes.ok && qRes.headers.get('content-type')?.includes('image')) {
       const blob = await qRes.blob();
       return { success: true, blobUrl: URL.createObjectURL(blob), status: 'SCAN_QR_CODE' };
     }
-    if (qRes.status === 404) {
-      const data = await qRes.json().catch(() => null);
-      return { success: false, status: data?.status || 'FAILED', error: 'En attente d\'activation' };
-    }
-  } catch {
-    // repli standard
-  }
-
-  try {
-    const res = await wahaFetch(`/api/${encodeURIComponent(sessionName)}/auth/qr`, {}, 10000);
-    if (res.ok && res.headers.get('content-type')?.includes('image')) {
-      const blob = await res.blob();
-      return { success: true, blobUrl: URL.createObjectURL(blob), status: 'SCAN_QR_CODE' };
-    }
-    const data = await res.json().catch(() => null);
-    return { success: false, status: data?.status || 'STARTING', error: data?.error || data?.message || `HTTP ${res.status}` };
+    const data = await qRes.json().catch(() => null);
+    return { success: false, status: data?.status || 'FAILED', error: "En attente d'activation" };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Impossible de joindre la passerelle WAHA' };
   }
 }
 
-/* WAHA renvoie l'identifiant sous plusieurs formes selon le moteur (WEBJS / NOWEB) */
+/**
+ * Demande un code d'appairage à 8 chiffres pour connecter WhatsApp sans caméra (1 seul téléphone)
+ */
+export async function requestWahaPairingCode(
+  sessionName: string,
+  phoneNumber: string
+): Promise<{ ok: boolean; code?: string; error?: string }> {
+  if (isProtectedSession(sessionName)) {
+    return { ok: false, error: `La session ${sessionName} est protégée.` };
+  }
+  try {
+    const pRes = await proxyCall('pairing-code', sessionName, { phoneNumber }, 18000);
+    if (!pRes) {
+      return { ok: false, error: 'Connexion utilisateur requise pour générer un code.' };
+    }
+    const data = await pRes.json().catch(() => ({}));
+    if (!pRes.ok || !data?.ok) {
+      return { ok: false, error: data?.error || `Erreur (${pRes.status})` };
+    }
+    return { ok: true, code: data.code };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Impossible de joindre la passerelle WhatsApp.' };
+  }
+}
+
+/* WAHA renvoie l'identifiant sous plusieurs formes selon le moteur (GOWS / WEBJS / NOWEB) */
 function extractMessageId(data: any): string | undefined {
   const id = data?.id ?? data?.messageId ?? data?.key?.id;
   if (typeof id === 'string') return id;
@@ -315,14 +320,13 @@ function extractMessageId(data: any): string | undefined {
 }
 
 /* ------------------------------------------------------------------ */
-/* Envois : file par session, reprise uniquement quand c'est sans risque */
+/* Envois : file par session, routés via /api/waha-proxy              */
 /* ------------------------------------------------------------------ */
 
 const MAX_PARALLEL_SENDS = 2;
 const RETRYABLE = new Set([429, 502, 503]);
 const sendQueues = new Map<string, { active: number; waiting: (() => void)[] }>();
 
-/* Au plus 2 envois simultanés par session : WhatsApp sanctionne les rafales */
 async function withSendSlot<T>(session: string, task: () => Promise<T>): Promise<T> {
   let q = sendQueues.get(session);
   if (!q) sendQueues.set(session, (q = { active: 0, waiting: [] }));
@@ -341,27 +345,34 @@ async function postSend(path: string, body: Record<string, unknown>): Promise<Wa
   const session = String(body.session || '');
   if (isProtectedSession(session)) return { success: false, error: `La session ${session} est protégée : aucun envoi depuis le Studio.` };
 
+  const action = path.replace(/^\/api\//, '');
+
   return withSendSlot(session, async () => {
     for (let attempt = 0; ; attempt++) {
       try {
+        const pRes = await proxyCall(action, session, { payload: body }, 30000);
+        if (pRes) {
+          const data = await pRes.json().catch(() => ({}));
+          if (pRes.ok && data?.ok) {
+            return { success: true, messageId: extractMessageId(data.data) };
+          }
+          if (RETRYABLE.has(pRes.status) && attempt < 2) {
+            await new Promise(r => setTimeout(r, 800 * 2 ** attempt + Math.random() * 400));
+            continue;
+          }
+          return { success: false, error: data?.error || data?.message || `Erreur WAHA (${pRes.status})` };
+        }
+
+        // Repli sans JWT (dev/admin local uniquement)
         const res = await wahaFetch(path, { method: 'POST', body: JSON.stringify(body) }, 30000);
         const data = await res.json().catch(() => ({}));
         if (res.ok) return { success: true, messageId: extractMessageId(data) };
-        // Fallback session to 'Test' if studio session is unprovisioned
-        if (res.status === 404 && body.session !== 'Test') {
-          const fallbackBody = { ...body, session: 'Test' };
-          const fallbackRes = await wahaFetch(path, { method: 'POST', body: JSON.stringify(fallbackBody) }, 30000);
-          const fallbackData = await fallbackRes.json().catch(() => ({}));
-          if (fallbackRes.ok) return { success: true, messageId: extractMessageId(fallbackData) };
-        }
-        // 429 / 502 / 503 : le message n'a pas été accepté, on peut retenter sans doublon
         if (RETRYABLE.has(res.status) && attempt < 2) {
           await new Promise(r => setTimeout(r, 800 * 2 ** attempt + Math.random() * 400));
           continue;
         }
         return { success: false, error: data.message || data.error || `Erreur WAHA (${res.status})` };
       } catch (err: any) {
-        // Délai dépassé : le message a pu partir, pas de nouvel essai (risque de doublon)
         return {
           success: false,
           error: err?.name === 'AbortError' ? 'Le serveur WAHA met trop de temps à répondre' : err?.message || 'Impossible de joindre le serveur WAHA',
@@ -393,8 +404,7 @@ const blobToBase64 = (blob: Blob) =>
 
 /**
  * Envoie une note vocale native WhatsApp (PTT).
- * OGG/Opus part tel quel ; les autres formats (webm Chrome, mp4 Safari)
- * sont convertis par WAHA (`convert: true`, nécessite WAHA Plus + ffmpeg).
+ * OGG/Opus part tel quel ; les autres formats (mp3, webm, m4a) sont convertis par ffmpeg côté WAHA (`convert: true`).
  */
 export async function sendWahaVoiceMessage(
   chatId: string,
@@ -419,7 +429,7 @@ export async function sendWahaVoiceMessage(
 }
 
 /**
- * Envoie un fichier ou média hébergé (audio, vidéo, image, document) directement sur WhatsApp via WAHA
+ * Envoie un fichier ou média hébergé directement sur WhatsApp via WAHA
  */
 export async function sendWahaFileMessage(
   chatId: string,
@@ -442,8 +452,7 @@ export async function sendWahaFileMessage(
 }
 
 /**
- * Envoie une note vocale native WhatsApp (PTT) à partir d'une URL hébergée (ex: Supabase Storage).
- * Utilise POST /api/sendVoice avec audio/ogg; codecs=opus pour afficher une onde sonore verte interactive.
+ * Envoie une note vocale native WhatsApp (PTT) à partir d'une URL hébergée.
  */
 export async function sendWahaVoiceUrl(
   chatId: string,
@@ -464,8 +473,7 @@ export async function sendWahaVoiceUrl(
 }
 
 /**
- * Envoie un message vidéo WhatsApp à partir d'une URL hébergée via POST /api/sendVideo.
- * Intègre nativement la vidéo dans le lecteur de médias WhatsApp.
+ * Envoie un message vidéo WhatsApp à partir d'une URL hébergée.
  */
 export async function sendWahaVideoMessage(
   chatId: string,
@@ -489,25 +497,12 @@ export async function sendWahaVideoMessage(
   return postSend('/api/sendVideo', payload);
 }
 
-/**
- * Marque la discussion comme lue côté WhatsApp (coches bleues chez le client)
- */
 export async function markWahaChatSeen(chatId: string, sessionName: string = WAHA_CONFIG.defaultSession): Promise<boolean> {
   if (isProtectedSession(sessionName)) return false;
-  try {
-    const res = await wahaFetch('/api/sendSeen', {
-      method: 'POST',
-      body: JSON.stringify({ session: sessionName, chatId: toChatId(chatId) }),
-    }, 8000);
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const r = await postSend('/api/sendSeen', { session: sessionName, chatId: toChatId(chatId) });
+  return r.success;
 }
 
-/**
- * Archive ou désarchive une discussion côté WhatsApp
- */
 export async function setWahaChatArchived(
   chatId: string,
   archived: boolean,
@@ -516,7 +511,6 @@ export async function setWahaChatArchived(
   if (isProtectedSession(sessionName)) return false;
   try {
     const normChat = toChatId(chatId);
-    // 1. Appel du relais direct haute fiabilité sur le serveur Velaris Engine
     const directRes = await fetch(`${WAHA_CONFIG.baseUrl}/api/chat-archive`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -527,11 +521,8 @@ export async function setWahaChatArchived(
       }),
     }).catch(() => null);
 
-    if (directRes && directRes.ok) {
-      return true;
-    }
+    if (directRes && directRes.ok) return true;
 
-    // 2. Repli vers le proxy wahaFetch si besoin
     const chat = encodeURIComponent(normChat);
     const action = archived ? 'archive' : 'unarchive';
     const res = await wahaFetch(`/api/${encodeURIComponent(sessionName)}/chats/${chat}/${action}`, {
@@ -543,14 +534,8 @@ export async function setWahaChatArchived(
   }
 }
 
-/**
- * Accusés WhatsApp : 0 en attente, 1 serveur, 2 remis, 3 lu, 4 écouté
- */
 export type WahaAck = -1 | 0 | 1 | 2 | 3 | 4;
 
-/**
- * Récupère les accusés des derniers messages d'une discussion (id -> ack)
- */
 export async function fetchWahaMessageAcks(
   chatId: string,
   sessionName: string = WAHA_CONFIG.defaultSession,
@@ -574,9 +559,6 @@ export async function fetchWahaMessageAcks(
   }
 }
 
-/**
- * Récupère les informations réelles d'un contact WhatsApp (pushname, name, number) depuis WAHA.
- */
 export async function fetchWahaContact(
   chatId: string,
   sessionName: string = WAHA_CONFIG.defaultSession
@@ -585,20 +567,7 @@ export async function fetchWahaContact(
   const targetId = encodeURIComponent(toChatId(chatId));
   try {
     const res = await wahaFetch(`/api/contacts?contactId=${targetId}&session=${encodeURIComponent(session)}`, {}, 8000);
-    if (!res.ok) {
-      if (session !== 'Test') {
-        const retry = await wahaFetch(`/api/contacts?contactId=${targetId}&session=Test`, {}, 8000);
-        if (retry.ok) {
-          const data = await retry.json();
-          return {
-            pushname: data?.pushname || data?.notifyName || undefined,
-            name: data?.name || undefined,
-            number: data?.number || undefined,
-          };
-        }
-      }
-      return null;
-    }
+    if (!res.ok) return null;
     const data = await res.json();
     return {
       pushname: data?.pushname || data?.notifyName || undefined,
@@ -610,10 +579,6 @@ export async function fetchWahaContact(
   }
 }
 
-/**
- * Récupère l'URL de la photo de profil d'un contact WhatsApp via WAHA.
- * Retourne null si le contact n'a pas de photo ou la restreint.
- */
 export async function fetchWahaProfilePicture(
   chatId: string,
   sessionName: string = WAHA_CONFIG.defaultSession
@@ -622,16 +587,7 @@ export async function fetchWahaProfilePicture(
   const targetId = encodeURIComponent(toChatId(chatId));
   try {
     const res = await wahaFetch(`/api/contacts/profile-picture?contactId=${targetId}&session=${encodeURIComponent(session)}`, {}, 8000);
-    if (!res.ok) {
-      if (session !== 'Test') {
-        const retry = await wahaFetch(`/api/contacts/profile-picture?contactId=${targetId}&session=Test`, {}, 8000);
-        if (retry.ok) {
-          const data = await retry.json();
-          return data?.profilePictureURL || null;
-        }
-      }
-      return null;
-    }
+    if (!res.ok) return null;
     const data = await res.json();
     return data?.profilePictureURL || null;
   } catch {
@@ -647,7 +603,6 @@ export type WahaLinkState = 'connecting' | 'online' | 'scan' | 'reconnecting' | 
 
 export interface WahaHeartbeat {
   state: WahaLinkState;
-  /** Statut brut WAHA de la session */
   sessionStatus: string | null;
   latencyMs: number | null;
   lastBeatAt: number | null;
@@ -661,16 +616,8 @@ interface HeartbeatOptions {
   onChange: (hb: WahaHeartbeat) => void;
 }
 
-/* Une session bloquée en STARTING au-delà de ce délai est relancée */
 const STUCK_STARTING_MS = 90_000;
 
-/**
- * Battement régulier sur la session WAHA :
- * - sonde l'état toutes les `intervalMs` (espacement exponentiel en cas d'échec, plafonné à 60 s, avec gigue),
- * - relance la session si WAHA la signale STOPPED / FAILED ou bloquée en STARTING (tentatives bornées),
- * - ne touche jamais une session protégée (lecture seule),
- * - se met en veille quand l'onglet est caché et repart immédiatement au retour réseau / onglet.
- */
 export function startWahaHeartbeat(
   sessionName: string,
   { intervalMs = 20000, maxReconnectAttempts = 3, onChange }: HeartbeatOptions
@@ -691,7 +638,6 @@ export function startWahaHeartbeat(
     if (stopped) return;
     if (timer) clearTimeout(timer);
     const base = hb.failures === 0 ? intervalMs : Math.min(60000, intervalMs * 2 ** Math.min(hb.failures, 3));
-    // Gigue de ±10 % : des dizaines d'onglets ne sondent pas WAHA à la même milliseconde
     timer = setTimeout(beat, base * (0.9 + Math.random() * 0.2));
   };
 
@@ -714,14 +660,16 @@ export function startWahaHeartbeat(
     inFlight = true;
     const t0 = performance.now();
     try {
-      const res = await wahaFetch(`/api/sessions/${encodeURIComponent(sessionName)}`, {}, 8000);
+      const session = await fetchWahaSession(sessionName);
       const latencyMs = Math.round(performance.now() - t0);
-      if (res.status === 404 && sessionName.startsWith('studio_') && hb.reconnectAttempts < maxAttempts) {
-        await reconnect(null); // session jamais provisionnée
-        return;
+      if (!session) {
+        if (sessionName.startsWith('studio_') && hb.reconnectAttempts < maxAttempts) {
+          await reconnect(null);
+          return;
+        }
+        throw new Error('Session introuvable');
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const session: WahaSession = await res.json();
+
       const status = session.status;
       const now = Date.now();
       if (status !== 'STARTING') startingSince = null;

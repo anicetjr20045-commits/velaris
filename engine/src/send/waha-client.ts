@@ -17,6 +17,8 @@ export type SendResult =
 export interface WahaClientOptions {
   baseUrl: string;
   apiKey: string;
+  /** Moteur GOWS léger (Go WebSocket) pour les sessions membres `studio_*` */
+  gows?: { baseUrl: string; apiKey: string };
   /** Clé HMAC de signature des webhooks (jamais en dur : fournie via la config). */
   webhookHmacKey?: string;
   timeoutMs?: number;
@@ -36,6 +38,13 @@ export class WahaClient {
   constructor(private readonly opts: WahaClientOptions) {
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.timeoutMs = opts.timeoutMs ?? 20_000;
+  }
+
+  private targetFor(session?: string): { baseUrl: string; apiKey: string } {
+    if (session && session.startsWith('studio_') && this.opts.gows?.baseUrl && this.opts.gows?.apiKey) {
+      return { baseUrl: this.opts.gows.baseUrl.replace(/\/$/, ''), apiKey: this.opts.gows.apiKey };
+    }
+    return { baseUrl: this.opts.baseUrl.replace(/\/$/, ''), apiKey: this.opts.apiKey };
   }
 
   async send(session: string, chatId: string, content: OutgoingContent): Promise<SendResult> {
@@ -111,12 +120,13 @@ export class WahaClient {
     await this.post(on ? '/api/startTyping' : '/api/stopTyping', { session, chatId }).catch(() => undefined);
   }
 
-  private async post(path: string, body: unknown): Promise<SendResult> {
+  private async post(path: string, body: Record<string, unknown>): Promise<SendResult> {
+    const t = this.targetFor(typeof body.session === 'string' ? body.session : undefined);
     let res: Response;
     try {
-      res = await this.fetchImpl(`${this.opts.baseUrl}${path}`, {
+      res = await this.fetchImpl(`${t.baseUrl}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
@@ -152,10 +162,11 @@ export class WahaClient {
   }
 
   async getSession(session: string): Promise<{ ok: boolean; status: string; session?: WahaSessionInfo; error?: string }> {
+    const t = this.targetFor(session);
     try {
-      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}`, {
+      const res = await this.fetchImpl(`${t.baseUrl}/api/sessions/${encodeURIComponent(session)}`, {
         method: 'GET',
-        headers: { Accept: 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { Accept: 'application/json', 'X-Api-Key': t.apiKey },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok) {
@@ -169,10 +180,11 @@ export class WahaClient {
   }
 
   async restartSession(session: string): Promise<{ ok: boolean; status?: string; error?: string }> {
+    const t = this.targetFor(session);
     try {
-      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}/restart`, {
+      const res = await this.fetchImpl(`${t.baseUrl}/api/sessions/${encodeURIComponent(session)}/restart`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (res.ok) {
@@ -180,13 +192,13 @@ export class WahaClient {
         return { ok: true, status: data.status || 'STARTING' };
       }
       // Repli si /restart non supporté : stop puis start
-      await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}/stop`, {
+      await this.fetchImpl(`${t.baseUrl}/api/sessions/${encodeURIComponent(session)}/stop`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
       }).catch(() => undefined);
-      const startRes = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions/${encodeURIComponent(session)}/start`, {
+      const startRes = await this.fetchImpl(`${t.baseUrl}/api/sessions/${encodeURIComponent(session)}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
       }).catch(() => undefined);
       if (startRes?.ok) {
         return { ok: true, status: 'STARTING' };
@@ -197,18 +209,22 @@ export class WahaClient {
       if (!hmacKey) {
         return { ok: false, error: 'webhook_hmac_key_not_configured' };
       }
-      const createRes = await this.fetchImpl(`${this.opts.baseUrl}/api/sessions`, {
+      const isStudio = session.startsWith('studio_');
+      const createRes = await this.fetchImpl(`${t.baseUrl}/api/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
         body: JSON.stringify({
           name: session,
           start: true,
           config: {
-            noweb: { markOnline: false, store: { enabled: true, fullSync: false } },
+            ignore: { status: true, groups: isStudio, channels: true },
+            ...(isStudio ? {} : { noweb: { markOnline: false, store: { enabled: true, fullSync: false } } }),
             webhooks: [
               {
-                url: 'http://waha-bridge:3001/webhook',
-                events: ['message', 'message.any', 'session.status', 'message.reaction', 'message.ack', 'chat.archive'],
+                url: isStudio ? 'https://waha.velarisagent.life/webhooks/waha' : 'http://waha-bridge:3001/webhooks/waha',
+                events: isStudio
+                  ? ['message', 'message.any', 'message.reaction', 'session.status']
+                  : ['message', 'message.any', 'session.status', 'message.reaction', 'message.ack', 'chat.archive'],
                 hmac: { key: hmacKey },
               },
             ],
@@ -226,10 +242,11 @@ export class WahaClient {
   }
 
   async getQrImage(session: string): Promise<{ ok: boolean; buffer?: Buffer; contentType?: string; error?: string }> {
+    const t = this.targetFor(session);
     try {
-      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/${encodeURIComponent(session)}/auth/qr?format=image`, {
+      const res = await this.fetchImpl(`${t.baseUrl}/api/${encodeURIComponent(session)}/auth/qr?format=image`, {
         method: 'GET',
-        headers: { 'X-Api-Key': this.opts.apiKey },
+        headers: { 'X-Api-Key': t.apiKey },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok) {
@@ -244,11 +261,12 @@ export class WahaClient {
   }
 
   async requestPairingCode(session: string, phoneNumber: string): Promise<{ ok: boolean; code?: string; error?: string }> {
+    const t = this.targetFor(session);
     try {
       const cleanPhone = phoneNumber.replace(/\D/g, '');
-      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/${encodeURIComponent(session)}/auth/request-code`, {
+      const res = await this.fetchImpl(`${t.baseUrl}/api/${encodeURIComponent(session)}/auth/request-code`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
         body: JSON.stringify({ phoneNumber: cleanPhone }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
@@ -264,12 +282,13 @@ export class WahaClient {
   }
 
   async archiveChat(session: string, chatId: string, archived: boolean): Promise<{ ok: boolean; error?: string }> {
+    const t = this.targetFor(session);
     try {
       const action = archived ? 'archive' : 'unarchive';
       const normChat = chatId.includes('@') ? chatId : `${chatId.replace(/\D/g, '')}@c.us`;
-      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/${encodeURIComponent(session)}/chats/${encodeURIComponent(normChat)}/${action}`, {
+      const res = await this.fetchImpl(`${t.baseUrl}/api/${encodeURIComponent(session)}/chats/${encodeURIComponent(normChat)}/${action}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': t.apiKey },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok) {
@@ -282,10 +301,11 @@ export class WahaClient {
   }
 
   async getContact(session: string, contactId: string): Promise<{ ok: boolean; id?: string | undefined; number?: string | undefined; pushname?: string | undefined } | null> {
+    const t = this.targetFor(session);
     try {
-      const res = await this.fetchImpl(`${this.opts.baseUrl}/api/contacts?contactId=${encodeURIComponent(contactId)}&session=${encodeURIComponent(session)}`, {
+      const res = await this.fetchImpl(`${t.baseUrl}/api/contacts?contactId=${encodeURIComponent(contactId)}&session=${encodeURIComponent(session)}`, {
         method: 'GET',
-        headers: { Accept: 'application/json', 'X-Api-Key': this.opts.apiKey },
+        headers: { Accept: 'application/json', 'X-Api-Key': t.apiKey },
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!res.ok) return null;

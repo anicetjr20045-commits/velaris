@@ -33,7 +33,14 @@ const log = (line: string, data: Record<string, unknown> = {}): void => {
 
 const db = new RestDb({ url: config.supabaseUrl, secretKey: config.supabaseSecretKey, timeoutMs: 25_000 });
 const spool = new Spool(config.spoolDir);
-const waha = new WahaClient({ baseUrl: config.wahaUrl, apiKey: config.wahaApiKey, webhookHmacKey: config.wahaWebhookHmacKey });
+const waha = new WahaClient({
+  baseUrl: config.wahaUrl,
+  apiKey: config.wahaApiKey,
+  ...(config.wahaGowsUrl && config.wahaGowsApiKey
+    ? { gows: { baseUrl: config.wahaGowsUrl, apiKey: config.wahaGowsApiKey } }
+    : {}),
+  webhookHmacKey: config.wahaWebhookHmacKey,
+});
 
 const llmProvider = new DeepSeekProvider({
   apiKey: config.deepseek.apiKey,

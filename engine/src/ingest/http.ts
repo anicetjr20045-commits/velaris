@@ -16,6 +16,7 @@ import type { WahaClient } from '../send/waha-client.js';
 import { verifyWahaHmac } from './hmac.js';
 import { normalizeWahaEvent, type NormalizedEvent } from './normalize.js';
 import { processEvent, type ProcessDeps } from './process-event.js';
+import { executeEmojiAutomation, cleanEmoji } from './emoji-automations.js';
 import { runCopilotBrain } from '../llm/copilot-brain.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
 import { resetTestClient } from '../services/reset-client.js';
@@ -93,6 +94,74 @@ export async function recordAndProcess(body: unknown, source: 'webhook' | 'spool
   const norm = normalizeWahaEvent(body);
   if (!norm.ok) return `ignored:${norm.reason}`;
   const ev: NormalizedEvent = norm.event;
+
+  // Mode ultra-léger multi-utilisateurs pour les sessions membres (`studio_*`) :
+  // Aucune ingestion des discussions client (zéro écriture messages/conversations/turns, zéro Whisper/LLM) —
+  // uniquement les automatisations par réactions/emojis et le statut de connexion WhatsApp.
+  if (ev.session.startsWith('studio_')) {
+    if (deps.protectedSessions.includes(ev.session)) return 'ignored:protected_session';
+    await resolveLidIfNeeded(ev, deps).catch(() => undefined);
+
+    if (ev.kind === 'reaction') {
+      if (deps.waha) {
+        void executeEmojiAutomation(
+          ev.session,
+          ev.chatId,
+          ev.emoji,
+          ev.reactedKey,
+          {
+            waha: deps.waha,
+            db: deps.db,
+            ...(deps.llmProvider !== undefined ? { llmProvider: deps.llmProvider } : {}),
+            ...(deps.log !== undefined ? { log: deps.log } : {}),
+            ...(deps.signMedia !== undefined ? { signMedia: deps.signMedia } : {}),
+          },
+          deps.log
+        ).catch((err) => {
+          deps.log('[studio-reaction] error', { session: ev.session, error: String((err as Error).message) });
+        });
+      }
+      return 'accepted:studio_reaction';
+    }
+
+    if (ev.kind === 'message') {
+      if (ev.fromMe && ev.source !== 'api' && deps.waha && ev.body) {
+        const cleaned = cleanEmoji(ev.body);
+        if (cleaned && ev.body.trim().length <= 8) {
+          void executeEmojiAutomation(
+            ev.session,
+            ev.chatId,
+            cleaned,
+            ev.waKey,
+            {
+              waha: deps.waha,
+              db: deps.db,
+              ...(deps.llmProvider !== undefined ? { llmProvider: deps.llmProvider } : {}),
+              ...(deps.log !== undefined ? { log: deps.log } : {}),
+              ...(deps.signMedia !== undefined ? { signMedia: deps.signMedia } : {}),
+            },
+            deps.log
+          ).catch((err) => {
+            deps.log('[studio-emoji-msg] error', { session: ev.session, error: String((err as Error).message) });
+          });
+          return 'accepted:studio_emoji_message';
+        }
+      }
+      return 'ignored:studio_automations_only';
+    }
+
+    if (ev.kind === 'session_status') {
+      await deps.db.rpc('agent_ingest_session_status', {
+        p_session: ev.session,
+        p_waha_status: ev.status,
+        p_phone: ev.phone,
+      }).catch(() => undefined);
+      return 'accepted:studio_status';
+    }
+
+    return 'ignored:studio_light_mode';
+  }
+
   const eventType = ev.kind;
   const id = await deps.db.rpc<number | null>('agent_record_inbound_event', {
     p_session: ev.session,

@@ -24,8 +24,22 @@
 
 ## 🎯 Statut Actuel & Point de Reprise
 
-- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (18:59 UTC)
+- **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
+- **Dernière mise à jour** : 24 Novembre 2026 (20:00 UTC)
+- **Domaine `app.djelia.store` & Infrastructure WhatsApp Multi-Utilisateurs Scalables Déployés en Production** :
+  1. **Domaine Officiel `app.djelia.store` Configuré sur Vercel** :
+     - Sous-domaine `app.djelia.store` rattaché au projet `velaris` avec SSL automatique (tout en gardant `djelia.store` dédié à la vitrine publique `velaris-site` et aux liens affiliés `/s/:slug`).
+     - En-tête `Content-Security-Policy: frame-ancestors` de `djelia.store` mis à jour pour autoriser l'aperçu Live iFrame depuis `https://app.djelia.store`.
+     - URLs Chariow et rappels d'expiration mis à jour vers `https://app.djelia.store`.
+  2. **Passerelle WhatsApp Multi-Utilisateurs Sécurisée (`/api/waha-proxy.ts`) & Moteur Léger `waha-gows`** :
+     - Suppression de toute exposition de clé WAHA côté navigateur (`mode: 'proxy'` via `/api/waha-proxy.ts` authentifié par JWT Supabase).
+     - Alignement strict de `wahaSessionNameFor(userId)` sur `studio_<8 premiers chars>` sur toute l'application (`App.tsx`, `SimpleWhatsAppView.tsx`, `VoiceLabView.tsx`, `QrConnectModal.tsx`).
+     - **Routage Multi-Moteur** : toutes les sessions créateurs `studio_*` sont routées automatiquement vers **`waha-gows`** (moteur Go WebSocket sans navigateur Chrome, ~15-20 Mo RAM par session, avec `ffmpeg` intégré pour les vocaux PTT), tandis que `Test` reste intact sur `waha`.
+     - **Double Méthode d'Appairage (`SimpleWhatsAppView.tsx`)** : Scanner le QR Code PNG OU **Code d'association à 8 chiffres** (`pairing-code`) pour connecter son WhatsApp sans caméra depuis 1 seul téléphone, plus bouton *Changer de numéro / Déconnecter*.
+  3. **Optimisation VPS & Isolation Multi-Tenant dans `velaris-engine`** :
+     - **Court-circuit Automatisations-Only pour `studio_*`** (`engine/src/ingest/http.ts`) : sur les sessions membres, seules les réactions (`message.reaction`), les emojis courts `fromMe` et `session.status` sont traités ; toutes les discussions clients sont ignorées à la volée (0 écriture DB, 0 Whisper STT, 0 LLM).
+     - **Isolation Stricte par `user_id`** (`engine/src/ingest/emoji-automations.ts`) : les sessions `studio_*` n'accèdent jamais aux presets ou numéros Mobile Money hardcodés de l'admin et filtrent `automation_rules` strictement sur le `user_id` propriétaire de la session (via `wa_sessions`).
+     - Route Caddy `/webhooks/waha*` activée vers `velaris-engine:3001` avec vérification HMAC SHA-512 unifiée.
 - **Studio Vocal Voice-to-Voice Direct avec Voix Originale Conservée Déployé en Production (Pôle 04 Studio IA)** :
   1. **Conservation Stricte de la Voix Originale & Métamorphose Voice-to-Voice (`VoiceLabView.tsx`)** :
      - **La voix brute enregistrée au micro est précieusement conservée** : l'utilisateur dispose de son propre lecteur audio pour réécouter sa prise originale (`01. Votre Voix Originale`).
