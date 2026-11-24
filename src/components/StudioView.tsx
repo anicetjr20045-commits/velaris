@@ -19,11 +19,13 @@ import {
   ArrowLeft,
   Upload,
   ChevronRight,
-  Headphones
+  Headphones,
+  Mic,
 } from 'lucide-react';
 import type { Order } from '../types';
 import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
 import { createSharedTrack, uploadAudioTrack } from '../services/shared-tracks';
+import { VoiceLabView } from './VoiceLabView';
 
 interface StudioViewProps {
   orders: Order[];
@@ -112,8 +114,8 @@ export const StudioView: FC<StudioViewProps> = ({
   onSelectOrder: _onSelectOrder,
   onUpdateOrder,
 }) => {
-  // Navigation du Studio : 'hub' (Cartes d'accueil) ou 'generate' | 'suno_extractor' | 'client_links'
-  const [currentModule, setCurrentModule] = useState<'hub' | 'generate' | 'suno_extractor' | 'client_links'>('hub');
+  // Navigation du Studio : 'hub' (Cartes d'accueil) ou 'generate' | 'suno_extractor' | 'client_links' | 'voice_lab'
+  const [currentModule, setCurrentModule] = useState<'hub' | 'generate' | 'suno_extractor' | 'client_links' | 'voice_lab'>('hub');
 
   const currentOrder = orders.find((o) => o.id === selectedOrderId) || orders[0];
 
@@ -519,7 +521,7 @@ export const StudioView: FC<StudioViewProps> = ({
       {/* ============================================================ */}
       {currentModule === 'hub' && (
         <div className="space-y-6 animate-in fade-in">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* CARTE 1 : CRÉATION DE CHANSONS & BIBLIOTHÈQUE */}
             <div
               onClick={() => setCurrentModule('generate')}
@@ -604,6 +606,35 @@ export const StudioView: FC<StudioViewProps> = ({
               <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white/90 group-hover:text-white">
                 <span>Gérer les liens d'écoute</span>
                 <ChevronRight className="w-4 h-4 text-sky-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* CARTE 4 : STUDIO VOCAL & VOIX IA (FISH AUDIO) */}
+            <div
+              onClick={() => setCurrentModule('voice_lab')}
+              className="group p-6 rounded-3xl bg-[#08090C] border border-white/[0.08] hover:border-violet-500/50 transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-6 hover:shadow-2xl hover:shadow-black/50 relative overflow-hidden"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 group-hover:scale-105 transition-transform duration-300">
+                  <Mic className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-violet-400 font-bold">
+                    Pôle 04
+                  </span>
+                  <h3 className="text-lg font-bold text-white group-hover:text-violet-400 transition-colors">
+                    Studio Vocal & Voix IA
+                  </h3>
+                  <p className="text-xs text-[#8A90A0] leading-relaxed">
+                    Catalogue Fish Audio de voix ouest-africaines et françaises. Générez des notes vocales WhatsApp authentiques, expédiez-les en direct ou automatisez par emojis.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white/90 group-hover:text-white">
+                <span>Ouvrir le studio vocal</span>
+                <ChevronRight className="w-4 h-4 text-violet-400 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
@@ -1239,6 +1270,15 @@ export const StudioView: FC<StudioViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* ============================================================ */}
+      {/* 5. PÔLE 4 : STUDIO VOCAL & VOIX IA (FISH AUDIO)              */}
+      {/* ============================================================ */}
+      {currentModule === 'voice_lab' && (
+        <VoiceLabView
+          orders={orders}
+          onBackToHub={() => setCurrentModule('hub')}
+        />
       )}
     </div>
   );
