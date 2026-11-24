@@ -19,6 +19,8 @@ import {
   KeyRound,
   Copy,
   LogOut,
+  BadgeCheck,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import { useWahaSession } from '../hooks/useWaha';
@@ -92,6 +94,13 @@ const MEDIA_KINDS: KindMetadata[] = [
     accept: 'application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg',
     hint: 'Grille tarifaire PDF, brochure ou capture d’écran.',
   },
+  {
+    id: 'payment',
+    label: 'Encaisser Vente',
+    badge: 'Enregistrement Vente CRM',
+    icon: BadgeCheck,
+    hint: 'Enregistre instantanément la commande, le montant, le client, son pays et met à jour vos statistiques.',
+  },
 ];
 
 const KIND_META = Object.fromEntries(MEDIA_KINDS.map((k) => [k.id, k])) as Record<
@@ -158,6 +167,30 @@ Laquelle vous convient le mieux ?`,
     active: true,
     kind: 'text',
   },
+  {
+    id: 'preset-payment-standard',
+    name: 'Encaissement Vente · Formule 1 200 F',
+    emoji: '💰',
+    action: 'Paiement de 1 200 F CFA bien reçu ! Votre chanson entre en production.',
+    active: true,
+    kind: 'payment',
+    offerName: 'Formule Standard 1 200 F',
+    amount: 1200,
+    currency: 'F CFA',
+    confirmationMessage: 'Paiement de 1 200 F CFA bien reçu ! Votre chanson entre immédiatement en création dans notre studio.',
+  },
+  {
+    id: 'preset-payment-video',
+    name: 'Encaissement Vente · Formule Vidéo 3 000 F',
+    emoji: '💳',
+    action: 'Paiement de 3 000 F CFA bien reçu ! Votre chanson & montage vidéo entrent en production.',
+    active: true,
+    kind: 'payment',
+    offerName: 'Formule Chanson + Vidéo 3 000 F',
+    amount: 3000,
+    currency: 'F CFA',
+    confirmationMessage: 'Paiement de 3 000 F CFA bien reçu ! Votre chanson et votre montage vidéo entrent en création dans notre studio.',
+  },
 ];
 
 interface DraftMedia {
@@ -177,6 +210,10 @@ interface DraftRule {
   kind: AutomationMediaKind;
   action: string;
   media?: DraftMedia;
+  offerName?: string;
+  amount?: number;
+  currency?: string;
+  confirmationMessage?: string;
 }
 
 export const SimpleWhatsAppView: FC = () => {
@@ -339,6 +376,13 @@ export const SimpleWhatsAppView: FC = () => {
   // Test à blanc de la règle
   const handleTestRule = (rule: AutomationRule) => {
     const t = findReactionTrigger(rule.emoji);
+    if (rule.kind === 'payment') {
+      showToast(
+        `Test réussi : Réaction ${rule.emoji} (${t?.label || 'Emoji'}) → Encaissement de ${(rule.amount || 3000).toLocaleString('fr-FR')} F CFA prêt.`,
+        true
+      );
+      return;
+    }
     showToast(
       `Test réussi : Réaction ${rule.emoji} (${t?.label || 'Emoji'}) → ${KIND_META[rule.kind ?? 'text'].label} prêt.`,
       true
@@ -351,9 +395,13 @@ export const SimpleWhatsAppView: FC = () => {
     setIsRecording(false);
     setDraft({
       name: '',
-      emoji: '🎵',
-      kind: 'voice',
+      emoji: '💰',
+      kind: 'payment',
       action: '',
+      offerName: '',
+      amount: 3000,
+      currency: 'F CFA',
+      confirmationMessage: '',
     });
   };
 
@@ -366,8 +414,12 @@ export const SimpleWhatsAppView: FC = () => {
       emoji: rule.emoji,
       kind: rule.kind ?? 'text',
       action: rule.action,
+      offerName: rule.offerName || rule.name,
+      amount: rule.amount || 3000,
+      currency: rule.currency || 'F CFA',
+      confirmationMessage: rule.confirmationMessage || (rule.kind === 'payment' ? rule.action : ''),
       media:
-        rule.kind !== 'text' && (rule.mediaPath || rule.mediaUrl)
+        rule.kind !== 'text' && rule.kind !== 'payment' && (rule.mediaPath || rule.mediaUrl)
           ? {
               path: rule.mediaPath,
               url: resolveMediaUrl(rule),
@@ -440,14 +492,21 @@ export const SimpleWhatsAppView: FC = () => {
       return;
     }
 
-    if (draft.kind === 'text' && !draft.action.trim()) {
-      setDraftError("Veuillez saisir le texte du message à envoyer.");
-      return;
-    }
-
-    if (draft.kind !== 'text' && !draft.media && !draft.action.trim()) {
-      setDraftError("Veuillez ajouter un fichier média ou une note vocale.");
-      return;
+    if (draft.kind === 'payment') {
+      if (!draft.amount || draft.amount <= 0) {
+        setDraftError("Veuillez indiquer un montant valide pour l'encaissement.");
+        return;
+      }
+    } else if (draft.kind === 'text') {
+      if (!draft.action.trim()) {
+        setDraftError("Veuillez saisir le texte du message à envoyer.");
+        return;
+      }
+    } else {
+      if (!draft.media && !draft.action.trim()) {
+        setDraftError("Veuillez ajouter un fichier média ou une note vocale.");
+        return;
+      }
     }
 
     // Vérification collision d'emoji
@@ -483,12 +542,16 @@ export const SimpleWhatsAppView: FC = () => {
         id: draft.id ?? `auto-${Date.now()}`,
         name: draft.name.trim(),
         emoji: draft.emoji.trim(),
-        action: draft.action.trim(),
+        action: draft.kind === 'payment' ? (draft.confirmationMessage || draft.action || '').trim() : draft.action.trim(),
         active: true,
         kind: draft.kind,
         mediaPath: finalMediaPath,
         mediaUrl: finalMediaUrl,
         mediaName: draft.media?.name,
+        offerName: draft.offerName?.trim() || draft.name.trim(),
+        amount: draft.amount || 3000,
+        currency: draft.currency || 'F CFA',
+        confirmationMessage: draft.confirmationMessage?.trim() || '',
       };
 
       if (user) {
@@ -500,6 +563,10 @@ export const SimpleWhatsAppView: FC = () => {
           active: true,
           kind: ruleData.kind,
           mediaPath: finalMediaPath,
+          offerName: ruleData.offerName,
+          amount: ruleData.amount,
+          currency: ruleData.currency,
+          confirmationMessage: ruleData.confirmationMessage,
         });
 
         if (!savedId) {
@@ -962,7 +1029,27 @@ export const SimpleWhatsAppView: FC = () => {
 
                 {/* Contenu / Prévisualisation */}
                 <div className="rounded-2xl bg-[#06070A] border border-white/[0.04] p-3 text-xs text-[#8A90A0] leading-relaxed">
-                  {rule.kind === 'voice' ? (
+                  {rule.kind === 'payment' ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-white font-medium truncate">
+                          {rule.offerName || rule.name}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#10D98E]/15 text-[#10D98E] border border-[#10D98E]/25 shrink-0">
+                          {(rule.amount || 3000).toLocaleString('fr-FR')} {rule.currency || 'F CFA'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#707685]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#10D98E] shrink-0" />
+                        <span>Enregistrement automatique CRM · Extraction Pays & Contact</span>
+                      </div>
+                      {rule.confirmationMessage && (
+                        <p className="line-clamp-2 text-[11px] text-[#8A90A0] italic bg-white/[0.02] p-2 rounded-xl border border-white/[0.04]">
+                          « {rule.confirmationMessage} »
+                        </p>
+                      )}
+                    </div>
+                  ) : rule.kind === 'voice' ? (
                     <div className="space-y-1.5">
                       <WaveformPlayer seed={rule.id} src={mediaUrl} tone="dark" />
                       <div className="flex items-center justify-between text-[10px] text-[#8A90A0] pt-1">
@@ -1147,7 +1234,7 @@ export const SimpleWhatsAppView: FC = () => {
                 <label className="block text-xs font-medium text-[#8A90A0]">
                   Type d'action à envoyer
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                   {MEDIA_KINDS.map((k) => {
                     const isSelected = draft.kind === k.id;
                     const Icon = k.icon;
@@ -1175,6 +1262,105 @@ export const SimpleWhatsAppView: FC = () => {
 
               {/* Contenu spécifique au type */}
               <div className="space-y-3 pt-1">
+                {draft.kind === 'payment' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-[#8A90A0]">
+                          Nom de la formule / offre
+                        </label>
+                        <input
+                          type="text"
+                          value={draft.offerName || ''}
+                          onChange={(e) =>
+                            setDraft({
+                              ...draft,
+                              offerName: e.target.value,
+                              name: draft.name || e.target.value,
+                            })
+                          }
+                          placeholder="Ex : Formule Standard, Pack Vidéo..."
+                          className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-medium text-[#8A90A0]">
+                          Montant encaissé (F CFA)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min={100}
+                            step={100}
+                            value={draft.amount ?? 3000}
+                            onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs font-mono font-bold text-white focus:outline-none focus:border-[#E2BD6B]"
+                          />
+                          <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#8A90A0]">
+                            F CFA
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sélecteurs de montants rapides */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] text-[#707685]">Montants usuels :</span>
+                      {[1200, 3000, 5000, 10000, 15000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setDraft({ ...draft, amount: amt })}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-mono cursor-pointer transition-colors border ${
+                            draft.amount === amt
+                              ? 'bg-[#10D98E]/15 border-[#10D98E]/40 text-[#10D98E] font-semibold'
+                              : 'bg-white/[0.04] border-white/[0.06] text-[#8A90A0] hover:text-white hover:border-white/[0.12]'
+                          }`}
+                        >
+                          {amt.toLocaleString('fr-FR')} F
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Message WhatsApp de confirmation facultatif */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-medium text-[#8A90A0]">
+                          Message WhatsApp envoyé au client (optionnel)
+                        </label>
+                        <span className="text-[10px] text-[#707685]">
+                          Laisser vide pour enregistrement silencieux
+                        </span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={draft.confirmationMessage || ''}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            confirmationMessage: e.target.value,
+                            action: e.target.value,
+                          })
+                        }
+                        placeholder="Ex : Paiement bien reçu ! Votre commande entre immédiatement en production dans notre studio."
+                        className="w-full p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                      />
+                    </div>
+
+                    {/* Cartouche d'assurance sobre */}
+                    <div className="p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.06] flex items-start gap-3">
+                      <BadgeCheck className="w-4 h-4 text-[#10D98E] shrink-0 mt-0.5" />
+                      <div className="text-xs text-[#8A90A0] leading-relaxed">
+                        <span className="text-white font-medium">Détection & Traçabilité :</span> Dès
+                        que vous réagissez avec cet emoji sur WhatsApp, la vente de{' '}
+                        {(draft.amount || 3000).toLocaleString('fr-FR')} F CFA est enregistrée, le
+                        numéro et le pays (+225, +226...) sont extraits, et votre chiffre d'affaires
+                        est mis à jour en direct sur votre tableau de bord.
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {draft.kind === 'text' && (
                   <div className="space-y-1.5">
                     <label className="block text-xs font-medium text-[#8A90A0]">

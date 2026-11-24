@@ -25,7 +25,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (20:00 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (20:55 UTC)
+- **Détection & Enregistrement Automatique des Ventes par Réaction Emoji WhatsApp Déployés** :
+  1. **Configuration Fine des Formules & Encaissements (`SimpleWhatsAppView.tsx`)** :
+     - Type d'action d'automatisation dédié `payment` (*« Encaisser Vente »*) avec icône `BadgeCheck`.
+     - Configuration par l'utilisateur du nom de la formule (ex: *Formule Standard*, *Formule Vidéo*), du montant en F CFA avec raccourcis rapides (1 200 F, 3 000 F, 5 000 F, 10 000 F, 15 000 F) et d'un message WhatsApp de confirmation optionnel.
+     - Présentation luxueuse dark graphite respectant `craft-ui-engineering` avec prévisualisation du montant en badge émeraude (`#10D98E`) et zéro émoji dans les boutons/labels.
+     - Deux presets officiels immédiatement actifs : `💰` (*Encaissement · Formule Standard 1 200 F*) et `💳` (*Encaissement · Formule Vidéo 3 000 F*).
+  2. **Moteur d'Extraction Déterministe & Garde-Fou d'Unicité (`engine/src/ingest/emoji-automations.ts`)** :
+     - **Extraction Téléphonique & Géographique** : Déduction déterministe immédiate du pays via l'indicatif international (+225 CI, +226 BF, +221 SN, +223 ML, +228 TG, +229 BJ, +227 NE, +224 GN, +237 CM, +241 GA, +242 CG, +243 CD, +33 FR...).
+     - **Extraction du Contact & Nom** : Récupération du `pushname` WhatsApp via WAHA ou conversation existante.
+     - **Garde-Fou d'Unicité (Anti-Doublon 5 min)** : Empêche mathématiquement l'insertion multiple d'une commande si le vendeur clique deux fois ou réagit à nouveau.
+     - **Persistance Atomique PostgREST** : Création ou mise à jour du contact (`contacts`), bascule du statut de la conversation en `paid` (`conversations`), et insertion de la commande validée (`orders`) rattachée au `user_id` propriétaire.
+     - **Mise à Jour Temps Réel** : Les revenus et le tableau de bord du studio sont immédiatement actualisés via Supabase Realtime.
+  3. **Build & Validation** :
+     - Frontend Vite : Build réussi en 5.09s, 0 erreur `tsc -b`.
+     - Linter : 0 erreur `oxlint`.
+     - Engine TypeScript : Typecheck et build réussis avec code 0.
 - **Domaine `app.djelia.store` & Infrastructure WhatsApp Multi-Utilisateurs Scalables Déployés en Production** :
   1. **Domaine Officiel `app.djelia.store` Configuré sur Vercel** :
      - Sous-domaine `app.djelia.store` rattaché au projet `velaris` avec SSL automatique (tout en gardant `djelia.store` dédié à la vitrine publique `velaris-site` et aux liens affiliés `/s/:slug`).

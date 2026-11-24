@@ -109,6 +109,28 @@ https://www.facebook.com/share/v/1DWErPGbXx/`,
     execute: async (ctx, session, chatId, reactedKey) =>
       handleConfirmAndProduceSong(ctx, session, chatId, reactedKey),
   },
+  // 12. 💰 — Encaissement de vente · Formule Standard (1 200 F)
+  [cleanEmoji('💰')]: {
+    type: 'custom',
+    label: 'Encaissement Formule Standard (1 200 F)',
+    execute: async (ctx, session, chatId, reactedKey) =>
+      handleRecordPayment(ctx, session, chatId, reactedKey, '💰', {
+        offerName: 'Formule Standard 1 200 F',
+        amount: 1200,
+        confirmationMessage: 'Paiement de 1 200 F CFA bien reçu ! Votre chanson entre immédiatement en création dans notre studio.',
+      }),
+  },
+  // 13. 💳 — Encaissement de vente · Formule Vidéo (3 000 F)
+  [cleanEmoji('💳')]: {
+    type: 'custom',
+    label: 'Encaissement Formule Vidéo (3 000 F)',
+    execute: async (ctx, session, chatId, reactedKey) =>
+      handleRecordPayment(ctx, session, chatId, reactedKey, '💳', {
+        offerName: 'Formule Chanson + Vidéo 3 000 F',
+        amount: 3000,
+        confirmationMessage: 'Paiement de 3 000 F CFA bien reçu ! Votre chanson et votre montage vidéo entrent en création dans notre studio.',
+      }),
+  },
 };
 
 const handledReactions = new Set<string>();
@@ -849,6 +871,232 @@ async function handleConfirmAndProduceSong(
   }
 }
 
+export interface CountryInfo {
+  code: string;
+  name: string;
+  currency: string;
+}
+
+/**
+ * Détecte de manière déterministe le pays et la devise à partir de l'indicatif téléphonique.
+ */
+export function detectCountryFromPhone(digits: string): CountryInfo {
+  const d = digits.replace(/\D/g, '');
+  if (d.startsWith('225')) return { code: 'CI', name: "Côte d'Ivoire", currency: 'XOF' };
+  if (d.startsWith('226')) return { code: 'BF', name: 'Burkina Faso', currency: 'XOF' };
+  if (d.startsWith('221')) return { code: 'SN', name: 'Sénégal', currency: 'XOF' };
+  if (d.startsWith('223')) return { code: 'ML', name: 'Mali', currency: 'XOF' };
+  if (d.startsWith('228')) return { code: 'TG', name: 'Togo', currency: 'XOF' };
+  if (d.startsWith('229')) return { code: 'BJ', name: 'Bénin', currency: 'XOF' };
+  if (d.startsWith('227')) return { code: 'NE', name: 'Niger', currency: 'XOF' };
+  if (d.startsWith('224')) return { code: 'GN', name: 'Guinée', currency: 'GNF' };
+  if (d.startsWith('237')) return { code: 'CM', name: 'Cameroun', currency: 'XAF' };
+  if (d.startsWith('241')) return { code: 'GA', name: 'Gabon', currency: 'XAF' };
+  if (d.startsWith('242')) return { code: 'CG', name: 'Congo-Brazzaville', currency: 'XAF' };
+  if (d.startsWith('243')) return { code: 'CD', name: 'RDC', currency: 'CDF' };
+  if (d.startsWith('235')) return { code: 'TD', name: 'Tchad', currency: 'XAF' };
+  if (d.startsWith('236')) return { code: 'CF', name: 'Centrafrique', currency: 'XAF' };
+  if (d.startsWith('212')) return { code: 'MA', name: 'Maroc', currency: 'MAD' };
+  if (d.startsWith('216')) return { code: 'TN', name: 'Tunisie', currency: 'TND' };
+  if (d.startsWith('33')) return { code: 'FR', name: 'France', currency: 'EUR' };
+  if (d.startsWith('32')) return { code: 'BE', name: 'Belgique', currency: 'EUR' };
+  if (d.startsWith('1')) return { code: 'US', name: 'États-Unis / Canada', currency: 'USD' };
+  return { code: 'INT', name: 'International', currency: 'XOF' };
+}
+
+const recentPaymentsCache = new Map<string, number>();
+const PAYMENT_DEDUP_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Enregistre une vente / encaissement déclenché par une réaction emoji.
+ * Extrait automatiquement le pays, le numéro, le nom et persiste l'événement dans le CRM / orders.
+ */
+export async function handleRecordPayment(
+  ctx: EmojiAutomationContext,
+  session: string,
+  chatId: string,
+  reactedKey: string,
+  rawEmoji: string,
+  params: {
+    ruleId?: string;
+    offerName?: string;
+    amount?: number;
+    currency?: string;
+    confirmationMessage?: string;
+  } = {},
+): Promise<{ executed: boolean; action?: string; error?: string }> {
+  const log = ctx.log;
+
+  // 1. Résolution haute fidélité du destinataire (@c.us si @lid)
+  const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
+  const targetChatId = resolved.realChatId || chatId;
+
+  // 2. Garde-fou d'unicité anti-doublon (5 min par destinataire et règle)
+  const dedupKey = `${session}:${targetChatId}:${params.ruleId || rawEmoji}`;
+  const lastTime = recentPaymentsCache.get(dedupKey);
+  if (lastTime && Date.now() - lastTime < PAYMENT_DEDUP_TTL_MS) {
+    log?.(`⚠️ [reaction-payment] Paiement déjà validé récemment pour ${targetChatId}`);
+    return { executed: true, action: `Paiement déjà validé pour ${targetChatId}` };
+  }
+
+  // 3. Extraction des métadonnées téléphoniques et géographiques
+  const cleanDigits = targetChatId.replace(/@.*$/, '').replace(/\D/g, '');
+  const formattedPhone = cleanDigits ? `+${cleanDigits}` : targetChatId;
+  const country = detectCountryFromPhone(cleanDigits);
+
+  // 4. Extraction du nom client via WAHA ou conversation
+  let clientName = 'Client WhatsApp';
+  if (ctx.waha) {
+    try {
+      const wContact = await ctx.waha.getContact(session, targetChatId);
+      if (wContact?.pushname) {
+        clientName = wContact.pushname.trim();
+      }
+    } catch {}
+  }
+
+  // 5. Normalisation de l'offre et du montant
+  const offerName = params.offerName || 'Formule Chanson Personnalisée';
+  const amount = params.amount && params.amount > 0 ? params.amount : 3000;
+  const currency = params.currency || country.currency || 'XOF';
+  const confirmationText = params.confirmationMessage || '';
+
+  // 6. Résolution de l'identifiant propriétaire
+  const isMemberSession = session.startsWith('studio_');
+  let ownerUserId: string | null = resolved.userId || null;
+  if (!ownerUserId && ctx.db) {
+    ownerUserId = await resolveSessionOwnerUserId(ctx.db, session);
+  }
+  if (!ownerUserId && ctx.db?.queryTable && !isMemberSession) {
+    const adminSessions = await ctx.db.queryTable<Array<{ user_id: string }>>(
+      'wa_sessions',
+      'select=user_id&order=created_at.asc&limit=1',
+    ).catch(() => []);
+    ownerUserId = adminSessions?.[0]?.user_id || null;
+  }
+
+  log?.(`💰 [RÉACTION PAIEMENT DÉCLENCHÉE ${rawEmoji}] : "${offerName}" (${amount} ${currency}) pour ${clientName} (${formattedPhone}, ${country.name})`);
+
+  // 7. Persistance en base PostgreSQL
+  if (ctx.db?.insertRow) {
+    try {
+      const now = new Date().toISOString();
+      let contactId = resolved.contactId || null;
+
+      // Contact CRM
+      if (!contactId && ctx.db.queryTable) {
+        const ownerQuery = ownerUserId ? `user_id=eq.${encodeURIComponent(ownerUserId)}&` : '';
+        const existingContacts = await ctx.db.queryTable<Array<{ id: string; name: string }>>(
+          'contacts',
+          `${ownerQuery}wa_jid=eq.${encodeURIComponent(targetChatId)}&select=id,name&limit=1`,
+        ).catch(() => []);
+
+        const firstContact = existingContacts?.[0];
+        if (firstContact) {
+          contactId = firstContact.id;
+          if (clientName !== 'Client WhatsApp' && (!firstContact.name || firstContact.name.startsWith('Client '))) {
+            await ctx.db.updateRows?.('contacts', `id=eq.${encodeURIComponent(contactId)}`, { name: clientName }).catch(() => null);
+          }
+        } else {
+          const newContact = await ctx.db.insertRow<{ id: string }>(
+            'contacts',
+            {
+              ...(ownerUserId ? { user_id: ownerUserId } : {}),
+              name: clientName,
+              phone: formattedPhone,
+              wa_jid: targetChatId,
+              source: 'whatsapp_reaction',
+              occasion: offerName,
+              notes: `Pays: ${country.name} (${country.code}) | Détection automatique par réaction emoji ${rawEmoji}`,
+              price_quoted_cents: amount * 100,
+            },
+          ).catch((err) => {
+            log?.(`⚠️ Erreur création contact paiement: ${err?.message || err}`);
+            return null;
+          });
+          contactId = newContact?.id || null;
+        }
+      }
+
+      // Conversation
+      let conversationId = resolved.conversationId || null;
+      if (!conversationId && contactId && ctx.db.queryTable) {
+        const ownerQuery = ownerUserId ? `user_id=eq.${encodeURIComponent(ownerUserId)}&` : '';
+        const existingConvs = await ctx.db.queryTable<Array<{ id: string }>>(
+          'conversations',
+          `${ownerQuery}contact_id=eq.${encodeURIComponent(contactId)}&select=id&limit=1`,
+        ).catch(() => []);
+
+        const firstConv = existingConvs?.[0];
+        if (firstConv) {
+          conversationId = firstConv.id;
+          await ctx.db.updateRows?.(
+            'conversations',
+            `id=eq.${encodeURIComponent(conversationId)}`,
+            { funnel_stage: 'paid', updated_at: now },
+          ).catch(() => null);
+        } else {
+          const newConv = await ctx.db.insertRow<{ id: string }>(
+            'conversations',
+            {
+              ...(ownerUserId ? { user_id: ownerUserId } : {}),
+              contact_id: contactId,
+              funnel_stage: 'paid',
+              summary: `Vente validée par réaction ${rawEmoji} — ${offerName} (${amount} ${currency})`,
+              last_message_at: now,
+            },
+          ).catch(() => null);
+          conversationId = newConv?.id || null;
+        }
+      }
+
+      // Commande
+      const orderPayload: Record<string, unknown> = {
+        amount_cents: Math.round(amount * 100),
+        price_xof: amount,
+        currency,
+        status: 'validated',
+        payment_status: 'paid',
+        stage: 'paid',
+        payment_method: 'WhatsApp Reaction',
+        payment_confirmed_at: now,
+        payment_confirmed_by: `reaction_${rawEmoji}`,
+        occasion: offerName,
+        recipient_name: clientName,
+        notes: `Vente enregistrée par réaction WhatsApp ${rawEmoji} · Offre : ${offerName} (${amount} ${currency}) · Client : ${clientName} (${formattedPhone}, ${country.name})`,
+      };
+      if (ownerUserId) orderPayload.user_id = ownerUserId;
+      if (contactId) orderPayload.contact_id = contactId;
+      if (conversationId) orderPayload.conversation_id = conversationId;
+
+      await ctx.db.insertRow('orders', orderPayload).catch((err) => {
+        log?.(`⚠️ Erreur insertion commande paiement: ${err?.message || err}`);
+      });
+
+      recentPaymentsCache.set(dedupKey, Date.now());
+    } catch (dbErr: any) {
+      log?.(`❌ Erreur persistance DB paiement: ${dbErr?.message || dbErr}`);
+    }
+  }
+
+  // 8. Envoi optionnel du message de confirmation sur WhatsApp
+  if (confirmationText.trim() && ctx.waha) {
+    try {
+      await ctx.waha.send(session, targetChatId, {
+        kind: 'text',
+        text: confirmationText.trim(),
+      });
+    } catch (wahaErr: any) {
+      log?.(`⚠️ Erreur envoi confirmation WhatsApp: ${wahaErr?.message || wahaErr}`);
+    }
+  }
+
+  return {
+    executed: true,
+    action: `Vente enregistrée : ${offerName} (${amount} ${currency}) - ${clientName} (${country.name})`,
+  };
+}
+
 export async function executeEmojiAutomation(
   session: string,
   chatId: string,
@@ -971,6 +1219,34 @@ export async function executeEmojiAutomation(
   // EXÉCUTION D'UNE RÈGLE DYNAMIQUE CRÉÉE PAR L'UTILISATEUR
   if (customRule) {
     log?.(`⚡ [AUTOMATISATION DYNAMIQUE DÉCLENCHÉE ${rawEmoji}] : "${customRule.name}" (${customRule.action_type}) vers ${targetChatId} (source: ${chatId})`);
+
+    // Cas spécifique : Enregistrement de vente / encaissement dans le CRM
+    if (customRule.action_type === 'record_payment') {
+      let offerName = customRule.name;
+      let amount = 3000;
+      let currency = 'XOF';
+      let confirmationMessage = customRule.caption || '';
+      if (customRule.text_body) {
+        try {
+          const parsed = JSON.parse(customRule.text_body);
+          if (parsed.offerName) offerName = parsed.offerName;
+          if (parsed.offer_name) offerName = parsed.offer_name;
+          if (parsed.amount) amount = Number(parsed.amount);
+          if (parsed.currency) currency = parsed.currency;
+          if (parsed.confirmationMessage) confirmationMessage = parsed.confirmationMessage;
+        } catch {
+          const match = customRule.text_body.match(/(\d+[\d\s]*)/);
+          if (match?.[1]) amount = parseInt(match[1].replace(/\s/g, ''), 10);
+        }
+      }
+      return await handleRecordPayment(ctx, session, targetChatId, reactedKey, rawEmoji, {
+        ruleId: customRule.id,
+        offerName,
+        amount,
+        currency,
+        confirmationMessage,
+      });
+    }
 
     if (!ctx.waha) {
       log?.('[reaction-automation] WahaClient manquant pour règle personnalisée');

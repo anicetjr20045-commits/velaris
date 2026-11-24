@@ -72,14 +72,14 @@ export interface PipelineLead {
   lastExchangeAt?: string;
 }
 
-/** Type de réponse envoyée par une règle (texte, vocal PTT, document/PDF, vidéo) */
-export type AutomationMediaKind = 'text' | 'voice' | 'music' | 'document' | 'video';
+/** Type de réponse envoyée par une règle (texte, vocal PTT, document/PDF, vidéo, encaissement de vente) */
+export type AutomationMediaKind = 'text' | 'voice' | 'music' | 'document' | 'video' | 'payment';
 
 export interface AutomationRule {
   id: string;
   name: string;
   emoji: string;
-  /** Texte envoyé (règle texte) ou légende du média */
+  /** Texte envoyé (règle texte) ou légende du média, ou confirmation */
   action: string;
   active: boolean;
   kind?: AutomationMediaKind;
@@ -88,6 +88,11 @@ export interface AutomationRule {
   /** URL de lecture (objet local en démo, URL signée pour un studio connecté) */
   mediaUrl?: string;
   mediaName?: string;
+  /** Métadonnées spécifiques à l'encaissement de vente (kind === 'payment') */
+  offerName?: string;
+  amount?: number;
+  currency?: string;
+  confirmationMessage?: string;
 }
 
 export interface AutomationLog {

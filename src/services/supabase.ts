@@ -188,16 +188,42 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
       return [];
     }
 
-    return data.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      emoji: r.trigger_value || '\u26A1',
-      action: r.text_body || r.caption || '',
-      active: !!r.enabled,
-      kind: actionTypeToKind(r.action_type, r.media_path),
-      mediaPath: r.media_path || undefined,
-      mediaName: r.media_path ? mediaNameOf(r.media_path) : undefined,
-    }));
+    return data.map((r: any) => {
+      const kind = actionTypeToKind(r.action_type, r.media_path);
+      let offerName: string | undefined = undefined;
+      let amount: number | undefined = undefined;
+      let currency: string | undefined = undefined;
+      let confirmationMessage: string | undefined = undefined;
+
+      if (kind === 'payment') {
+        try {
+          const parsed = JSON.parse(r.text_body || '{}');
+          offerName = parsed.offerName || parsed.offer_name || r.name;
+          amount = typeof parsed.amount === 'number' ? parsed.amount : (parsed.amount ? Number(parsed.amount) : undefined);
+          currency = parsed.currency || 'F CFA';
+          confirmationMessage = parsed.confirmationMessage || r.caption || undefined;
+        } catch {
+          offerName = r.name;
+          const match = (r.text_body || '').match(/(\d+[\d\s]*)/);
+          if (match) amount = parseInt(match[1].replace(/\s/g, ''), 10);
+        }
+      }
+
+      return {
+        id: r.id,
+        name: r.name,
+        emoji: r.trigger_value || '\u26A1',
+        action: r.text_body || r.caption || '',
+        active: !!r.enabled,
+        kind,
+        mediaPath: r.media_path || undefined,
+        mediaName: r.media_path ? mediaNameOf(r.media_path) : undefined,
+        offerName,
+        amount,
+        currency,
+        confirmationMessage,
+      };
+    });
   } catch {
     return [];
   }
@@ -286,6 +312,7 @@ const VIDEO_EXT = /\.(mp4|mov|m4v|webm|3gp)$/i;
 const AUDIO_EXT = /\.(mp3|wav|m4a|ogg|opus|flac|aac)$/i;
 
 function actionTypeToKind(actionType: string | null, mediaPath: string | null): AutomationMediaKind {
+  if (actionType === 'record_payment') return 'payment';
   if (actionType === 'send_voice') return 'voice';
   if (actionType === 'send_media') {
     if (mediaPath && VIDEO_EXT.test(mediaPath)) return 'video';
@@ -335,16 +362,43 @@ export async function saveAutomationRule(rule: {
   active: boolean;
   kind?: AutomationMediaKind;
   mediaPath?: string;
+  offerName?: string;
+  amount?: number;
+  currency?: string;
+  confirmationMessage?: string;
 }): Promise<string | null> {
   const kind = rule.kind ?? 'text';
+  let action_type = 'send_text';
+  let text_body: string | null = null;
+  let caption: string | null = null;
+
+  if (kind === 'payment') {
+    action_type = 'record_payment';
+    text_body = JSON.stringify({
+      offerName: rule.offerName || rule.name,
+      amount: rule.amount ?? 3000,
+      currency: rule.currency || 'F CFA',
+      confirmationMessage: rule.confirmationMessage || rule.action || '',
+    });
+    caption = rule.confirmationMessage || rule.action || null;
+  } else if (kind === 'text') {
+    action_type = 'send_text';
+    text_body = rule.action;
+  } else if (kind === 'voice') {
+    action_type = 'send_voice';
+  } else {
+    action_type = 'send_media';
+    caption = rule.action || null;
+  }
+
   const row = {
     name: rule.name,
     trigger_type: 'reaction',
     trigger_value: rule.emoji,
-    action_type: kind === 'text' ? 'send_text' : kind === 'voice' ? 'send_voice' : 'send_media',
-    text_body: kind === 'text' ? rule.action : null,
-    media_path: kind === 'text' ? null : rule.mediaPath ?? null,
-    caption: kind === 'document' || kind === 'video' ? rule.action || null : null,
+    action_type,
+    text_body,
+    media_path: kind === 'payment' || kind === 'text' ? null : rule.mediaPath ?? null,
+    caption,
     enabled: rule.active,
   };
   if (rule.id) {
