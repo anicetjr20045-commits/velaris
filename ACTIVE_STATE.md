@@ -25,7 +25,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (17:28 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (17:47 UTC)
+- **Atelier Studio Régie Complet : 3 Pôles de Production Déployés en Production** :
+  1. **Pôle 1 : Génération Complète de Chansons & Bibliothèque Audio (`StudioView.tsx`)** :
+     - Formulaire de création de chansons complet : Titre du morceau, Style musical (Afro-Love, Zouk, Rumba, Gospel, Amapiano, Acoustique, Mandingue), Voix (Masculine, Féminine, Duo), Durée cible (1 min, 2 min, 3 min), et Paroles avec bouton d'assistance IA « Rédiger avec l'IA ».
+     - Bouton d'action « Générer la Chanson Complète » avec animation des étapes de mixage et mastering.
+     - **Bibliothèque de chansons générées** : Grille/liste avec jaquettes carrées élégantes, lecteur audio fluide, recherche instantanée par titre/destinataire, filtre par style, bouton de téléchargement MP3 HD direct, et bouton d'export direct vers les liens clients.
+  2. **Pôle 2 : Extracteur Express de Liens Suno** :
+     - Intégration directe du moteur Suno Telegram dans l'interface : champ multi-lignes pour coller 1 ou plusieurs liens Suno (`suno.com/song/...`, `suno.com/s/...`, CDN ou UUID).
+     - Détection et extraction instantanée du MP3 HD (`cdn1.suno.ai/<UUID>.mp3`) et de l'artwork officiel (`cdn2.suno.ai/image_<UUID>.jpeg`).
+     - Téléchargement direct MP3 et bouton pour basculer vers les liens d'écoute.
+  3. **Pôle 3 : Liens d'Écoute Client Sécurisés (Lecteur Fermé)** :
+     - Génération de liens d'audition confidentielle pour les clients (`https://djelia.store/ecoute.html?id=...`).
+     - Support comparatif Version 1 et Version 2 (A/B testing).
+     - **Verrouillage de Sécurité** : Interrupteur Téléchargement Autorisé / Écoute Seule (sans téléchargement, idéal avant paiement complet du solde).
+     - Copie du lien en 1 clic et historique des liens actifs avec statut du cadenas.
+  4. **Déploiements Production Validés** :
+     - Plateforme Membres Velaris : `https://velaris-dun.vercel.app` (Build Vite réussi en 4.29s, Vercel prod aliased).
 - **Refonte Complète de l'Académie : Studio Masterclass Vidéo Épuré Déployé en Production** :
   1. **Architecture Studio 8/4 Épurée (`AcademyView.tsx`)** :
      - Remplacement de l'ancien système de défilement textuel lourd par un **Studio Vidéo Masterclass** immersif et sobre.
