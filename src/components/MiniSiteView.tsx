@@ -156,23 +156,31 @@ export const MiniSiteView: FC<MiniSiteViewProps> = ({ slug, onReturnToHome }) =>
     setPlayingIndex((prev) => (prev === index ? null : index));
   };
 
-  // Redirection commande vers WhatsApp avec le brief rédigé et la référence d'affiliation
+  // Redirection commande 100% Web : tunnel de composition et paiement en ligne autonome
   const handleComposerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const studioTitle = studio?.name || 'Studio Partenaire';
     const cleanRecipient = recipientName.trim() || 'un proche';
     const occasionLabel = OCCASIONS.find((o) => o.id === occasion)?.label || occasion;
 
-    const msg =
-      `Bonjour ${studioTitle} ! Je souhaite commander une chanson personnalisée (1 200 F CFA).\n\n` +
-      `Occasion : ${occasionLabel}\n` +
-      `Destinataire : ${cleanRecipient}\n` +
-      `Style musical : ${selectedStyle}\n` +
-      (memories.trim() ? `Détails & Souvenirs : ${memories.trim()}\n` : '') +
-      `\nRéf Vitrine : djelia.store/s/${slug}\nMerci de lancer ma création !`;
+    const draftPayload = {
+      title: `Chanson pour ${cleanRecipient}`,
+      recipient: cleanRecipient,
+      occasion: occasionLabel,
+      style: selectedStyle,
+      details: memories.trim(),
+      amount: 1200,
+      affiliate_slug: slug,
+    };
 
-    const waLink = `https://wa.me/22656240533?text=${encodeURIComponent(msg)}`;
-    window.open(waLink, '_blank');
+    try {
+      localStorage.setItem('djelia_draft', JSON.stringify(draftPayload));
+      localStorage.setItem('djelia_affiliate_slug', slug);
+      localStorage.setItem('djelia_affiliate_time', String(Date.now()));
+    } catch (_) {}
+
+    // Envoi direct dans le flux web de création et paiement sécurisé Chariow (Wave / OM)
+    const webCheckoutUrl = `https://djelia.store/studio.html?aff=${encodeURIComponent(slug)}&dest=${encodeURIComponent(cleanRecipient)}&occ=${encodeURIComponent(occasionLabel)}&style=${encodeURIComponent(selectedStyle)}`;
+    window.location.assign(webCheckoutUrl);
   };
 
   if (loading) {
