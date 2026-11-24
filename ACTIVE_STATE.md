@@ -25,7 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (16:32 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (17:05 UTC)
+- **Affiliation 50% par Défaut & Studio 3 Formats Déployés en Production** :
+  1. **Vue par Défaut Immédiate sur les Gains & Retraits (`AffiliationView.tsx`)** :
+     - À l'ouverture de l'onglet Affiliation, l'utilisateur atterrit directement sur son **Tableau de Bord Affiliation 50% & Retraits** (Solde disponible, Clics, Ventes générées, Taux de conversion, Bouton de demande de retrait Wave / OM, Liens uniques trackés, Journal des commissions).
+     - Un bandeau élégant et un bouton dédié permettent de basculer en un clic sur le **Studio de Personnalisation & Prévisualisation**, avec un bouton de retour clair « ← Retour à mes gains & stats ».
+  2. **Correction Définitive du Contraste des Textes Sombre sur Sombre** :
+     - Correction du bug où « Vos plus beaux souvenirs... » et « Commande ta chanson à partir de... » apparaissaient noirs ou peu lisibles sur fond sombre.
+     - `--paper` est strictement maintenu en ivoire clair (`#FAF5EC`) et des règles CSS explicites forcent `.hero, .hero h1, .hero-sub, .hero-price` en texte ivoire lumineux, avec le prix en surbrillance dans la couleur d'accent.
+  3. **Interrupteurs Modulaires de Sections & Copywriting Étendu** :
+     - L'affilié peut désactiver à la volée : Avis clients & Preuves sociales (`showProofs`), Processus en 4 étapes (`showProcess`), FAQ & Support (`showFaq`), Démos audio (`showDemos`), Garanties (`showGuarantees`), WhatsApp flottant et Bandeau d'urgence.
+     - Personnalisation libre des textes clés : Titre H1, Sous-titre, Libellé bouton principal (`ctaText`), Promesse de livraison (`deliveryPromise`).
+  4. **Suppression Stricte de Tout Recrutement de Partenaire Djélia chez les Affiliés** :
+     - Pour tout visiteur arrivant via le lien d'un affilié, toutes les cartes et boutons invitant à devenir revendeur ou partenaire Djélia (`#partnerDeliveryCard`, `#btnHeaderReseller`, `a[href*="partenaire.html"]`) sont physiquement masqués.
+  5. **Prévisualisation Live sur 3 Écrans (Smartphone 380px, Tablette 620px, Ordinateur 100%)** :
+     - Sélecteur 3 modes interactif avec synchronisation bidirectionnelle 0ms via `postMessage`.
+  6. **Déploiements Production Validés** :
+     - Plateforme Membres Velaris : `https://velaris-dun.vercel.app` (Build Vite réussi, Vercel prod aliased).
+     - Moteur Vitrine Djélia : `https://djelia.store` (Vercel `velaris-site`, aliased).
 - **Prévisualisation Réelle 1:1 & Personnalisation NATIVE à la Base Déployées en Production** :
   1. **Aperçu Live 1:1 en Direct via iFrame Réelle (`AffiliationView.tsx`)** :
      - La prévisualisation dans le dashboard n'est plus un faux mockup statique : elle charge la **véritable page HTML/CSS de `djelia.store`** dans une iframe intégrée dans le cadre smartphone/desktop.
