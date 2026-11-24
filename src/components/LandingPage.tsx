@@ -77,12 +77,12 @@ const BENTO_OFFERS = [
   },
   {
     num: '04',
-    badge: 'Vitrine Personnalisée & Affiliation',
-    title: 'Votre Mini-Site & 25% de Commission',
-    desc: 'Chaque membre dispose de sa vitrine officielle djelia.store/s/{votre-nom}. Et si vous ne souhaitez pas gérer de clients au début ? Partagez simplement votre lien unique : vous encaissez 25% de commission nette directement sur votre compte.',
+    badge: 'Vitrine Personnalisée & Affiliation 50%',
+    title: 'Votre Site & 50% de Commission Nette',
+    desc: 'Chaque membre dispose de sa vitrine officielle djelia.store/s/{votre-nom} personnalisée à ses couleurs et son nom. Partagez simplement votre lien : vous encaissez 50% de commission nette (600 F CFA par commande) virés directement sur votre Mobile Money.',
     icon: Wallet,
-    stat: '25% Net',
-    statLabel: 'Par vente générée sur votre lien',
+    stat: '50% Net',
+    statLabel: 'Soit 600 F CFA par commande reversés direct',
   },
 ];
 

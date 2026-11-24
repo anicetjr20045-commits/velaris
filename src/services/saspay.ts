@@ -33,7 +33,7 @@ export const SASPAY_CONFIG = {
       name: 'Djelia Start',
       priceXOF: 5000,
       durationDays: 30,
-      description: 'Académie complète + Programme d\'Affiliation 25% + Cockpit statistiques'
+      description: 'Académie complète + Programme d\'Affiliation 50% + Cockpit statistiques'
     },
     pro: {
       id: 'pro' as SubscriptionPlanId,
@@ -47,7 +47,7 @@ export const SASPAY_CONFIG = {
       name: 'Djelia Start (Mensuel)',
       priceXOF: 5000,
       durationDays: 30,
-      description: 'Académie complète + Programme d\'Affiliation 25%'
+      description: 'Académie complète + Programme d\'Affiliation 50%'
     },
     quarterly: {
       id: 'quarterly' as SubscriptionPlanId,

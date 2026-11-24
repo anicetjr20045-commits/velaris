@@ -276,10 +276,10 @@ export const PlanGate: FC<PlanGateProps> = ({
                   <div className="h-10 w-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
                     <TrendingUp className="h-5 w-5" />
                   </div>
-                  <span>Mini-Site & Affiliation 25%</span>
+                  <span>Site Personnalisé & Affiliation 50%</span>
                 </div>
                 <p className="text-xs sm:text-sm text-[#BAC0D4] leading-relaxed">
-                  Votre vitrine en ligne exclusive et 300 F CFA reversés sur chaque commande apportée.
+                  Votre vitrine officielle à vos couleurs et 600 F CFA reversés sur chaque commande.
                 </p>
               </div>
             </div>

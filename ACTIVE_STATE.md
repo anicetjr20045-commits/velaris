@@ -25,7 +25,34 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (11:55 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (13:20 UTC)
+- **Refonte Complète du Programme d'Affiliation 50% & Mini-Sites Co-Brandés (`djelia.store/s/:slug`)** :
+  1. **Modèle Économique & Partage 50/50 Validé** :
+     - Prix de vente unique et harmonisé : **1 200 F CFA** la chanson personnalisée (identique sur le site principal et toutes les vitrines partenaires).
+     - Rémunération affilié : **50% de commission nette**, soit **600 F CFA par commande livrée**.
+     - Seuil de retrait minimum fixé à **1 500 F CFA** (soit dès 3 ventes).
+     - Marge plateforme préservée : ~560 F CFA net après coût Suno AI (~35-40 F CFA), offrant un puissant levier viral pour les créateurs de contenu sur TikTok et WhatsApp.
+  2. **Vitrines Co-Brandées `/s/:slug` (`src/components/MiniSiteView.tsx`)** :
+     - Entonnoir de vente complet et prouvé, personnalisé aux couleurs du studio partenaire :
+       - Header officiel avec monogramme stylisé, nom du studio et badge « Partenaire Certifié · Technologie Djélia Engine ».
+       - Titre d'accroche dynamique et citation personnalisée.
+       - Prix transparent à 1 200 F CFA.
+       - Compositeur de brief en direct (Prénom du destinataire, Occasion, Style musical, Détails clés).
+       - Redirection directe vers WhatsApp (`+226 56 24 05 33`) avec brief complet pré-formaté et référence du studio affilié (`[Studio: :slug]`).
+       - Lecteur audio interactif avec 3 extraits réels (Anniversaire, Mariage, Hommage) et affichage des paroles.
+       - Bento de garanties d'excellence (livraison 15 minutes, format audio WhatsApp natif, retouches offertes).
+     - **Attribution 30 Jours** : Sauvegarde automatique du slug partenaire dans `localStorage` (`djelia_affiliate_slug`, `djelia_affiliate_time`). Si le prospect revient ultérieurement, la commission est toujours créditée au partenaire d'origine.
+  3. **Espace Partenaire Haute-Horlogerie (`src/components/AffiliationView.tsx`)** :
+     - Deux onglets sobres et réactifs :
+       - **Onglet 1 : « Mon Site en ligne »** : Aperçu interactif de la vitrine, personnalisation du nom, du slug, de la phrase d'accroche et sélecteur de palette d'accentuation (Or Champagne `#E2BD6B`, Émeraude Royale `#10D98E`, Cyan Électrique `#00E5FF`, Rose Amour `#F43F5E`, Violet Studio `#A855F7`). Boutons rapides pour copier l'URL (`djelia.store/s/:slug`) et ouvrir la vitrine en direct.
+       - **Onglet 2 : « Affiliation 50% & Retraits »** : Carte solde géante en lueur dorée/émeraude (Stripe Glow), métriques temps réel (Clics, Ventes livrées, Taux de conversion), lien de partage unique avec bouton de copie, et bouton « Demander mon virement WhatsApp ».
+     - **Protocole de Retrait WhatsApp Direct** : Clic sur le bouton de retrait ouvrant un modal avec choix de l'opérateur (Wave, Orange Money, Moov Money, MTN Moov), nom et numéro de téléphone. Envoi automatisé vers le WhatsApp de l'équipe (`+226 56 24 05 33`) avec message normé et enregistrement préalable dans la table `affiliate_payouts`.
+  4. **Harmonisation sur Tout le Site** :
+     - `src/components/LandingPage.tsx` (Pilier 04 mis à jour à 50% / 600 F CFA).
+     - `src/components/PlanGate.tsx` (Puce d'affiliation mise à 50% / 600 F CFA).
+     - `src/services/saspay.ts` (Descriptions des formules ajustées au programme 50%).
+     - Compilation TypeScript & Vite : **0 erreur** (`npm run build` réussi).
+     - Banc de tests backend moteur : **260/260 tests passés avec succès** (`npm test`).
 - **Module d'Automatisations par Réactions WhatsApp Opérationnel (Frontend & Backend Validés)** :
   1. **Backend Engine (`engine/src/ingest/emoji-automations.ts` & `process-event.ts`)** :
      - Consultation dynamique de la table `automation_rules` en base (`trigger_type = 'reaction' AND enabled = true`) lors de la réception d'une réaction emoji ou d'un message direct d'emoji.
