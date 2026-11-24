@@ -25,25 +25,21 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (14:20 UTC)
-- **Aiguillage Public Garanti vers le Vrai Site `djelia.store` (`index.html`) & Zéro Exposition de `/studio`** :
-  1. **Correction d'Aiguillage Définitive** :
-     - `/studio.html` (ou `/studio`) est la console régie privée de travail réservée au gérant pour ses tests et compositions directes.
-     - Les affiliés et leurs prospects sont aiguillés à 100% vers **le vrai site public de commande `djelia.store` (`index.html`)**, avec le tunnel complet en 6 étapes (styles, démos, brief, paroles, formule et paiement en ligne à 1 200 F CFA sur `paiement.html`).
-     - Prise en charge universelle des URLs affiliées :
-       - `https://djelia.store/s/:slug` (réécriture Vercel transparente vers `/index.html` sans altérer l'URL).
-       - `https://djelia.store/?ref=:slug` (accès direct au tunnel grand public avec attribution).
-       - Aucune redirection ne pointe vers `/studio` pour les visiteurs ou affiliés.
-  2. **Moteur d'Injection Dynamique (`djelia-white-label.js`) Déployé sur `djelia.store`** :
-     - Remplacement dynamique du nom du studio dans la marque (`.wordmark`).
-     - Remplacement du logo/photo par l'image téléversée ou le monogramme stylisé.
-     - Colorisation dynamique de tout le site (variables CSS `--terracotta`, `--gold`, boutons, reflets, bordures) selon la couleur d'accent choisie par l'affilié.
-     - Bouton d'assistance WhatsApp flottant persistant en bas à droite relié au **numéro propre de l'affilié**.
-     - Attribution automatique et persistante des commissions (50% net, soit 600 F CFA sur chaque commande de 1 200 F) stockée dans `localStorage` et transmise à `paiement.html`.
-  3. **Vérifications en Production Validées** :
-     - Déploiement Vercel `djelia.store` (`velaris-site`) : HTTP 200 OK sur `https://djelia.store/s/:slug` servant `index.html`.
-     - Espace créateur `velaris-dun.vercel.app` (`velaris`) : HTTP 200 OK.
-     - Liens de partage affiliés (`AffiliationView.tsx` et `MiniSiteView.tsx`) pointant exclusivement sur `https://djelia.store/?ref=...` et `https://djelia.store/s/...`.
+- **Dernière mise à jour** : 24 Novembre 2026 (14:44 UTC)
+- **Chaîne Complète d'Affiliation 50% & Tracking Live Déployés en Production** :
+  1. **Aperçu Live Fidèle à 100% à `djelia.store` (`AffiliationView.tsx`)** :
+     - La prévisualisation dans l'onglet de personnalisation reproduit fidèlement la véritable interface de `djelia.store` (Navbar avec wordmark personnalisé, indicateur d'étape, barre de progression dynamique, disque vinyle stylisé, titres et promesses réels, sélecteur de style en 6 cartes Zouk/Afrobeat/etc., et bouton d'aide WhatsApp flottant).
+     - Tout changement (couleur, logo, nom du studio, WhatsApp) se répercute instantanément (0ms) dans la prévisualisation.
+  2. **Tracking Automatique des Clics & Auto-Création Partenaire (`pay_orders.py`)** :
+     - Dès qu'un prospect ouvre `djelia.store/s/:slug` ou `djelia.store/?ref=:slug`, le script `djelia-white-label.js` envoie un événement vers `POST /pay/affiliate/track-click`.
+     - Si le slug n'existe pas encore dans la base, il est automatiquement enregistré avec un taux de commission fixé à **50% (600 F CFA)**.
+     - Les clics sont dédoublonnés par adresse IP sur une fenêtre de 15 minutes.
+  3. **Attribution Déterministe au Paiement Chariow (`paiement.html` & `pay_orders.py`)** :
+     - Au moment du clic sur « Payer 1 200 F CFA », le code affilié stocké dans `localStorage` est systématiquement transmis dans le payload vers `/pay/create` (`affiliate_code` et `referred_by`).
+     - Lors de la confirmation du paiement Chariow, la fonction `_credit_affiliate_for_order` crédite automatiquement 600 F CFA sur le solde de l'affilié et enregistre la commission dans `affiliate_commissions`.
+  4. **Tableau de Bord Affilié Connecté en Temps Réel (`AffiliationView.tsx`)** :
+     - L'onglet « Affiliation & Retraits » interroge l'API `GET /pay/affiliate/stats?slug=:slug` pour afficher les métriques réelles : nombre de clics, ventes livrées, taux de conversion, solde disponible, et journal détaillé des commandes.
+     - Demande de retrait directe par Wave ou Orange Money dès 1 500 F CFA (3 ventes).
 - **Personnalisation Front-End Maximale des Vitrines Partenaires & Mockup Live (`AffiliationView.tsx` & `MiniSiteView.tsx`)** :
   1. **Personnalisation Poussée à l'Extrême (White-Label Intégral)** :
      - **Identité Visuelle & Logo** : Téléversement direct d'une photo / logo de profil (avec conversion DataURL) ou saisie d'URL d'image, bouton de suppression instantanée, monogramme stylisé automatique en fallback.
