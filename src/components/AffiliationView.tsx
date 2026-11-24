@@ -6,6 +6,8 @@ import {
   X,
   Loader2,
   Smartphone,
+  Tablet,
+  Monitor,
   Wallet,
   Sparkles,
   TrendingUp,
@@ -20,6 +22,10 @@ import {
   ShieldCheck,
   Layers,
   RefreshCw,
+  ArrowLeft,
+  MessageSquare,
+  HelpCircle,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
@@ -68,7 +74,9 @@ const THEME_OPTIONS = [
 
 export const AffiliationView: FC = () => {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<'site' | 'affiliate'>('site');
+  
+  // Onglet par défaut : 'affiliate' pour afficher d'abord les statistiques et gains
+  const [activeSubTab, setActiveSubTab] = useState<'affiliate' | 'site'>('affiliate');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -92,7 +100,11 @@ export const AffiliationView: FC = () => {
   const [textMode, setTextMode] = useState<'signature' | 'custom'>(isCustomTextInitial ? 'custom' : 'signature');
   const [headline, setHeadline] = useState(initialHeadline || 'Offre une chanson qui fera pleurer de joie.');
   const [bio, setBio] = useState(initialBio || 'En 30 secondes, crée la surprise dont on parlera pendant des années.');
-  
+  const [ctaText, setCtaText] = useState((meta.studio_cta_text as string) || 'Commencer ma chanson →');
+  const [deliveryPromise, setDeliveryPromise] = useState(
+    (meta.studio_delivery_promise as string) || 'Commande aujourd\'hui, reçois ta chanson en moins de 5 minutes.'
+  );
+
   const [photoUrl, setPhotoUrl] = useState<string>((meta.studio_photo_url as string) || '');
   const [accentColor, setAccentColor] = useState<string>((meta.studio_color as string) || '#E2BD6B');
   const [themeMode, setThemeMode] = useState<'obsidian' | 'paper' | 'midnight' | 'emerald'>(
@@ -104,6 +116,9 @@ export const AffiliationView: FC = () => {
   const [badgeText, setBadgeText] = useState<string>((meta.studio_badge_text as string) || 'Studio de Création Musicale');
   const [showDemos, setShowDemos] = useState<boolean>(meta.studio_show_demos ?? true);
   const [showGuarantees, setShowGuarantees] = useState<boolean>(meta.studio_show_guarantees ?? true);
+  const [showProofs, setShowProofs] = useState<boolean>(meta.studio_show_proofs ?? true);
+  const [showProcess, setShowProcess] = useState<boolean>(meta.studio_show_process ?? true);
+  const [showFaq, setShowFaq] = useState<boolean>(meta.studio_show_faq ?? true);
   
   // WhatsApp
   const [showWhatsApp, setShowWhatsApp] = useState<boolean>(meta.studio_show_whatsapp ?? false);
@@ -116,8 +131,8 @@ export const AffiliationView: FC = () => {
   const [showBanner, setShowBanner] = useState<boolean>(Boolean(meta.studio_banner_text));
   const [bannerText, setBannerText] = useState<string>((meta.studio_banner_text as string) || 'Livraison garantie en moins de 5 minutes avec 2 versions offertes');
 
-  // État de sauvegarde & affichage
-  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
+  // État de sauvegarde & affichage (3 vues : mobile, tablet, desktop)
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'desktop'>('mobile');
   const [savingSite, setSavingSite] = useState(false);
   const [siteSavedNotice, setSiteSavedNotice] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
@@ -170,6 +185,10 @@ export const AffiliationView: FC = () => {
     photoUrl: photoUrl || null,
     headline: textMode === 'custom' ? headline.trim() : '',
     bio: textMode === 'custom' ? bio.trim() : '',
+    cta_text: ctaText.trim(),
+    ctaText: ctaText.trim(),
+    delivery_promise: deliveryPromise.trim(),
+    deliveryPromise: deliveryPromise.trim(),
     badge_text: showBadge ? badgeText.trim() : '',
     badgeText: showBadge ? badgeText.trim() : '',
     show_whatsapp: showWhatsApp,
@@ -184,6 +203,12 @@ export const AffiliationView: FC = () => {
     showDemos: showDemos,
     show_guarantees: showGuarantees,
     showGuarantees: showGuarantees,
+    show_proofs: showProofs,
+    showProofs: showProofs,
+    show_process: showProcess,
+    showProcess: showProcess,
+    show_faq: showFaq,
+    showFaq: showFaq,
   };
 
   // Synchronisation en direct avec l'iframe de prévisualisation (postMessage 0ms)
@@ -206,6 +231,8 @@ export const AffiliationView: FC = () => {
     textMode,
     headline,
     bio,
+    ctaText,
+    deliveryPromise,
     showBadge,
     badgeText,
     showWhatsApp,
@@ -214,7 +241,10 @@ export const AffiliationView: FC = () => {
     showBanner,
     bannerText,
     showDemos,
-    showGuarantees
+    showGuarantees,
+    showProofs,
+    showProcess,
+    showFaq
   ]);
 
   // Réception de l'événement d'initialisation de l'iframe
@@ -317,6 +347,8 @@ export const AffiliationView: FC = () => {
           studio_slug: cleanSlug,
           studio_headline: textMode === 'custom' ? headline.trim() : '',
           studio_bio: textMode === 'custom' ? bio.trim() : '',
+          studio_cta_text: ctaText.trim(),
+          studio_delivery_promise: deliveryPromise.trim(),
           studio_photo_url: photoUrl,
           studio_color: accentColor,
           studio_theme: themeMode,
@@ -324,6 +356,9 @@ export const AffiliationView: FC = () => {
           studio_badge_text: badgeText.trim(),
           studio_show_demos: showDemos,
           studio_show_guarantees: showGuarantees,
+          studio_show_proofs: showProofs,
+          studio_show_process: showProcess,
+          studio_show_faq: showFaq,
           studio_show_whatsapp: showWhatsApp,
           studio_whatsapp_phone: whatsAppPhone.trim(),
           studio_whatsapp_prompt: whatsAppPrompt.trim(),
@@ -350,6 +385,9 @@ export const AffiliationView: FC = () => {
               badge_text: badgeText.trim(),
               show_demos: showDemos,
               show_guarantees: showGuarantees,
+              show_proofs: showProofs,
+              show_process: showProcess,
+              show_faq: showFaq,
               show_whatsapp: showWhatsApp,
               whatsapp_phone: whatsAppPhone.trim(),
               whatsapp_prompt: whatsAppPrompt.trim(),
@@ -443,69 +481,267 @@ export const AffiliationView: FC = () => {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* En-tête de la page */}
+      {/* En-tête de la page avec navigation épurée */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Mon Site Vitrine & Affiliation</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              {activeSubTab === 'affiliate' ? 'Affiliation 50% & Gains' : 'Personnalisation du Site'}
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-mono text-[11px] font-bold">
+              50% NET
+            </span>
+          </div>
           <p className="text-sm text-[#8A90A0]">
-            Personnalisez votre site djelia.store à votre identité et encaissez 50% de commission nette (600 F CFA) sur chaque vente.
+            {activeSubTab === 'affiliate'
+              ? 'Suivez vos clics, vos ventes et encaissez 600 F CFA sur chaque commande générée.'
+              : 'Habillez le site à vos couleurs avec un rendu 100% conforme sur Mobile, Tablette et Ordinateur.'}
           </p>
         </div>
 
-        {/* Lien direct et bouton aperçu */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-white/90">
-          <Globe className="w-3.5 h-3.5 text-[#E2BD6B]" />
-          <span className="font-mono text-[11px] truncate max-w-[180px] sm:max-w-xs">
-            djelia.store/s/{cleanSlug}
-          </span>
-          <button
-            type="button"
-            onClick={() => handleCopy(shortSlugUrl, 'short')}
-            className="text-[#E2BD6B] font-semibold text-[11px] hover:underline cursor-pointer"
-          >
-            {copiedKey === 'short' ? 'Copié' : 'Copier'}
-          </button>
-          <a
-            href={shortSlugUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-white/70 hover:text-white p-0.5 ml-1"
-            title="Ouvrir dans un nouvel onglet"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+        {/* Bouton de bascule / Accès direct */}
+        <div className="flex items-center gap-2">
+          {activeSubTab === 'affiliate' ? (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('site')}
+              className="px-4 py-2.5 rounded-2xl bg-white text-black text-xs font-bold hover:bg-neutral-200 transition-all inline-flex items-center gap-2 cursor-pointer shadow-lg hover:scale-[1.02]"
+            >
+              <Sliders className="w-4 h-4 text-black" />
+              <span>Personnaliser mon site vitrine</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('affiliate')}
+              className="px-4 py-2.5 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold transition-all inline-flex items-center gap-2 cursor-pointer border border-white/[0.08]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Retour à mes gains & stats</span>
+            </button>
+          )}
+
+          {/* Lien court rapide */}
+          <div className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-white/90">
+            <Globe className="w-3.5 h-3.5 text-[#E2BD6B]" />
+            <span className="font-mono text-[11px] truncate max-w-[150px]">
+              djelia.store/s/{cleanSlug}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleCopy(shortSlugUrl, 'short')}
+              className="text-[#E2BD6B] font-semibold text-[11px] hover:underline cursor-pointer"
+            >
+              {copiedKey === 'short' ? 'Copié' : 'Copier'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Sélecteur 2 onglets principaux */}
-      <div className="flex gap-2 p-1 rounded-2xl bg-[#0D0F14] border border-white/[0.06]">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('site')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-            activeSubTab === 'site'
-              ? 'bg-white text-black shadow-md'
-              : 'text-[#8A90A0] hover:text-white'
-          }`}
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>Personnalisation & Prévisualisation Réelle</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('affiliate')}
-          className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-            activeSubTab === 'affiliate'
-              ? 'bg-white text-black shadow-md'
-              : 'text-[#8A90A0] hover:text-white'
-          }`}
-        >
-          <TrendingUp className="w-3.5 h-3.5" />
-          <span>Affiliation 50% & Retraits</span>
-        </button>
-      </div>
+      {/* ============================================================ */}
+      {/* VUE 1 (PAR DÉFAUT) : TABLEAU DE BORD AFFILIATION 50% & GAINS */}
+      {/* ============================================================ */}
+      {activeSubTab === 'affiliate' ? (
+        <div className="space-y-6">
+          {/* CARTE SOLDE 50% GÉANTE (Stripe Glow) */}
+          <section className="stripe-glow-card rounded-[28px] p-6 sm:p-8 space-y-6 border border-white/[0.12]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-white/75">Solde des Commissions Disponibles</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
+                  50% DIRECT
+                </span>
+              </div>
+              <span className="text-xs font-semibold text-[#E2BD6B] font-mono">
+                600 F CFA / vente
+              </span>
+            </div>
 
-      {activeSubTab === 'site' ? (
+            <div className="text-4xl sm:text-6xl font-extrabold text-white tabular-nums leading-none tracking-tight">
+              {balanceCfa.toLocaleString('fr-FR')} <span className="text-2xl font-sans text-white/60">F CFA</span>
+            </div>
+
+            {/* Grille des Métriques Clés */}
+            <div className="grid grid-cols-3 gap-2 py-4 border-y border-white/[0.08] text-center">
+              <div>
+                <p className="text-xs text-[#8A90A0]">Visites Uniques (Clics)</p>
+                <p className="text-xl sm:text-2xl font-bold text-white font-mono mt-1">{totalClicks}</p>
+              </div>
+              <div>
+                <p className="text-xs text-[#8A90A0]">Ventes Confirmées</p>
+                <p className="text-xl sm:text-2xl font-bold text-[#10D98E] font-mono mt-1">{totalSales}</p>
+              </div>
+              <div>
+                <p className="text-xs text-[#8A90A0]">Taux de Conversion</p>
+                <p className="text-xl sm:text-2xl font-bold text-[#E2BD6B] font-mono mt-1">
+                  {totalClicks > 0 ? ((totalSales / totalClicks) * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+            </div>
+
+            {/* Action de Retrait */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
+              <span className="text-xs text-white/60">
+                Seuil de retrait : <strong className="text-white">1 500 F CFA</strong> (via Wave ou Orange Money)
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setIsWithdrawModalOpen(true)}
+                disabled={balanceCfa < minWithdrawThreshold}
+                className={`w-full sm:w-auto px-6 py-3.5 rounded-2xl text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${
+                  balanceCfa >= minWithdrawThreshold
+                    ? 'bg-white text-black hover:bg-white/90 shadow-lg cursor-pointer hover:scale-[1.02]'
+                    : 'bg-white/10 text-white/40 cursor-not-allowed'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>
+                  {balanceCfa >= minWithdrawThreshold
+                    ? 'Demander mon virement WhatsApp'
+                    : `Encore ${(minWithdrawThreshold - balanceCfa).toLocaleString('fr-FR')} F CFA pour retirer`}
+                </span>
+              </button>
+            </div>
+          </section>
+
+          {/* BANNIÈRE D'ACCÈS RAPIDE À LA PERSONNALISATION DU SITE */}
+          <div className="rounded-3xl bg-gradient-to-r from-[#0D0F14] via-[#141720] to-[#0D0F14] border border-white/[0.1] p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-[#E2BD6B]" />
+                <h3 className="text-sm font-bold text-white">Votre Vitrine Web & Tunnel Dédié</h3>
+              </div>
+              <p className="text-xs text-[#8A90A0] max-w-xl leading-relaxed">
+                Votre site vitrine utilise le moteur haute conversion de Djélia, habillé à votre nom (<strong className="text-white">{studioName}</strong>) et vos couleurs.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('site')}
+              className="px-4 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer shrink-0 border border-white/[0.08]"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#E2BD6B]" />
+              <span>Modifier les couleurs & textes</span>
+            </button>
+          </div>
+
+          {/* LIENS DE DIFFUSION UNIQUES (50% NET) */}
+          <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-[#E2BD6B]" />
+              <h3 className="text-sm font-semibold text-white">Vos Liens de Diffusion (Commission 50% garantie)</h3>
+            </div>
+            <p className="text-xs text-[#8A90A0] leading-relaxed">
+              Partagez ce lien sur vos statuts WhatsApp, TikTok ou Instagram. Tout client qui clique sera rattaché à votre compte pendant toute sa navigation et vous rapportera automatiquement 600 F CFA à l'achat.
+            </p>
+
+            <div className="space-y-3 pt-1">
+              {/* Lien 1 : Adresse courte vitrine */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-white/70">1. Votre lien personnalisé (Recommandé) :</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
+                    {shortSlugUrl}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(shortSlugUrl, 'short')}
+                    className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-bold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
+                  >
+                    {copiedKey === 'short' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'short' ? 'Copié' : 'Copier'}</span>
+                  </button>
+                  <a
+                    href={shortSlugUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white"
+                    title="Tester en direct"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Lien 2 : Lien direct complet */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-white/70">2. Lien direct complet :</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
+                    {miniSiteUrl}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(miniSiteUrl, 'mini')}
+                    className="px-4 py-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>Copier</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* HISTORIQUE DES COMMANDES & COMMISSIONS */}
+          <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#10D98E]" />
+                <h3 className="text-sm font-semibold text-white">Journal des Ventes & Commissions</h3>
+              </div>
+              {loadingStats && (
+                <div className="flex items-center gap-1.5 text-[10px] text-white/50 font-mono">
+                  <Loader2 className="w-3 h-3 animate-spin text-[#E2BD6B]" />
+                  <span>Actualisation...</span>
+                </div>
+              )}
+            </div>
+
+            {stats.commissions && stats.commissions.length > 0 ? (
+              <div className="space-y-2">
+                {stats.commissions.map((c, i) => (
+                  <div
+                    key={c.order_id || i}
+                    className="p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.06] flex items-center justify-between"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white font-mono">Réf: {c.order_id?.substring(0, 8) || 'CMD'}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-mono font-semibold">
+                          Confirmée
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#8A90A0]">
+                        {c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Récemment'} · Formule 1 200 F
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-sm font-extrabold text-[#10D98E] font-mono">
+                        +{c.commission || 600} F CFA
+                      </span>
+                      <p className="text-[9px] text-white/40">50% net</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#06070A] border border-white/[0.04] text-center space-y-2">
+                <p className="text-xs font-semibold text-white/80">Aucune commande enregistrée pour l'instant</p>
+                <p className="text-[11px] text-[#8A90A0] max-w-sm mx-auto leading-relaxed">
+                  Dès qu'un client passe commande via votre lien sur djelia.store, votre commission nette de 600 F CFA s'affichera ici en temps réel.
+                </p>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : (
+        /* ============================================================ */
+        /* VUE 2 : PERSONNALISATION POUSSÉE & PRÉVISUALISATION 3 ÉCRANS */
+        /* ============================================================ */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* ============================================================ */}
           {/* COLONNE GAUCHE (7/12) : FORMULAIRE DE PERSONNALISATION ÉTENDU */}
@@ -519,7 +755,7 @@ export const AffiliationView: FC = () => {
                 </div>
               )}
 
-              {/* 1. IDENTITÉ VISUELLE & LOGO */}
+              {/* 1. IDENTITÉ DE MARQUE & LOGO */}
               <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Layers className="w-4 h-4 text-[#E2BD6B]" />
@@ -610,7 +846,7 @@ export const AffiliationView: FC = () => {
                     className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
                   />
                   <p className="text-[11px] text-[#8A90A0]">
-                    Ce nom remplace "Djelia" dans le logo d'en-tête, le titre et le pied de page du site.
+                    Ce nom remplace "Djelia" dans la barre supérieure, l'onglet et le pied de page du site.
                   </p>
                 </div>
 
@@ -675,7 +911,7 @@ export const AffiliationView: FC = () => {
                 {/* Couleur d'accentuation */}
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Couleur signature (applique la teinte sur les boutons, vinyle, étapes et barres de progression)
+                    Couleur signature (boutons, vinyle, étapes et barres de progression)
                   </label>
                   <div className="flex flex-wrap items-center gap-2.5">
                     {COLOR_PRESETS.map((c) => {
@@ -746,11 +982,11 @@ export const AffiliationView: FC = () => {
                 </div>
               </section>
 
-              {/* 3. TEXTES & ACCROCHE (Garder l'originale ou personnaliser) */}
+              {/* 3. TEXTES & COPYWRITING (Garder l'originale ou personnaliser) */}
               <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Sparkles className="w-4 h-4 text-[#E2BD6B]" />
-                  <h3 className="text-sm font-semibold text-white">3. Textes & Promesse Client</h3>
+                  <h3 className="text-sm font-semibold text-white">3. Textes & Copywriting du Site</h3>
                 </div>
 
                 {/* Choix entre conserver l'identité Djelia ou personnaliser */}
@@ -764,7 +1000,7 @@ export const AffiliationView: FC = () => {
                         : 'text-[#8A90A0] hover:text-white'
                     }`}
                   >
-                    <span className="block font-bold">Accroche Signature Djelia</span>
+                    <span className="block font-bold">Accroche Signature Djélia</span>
                     <span className="text-[10px] opacity-75 font-normal">Recommandée (taux de conversion maximal)</span>
                   </button>
 
@@ -825,15 +1061,45 @@ export const AffiliationView: FC = () => {
                         className="w-full p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
                       />
                     </div>
+
+                    {/* Libellé du Bouton CTA */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="st-cta" className="block text-xs font-medium text-[#8A90A0]">
+                        Texte du bouton d'action principal
+                      </label>
+                      <input
+                        id="st-cta"
+                        type="text"
+                        value={ctaText}
+                        onChange={(e) => setCtaText(e.target.value)}
+                        placeholder="Ex : Commencer ma chanson →"
+                        className="w-full px-3.5 py-2 rounded-xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                      />
+                    </div>
+
+                    {/* Promesse de livraison */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="st-delivery" className="block text-xs font-medium text-[#8A90A0]">
+                        Phrase de promesse de livraison
+                      </label>
+                      <input
+                        id="st-delivery"
+                        type="text"
+                        value={deliveryPromise}
+                        onChange={(e) => setDeliveryPromise(e.target.value)}
+                        placeholder="Ex : Commande aujourd'hui, reçois ta chanson en moins de 5 minutes."
+                        className="w-full px-3.5 py-2 rounded-xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                      />
+                    </div>
                   </div>
                 )}
               </section>
 
-              {/* 4. MODULES & ASSISTANCE WHATSAPP */}
+              {/* 4. MODULES, SECTIONS & ASSISTANCE WHATSAPP */}
               <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Sliders className="w-4 h-4 text-[#E2BD6B]" />
-                  <h3 className="text-sm font-semibold text-white">4. Modules Additionnels & WhatsApp</h3>
+                  <h3 className="text-sm font-semibold text-white">4. Modules, Sections & Assistance WhatsApp</h3>
                 </div>
 
                 {/* Toggle Bouton WhatsApp d'Assistance Direct */}
@@ -942,6 +1208,66 @@ export const AffiliationView: FC = () => {
                   </label>
                 </div>
 
+                {/* Toggle Avis Clients & Preuves Sociales */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className="w-4 h-4 text-[#10D98E]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Avis clients & Preuves de satisfaction</p>
+                      <p className="text-[11px] text-[#8A90A0]">Affiche les avis et captures de livraisons WhatsApp</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showProofs}
+                      onChange={(e) => setShowProofs(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
+
+                {/* Toggle Processus 4 Étapes */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <Clock className="w-4 h-4 text-[#E2BD6B]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Section « Comment ça marche » (4 étapes)</p>
+                      <p className="text-[11px] text-[#8A90A0]">Explication visuelle du parcours de création</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showProcess}
+                      onChange={(e) => setShowProcess(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
+
+                {/* Toggle FAQ & Support */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <HelpCircle className="w-4 h-4 text-[#8A90A0]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Section Support & Questions fréquentes</p>
+                      <p className="text-[11px] text-[#8A90A0]">Réponses aux questions courantes des clients</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showFaq}
+                      onChange={(e) => setShowFaq(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
+
                 {/* Toggle Garanties */}
                 <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
                   <div className="flex items-center gap-2.5">
@@ -990,34 +1316,52 @@ export const AffiliationView: FC = () => {
           </div>
 
           {/* ============================================================ */}
-          {/* COLONNE DROITE (5/12) : PRÉVISUALISATION RÉELLE 1:1 DU SITE  */}
+          {/* COLONNE DROITE (5/12) : PRÉVISUALISATION RÉELLE 3 ÉCRANS     */}
           {/* ============================================================ */}
           <div className="lg:col-span-5 sticky top-20 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-[#10D98E] animate-pulse" />
-                <h3 className="text-sm font-semibold text-white">Aperçu Réel 1:1 (djelia.store)</h3>
+                <h3 className="text-sm font-semibold text-white">Aperçu Réel 1:1</h3>
               </div>
 
+              {/* Sélecteur 3 Écrans : Mobile / Tablette / Ordinateur */}
               <div className="flex items-center gap-2">
                 <div className="flex rounded-xl bg-[#0D0F14] border border-white/[0.08] p-0.5 text-[11px]">
                   <button
                     type="button"
                     onClick={() => setPreviewDevice('mobile')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                      previewDevice === 'mobile' ? 'bg-white text-black font-semibold' : 'text-[#8A90A0]'
+                    className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                      previewDevice === 'mobile' ? 'bg-white text-black font-semibold shadow-sm' : 'text-[#8A90A0]'
                     }`}
+                    title="Vue Smartphone"
                   >
-                    Mobile
+                    <Smartphone className="w-3 h-3" />
+                    <span className="hidden sm:inline">Mobile</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice('tablet')}
+                    className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                      previewDevice === 'tablet' ? 'bg-white text-black font-semibold shadow-sm' : 'text-[#8A90A0]'
+                    }`}
+                    title="Vue Tablette"
+                  >
+                    <Tablet className="w-3 h-3" />
+                    <span className="hidden sm:inline">Tablette</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setPreviewDevice('desktop')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                      previewDevice === 'desktop' ? 'bg-white text-black font-semibold' : 'text-[#8A90A0]'
+                    className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                      previewDevice === 'desktop' ? 'bg-white text-black font-semibold shadow-sm' : 'text-[#8A90A0]'
                     }`}
+                    title="Vue Ordinateur"
                   >
-                    Plein
+                    <Monitor className="w-3 h-3" />
+                    <span className="hidden sm:inline">PC</span>
                   </button>
                 </div>
 
@@ -1045,20 +1389,36 @@ export const AffiliationView: FC = () => {
               </div>
             </div>
 
-            {/* Cadre du Mockup Intégrant le Vrai Site en Live */}
+            {/* Cadre du Mockup Intégrant le Vrai Site (Largeur adaptée au Device) */}
             <div
               className={`rounded-[32px] border overflow-hidden shadow-2xl transition-all duration-300 mx-auto bg-[#07080B] ${
-                previewDevice === 'mobile' ? 'max-w-[380px] border-white/[0.16]' : 'w-full border-white/[0.12]'
+                previewDevice === 'mobile'
+                  ? 'max-w-[380px] border-white/[0.16]'
+                  : previewDevice === 'tablet'
+                  ? 'max-w-[620px] border-white/[0.16]'
+                  : 'w-full border-white/[0.12]'
               }`}
             >
-              {/* Fake status bar pour le mobile */}
-              {previewDevice === 'mobile' && (
+              {/* Barre de statut ou barre de fenêtre du navigateur */}
+              {previewDevice === 'mobile' ? (
                 <div className="px-5 pt-3 pb-2 flex items-center justify-between text-[10px] text-white/40 font-mono select-none bg-[#07080B] border-b border-white/[0.04]">
                   <span>9:41</span>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full border border-white/40" />
                     <span className="w-3.5 h-2 rounded border border-white/40" />
                   </div>
+                </div>
+              ) : (
+                <div className="px-4 py-2.5 flex items-center justify-between text-[11px] text-white/40 font-mono bg-[#0D0F14] border-b border-white/[0.06]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                  </div>
+                  <span className="text-[10px] text-white/30 truncate max-w-[200px]">djelia.store/s/{cleanSlug}</span>
+                  <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-white/[0.04] text-white/40">
+                    {previewDevice === 'tablet' ? 'iPad' : 'Mac'}
+                  </span>
                 </div>
               )}
 
@@ -1080,173 +1440,6 @@ export const AffiliationView: FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      ) : (
-        /* ============================================================ */
-        /* ONGLET 2 : AFFILIATION 50% & RETRAITS DIRECTS WHATSAPP       */
-        /* ============================================================ */
-        <div className="space-y-6">
-          {/* CARTE SOLDE 50% GÉANTE (Stripe Glow) */}
-          <section className="stripe-glow-card rounded-[28px] p-6 space-y-5 border border-white/[0.12]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white/75">Commissions Disponibles</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-                  50% NET
-                </span>
-              </div>
-              <span className="text-xs font-semibold text-[#E2BD6B] font-mono">
-                600 F CFA / vente
-              </span>
-            </div>
-
-            <div className="text-4xl sm:text-5xl font-extrabold text-white tabular-nums leading-none tracking-tight">
-              {balanceCfa.toLocaleString('fr-FR')} <span className="text-xl font-sans text-white/60">F CFA</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 py-3 border-y border-white/[0.08] text-center">
-              <div>
-                <p className="text-[11px] text-[#8A90A0]">Visites / Clics</p>
-                <p className="text-base font-bold text-white font-mono mt-0.5">{totalClicks}</p>
-              </div>
-              <div>
-                <p className="text-[11px] text-[#8A90A0]">Ventes Livrées</p>
-                <p className="text-base font-bold text-[#10D98E] font-mono mt-0.5">{totalSales}</p>
-              </div>
-              <div>
-                <p className="text-[11px] text-[#8A90A0]">Taux Conversion</p>
-                <p className="text-base font-bold text-[#E2BD6B] font-mono mt-0.5">
-                  {totalClicks > 0 ? ((totalSales / totalClicks) * 100).toFixed(1) : 0}%
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1">
-              <span className="text-xs text-white/60">
-                Seuil de retrait : <strong className="text-white">1 500 F CFA</strong> (par Wave ou Orange Money)
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setIsWithdrawModalOpen(true)}
-                disabled={balanceCfa < minWithdrawThreshold}
-                className={`w-full sm:w-auto px-6 py-3 rounded-2xl text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${
-                  balanceCfa >= minWithdrawThreshold
-                    ? 'bg-white text-black hover:bg-white/90 shadow-lg cursor-pointer hover:scale-[1.02]'
-                    : 'bg-white/10 text-white/40 cursor-not-allowed'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>
-                  {balanceCfa >= minWithdrawThreshold
-                    ? 'Demander mon virement WhatsApp'
-                    : `Encore ${(minWithdrawThreshold - balanceCfa).toLocaleString('fr-FR')} F CFA`}
-                </span>
-              </button>
-            </div>
-          </section>
-
-          {/* Liens de partage uniques */}
-          <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-[#E2BD6B]" />
-              <h3 className="text-sm font-semibold text-white">Vos Liens de Diffusion (50% de commission nette)</h3>
-            </div>
-            <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Partagez votre lien personnalisé sur vos statuts WhatsApp, TikTok ou Instagram. Le site s'habillera immédiatement à votre identité et vos couleurs, et chaque commande vous rapportera automatiquement 600 F CFA.
-            </p>
-
-            <div className="space-y-3">
-              {/* Lien 1 : Adresse courte vitrine */}
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-white/70">1. Adresse courte personnalisée (Recommandée) :</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
-                    {shortSlugUrl}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(shortSlugUrl, 'short')}
-                    className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
-                  >
-                    {copiedKey === 'short' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'short' ? 'Copié' : 'Copier'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Lien 2 : Lien avec paramètre ref */}
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-white/70">2. Lien direct complet :</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
-                    {miniSiteUrl}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(miniSiteUrl, 'mini')}
-                    className="px-4 py-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-                  >
-                    {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>Copier</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Historique des Commandes & Commissions en Direct */}
-          <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#10D98E]" />
-                <h3 className="text-sm font-semibold text-white">Journal des Ventes & Commissions</h3>
-              </div>
-              {loadingStats && (
-                <div className="flex items-center gap-1 text-[10px] text-white/50 font-mono">
-                  <Loader2 className="w-3 h-3 animate-spin text-[#E2BD6B]" />
-                  <span>Synchronisation...</span>
-                </div>
-              )}
-            </div>
-
-            {stats.commissions && stats.commissions.length > 0 ? (
-              <div className="space-y-2">
-                {stats.commissions.map((c, i) => (
-                  <div
-                    key={c.order_id || i}
-                    className="p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.06] flex items-center justify-between"
-                  >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white font-mono">Réf: {c.order_id?.substring(0, 8) || 'CMD'}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-400 font-mono font-semibold">
-                          Confirmée
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-[#8A90A0]">
-                        {c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Récemment'} · Formule 1 200 F
-                      </p>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-sm font-extrabold text-[#10D98E] font-mono">
-                        +{c.commission || 600} F CFA
-                      </span>
-                      <p className="text-[9px] text-white/40">50% net</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 rounded-2xl bg-[#06070A] border border-white/[0.04] text-center space-y-2">
-                <p className="text-xs font-semibold text-white/80">Aucune commande enregistrée pour l'instant</p>
-                <p className="text-[11px] text-[#8A90A0] max-w-sm mx-auto leading-relaxed">
-                  Dès qu'un client passe commande via votre lien ou votre vitrine personnalisée sur djelia.store, votre commission de 600 F CFA s'affichera ici en temps réel.
-                </p>
-              </div>
-            )}
-          </section>
         </div>
       )}
 
