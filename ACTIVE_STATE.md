@@ -28,7 +28,8 @@
 - **Dernière mise à jour** : 24 Novembre 2026 (17:05 UTC)
 - **Affiliation 50% par Défaut & Studio 3 Formats Déployés en Production** :
   1. **Vue par Défaut Immédiate sur les Gains & Retraits (`AffiliationView.tsx`)** :
-     - À l'ouverture de l'onglet Affiliation, l'utilisateur atterrit directement sur son **Tableau de Bord Affiliation 50% & Retraits** (Solde disponible, Clics, Ventes générées, Taux de conversion, Bouton de demande de retrait Wave / OM, Liens uniques trackés, Journal des commissions).
+     - À l'ouverture de l'onglet Affiliation, l'utilisateur atterrit directement sur son **Tableau de Bord Affiliation 50% & Retraits** (Solde disponible, Clics, Ventes générées, Taux de conversion, Bouton de demande de retrait Wave / OM, Lien unique d'affiliation `djelia.store/s/:slug`, Journal des commissions).
+     - Un seul lien clair et unique est présenté (plus de doublon ou de confusion entre lien direct et court).
      - Un bandeau élégant et un bouton dédié permettent de basculer en un clic sur le **Studio de Personnalisation & Prévisualisation**, avec un bouton de retour clair « ← Retour à mes gains & stats ».
   2. **Correction Définitive du Contraste des Textes Sombre sur Sombre** :
      - Correction du bug où « Vos plus beaux souvenirs... » et « Commande ta chanson à partir de... » apparaissaient noirs ou peu lisibles sur fond sombre.
