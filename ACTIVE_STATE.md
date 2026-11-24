@@ -25,21 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (14:44 UTC)
-- **Chaîne Complète d'Affiliation 50% & Tracking Live Déployés en Production** :
-  1. **Aperçu Live Fidèle à 100% à `djelia.store` (`AffiliationView.tsx`)** :
-     - La prévisualisation dans l'onglet de personnalisation reproduit fidèlement la véritable interface de `djelia.store` (Navbar avec wordmark personnalisé, indicateur d'étape, barre de progression dynamique, disque vinyle stylisé, titres et promesses réels, sélecteur de style en 6 cartes Zouk/Afrobeat/etc., et bouton d'aide WhatsApp flottant).
-     - Tout changement (couleur, logo, nom du studio, WhatsApp) se répercute instantanément (0ms) dans la prévisualisation.
-  2. **Tracking Automatique des Clics & Auto-Création Partenaire (`pay_orders.py`)** :
-     - Dès qu'un prospect ouvre `djelia.store/s/:slug` ou `djelia.store/?ref=:slug`, le script `djelia-white-label.js` envoie un événement vers `POST /pay/affiliate/track-click`.
-     - Si le slug n'existe pas encore dans la base, il est automatiquement enregistré avec un taux de commission fixé à **50% (600 F CFA)**.
-     - Les clics sont dédoublonnés par adresse IP sur une fenêtre de 15 minutes.
-  3. **Attribution Déterministe au Paiement Chariow (`paiement.html` & `pay_orders.py`)** :
-     - Au moment du clic sur « Payer 1 200 F CFA », le code affilié stocké dans `localStorage` est systématiquement transmis dans le payload vers `/pay/create` (`affiliate_code` et `referred_by`).
-     - Lors de la confirmation du paiement Chariow, la fonction `_credit_affiliate_for_order` crédite automatiquement 600 F CFA sur le solde de l'affilié et enregistre la commission dans `affiliate_commissions`.
-  4. **Tableau de Bord Affilié Connecté en Temps Réel (`AffiliationView.tsx`)** :
-     - L'onglet « Affiliation & Retraits » interroge l'API `GET /pay/affiliate/stats?slug=:slug` pour afficher les métriques réelles : nombre de clics, ventes livrées, taux de conversion, solde disponible, et journal détaillé des commandes.
-     - Demande de retrait directe par Wave ou Orange Money dès 1 500 F CFA (3 ventes).
+- **Dernière mise à jour** : 24 Novembre 2026 (16:32 UTC)
+- **Prévisualisation Réelle 1:1 & Personnalisation NATIVE à la Base Déployées en Production** :
+  1. **Aperçu Live 1:1 en Direct via iFrame Réelle (`AffiliationView.tsx`)** :
+     - La prévisualisation dans le dashboard n'est plus un faux mockup statique : elle charge la **véritable page HTML/CSS de `djelia.store`** dans une iframe intégrée dans le cadre smartphone/desktop.
+     - Grâce à l'en-tête Vercel `Content-Security-Policy: frame-ancestors` et au protocole `postMessage`, tout changement effectué dans les formulaires (couleur, nom, logo, thème, WhatsApp, bandeau) est injecté en **0ms** dans le DOM de l'iframe. Ce que l'utilisateur voit dans sa prévisualisation est **strictement identique à 100%** à ce qui s'affiche sur `djelia.store/s/:slug`.
+  2. **Personnalisation NATIVE à la Racine (`:root`) dans `djelia-white-label.js`** :
+     - Plus de surcouche fragile : injection native des variables CSS (`--terracotta`, `--terracotta-deep`, `--gold`, `--gold-strong`, `--gold-soft`, `--bg`, `--surface`, `--surface-warm`, `--text`, `--line`, etc.).
+     - 4 thèmes d'atmosphère complets :
+       - **Obsidienne Pure** (Luxe sombre noir graphite)
+       - **Atelier Vinyle & Papier Chaud** (Ambiance originale d'origine Djelia sur fond crème)
+       - **Nuit Bleue Midnight** (Saphir nocturne)
+       - **Émeraude Sombre** (Vert haute joaillerie)
+     - Choix entre conserver l'**Accroche Signature Djelia** (recommandée, fort taux de conversion : « Offre une chanson qui fera pleurer de joie ») ou personnaliser librement son titre H1 et sous-titre.
+     - Remplacement exhaustif du nom du studio dans la navbar, le titre de l'onglet, le pied de page géant (`.foot-giant`) et les mentions de commande.
+     - Bouton WhatsApp flottant avec numéro propre et message pré-rempli.
+     - Bandeau d'annonce / urgence doré supérieur débrayable (`#privilegeBanner`).
+  3. **Attribution Déterministe 50% (600 F CFA) & Statistiques en Direct** :
+     - SQLite `affiliate_configs` & `affiliates` sur le VPS, synchronisation `GET /pay/affiliate/stats?slug=:slug`, et modal de virement WhatsApp Wave / OM.
 - **Personnalisation Front-End Maximale des Vitrines Partenaires & Mockup Live (`AffiliationView.tsx` & `MiniSiteView.tsx`)** :
   1. **Personnalisation Poussée à l'Extrême (White-Label Intégral)** :
      - **Identité Visuelle & Logo** : Téléversement direct d'une photo / logo de profil (avec conversion DataURL) ou saisie d'URL d'image, bouton de suppression instantanée, monogramme stylisé automatique en fallback.
