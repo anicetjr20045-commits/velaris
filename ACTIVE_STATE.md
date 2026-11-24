@@ -25,7 +25,26 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (13:42 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (14:07 UTC)
+- **Synchronisation White-Label Complète sur le Site Principal `djelia.store`** :
+  1. **Convergence Totale du Moteur & Personnalisation Front-End** :
+     - Les affiliés ne sont plus cantonnés à une sous-page : **leur lien donne directement accès au vrai site de composition `djelia.store` (et `djelia.store/studio.html`)**, qui s'habille dynamiquement à leurs couleurs.
+     - Prise en charge universelle des URLs :
+       - `https://djelia.store/s/:slug` (réécriture Vercel instantanée vers `studio.html` sans changer l'URL du navigateur).
+       - `https://djelia.store/studio.html?ref=:slug` (accès direct au studio musical avec attribution).
+       - `https://djelia.store/?ref=:slug` (landing page grand public personnalisée).
+  2. **Moteur d'Injection Dynamique (`djelia-white-label.js`) Déployé sur `djelia.store`** :
+     - Remplacement dynamique du nom du studio dans la navbar desktop & mobile.
+     - Remplacement de l'icône par le logo/photo personnalisé ou le monogramme stylisé.
+     - Colorisation dynamique de tout le site (variables CSS `--gold`, boutons, reflets, bordures) selon la couleur d'accent choisie par l'affilié.
+     - Adaptation de l'ambiance de fond (Obsidienne, Midnight, Émeraude, Carbone).
+     - Bouton d'assistance WhatsApp flottant persistant en bas à droite relié au **numéro propre de l'affilié**.
+     - Attribution automatique et persistante des commissions (50% net, soit 600 F CFA sur chaque commande de 1 200 F).
+  3. **Vérifications en Production Validées** :
+     - Déploiement Vercel `djelia.store` (`velaris-site`) : HTTP 200 OK.
+     - Réécriture `/s/:slug` ➔ `/studio.html` : HTTP 200 OK.
+     - Espace créateur `velaris-dun.vercel.app` (`velaris`) : HTTP 200 OK.
+     - 260/260 tests backend unitaires au vert (`npm test`).
 - **Personnalisation Front-End Maximale des Vitrines Partenaires & Mockup Live (`AffiliationView.tsx` & `MiniSiteView.tsx`)** :
   1. **Personnalisation Poussée à l'Extrême (White-Label Intégral)** :
      - **Identité Visuelle & Logo** : Téléversement direct d'une photo / logo de profil (avec conversion DataURL) ou saisie d'URL d'image, bouton de suppression instantanée, monogramme stylisé automatique en fallback.
