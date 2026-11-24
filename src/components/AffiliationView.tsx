@@ -14,39 +14,63 @@ import {
   Share2,
   Upload,
   Trash2,
-  Eye,
   Sliders,
   MessageCircle,
   Music2,
   ShieldCheck,
   Layers,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
-import { THEME_STYLES } from './MiniSiteView';
 
 const COLOR_PRESETS = [
   { id: '#E2BD6B', name: 'Or Champagne', class: 'bg-[#E2BD6B]' },
+  { id: '#B8431D', name: 'Terracotta Signature', class: 'bg-[#B8431D]' },
   { id: '#10D98E', name: 'Émeraude Royale', class: 'bg-[#10D98E]' },
   { id: '#00E5FF', name: 'Cyan Électrique', class: 'bg-[#00E5FF]' },
   { id: '#F43F5E', name: 'Rose Passion', class: 'bg-[#F43F5E]' },
   { id: '#A855F7', name: 'Violet Studio', class: 'bg-[#A855F7]' },
   { id: '#EF4444', name: 'Rubis Impérial', class: 'bg-[#EF4444]' },
   { id: '#F59E0B', name: 'Ambre Solaire', class: 'bg-[#F59E0B]' },
-  { id: '#FFFFFF', name: 'Blanc Pur', class: 'bg-[#FFFFFF]' },
 ];
 
 const THEME_OPTIONS = [
-  { id: 'obsidian', name: 'Obsidienne Pure', desc: 'Noir profond luxe', bg: '#06070A', border: 'rgba(255,255,255,0.08)' },
-  { id: 'midnight', name: 'Nuit Bleue Midnight', desc: 'Bleu nuit discret', bg: '#070A12', border: 'rgba(59,130,246,0.2)' },
-  { id: 'emerald', name: 'Émeraude Sombre', desc: 'Végétal haut de gamme', bg: '#050F0B', border: 'rgba(16,217,142,0.2)' },
-  { id: 'carbon', name: 'Café Carbone', desc: 'Brun sombre boisé', bg: '#0C0A09', border: 'rgba(226,189,107,0.2)' },
+  {
+    id: 'obsidian',
+    name: 'Obsidienne Pure',
+    desc: 'Luxe sombre graphite profond',
+    bg: '#07080B',
+    border: 'rgba(255,255,255,0.1)'
+  },
+  {
+    id: 'paper',
+    name: 'Atelier Vinyle & Papier Chaud',
+    desc: 'Signature d’origine Djelia (fond crème chaud)',
+    bg: '#FAF7F2',
+    border: 'rgba(20,17,12,0.15)'
+  },
+  {
+    id: 'midnight',
+    name: 'Nuit Bleue Midnight',
+    desc: 'Bleu nuit discret et élégant',
+    bg: '#070A14',
+    border: 'rgba(59,130,246,0.2)'
+  },
+  {
+    id: 'emerald',
+    name: 'Émeraude Sombre',
+    desc: 'Vert impérial haute joaillerie',
+    bg: '#050F0B',
+    border: 'rgba(16,217,142,0.2)'
+  },
 ];
 
 export const AffiliationView: FC = () => {
   const { user } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<'site' | 'affiliate'>('site');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Données de configuration du studio (user_metadata ou valeurs par défaut)
   const meta = user?.user_metadata || {};
@@ -55,15 +79,23 @@ export const AffiliationView: FC = () => {
 
   const [studioName, setStudioName] = useState(initialName);
   const [studioSlug, setStudioSlug] = useState(initialSlug);
-  const [headline, setHeadline] = useState(
-    (meta.studio_headline as string) || 'Vos plus beaux souvenirs transformés en chansons d’exception'
+  
+  // Mode de texte : 'signature' pour garder le texte d'origine Djelia, ou 'custom' pour texte libre
+  const initialHeadline = (meta.studio_headline as string) || '';
+  const initialBio = (meta.studio_bio as string) || '';
+  const isCustomTextInitial = Boolean(
+    initialHeadline &&
+    initialHeadline !== 'Offre une chanson qui fera pleurer de joie.' &&
+    initialHeadline !== 'Vos plus beaux souvenirs transformés en chansons d’exception'
   );
-  const [bio, setBio] = useState(
-    (meta.studio_bio as string) || 'Création musicale sur-mesure en 15 minutes, paroles écrites spécialement pour vos proches.'
-  );
+
+  const [textMode, setTextMode] = useState<'signature' | 'custom'>(isCustomTextInitial ? 'custom' : 'signature');
+  const [headline, setHeadline] = useState(initialHeadline || 'Offre une chanson qui fera pleurer de joie.');
+  const [bio, setBio] = useState(initialBio || 'En 30 secondes, crée la surprise dont on parlera pendant des années.');
+  
   const [photoUrl, setPhotoUrl] = useState<string>((meta.studio_photo_url as string) || '');
   const [accentColor, setAccentColor] = useState<string>((meta.studio_color as string) || '#E2BD6B');
-  const [themeMode, setThemeMode] = useState<'obsidian' | 'midnight' | 'emerald' | 'carbon'>(
+  const [themeMode, setThemeMode] = useState<'obsidian' | 'paper' | 'midnight' | 'emerald'>(
     (meta.studio_theme as any) || 'obsidian'
   );
 
@@ -72,19 +104,26 @@ export const AffiliationView: FC = () => {
   const [badgeText, setBadgeText] = useState<string>((meta.studio_badge_text as string) || 'Studio de Création Musicale');
   const [showDemos, setShowDemos] = useState<boolean>(meta.studio_show_demos ?? true);
   const [showGuarantees, setShowGuarantees] = useState<boolean>(meta.studio_show_guarantees ?? true);
+  
+  // WhatsApp
   const [showWhatsApp, setShowWhatsApp] = useState<boolean>(meta.studio_show_whatsapp ?? false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string>((meta.studio_whatsapp_phone as string) || '');
   const [whatsAppPrompt, setWhatsAppPrompt] = useState<string>(
     (meta.studio_whatsapp_prompt as string) || 'Bonjour ! J’ai une question concernant ma commande de chanson.'
   );
 
+  // Bandeau d'Annonce Supérieur
+  const [showBanner, setShowBanner] = useState<boolean>(Boolean(meta.studio_banner_text));
+  const [bannerText, setBannerText] = useState<string>((meta.studio_banner_text as string) || 'Livraison garantie en moins de 5 minutes avec 2 versions offertes');
+
   // État de sauvegarde & affichage
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [savingSite, setSavingSite] = useState(false);
   const [siteSavedNotice, setSiteSavedNotice] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
 
   // État Affiliation 50% & Retrait WhatsApp
-  const [copiedKey, setCopiedKey] = useState<'mini' | null>(null);
+  const [copiedKey, setCopiedKey] = useState<'mini' | 'short' | null>(null);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawPhone, setWithdrawPhone] = useState((meta.phone as string) || '');
   const [withdrawName, setWithdrawName] = useState((meta.full_name as string) || '');
@@ -120,6 +159,76 @@ export const AffiliationView: FC = () => {
   });
   const [loadingStats, setLoadingStats] = useState(false);
 
+  // Configuration courante synchronisée
+  const currentConfig = {
+    name: studioName.trim() || 'Mon Studio',
+    accent_color: accentColor,
+    accentColor: accentColor,
+    theme_mode: themeMode,
+    themeMode: themeMode,
+    photo_url: photoUrl || null,
+    photoUrl: photoUrl || null,
+    headline: textMode === 'custom' ? headline.trim() : '',
+    bio: textMode === 'custom' ? bio.trim() : '',
+    badge_text: showBadge ? badgeText.trim() : '',
+    badgeText: showBadge ? badgeText.trim() : '',
+    show_whatsapp: showWhatsApp,
+    showWhatsApp: showWhatsApp,
+    whatsapp_phone: whatsAppPhone.trim() || null,
+    whatsAppPhone: whatsAppPhone.trim() || null,
+    whatsapp_prompt: whatsAppPrompt.trim() || null,
+    whatsAppPrompt: whatsAppPrompt.trim() || null,
+    banner_text: showBanner ? bannerText.trim() : null,
+    bannerText: showBanner ? bannerText.trim() : null,
+    show_demos: showDemos,
+    showDemos: showDemos,
+    show_guarantees: showGuarantees,
+    showGuarantees: showGuarantees,
+  };
+
+  // Synchronisation en direct avec l'iframe de prévisualisation (postMessage 0ms)
+  const sendConfigToIframe = () => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({
+        type: 'DJELIA_STUDIO_PREVIEW_UPDATE',
+        config: currentConfig
+      }, '*');
+    }
+  };
+
+  useEffect(() => {
+    sendConfigToIframe();
+  }, [
+    studioName,
+    accentColor,
+    themeMode,
+    photoUrl,
+    textMode,
+    headline,
+    bio,
+    showBadge,
+    badgeText,
+    showWhatsApp,
+    whatsAppPhone,
+    whatsAppPrompt,
+    showBanner,
+    bannerText,
+    showDemos,
+    showGuarantees
+  ]);
+
+  // Réception de l'événement d'initialisation de l'iframe
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'DJELIA_STUDIO_IFRAME_READY') {
+        sendConfigToIframe();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [currentConfig]);
+
+  // Récupération des statistiques d'affiliation
   useEffect(() => {
     let cancelled = false;
     const fetchAffiliateStats = async () => {
@@ -146,7 +255,7 @@ export const AffiliationView: FC = () => {
   const balanceCfa = stats.balance || (totalSales * commissionPerSale);
   const minWithdrawThreshold = 1500;
 
-  const handleCopy = (text: string, type: 'mini') => {
+  const handleCopy = (text: string, type: 'mini' | 'short') => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedKey(type);
     setTimeout(() => setCopiedKey(null), 2000);
@@ -171,29 +280,15 @@ export const AffiliationView: FC = () => {
     reader.readAsDataURL(file);
   };
 
-  // Enregistrement et publication sur Supabase (Auth + table studios + localStorage)
+  // Enregistrement et publication instantanée
   const handleSaveSite = async (e: FormEvent) => {
     e.preventDefault();
     setSavingSite(true);
     setSiteSavedNotice(null);
 
     const fullConfig = {
-      id: user?.id || 'local-partner',
-      user_id: user?.id || 'partner',
-      name: studioName.trim() || 'Mon Studio',
+      ...currentConfig,
       slug: cleanSlug,
-      headline: headline.trim(),
-      bio: bio.trim(),
-      photo_url: photoUrl || null,
-      accent_color: accentColor,
-      theme_mode: themeMode,
-      show_badge: showBadge,
-      badge_text: badgeText.trim(),
-      show_demos: showDemos,
-      show_guarantees: showGuarantees,
-      show_whatsapp: showWhatsApp,
-      whatsapp_phone: whatsAppPhone.trim() || null,
-      whatsapp_prompt: whatsAppPrompt.trim() || null,
       price_quoted_standard: 1200,
     };
 
@@ -220,8 +315,8 @@ export const AffiliationView: FC = () => {
         data: {
           studio_name: studioName.trim(),
           studio_slug: cleanSlug,
-          studio_headline: headline.trim(),
-          studio_bio: bio.trim(),
+          studio_headline: textMode === 'custom' ? headline.trim() : '',
+          studio_bio: textMode === 'custom' ? bio.trim() : '',
           studio_photo_url: photoUrl,
           studio_color: accentColor,
           studio_theme: themeMode,
@@ -232,6 +327,7 @@ export const AffiliationView: FC = () => {
           studio_show_whatsapp: showWhatsApp,
           studio_whatsapp_phone: whatsAppPhone.trim(),
           studio_whatsapp_prompt: whatsAppPrompt.trim(),
+          studio_banner_text: showBanner ? bannerText.trim() : '',
           studio_price: 1200,
         },
       });
@@ -244,11 +340,11 @@ export const AffiliationView: FC = () => {
             user_id: user.id,
             name: studioName.trim(),
             slug: cleanSlug,
-            bio: bio.trim(),
+            bio: textMode === 'custom' ? bio.trim() : '',
             photo_url: photoUrl || null,
             accent_color: accentColor,
             social_links: {
-              headline: headline.trim(),
+              headline: textMode === 'custom' ? headline.trim() : '',
               theme_mode: themeMode,
               show_badge: showBadge,
               badge_text: badgeText.trim(),
@@ -257,15 +353,14 @@ export const AffiliationView: FC = () => {
               show_whatsapp: showWhatsApp,
               whatsapp_phone: whatsAppPhone.trim(),
               whatsapp_prompt: whatsAppPrompt.trim(),
+              banner_text: showBanner ? bannerText.trim() : '',
             },
             price_quoted_standard: 1200,
             updated_at: new Date().toISOString(),
           });
-        } catch {
-          // Table studios optionnelle
-        }
+        } catch {}
 
-        // 4. Publication publique dans automation_rules pour diffusion mondiale vers djelia.store
+        // 4. Publication publique dans automation_rules
         try {
           const { data: existing } = await supabase
             .from('automation_rules')
@@ -293,13 +388,14 @@ export const AffiliationView: FC = () => {
               enabled: true,
             });
           }
-        } catch {
-          // Non bloquant
-        }
+        } catch {}
       }
 
-      setSiteSavedNotice(`Votre site a été enregistré et publié en direct sur https://djelia.store/s/${cleanSlug}`);
+      setSiteSavedNotice(`Votre site est publié en direct sur https://djelia.store/s/${cleanSlug}`);
       setTimeout(() => setSiteSavedNotice(null), 6000);
+      
+      // Actualiser l'iframe pour confirmer
+      sendConfigToIframe();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur lors de la mise à jour.';
       setSiteSavedNotice(msg);
@@ -344,7 +440,6 @@ export const AffiliationView: FC = () => {
   };
 
   const initials = (studioName || 'Studio').slice(0, 2).toUpperCase();
-  const currentTheme = THEME_STYLES[themeMode] || THEME_STYLES.obsidian;
 
   return (
     <div className="space-y-8 pb-12">
@@ -353,29 +448,29 @@ export const AffiliationView: FC = () => {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight text-white">Mon Site Vitrine & Affiliation</h1>
           <p className="text-sm text-[#8A90A0]">
-            Personnalisez votre propre site de vente et encaissez 50% de commission nette (600 F CFA) sur chaque commande.
+            Personnalisez votre site djelia.store à votre identité et encaissez 50% de commission nette (600 F CFA) sur chaque vente.
           </p>
         </div>
 
         {/* Lien direct et bouton aperçu */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-white/90">
+        <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-white/90">
           <Globe className="w-3.5 h-3.5 text-[#E2BD6B]" />
           <span className="font-mono text-[11px] truncate max-w-[180px] sm:max-w-xs">
             djelia.store/s/{cleanSlug}
           </span>
           <button
             type="button"
-            onClick={() => handleCopy(miniSiteUrl, 'mini')}
+            onClick={() => handleCopy(shortSlugUrl, 'short')}
             className="text-[#E2BD6B] font-semibold text-[11px] hover:underline cursor-pointer"
           >
-            {copiedKey === 'mini' ? 'Copié' : 'Copier'}
+            {copiedKey === 'short' ? 'Copié' : 'Copier'}
           </button>
           <a
-            href={miniSiteUrl}
+            href={shortSlugUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-white/70 hover:text-white p-0.5"
-            title="Voir en direct"
+            className="text-white/70 hover:text-white p-0.5 ml-1"
+            title="Ouvrir dans un nouvel onglet"
           >
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
@@ -394,7 +489,7 @@ export const AffiliationView: FC = () => {
           }`}
         >
           <Sliders className="w-3.5 h-3.5" />
-          <span>Personnalisation & Aperçu Live</span>
+          <span>Personnalisation & Prévisualisation Réelle</span>
         </button>
         <button
           type="button"
@@ -428,13 +523,13 @@ export const AffiliationView: FC = () => {
               <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Layers className="w-4 h-4 text-[#E2BD6B]" />
-                  <h3 className="text-sm font-semibold text-white">1. Identité Visuelle & Logo</h3>
+                  <h3 className="text-sm font-semibold text-white">1. Identité de Marque & Logo</h3>
                 </div>
 
                 {/* Upload Logo ou Photo */}
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Logo ou Photo de profil du studio
+                    Logo ou Photo de profil du studio (intégré dans l'en-tête du site)
                   </label>
 
                   <div className="flex items-center gap-4">
@@ -479,7 +574,7 @@ export const AffiliationView: FC = () => {
                           className="px-3.5 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-xs font-medium text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
                           <Upload className="w-3.5 h-3.5" />
-                          <span>Téléverser une image</span>
+                          <span>Téléverser mon image</span>
                         </button>
 
                         {photoUrl && (
@@ -494,7 +589,7 @@ export const AffiliationView: FC = () => {
                         )}
                       </div>
                       <p className="text-[11px] text-[#8A90A0]">
-                        JPG, PNG ou WEBP. Si aucune photo n’est choisie, votre monogramme sera affiché.
+                        JPG, PNG ou WEBP. Si aucune image n'est choisie, votre nom élégant sera affiché.
                       </p>
                     </div>
                   </div>
@@ -510,16 +605,19 @@ export const AffiliationView: FC = () => {
                     type="text"
                     value={studioName}
                     onChange={(e) => setStudioName(e.target.value)}
-                    placeholder="Ex : Fatou Music, Awa Studio, Mélodies d’Afrique..."
+                    placeholder="Ex : Studio Royal, Fatou Music, Mélodies d’Afrique..."
                     required
                     className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
                   />
+                  <p className="text-[11px] text-[#8A90A0]">
+                    Ce nom remplace "Djelia" dans le logo d'en-tête, le titre et le pied de page du site.
+                  </p>
                 </div>
 
                 {/* Slug d'URL */}
                 <div className="space-y-1.5">
                   <label htmlFor="st-slug" className="block text-xs font-medium text-[#8A90A0]">
-                    Votre adresse exclusive sur le web
+                    Identifiant de votre lien personnalisé
                   </label>
                   <div className="flex items-center rounded-2xl bg-[#06070A] border border-white/[0.08] overflow-hidden focus-within:border-[#E2BD6B]">
                     <span className="px-3.5 py-2.5 text-xs text-[#8A90A0] bg-white/[0.02] border-r border-white/[0.06] select-none font-mono">
@@ -537,12 +635,12 @@ export const AffiliationView: FC = () => {
                   </div>
                 </div>
 
-                {/* Badge de Confiance / Label d'Accroche */}
+                {/* Badge d'Expertise */}
                 <div className="pt-2 border-t border-white/[0.06] space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-medium text-white">Badge d'expertise en tête de page</p>
-                      <p className="text-[11px] text-[#8A90A0]">Affiche une puce de réassurance personnalisée</p>
+                      <p className="text-xs font-medium text-white">Badge d'expertise en haut de page</p>
+                      <p className="text-[11px] text-[#8A90A0]">Affiche un sous-titre de réassurance stylisé</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -560,24 +658,24 @@ export const AffiliationView: FC = () => {
                       type="text"
                       value={badgeText}
                       onChange={(e) => setBadgeText(e.target.value)}
-                      placeholder="Ex : Studio de Création Musicale, 100% Original..."
+                      placeholder="Ex : Studio de Création Musicale, Chansons Sur-Mesure..."
                       className="w-full px-3.5 py-2 rounded-xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
                     />
                   )}
                 </div>
               </section>
 
-              {/* 2. COULEURS & AMBIANCE */}
+              {/* 2. COULEURS & AMBIANCE À LA BASE (:root) */}
               <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Palette className="w-4 h-4 text-[#E2BD6B]" />
-                  <h3 className="text-sm font-semibold text-white">2. Couleurs & Ambiance Graphique</h3>
+                  <h3 className="text-sm font-semibold text-white">2. Couleurs & Ambiance Graphique (Injectées à la base)</h3>
                 </div>
 
                 {/* Couleur d'accentuation */}
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Couleur d'accentuation (boutons, bordures et reflets)
+                    Couleur signature (applique la teinte sur les boutons, vinyle, étapes et barres de progression)
                   </label>
                   <div className="flex flex-wrap items-center gap-2.5">
                     {COLOR_PRESETS.map((c) => {
@@ -613,12 +711,12 @@ export const AffiliationView: FC = () => {
                   </div>
                 </div>
 
-                {/* Ambiance de fond sombre */}
+                {/* Ambiance de fond */}
                 <div className="space-y-2 pt-2 border-t border-white/[0.06]">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Ambiance de fond du site
+                    Atmosphère & Fond de base du site
                   </label>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {THEME_OPTIONS.map((th) => {
                       const isSelected = themeMode === th.id;
                       return (
@@ -632,7 +730,7 @@ export const AffiliationView: FC = () => {
                               : 'border-white/[0.08] text-[#8A90A0] hover:text-white'
                           }`}
                           style={{
-                            backgroundColor: th.bg,
+                            backgroundColor: th.bg === '#FAF7F2' ? '#1F1C18' : th.bg,
                             borderColor: isSelected ? accentColor : undefined,
                           }}
                         >
@@ -648,99 +746,104 @@ export const AffiliationView: FC = () => {
                 </div>
               </section>
 
-              {/* 3. TEXTES & ACCROCHE PROSPECT */}
-              <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-4">
+              {/* 3. TEXTES & ACCROCHE (Garder l'originale ou personnaliser) */}
+              <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Sparkles className="w-4 h-4 text-[#E2BD6B]" />
                   <h3 className="text-sm font-semibold text-white">3. Textes & Promesse Client</h3>
                 </div>
 
-                {/* Headline principale */}
-                <div className="space-y-1.5">
-                  <label htmlFor="st-headline" className="block text-xs font-medium text-[#8A90A0]">
-                    Grand titre d'accroche
-                  </label>
-                  <input
-                    id="st-headline"
-                    type="text"
-                    value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
-                    placeholder="Ex : Vos plus beaux souvenirs transformés en chansons d’exception"
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
-                  />
+                {/* Choix entre conserver l'identité Djelia ou personnaliser */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1 rounded-2xl bg-[#06070A] border border-white/[0.06]">
+                  <button
+                    type="button"
+                    onClick={() => setTextMode('signature')}
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                      textMode === 'signature'
+                        ? 'bg-white text-black shadow-sm'
+                        : 'text-[#8A90A0] hover:text-white'
+                    }`}
+                  >
+                    <span className="block font-bold">Accroche Signature Djelia</span>
+                    <span className="text-[10px] opacity-75 font-normal">Recommandée (taux de conversion maximal)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTextMode('custom')}
+                    className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer text-left ${
+                      textMode === 'custom'
+                        ? 'bg-white text-black shadow-sm'
+                        : 'text-[#8A90A0] hover:text-white'
+                    }`}
+                  >
+                    <span className="block font-bold">Personnaliser mes Textes</span>
+                    <span className="text-[10px] opacity-75 font-normal">Écrire mon propre titre et slogan</span>
+                  </button>
                 </div>
 
-                {/* Phrase d'accueil (Bio) */}
-                <div className="space-y-1.5">
-                  <label htmlFor="st-bio" className="block text-xs font-medium text-[#8A90A0]">
-                    Sous-titre et présentation de votre studio
-                  </label>
-                  <textarea
-                    id="st-bio"
-                    rows={2}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Ex : Création sur-mesure en 15 minutes, paroles écrites spécialement pour vos proches..."
-                    className="w-full p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
-                  />
-                </div>
+                {textMode === 'signature' ? (
+                  <div className="p-4 rounded-2xl bg-[#06070A] border border-white/[0.06] space-y-2">
+                    <p className="text-xs text-white/90 font-medium">
+                      Accroche d'origine active :
+                    </p>
+                    <blockquote className="text-sm italic font-serif text-white/90 border-l-2 pl-3 py-0.5" style={{ borderColor: accentColor }}>
+                      « Offre une chanson qui fera pleurer de joie. »
+                    </blockquote>
+                    <p className="text-[11px] text-[#8A90A0]">
+                      Sous-titre : « En 30 secondes, crée la surprise dont on parlera pendant des années. »
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 pt-1">
+                    {/* Headline principale */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="st-headline" className="block text-xs font-medium text-[#8A90A0]">
+                        Grand titre du Hero (H1)
+                      </label>
+                      <input
+                        id="st-headline"
+                        type="text"
+                        value={headline}
+                        onChange={(e) => setHeadline(e.target.value)}
+                        placeholder="Ex : Offre une chanson qui fera pleurer de joie"
+                        className="w-full px-3.5 py-2.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
+                      />
+                    </div>
+
+                    {/* Phrase d'accueil (Bio) */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="st-bio" className="block text-xs font-medium text-[#8A90A0]">
+                        Sous-titre / Pitch du studio
+                      </label>
+                      <textarea
+                        id="st-bio"
+                        rows={2}
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        placeholder="Ex : En 30 secondes, crée la surprise dont on parlera pendant des années..."
+                        className="w-full p-3.5 rounded-2xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
+                      />
+                    </div>
+                  </div>
+                )}
               </section>
 
-              {/* 4. MODULES DU SITE (AJOUTER / ENLEVER) */}
+              {/* 4. MODULES & ASSISTANCE WHATSAPP */}
               <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 sm:p-6 space-y-5">
                 <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                   <Sliders className="w-4 h-4 text-[#E2BD6B]" />
-                  <h3 className="text-sm font-semibold text-white">4. Modules & Toggles (Ajouter ou Enlever)</h3>
-                </div>
-
-                {/* Toggle Démos Audios */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Music2 className="w-4 h-4 text-[#E2BD6B]" />
-                    <div>
-                      <p className="text-xs font-semibold text-white">Lecteur d’extraits audio</p>
-                      <p className="text-[11px] text-[#8A90A0]">Affiche 3 morceaux réels de démonstration avec paroles</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showDemos}
-                      onChange={(e) => setShowDemos(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
-                  </label>
-                </div>
-
-                {/* Toggle Garanties */}
-                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
-                  <div className="flex items-center gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-[#10D98E]" />
-                    <div>
-                      <p className="text-xs font-semibold text-white">Bloc des 3 garanties d’excellence</p>
-                      <p className="text-[11px] text-[#8A90A0]">Livraison express, format audio MP3 HD, paiement sécurisé</p>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showGuarantees}
-                      onChange={(e) => setShowGuarantees(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
-                  </label>
+                  <h3 className="text-sm font-semibold text-white">4. Modules Additionnels & WhatsApp</h3>
                 </div>
 
                 {/* Toggle Bouton WhatsApp d'Assistance Direct */}
-                <div className="pt-2 border-t border-white/[0.06] space-y-3">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <MessageCircle className="w-4 h-4 text-[#25D366]" />
                       <div>
-                        <p className="text-xs font-semibold text-white">Bouton d’assistance WhatsApp direct</p>
-                        <p className="text-[11px] text-[#8A90A0]">Permet à vos clients de vous contacter directement en cas de besoin</p>
+                        <p className="text-xs font-semibold text-white">Bouton d’assistance WhatsApp flottant</p>
+                        <p className="text-[11px] text-[#8A90A0]">Permet à vos clients de vous contacter directement en 1 clic</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -779,35 +882,121 @@ export const AffiliationView: FC = () => {
                           type="text"
                           value={whatsAppPrompt}
                           onChange={(e) => setWhatsAppPrompt(e.target.value)}
-                          placeholder="Ex : Bonjour ! J’ai une question concernant la création d'une chanson."
+                          placeholder="Ex : Bonjour ! J’ai une question concernant ma commande de chanson."
                           className="w-full px-3.5 py-2 rounded-xl bg-black/40 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#25D366]"
                         />
                       </div>
                     </div>
                   )}
                 </div>
+
+                {/* Toggle Bandeau d'Annonce Supérieur */}
+                <div className="pt-2 border-t border-white/[0.06] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Sparkles className="w-4 h-4 text-[#E2BD6B]" />
+                      <div>
+                        <p className="text-xs font-semibold text-white">Bandeau d'urgence ou d'offre spéciale</p>
+                        <p className="text-[11px] text-[#8A90A0]">Affiche une bannière dorée discrète en tête de page</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showBanner}
+                        onChange={(e) => setShowBanner(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                    </label>
+                  </div>
+
+                  {showBanner && (
+                    <input
+                      type="text"
+                      value={bannerText}
+                      onChange={(e) => setBannerText(e.target.value)}
+                      placeholder="Ex : Offre Spéciale : 2 versions Master HD livrées en 5 minutes !"
+                      className="w-full px-3.5 py-2 rounded-xl bg-[#06070A] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                    />
+                  )}
+                </div>
+
+                {/* Toggle Démos Audios */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <Music2 className="w-4 h-4 text-[#E2BD6B]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Lecteur d’extraits audio</p>
+                      <p className="text-[11px] text-[#8A90A0]">Affiche les morceaux de démonstration dans le tunnel</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDemos}
+                      onChange={(e) => setShowDemos(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
+
+                {/* Toggle Garanties */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-[#10D98E]" />
+                    <div>
+                      <p className="text-xs font-semibold text-white">Puces de garanties et réassurance</p>
+                      <p className="text-[11px] text-[#8A90A0]">Livraison en 5 minutes, 2 versions, 100% sur-mesure</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showGuarantees}
+                      onChange={(e) => setShowGuarantees(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#10D98E]" />
+                  </label>
+                </div>
               </section>
 
               {/* Bouton d'enregistrement / publication */}
-              <button
-                type="submit"
-                disabled={savingSite}
-                className="w-full py-4 rounded-2xl bg-white text-black text-sm font-bold hover:bg-neutral-200 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl disabled:opacity-50"
-              >
-                {savingSite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                <span>{savingSite ? 'Publication en cours…' : 'Enregistrer et publier mon site'}</span>
-              </button>
+              <div className="space-y-3">
+                <button
+                  type="submit"
+                  disabled={savingSite}
+                  className="w-full py-4 rounded-2xl bg-white text-black text-sm font-bold hover:bg-neutral-200 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl disabled:opacity-50"
+                >
+                  {savingSite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{savingSite ? 'Publication en cours…' : 'Enregistrer et publier mon site'}</span>
+                </button>
+
+                <div className="flex items-center justify-center gap-4 text-xs text-[#8A90A0]">
+                  <a
+                    href={shortSlugUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-white/80 hover:text-white underline underline-offset-4"
+                  >
+                    <span>Tester le lien publié en plein écran</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
             </form>
           </div>
 
           {/* ============================================================ */}
-          {/* COLONNE DROITE (5/12) : APERÇU LIVE EN TEMPS RÉEL (MOCKUP)   */}
+          {/* COLONNE DROITE (5/12) : PRÉVISUALISATION RÉELLE 1:1 DU SITE  */}
           {/* ============================================================ */}
           <div className="lg:col-span-5 sticky top-20 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
               <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-[#E2BD6B]" />
-                <h3 className="text-sm font-semibold text-white">Aperçu en direct</h3>
+                <span className="w-2 h-2 rounded-full bg-[#10D98E] animate-pulse" />
+                <h3 className="text-sm font-semibold text-white">Aperçu Réel 1:1 (djelia.store)</h3>
               </div>
 
               <div className="flex items-center gap-2">
@@ -815,7 +1004,7 @@ export const AffiliationView: FC = () => {
                   <button
                     type="button"
                     onClick={() => setPreviewDevice('mobile')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
                       previewDevice === 'mobile' ? 'bg-white text-black font-semibold' : 'text-[#8A90A0]'
                     }`}
                   >
@@ -824,7 +1013,7 @@ export const AffiliationView: FC = () => {
                   <button
                     type="button"
                     onClick={() => setPreviewDevice('desktop')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
                       previewDevice === 'desktop' ? 'bg-white text-black font-semibold' : 'text-[#8A90A0]'
                     }`}
                   >
@@ -832,11 +1021,23 @@ export const AffiliationView: FC = () => {
                   </button>
                 </div>
 
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIframeKey((k) => k + 1);
+                    setTimeout(sendConfigToIframe, 300);
+                  }}
+                  className="p-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white cursor-pointer"
+                  title="Recharger l'aperçu"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+
                 <a
-                  href={miniSiteUrl}
+                  href={shortSlugUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white"
+                  className="p-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white cursor-pointer"
                   title="Ouvrir dans un nouvel onglet"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -844,16 +1045,15 @@ export const AffiliationView: FC = () => {
               </div>
             </div>
 
-            {/* Cadre du Mockup en Temps Réel */}
+            {/* Cadre du Mockup Intégrant le Vrai Site en Live */}
             <div
-              className={`rounded-[32px] border overflow-hidden shadow-2xl transition-all duration-300 mx-auto ${
-                previewDevice === 'mobile' ? 'max-w-[360px] border-white/[0.14]' : 'w-full border-white/[0.12]'
+              className={`rounded-[32px] border overflow-hidden shadow-2xl transition-all duration-300 mx-auto bg-[#07080B] ${
+                previewDevice === 'mobile' ? 'max-w-[380px] border-white/[0.16]' : 'w-full border-white/[0.12]'
               }`}
-              style={{ backgroundColor: currentTheme.bg }}
             >
               {/* Fake status bar pour le mobile */}
               {previewDevice === 'mobile' && (
-                <div className="px-5 pt-3 pb-2 flex items-center justify-between text-[10px] text-white/40 font-mono select-none">
+                <div className="px-5 pt-3 pb-2 flex items-center justify-between text-[10px] text-white/40 font-mono select-none bg-[#07080B] border-b border-white/[0.04]">
                   <span>9:41</span>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full border border-white/40" />
@@ -862,186 +1062,21 @@ export const AffiliationView: FC = () => {
                 </div>
               )}
 
-              {/* Header officiel djelia.store personnalisé */}
-              <div
-                className="px-4 py-3 border-b flex items-center justify-between"
-                style={{
-                  backgroundColor: `${currentTheme.bg}F0`,
-                  borderColor: currentTheme.border,
-                }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  {photoUrl ? (
-                    <img
-                      src={photoUrl}
-                      alt="Logo"
-                      className="w-7 h-7 rounded-lg object-cover shrink-0 border"
-                      style={{ borderColor: accentColor }}
-                    />
-                  ) : (
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-black font-black text-xs shrink-0"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      {initials}
-                    </div>
-                  )}
-                  <span className="font-extrabold text-xs text-white tracking-tight truncate">
-                    {studioName || 'Mon Studio'}
-                    <span style={{ color: accentColor }}>.</span>
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.06] text-white/70">
-                    Étape <strong>1/6</strong> · Style
-                  </span>
-                  <div className="font-mono font-bold text-xs shrink-0" style={{ color: accentColor }}>
-                    1 200 F
-                  </div>
-                </div>
+              {/* L'iframe du vrai site public djelia.store */}
+              <div className="relative w-full h-[640px] bg-[#07080B]">
+                <iframe
+                  ref={iframeRef}
+                  key={iframeKey}
+                  src={`https://djelia.store/?ref=${cleanSlug}&preview=1`}
+                  title="Aperçu Réel djelia.store"
+                  className="w-full h-full border-0"
+                  onLoad={sendConfigToIframe}
+                />
               </div>
 
-              {/* Barre de progression aux couleurs du studio */}
-              <div className="h-1 w-full bg-white/[0.06]">
-                <div className="h-full w-1/6" style={{ backgroundColor: accentColor }} />
-              </div>
-
-              {/* Contenu réel djelia.store preview */}
-              <div className="p-4 space-y-5 max-h-[520px] overflow-y-auto custom-scrollbar relative">
-                {/* Vinyl & Hero Section djelia.store */}
-                <div className="relative pt-2 pb-1 text-center space-y-2.5">
-                  {/* Disque vinyle stylisé en arrière-plan */}
-                  <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-[#050608] via-[#15171F] to-[#050608] border border-white/10 flex items-center justify-center shadow-xl relative">
-                    <div className="w-14 h-14 rounded-full border border-white/5 flex items-center justify-center">
-                      <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center" style={{ backgroundColor: `${accentColor}25` }}>
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: accentColor }} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-white/60">
-                    {badgeText || (studioName || 'Mon Studio')} — Chansons personnalisées
-                  </p>
-
-                  <h4 className="text-base font-black text-white leading-tight">
-                    {headline || (
-                      <>
-                        Offre une chanson <br />
-                        qui fera <em className="italic" style={{ color: accentColor }}>pleurer de joie</em>.
-                      </>
-                    )}
-                  </h4>
-
-                  <p className="text-[11px] text-[#8A90A0] max-w-[280px] mx-auto leading-relaxed">
-                    {bio || 'En 30 secondes, crée la surprise dont on parlera pendant des années.'}
-                  </p>
-
-                  {/* Bouton CTA Principal */}
-                  <div className="pt-1">
-                    <div
-                      className="w-full py-2.5 px-4 rounded-xl text-center font-bold text-xs text-white shadow-md cursor-pointer hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: accentColor }}
-                    >
-                      Commencer ma chanson →
-                    </div>
-                    <p className="text-[9px] text-white/50 mt-1.5">
-                      Commande aujourd'hui, reçois ta chanson en moins de 5 min.
-                    </p>
-                  </div>
-
-                  {/* Badges de réassurance djelia.store */}
-                  <div className="flex items-center justify-center gap-1.5 text-[8px] font-mono text-white/60 pt-1">
-                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">Moins de 5 min</span>
-                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">2 versions</span>
-                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">100% sur-mesure</span>
-                  </div>
-                </div>
-
-                {/* Tunnel de Commande — Étape 1 : Styles Musicaux */}
-                <div
-                  className="p-3.5 rounded-2xl border space-y-3"
-                  style={{
-                    backgroundColor: currentTheme.card,
-                    borderColor: currentTheme.border,
-                  }}
-                >
-                  <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
-                    <div className="flex items-center gap-1.5">
-                      <Music2 className="w-3.5 h-3.5" style={{ color: accentColor }} />
-                      <span className="text-[11px] font-bold text-white">1. Choisis le style musical</span>
-                    </div>
-                    <span className="text-[10px] font-mono text-[#E2BD6B] font-bold">1 200 F</span>
-                  </div>
-
-                  {/* Guide vocal */}
-                  <div className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${accentColor}25`, color: accentColor }}>
-                      <Music2 className="w-3 h-3" />
-                    </div>
-                    <p className="text-[9px] text-white/70 leading-snug">
-                      <strong>Tu hésites ?</strong> Écoute les démos studio ci-dessous.
-                    </p>
-                  </div>
-
-                  {/* Grille de 6 styles comme sur djelia.store */}
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { name: 'Zouk', active: true, tag: 'Romantique' },
-                      { name: 'Afrobeat', active: false, tag: 'Rythmé' },
-                      { name: 'Coupé-décalé', active: false, tag: 'Festif' },
-                      { name: 'Rumba', active: false, tag: 'Doux' },
-                      { name: 'Pop Love', active: false, tag: 'Moderne' },
-                      { name: 'Gospel', active: false, tag: 'Émouvant' },
-                    ].map((st) => (
-                      <div
-                        key={st.name}
-                        className={`p-2 rounded-xl border text-left transition-all ${
-                          st.active
-                            ? 'bg-white/[0.08] shadow-sm'
-                            : 'bg-black/30 border-white/[0.06] opacity-75'
-                        }`}
-                        style={{
-                          borderColor: st.active ? accentColor : undefined,
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-white">{st.name}</span>
-                          {st.active && (
-                            <span
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ backgroundColor: accentColor }}
-                            />
-                          )}
-                        </div>
-                        <span className="text-[8px] text-[#8A90A0]">{st.tag}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Bouton de passage à l'étape suivante */}
-                  <div
-                    className="py-2 rounded-xl text-center font-bold text-[11px] text-black shadow-sm cursor-pointer"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    Continuer avec ce style →
-                  </div>
-                </div>
-
-                {/* Bouton WhatsApp Flottant dans l'aperçu */}
-                {showWhatsApp && (
-                  <div className="sticky bottom-2 flex justify-end pointer-events-none">
-                    <div className="px-3 py-1.5 rounded-full bg-[#121B17] border border-[#25D366]/60 shadow-xl flex items-center gap-1.5 text-[#25D366] text-[10px] font-bold pointer-events-auto">
-                      <MessageCircle className="w-3 h-3 fill-[#25D366]" />
-                      <span>Aide {studioName || 'Mon Studio'}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Footer djelia.store */}
-                <div className="pt-2 text-center text-[9px] text-white/40">
-                  © {new Date().getFullYear()} {studioName || 'Mon Studio'} · Moteur djelia.store · 1 200 F CFA
-                </div>
+              {/* Pied du cadre */}
+              <div className="p-3 bg-[#06070A] border-t border-white/[0.06] text-center text-[10px] text-[#8A90A0]">
+                Ce que vous voyez ici est exactement ce que verront vos clients sur <strong className="text-white font-mono">djelia.store/s/{cleanSlug}</strong>
               </div>
             </div>
           </div>
@@ -1118,13 +1153,31 @@ export const AffiliationView: FC = () => {
               <h3 className="text-sm font-semibold text-white">Vos Liens de Diffusion (50% de commission nette)</h3>
             </div>
             <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Partagez l'un de ces liens sur vos statuts WhatsApp, TikTok ou Instagram. Le site s'habillera automatiquement à vos couleurs et chaque vente vous rapportera automatiquement 600 F CFA.
+              Partagez votre lien personnalisé sur vos statuts WhatsApp, TikTok ou Instagram. Le site s'habillera immédiatement à votre identité et vos couleurs, et chaque commande vous rapportera automatiquement 600 F CFA.
             </p>
 
             <div className="space-y-3">
-              {/* Lien 1 : Studio complet djelia.store */}
+              {/* Lien 1 : Adresse courte vitrine */}
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-white/70">1. Lien Direct vers votre Studio en ligne :</span>
+                <span className="text-[11px] font-semibold text-white/70">1. Adresse courte personnalisée (Recommandée) :</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
+                    {shortSlugUrl}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(shortSlugUrl, 'short')}
+                    className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
+                  >
+                    {copiedKey === 'short' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey === 'short' ? 'Copié' : 'Copier'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lien 2 : Lien avec paramètre ref */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-white/70">2. Lien direct complet :</span>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
                     {miniSiteUrl}
@@ -1132,27 +1185,9 @@ export const AffiliationView: FC = () => {
                   <button
                     type="button"
                     onClick={() => handleCopy(miniSiteUrl, 'mini')}
-                    className="px-4 py-3 rounded-2xl bg-white text-black text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer hover:bg-neutral-200 transition-colors"
-                  >
-                    {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'mini' ? 'Copié' : 'Copier'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Lien 2 : Lien court vitrine */}
-              <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-white/70">2. Adresse courte personnalisée :</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3.5 py-3 rounded-2xl bg-[#06070A] border border-white/[0.08] text-xs text-white/90 font-mono truncate">
-                    {shortSlugUrl}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(shortSlugUrl, 'mini')}
                     className="px-4 py-3 rounded-2xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    {copiedKey === 'mini' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>Copier</span>
                   </button>
                 </div>
