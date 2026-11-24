@@ -282,11 +282,39 @@ export default async function handler(req: any, res: any) {
 
     // 4. QR IMAGE PNG
     if (action === 'qr') {
-      const qrRes = await fetch(`${target.baseUrl}/api/${encodeURIComponent(requestedSession)}/auth/qr?format=image`, {
+      let qrRes = await fetch(`${target.baseUrl}/api/${encodeURIComponent(requestedSession)}/auth/qr?format=image`, {
         method: 'GET',
         headers: { 'X-Api-Key': target.apiKey },
         signal: AbortSignal.timeout(12000),
       });
+
+      // Si le QR renvoie 404 (session inexistante) ou 422 (session STOPPED sur GOWS)
+      if (!qrRes.ok && (qrRes.status === 404 || qrRes.status === 422)) {
+        const checkRes = await wahaCall(target, `/api/sessions/${encodeURIComponent(requestedSession)}`);
+        if (checkRes.status === 404) {
+          await wahaCall(target, '/api/sessions', {
+            method: 'POST',
+            body: {
+              name: requestedSession,
+              start: true,
+              config: buildSessionConfig(requestedSession, cfg),
+            },
+          });
+          await new Promise((r) => setTimeout(r, 1500));
+        } else {
+          await wahaCall(target, `/api/sessions/${encodeURIComponent(requestedSession)}/start`, {
+            method: 'POST',
+          }).catch(() => undefined);
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+
+        // Nouvelle tentative immédiate
+        qrRes = await fetch(`${target.baseUrl}/api/${encodeURIComponent(requestedSession)}/auth/qr?format=image`, {
+          method: 'GET',
+          headers: { 'X-Api-Key': target.apiKey },
+          signal: AbortSignal.timeout(12000),
+        });
+      }
 
       if (!qrRes.ok) {
         const errData: any = await qrRes.json().catch(() => ({}));
@@ -322,6 +350,14 @@ export default async function handler(req: any, res: any) {
           },
         });
         await new Promise((r) => setTimeout(r, 1500));
+      } else {
+        const sData: any = await checkRes.json().catch(() => ({}));
+        if (sData?.status === 'STOPPED' || sData?.status === 'FAILED') {
+          await wahaCall(target, `/api/sessions/${encodeURIComponent(requestedSession)}/start`, {
+            method: 'POST',
+          }).catch(() => undefined);
+          await new Promise((r) => setTimeout(r, 1500));
+        }
       }
 
       const codeRes = await wahaCall(

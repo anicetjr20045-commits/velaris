@@ -25,7 +25,20 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (20:55 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (21:25 UTC)
+- **Transition Complète du Numéro 05777308, Appairage Auto-Healing & Réconciliation des Revenus** :
+  1. **Expérience d'Appairage WhatsApp Manuelle & Auto-Healing (`SimpleWhatsAppView.tsx` & `api/waha-proxy.ts`)** :
+     - Élimination du déclenchement automatique intrusif au chargement de la page : l'utilisateur dispose d'un écran d'accueil sobre invitant à cliquer sur *« Activer la connexion WhatsApp »*.
+     - Auto-healing intégré dans le proxy : si la session est arrêtée (`STOPPED`) ou inexistante (`404`) sur `waha-gows`, le proxy démarre automatiquement la session et attend 1.5s avant de délivrer le QR code PNG ou le code d'association à 8 chiffres (éradication définitive de l'erreur 422).
+     - Vérification en direct : génération du code d'association à 8 chiffres testée avec succès (`TGHT-P9JE`).
+  2. **Migration Complète des Automatisations sur le Compte 05777308** :
+     - Les 11 règles d'automatisation de production (les 9 réactions historiques du `56240533` : `😊`, `✨`, `🙏`, `💢`, `🥰`, `✍️`, `☺️`, `🎥`, `🎵` avec audios `.opus`, vidéo `.mp4`, coordonnées Wave et Orange Money + les 2 règles d'encaissement `💰` et `💳`) sont enregistrées et actives pour `user_id = '5756a961-04ce-467d-be49-311ccff6bad9'`.
+  3. **Rattachement & Réconciliation Exhaustive des Revenus Historiques** :
+     - **Commandes** : 754 commandes réassignées à `05777308`, dont **571 commandes confirmées** (livrées/validées) totalisant **979 600 F CFA** (y compris la mise à niveau des 2 commandes livrées à 0 F CFA). 75 commandes en attente contiennent 135 000 F CFA supplémentaires (total commandes = 1 114 600 F CFA).
+     - **Solde d'Ouverture Certifié** : Découverte du solde d'ouverture historique pré-26 septembre dans `revenue_opening_balances` de **2 749 400 F CFA** (`c0000001-0000-0000-0000-000000000001`). Avec les commandes directes (979 600 F), le volume historique total atteint **3 729 000 F CFA**.
+     - **Discussions & Contacts** : 857 contacts et 853 conversations (dont 480 conversations archivées d'août/septembre documentant des paiements et livraisons) rattachés avec succès.
+  4. **Build & Tests** :
+     - Vite build passé avec succès en 3.83s, 0 erreur TypeScript.
 - **Détection & Enregistrement Automatique des Ventes par Réaction Emoji WhatsApp Déployés** :
   1. **Configuration Fine des Formules & Encaissements (`SimpleWhatsAppView.tsx`)** :
      - Type d'action d'automatisation dédié `payment` (*« Encaisser Vente »*) avec icône `BadgeCheck`.

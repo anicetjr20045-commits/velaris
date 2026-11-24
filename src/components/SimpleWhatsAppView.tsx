@@ -223,6 +223,7 @@ export const SimpleWhatsAppView: FC = () => {
 
   const [activeTab, setActiveTab] = useState<'qr' | 'automations'>('qr');
   const [showQrWhenConnected, setShowQrWhenConnected] = useState(false);
+  const [isActivationRequested, setIsActivationRequested] = useState(false);
   const [pairMode, setPairMode] = useState<'qr' | 'code'>('qr');
   const [pairingPhone, setPairingPhone] = useState<string>('');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
@@ -596,7 +597,12 @@ export const SimpleWhatsAppView: FC = () => {
     ? '+' + waha.session.me.id.split('@')[0].split(':')[0]
     : null;
 
-  const shouldShowQr = !waha.isOnline || showQrWhenConnected;
+  const shouldShowQr = waha.isOnline ? showQrWhenConnected : isActivationRequested;
+
+  const handleActivateConnection = async () => {
+    setIsActivationRequested(true);
+    await waha.restart();
+  };
 
   const handleRequestPairingCode = async (e: FormEvent) => {
     e.preventDefault();
@@ -697,17 +703,33 @@ export const SimpleWhatsAppView: FC = () => {
               />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">
-                  {waha.isOnline ? connectedPhone || 'Ligne WhatsApp Connectée' : 'En attente de connexion WhatsApp'}
+                  {waha.isOnline
+                    ? connectedPhone || 'Ligne WhatsApp Connectée'
+                    : isActivationRequested
+                    ? 'Génération de la connexion WhatsApp…'
+                    : 'Ligne WhatsApp Non Connectée'}
                 </p>
                 <p className="text-xs text-[#8A90A0] mt-0.5 truncate">
                   {waha.isOnline
                     ? 'Passerelle active 24h/24 · Écoute des réactions emojis opérationnelle'
-                    : 'Scannez le QR Code ci-dessous pour synchroniser votre WhatsApp avec le Studio'}
+                    : isActivationRequested
+                    ? 'Scannez le QR Code ou saisissez votre code à 8 chiffres pour lier votre compte'
+                    : 'Cliquez sur Activer pour afficher votre QR code ou code d’association'}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {!waha.isOnline && !isActivationRequested && (
+                <button
+                  type="button"
+                  onClick={handleActivateConnection}
+                  className="px-4 py-2 rounded-full bg-white hover:bg-white/90 text-black text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                >
+                  <Zap className="w-3.5 h-3.5 text-black fill-black" />
+                  <span>Activer</span>
+                </button>
+              )}
               {waha.isOnline && (
                 <>
                   <button
@@ -739,6 +761,46 @@ export const SimpleWhatsAppView: FC = () => {
               </button>
             </div>
           </section>
+
+          {/* Écran d'accueil avant activation volontaire */}
+          {!waha.isOnline && !isActivationRequested && (
+            <section className="rounded-3xl bg-[#0D0F14] p-8 sm:p-10 flex flex-col items-center text-center space-y-5 border border-white/[0.06]">
+              <div className="w-14 h-14 rounded-2xl bg-[#E2BD6B]/10 border border-[#E2BD6B]/20 flex items-center justify-center text-[#E2BD6B]">
+                <Smartphone className="w-7 h-7" />
+              </div>
+
+              <div className="space-y-1.5 max-w-md">
+                <h2 className="text-lg font-bold text-white tracking-tight">
+                  Connecter votre WhatsApp au Studio
+                </h2>
+                <p className="text-xs text-[#8A90A0] leading-relaxed">
+                  Liez votre numéro pour activer instantanément les automatisations par réactions emojis,
+                  l'encaissement automatique des ventes et la réception des commandes.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleActivateConnection}
+                className="px-6 py-3 rounded-2xl bg-white hover:bg-white/90 text-black text-xs font-bold transition-all shadow-xl inline-flex items-center gap-2 cursor-pointer"
+              >
+                <Zap className="w-4 h-4 text-black fill-black" />
+                <span>Activer la connexion WhatsApp</span>
+              </button>
+
+              <div className="flex items-center gap-4 text-[11px] text-[#707685] pt-1">
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10D98E]" />
+                  <span>Scan QR Code instantané</span>
+                </span>
+                <span>•</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#10D98E]" />
+                  <span>Code à 8 chiffres (1 seul téléphone)</span>
+                </span>
+              </div>
+            </section>
+          )}
 
           {/* Module d'appairage WhatsApp (QR Code ou Code à 8 chiffres) */}
           {shouldShowQr && (
