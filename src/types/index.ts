@@ -73,7 +73,7 @@ export interface PipelineLead {
 }
 
 /** Type de réponse envoyée par une règle (texte, vocal PTT, document/PDF, vidéo) */
-export type AutomationMediaKind = 'text' | 'voice' | 'document' | 'video';
+export type AutomationMediaKind = 'text' | 'voice' | 'music' | 'document' | 'video';
 
 export interface AutomationRule {
   id: string;

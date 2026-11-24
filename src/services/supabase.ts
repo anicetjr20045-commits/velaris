@@ -283,10 +283,15 @@ export async function setAllAutomationRulesEnabled(enabled: boolean): Promise<bo
 
 /* Le moteur velaris-agent envoie send_media via WAHA /api/sendFile : la vidéo se distingue par son extension */
 const VIDEO_EXT = /\.(mp4|mov|m4v|webm|3gp)$/i;
+const AUDIO_EXT = /\.(mp3|wav|m4a|ogg|opus|flac|aac)$/i;
 
 function actionTypeToKind(actionType: string | null, mediaPath: string | null): AutomationMediaKind {
   if (actionType === 'send_voice') return 'voice';
-  if (actionType === 'send_media') return mediaPath && VIDEO_EXT.test(mediaPath) ? 'video' : 'document';
+  if (actionType === 'send_media') {
+    if (mediaPath && VIDEO_EXT.test(mediaPath)) return 'video';
+    if (mediaPath && AUDIO_EXT.test(mediaPath)) return 'music';
+    return 'document';
+  }
   return 'text';
 }
 

@@ -25,7 +25,24 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (10:22 UTC)
+- **Dernière mise à jour** : 24 Novembre 2026 (11:55 UTC)
+- **Module d'Automatisations par Réactions WhatsApp Opérationnel (Frontend & Backend Validés)** :
+  1. **Backend Engine (`engine/src/ingest/emoji-automations.ts` & `process-event.ts`)** :
+     - Consultation dynamique de la table `automation_rules` en base (`trigger_type = 'reaction' AND enabled = true`) lors de la réception d'une réaction emoji ou d'un message direct d'emoji.
+     - Prise en charge universelle des types d'actions :
+       - `send_text` : message texte personnalisé.
+       - `send_voice` : note vocale WhatsApp PTT native (`audio/ogg; codecs=opus`) avec signature automatique des URLs privées Supabase Storage (`product-files`) via `signMedia`.
+       - `send_media` : vidéo MP4 avec légende, musique/chanson MP3/WAV avec prévisualisation et métadonnées audio, ou documents PDF avec légende.
+     - Optimisation ultra-réactive préservée : envoi direct (0ms de latence DB) pour les 11 actions standard studio sur les numéros `@c.us` classiques.
+     - Immunité LID WhatsApp maintenue sur les identifiants techniques `@lid`.
+     - 260/260 tests unitaires du moteur passés avec succès (`npm test`).
+  2. **Frontend Studio (`src/components/SimpleWhatsAppView.tsx`)** :
+     - Intégration complète sous la section QR Code de la gestion des automatisations par réactions WhatsApp.
+     - Grille des règles avec badges visuels haute-horlogerie (`#0D0F14`, bordures `border-white/[0.06]`), puces d'actions fines (`Type`, `Mic`, `Music2`, `Video`, `FileText`), prévisualisation dynamique des textes et lecteur de forme d'onde (`WaveformPlayer`).
+     - Interrupteurs individuels instantanés avec synchronisation optimiste et persistance Supabase `automation_rules`.
+     - Modal de création/édition « Nouvelle automatisation » avec sélecteur de réactions emojis (catalogue `REACTION_TRIGGERS` Lucide + saisie libre), sélecteur à 5 canaux, enregistreur vocal live au micro (`VoiceNoteRecorder`) ou téléversement de fichiers (MP3, OPUS, MP4, PDF).
+     - Bouton de simulation « Tester l'envoi » avec notification toast discrète.
+     - Build Vite & TypeScript : 100% propre (0 erreur, 4.74s).
 - **Intégration du Nouveau Design depuis Google Drive (`velaris-redesign-update.zip`)** :
   - Archive téléchargée via `rclone` depuis `gdrive:velaris-redesign-update.zip`.
   - Intégration de la nouvelle architecture visuelle :

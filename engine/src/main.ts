@@ -103,6 +103,7 @@ const ingestDeps: IngestServerDeps = {
   voiceCloner,
   draftManager,
   conciergeService,
+  signMedia: createMediaSigner({ supabaseUrl: config.supabaseUrl, secretKey: config.supabaseSecretKey }),
 };
 
 const sender = new OutboxSender({

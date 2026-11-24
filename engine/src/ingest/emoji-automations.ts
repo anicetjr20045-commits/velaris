@@ -13,6 +13,7 @@ export interface EmojiAutomationContext {
   db?: Db | undefined;
   llmProvider?: DeepSeekProvider | undefined;
   log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
+  signMedia?: ((path: string) => Promise<{ url: string; mimetype: string; filename: string }>) | undefined;
 }
 
 export interface EmojiAction {
@@ -830,8 +831,6 @@ export async function executeEmojiAutomation(
   logFn?: (msg: string, meta?: Record<string, unknown>) => void,
 ): Promise<{ executed: boolean; action?: string; error?: string }> {
   const emoji = cleanEmoji(rawEmoji);
-  const action = EMOJI_AUTOMATIONS[emoji];
-  if (!action) return { executed: false };
 
   // Normaliser le contexte
   const ctx: EmojiAutomationContext =
@@ -846,16 +845,203 @@ export async function executeEmojiAutomation(
     return { executed: false, action: 'deduplicated' };
   }
 
-  // OPTIMISATION ULTRA-RÉACTIVE (0ms de délai réseau inutile) :
-  // Si l'action est directe (texte, vocal, vidéo) et que le chatId est déjà un numéro standard WhatsApp (@c.us),
-  // on envoie immédiatement sans round-trip base de données.
-  // La résolution SQL n'est déclenchée QUE pour les identifiants techniques @lid ou les actions personnalisées (Suno, Paroles, Clôture).
+  const defaultAction = EMOJI_AUTOMATIONS[emoji];
+
+  // OPTIMISATION ULTRA-RÉACTIVE (0ms de latence DB) :
+  // Si l'action est l'une des actions directes standard du studio (texte, vocal, vidéo)
+  // et que le destinataire est déjà un numéro standard WhatsApp (@c.us), on expédie instantanément.
+  if (defaultAction && defaultAction.type !== 'custom' && !chatId.includes('@lid')) {
+    log?.(`⚡ [ACTION DIRECTE STUDIO ${rawEmoji}] : "${defaultAction.label}" vers ${chatId}`);
+
+    if (!ctx.waha) {
+      log?.('[reaction-automation] WahaClient manquant');
+      return { executed: false, error: 'missing_waha_client' };
+    }
+
+    try {
+      if (defaultAction.type === 'text' && defaultAction.content) {
+        await ctx.waha.send(session, chatId, { kind: 'text', text: defaultAction.content });
+      } else if (defaultAction.type === 'voice' && defaultAction.url) {
+        await ctx.waha.send(session, chatId, {
+          kind: 'voice',
+          url: defaultAction.url,
+          mimetype: 'audio/ogg; codecs=opus',
+        });
+      } else if (defaultAction.type === 'video' && defaultAction.url) {
+        await ctx.waha.send(session, chatId, {
+          kind: 'video',
+          url: defaultAction.url,
+          mimetype: 'video/mp4',
+          filename: 'video-demo.mp4',
+          caption: 'Vidéo Démo',
+        });
+      }
+      return { executed: true, action: defaultAction.label };
+    } catch (err: any) {
+      const errorMsg = err?.message || String(err);
+      log?.(`❌ Erreur exécution action ${rawEmoji} :`, { error: errorMsg });
+      return { executed: false, error: errorMsg };
+    }
+  }
+
+  // RECHERCHE DYNAMIQUE DANS LA TABLE automation_rules (pour déclencheurs personnalisés ou actions complexes)
+  let customRule: {
+    id: string;
+    name: string;
+    trigger_value: string;
+    action_type: string;
+    text_body: string | null;
+    media_path: string | null;
+    caption: string | null;
+  } | null = null;
+
+  if (ctx.db?.queryTable) {
+    try {
+      const dbRules = await ctx.db.queryTable<Array<{
+        id: string;
+        name: string;
+        trigger_value: string;
+        action_type: string;
+        text_body: string | null;
+        media_path: string | null;
+        caption: string | null;
+      }>>(
+        'automation_rules',
+        `trigger_type=eq.reaction&enabled=eq.true&select=id,name,trigger_value,action_type,text_body,media_path,caption&limit=100`,
+      ).catch(() => []);
+      customRule = dbRules?.find((r) => cleanEmoji(r.trigger_value) === emoji) || null;
+    } catch (err: any) {
+      log?.(`⚠️ [reaction-automation] Erreur consultation automation_rules: ${err?.message || err}`);
+    }
+  }
+
+  if (!customRule && !defaultAction) {
+    return { executed: false };
+  }
+
+  // Résolution du destinataire standard (@c.us) en cas d'identifiant LID WhatsApp
   let targetChatId = chatId;
-  if (chatId.includes('@lid') || action.type === 'custom') {
+  if (chatId.includes('@lid') || defaultAction?.type === 'custom') {
     const resolved = await resolveAutomationContext(ctx, chatId, reactedKey);
     targetChatId = resolved.realChatId || chatId;
   }
 
+  // EXÉCUTION D'UNE RÈGLE DYNAMIQUE CRÉÉE PAR L'UTILISATEUR
+  if (customRule) {
+    log?.(`⚡ [AUTOMATISATION DYNAMIQUE DÉCLENCHÉE ${rawEmoji}] : "${customRule.name}" (${customRule.action_type}) vers ${targetChatId} (source: ${chatId})`);
+
+    if (!ctx.waha) {
+      log?.('[reaction-automation] WahaClient manquant pour règle personnalisée');
+      return { executed: false, error: 'missing_waha_client' };
+    }
+
+    try {
+      if (customRule.action_type === 'send_text') {
+        const text = customRule.text_body || customRule.caption || '';
+        if (text) {
+          await ctx.waha.send(session, targetChatId, { kind: 'text', text });
+        }
+        return { executed: true, action: customRule.name };
+      }
+
+      if (customRule.action_type === 'send_voice') {
+        let mediaUrl = customRule.media_path || '';
+        if (mediaUrl && !mediaUrl.startsWith('http://') && !mediaUrl.startsWith('https://')) {
+          if (ctx.signMedia) {
+            try {
+              const signed = await ctx.signMedia(mediaUrl);
+              mediaUrl = signed.url;
+            } catch (signErr: any) {
+              log?.(`⚠️ [reaction-automation] Erreur signature vocal: ${signErr?.message || signErr}`);
+            }
+          }
+        }
+        if (mediaUrl) {
+          await ctx.waha.send(session, targetChatId, {
+            kind: 'voice',
+            url: mediaUrl,
+            mimetype: 'audio/ogg; codecs=opus',
+          });
+        }
+        return { executed: true, action: customRule.name };
+      }
+
+      if (customRule.action_type === 'send_media') {
+        let mediaUrl = customRule.media_path || '';
+        let mime = 'application/octet-stream';
+        let filename = mediaUrl.split('/').pop() || 'media';
+
+        if (mediaUrl && !mediaUrl.startsWith('http://') && !mediaUrl.startsWith('https://')) {
+          if (ctx.signMedia) {
+            try {
+              const signed = await ctx.signMedia(mediaUrl);
+              mediaUrl = signed.url;
+              mime = signed.mimetype;
+              filename = signed.filename;
+            } catch (signErr: any) {
+              log?.(`⚠️ [reaction-automation] Erreur signature média: ${signErr?.message || signErr}`);
+            }
+          }
+        }
+
+        const ext = filename.split('.').pop()?.toLowerCase() || '';
+        const isVideo = ['mp4', 'mov', 'm4v', 'webm', '3gp'].includes(ext);
+        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
+        const caption = customRule.caption || customRule.text_body || '';
+        const captionObj = caption ? { caption } : {};
+
+        const MIME_BY_EXT: Record<string, string> = {
+          mp3: 'audio/mpeg',
+          wav: 'audio/wav',
+          m4a: 'audio/mp4',
+          ogg: 'audio/ogg',
+          opus: 'audio/ogg; codecs=opus',
+          pdf: 'application/pdf',
+          png: 'image/png',
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          mp4: 'video/mp4',
+        };
+        const finalMime = mime && mime !== 'application/octet-stream' ? mime : (MIME_BY_EXT[ext] || 'application/octet-stream');
+
+        if (isVideo) {
+          await ctx.waha.send(session, targetChatId, {
+            kind: 'video',
+            url: mediaUrl,
+            mimetype: 'video/mp4',
+            filename,
+            ...captionObj,
+          });
+        } else if (isImage) {
+          await ctx.waha.send(session, targetChatId, {
+            kind: 'image',
+            url: mediaUrl,
+            mimetype: finalMime,
+            ...captionObj,
+          });
+        } else {
+          // Musique / Chanson audio ou Document PDF
+          await ctx.waha.send(session, targetChatId, {
+            kind: 'file',
+            url: mediaUrl,
+            mimetype: finalMime,
+            filename,
+            ...captionObj,
+          });
+        }
+        return { executed: true, action: customRule.name };
+      }
+
+      return { executed: true, action: customRule.name };
+    } catch (err: any) {
+      const errorMsg = err?.message || String(err);
+      log?.(`❌ Erreur exécution règle dynamique ${rawEmoji}: ${errorMsg}`);
+      return { executed: false, error: errorMsg };
+    }
+  }
+
+  // EXÉCUTION D'UNE RÈGLE HARDCODÉE PAR DÉFAUT (si pas de règle personnalisée)
+  const action = defaultAction!;
   log?.(`⚡ [ACTION DÉCLENCHÉE PAR RÉACTION ${rawEmoji}] : "${action.label}" vers ${targetChatId} (source: ${chatId})`);
 
   try {

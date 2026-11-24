@@ -506,3 +506,143 @@ test('🎉 Clôture avec LID WhatsApp : résout correctement le contact et la co
   assert.ok(contactUpdate);
   assert.equal(contactUpdate.data.is_returning, true);
 });
+
+test('Règle dynamique automation_rules : send_text personnalisé via réaction WhatsApp', async () => {
+  const sent: any[] = [];
+  const mockWaha: any = {
+    send: async (session: string, chatId: string, content: any) => {
+      sent.push({ session, chatId, content });
+      return { status: 'sent', waMessageId: 'wa_custom_1' };
+    },
+  };
+
+  const mockDb: any = {
+    queryTable: async (table: string) => {
+      if (table === 'automation_rules') {
+        return [
+          {
+            id: 'rule_flame_1',
+            name: 'Offre Spéciale Anniversaire',
+            trigger_value: '🔥',
+            action_type: 'send_text',
+            text_body: 'Voici notre formule spéciale anniversaire avec dédicace personnalisée à 1 200 F !',
+            media_path: null,
+            caption: null,
+            enabled: true,
+          },
+        ];
+      }
+      return [];
+    },
+  };
+
+  const res = await executeEmojiAutomation(
+    'Test',
+    '22501020304@c.us',
+    '🔥',
+    'key_custom_flame',
+    { waha: mockWaha, db: mockDb }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(res.action, 'Offre Spéciale Anniversaire');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].content.kind, 'text');
+  assert.ok(sent[0].content.text.includes('anniversaire avec dédicace personnalisée à 1 200 F'));
+});
+
+test('Règle dynamique automation_rules : send_voice personnalisé via réaction WhatsApp', async () => {
+  const sent: any[] = [];
+  const mockWaha: any = {
+    send: async (session: string, chatId: string, content: any) => {
+      sent.push({ session, chatId, content });
+      return { status: 'sent', waMessageId: 'wa_voice_1' };
+    },
+  };
+
+  const mockDb: any = {
+    queryTable: async (table: string) => {
+      if (table === 'automation_rules') {
+        return [
+          {
+            id: 'rule_voice_1',
+            name: 'Vocal Explicatif Client',
+            trigger_value: '🎤',
+            action_type: 'send_voice',
+            text_body: null,
+            media_path: 'user_123/automations/vocal_explicatif.opus',
+            caption: null,
+            enabled: true,
+          },
+        ];
+      }
+      return [];
+    },
+  };
+
+  const mockSignMedia = async (path: string) => ({
+    url: `https://test.supabase.co/signed/${path}`,
+    mimetype: 'audio/ogg; codecs=opus',
+    filename: 'vocal_explicatif.opus',
+  });
+
+  const res = await executeEmojiAutomation(
+    'Test',
+    '22501020304@c.us',
+    '🎤',
+    'key_custom_mic',
+    { waha: mockWaha, db: mockDb, signMedia: mockSignMedia }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(res.action, 'Vocal Explicatif Client');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].content.kind, 'voice');
+  assert.ok(sent[0].content.url.includes('vocal_explicatif.opus'));
+  assert.equal(sent[0].content.mimetype, 'audio/ogg; codecs=opus');
+});
+
+test('Règle dynamique automation_rules : send_media (Musique MP3) via réaction WhatsApp', async () => {
+  const sent: any[] = [];
+  const mockWaha: any = {
+    send: async (session: string, chatId: string, content: any) => {
+      sent.push({ session, chatId, content });
+      return { status: 'sent', waMessageId: 'wa_song_1' };
+    },
+  };
+
+  const mockDb: any = {
+    queryTable: async (table: string) => {
+      if (table === 'automation_rules') {
+        return [
+          {
+            id: 'rule_music_1',
+            name: 'Démo Chanson Amour Afro',
+            trigger_value: '❤️',
+            action_type: 'send_media',
+            text_body: null,
+            media_path: 'https://cdn.djelia.store/demos/chanson_amour_demo.mp3',
+            caption: 'Voici un extrait de chanson personnalisée créé pour un mariage.',
+            enabled: true,
+          },
+        ];
+      }
+      return [];
+    },
+  };
+
+  const res = await executeEmojiAutomation(
+    'Test',
+    '22501020304@c.us',
+    '❤️',
+    'key_custom_heart',
+    { waha: mockWaha, db: mockDb }
+  );
+
+  assert.equal(res.executed, true);
+  assert.equal(res.action, 'Démo Chanson Amour Afro');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].content.kind, 'file');
+  assert.equal(sent[0].content.caption, 'Voici un extrait de chanson personnalisée créé pour un mariage.');
+  assert.equal(sent[0].content.mimetype, 'audio/mpeg');
+});

@@ -9,7 +9,7 @@ import type { NormalizedEvent } from './normalize.js';
 import type { AudioTranscriber } from '../services/transcribe.js';
 import type { WahaClient } from '../send/waha-client.js';
 import type { DeepSeekProvider } from '../llm/deepseek.js';
-import { executeEmojiAutomation, cleanEmoji, EMOJI_AUTOMATIONS } from './emoji-automations.js';
+import { executeEmojiAutomation, cleanEmoji } from './emoji-automations.js';
 
 export interface IngestOutcome {
   outcome: string;
@@ -32,6 +32,7 @@ export interface ProcessDeps {
   waha?: WahaClient;
   log?: (msg: string, meta?: Record<string, unknown>) => void;
   llmProvider?: DeepSeekProvider | undefined;
+  signMedia?: ((path: string) => Promise<{ url: string; mimetype: string; filename: string }>) | undefined;
 }
 
 export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Promise<IngestOutcome> {
@@ -174,7 +175,7 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
       // Détection des automatisations emojis envoyées directement en message court par le gérant
       if (ev.fromMe && ev.source !== 'api' && deps.waha && ev.body) {
         const cleaned = cleanEmoji(ev.body);
-        if (EMOJI_AUTOMATIONS[cleaned]) {
+        if (cleaned && ev.body.trim().length <= 8) {
           void executeEmojiAutomation(
             ev.session,
             ev.chatId,
@@ -185,6 +186,7 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
               db: deps.db,
               ...(deps.llmProvider !== undefined ? { llmProvider: deps.llmProvider } : {}),
               ...(deps.log !== undefined ? { log: deps.log } : {}),
+              ...(deps.signMedia !== undefined ? { signMedia: deps.signMedia } : {}),
             },
             deps.log
           ).catch((err) => {
@@ -207,6 +209,7 @@ export async function processEvent(ev: NormalizedEvent, deps: ProcessDeps): Prom
             db: deps.db,
             ...(deps.llmProvider !== undefined ? { llmProvider: deps.llmProvider } : {}),
             ...(deps.log !== undefined ? { log: deps.log } : {}),
+            ...(deps.signMedia !== undefined ? { signMedia: deps.signMedia } : {}),
           },
           deps.log
         ).catch((err) => {
