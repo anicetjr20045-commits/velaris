@@ -25,33 +25,27 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (18:10 UTC)
-- **Refonte Complète Réussie : Hub Studio IA, WhatsApp Épuré en Sous-Onglets & Revenu Central Consolidé** :
-  1. **Studio IA : Hub d'Accueil Modulaire 3 Pôles (`StudioView.tsx`)** :
-     - **Hub d'Accueil de Prestige** : À l'ouverture du Studio, affichage de 3 grandes cartes modulaires cliquables :
-       - *Pôle 01 : Création de Chansons & Discothèque*
-       - *Pôle 02 : Extracteur Express Suno*
-       - *Pôle 03 : Auditions Clients Privées (Liens Sécurisés)*
-     - Bouton de retour clair « ← Retour à l'accueil du Studio » sur chaque pôle.
-     - **Style musical en saisie libre** (`<input type="text">`, ex: « Zouk », « Afro-Love ») avec suggestions rapides cliquables au lieu d'un menu déroulant rigide.
-     - **Upload direct de fichiers audio** (MP3, WAV, M4A) pour les versions 1 & 2 dans le créateur de liens d'écoute clients.
-  2. **WhatsApp & Studio : Désengorgement & 2 Sous-Onglets Nets (`SimpleWhatsAppView.tsx`)** :
-     - Structuration en 2 sous-onglets sobres et lisibles :
-       - *01. Code QR & Connexion* (statut de ligne en direct, QR code haute résolution fond blanc, guide de scan en 3 étapes claires, bouton de régénération).
-       - *02. Réponses Automatiques & Emojis* (grille des règles d'automatisation déclenchées par réactions WhatsApp, lecteurs audio Waveform, filtres par type, création/édition de règles).
-     - **Suppression définitive** du bloc encombrant « Pilote Automatique & Coordonnées de Paiement ».
-  3. **Revenu Central Consolidé & Redirection WhatsApp Directe (`RevenusView.tsx`)** :
-     - **Consolidation Totale** : Calcul automatique du revenu global = Ventes directes WhatsApp + Commissions Affiliation 50% (`/api/stt/pay/affiliate/stats`).
-     - **Grande Carte Stripe Glow** : Affichage du chiffre d'affaires consolidé avec badges de ventilation sous le total (`WhatsApp Direct : X F CFA` en vert et `Affiliation 50% : Y F CFA` en doré).
-     - **4 Métriques Détaillées** : Ventes Directes, Commissions Affiliation, Panier Moyen Global et Volume Total de commandes.
-     - **Journal des Transactions Unifié & Accès WhatsApp Direct** :
-       - Filtres rapides : *Toutes*, *WhatsApp Direct*, *Affiliation*.
-       - Pour chaque commande issue de WhatsApp : affichage du nom du client et **bouton direct WhatsApp** (`https://wa.me/[phone]`) permettant d'ouvrir la discussion WhatsApp en 1 clic pour échanger avec le client.
-  4. **Ajustement Responsive (`DjeliaAppLayout.tsx`)** :
-     - Agrandissement du conteneur principal `<main>` à `max-w-5xl` pour une lecture aérée et fluide sur ordinateur et tablette.
-  5. **Déploiement Production Validé** :
-     - Vercel Production : `https://velaris-dun.vercel.app` (Aliased, build Vite 4.27s sans erreur).
-     - Dépôt GitHub synchronisé : `main` (`e1d97b5`).
+- **Dernière mise à jour** : 24 Novembre 2026 (18:35 UTC)
+- **Studio Vocal & Voix IA Fish Audio Déployé en Production (Pôle 04 Studio IA)** :
+  1. **Atelier Studio Vocal (`VoiceLabView.tsx` & `src/services/fishVoice.ts`)** :
+     - Intégration du **Pôle 04** dans le hub du Studio IA avec carte violette de prestige.
+     - **Catalogue de 6 Voix Authentiques Fish Audio (`s2.1-pro-free`)** :
+       - *Awa* (Ivoirienne Chaleureuse · Signature Studio · Accueil & Vocal de procédure)
+       - *Koffi* (Ivoirien Posé · Confiance & Devis · Confirmation de commandes)
+       - *Fatou* (Africaine Énergique · Relance Souriante · Suivi des indécis)
+       - *Samba* (Conteur Chaleureux · Storytelling & Émotion)
+       - *Céleste* (Studio Douceur · Douceur & Mariages)
+       - *Adrien* (Studio Prestige · Élégance Radio & Tarifs)
+     - Écoute d'échantillon vocal en 1 clic pour chaque voix avant génération.
+     - **Modèles de messages prêts à l'emploi** : Vocal de procédure officiel, Accueil & Brief, Validation de paiement, Avis de livraison prête, Relance bienveillante.
+  2. **Deux Débouchés Immédiats pour Chaque Note Vocale Générée** :
+     - **Action A : Envoi Flash WhatsApp Direct** : Sélection d'un client dans la liste des commandes ou saisie d'un numéro libre (`+226...`, `+225...`), et expédition en vraie note vocale WhatsApp PTT via WAHA en 1 clic.
+     - **Action B : Enregistrer comme Règle d'Automatisation** : Association à un emoji de réaction (ex: 🎵, 🎙️, ✨), téléversement automatique sur Supabase Storage et activation instantanée dans `automation_rules`.
+  3. **Backend Serverless Dédié (`/api/fish-voice.ts`)** :
+     - Endpoint API Node.js/Vercel relayant les requêtes Fish Audio TTS avec gestion du modèle `s2.1-pro-free`, support MP3 et Opus WhatsApp PTT, et mise en cache.
+  4. **Déploiements Production Validés** :
+     - Vercel Production : `https://velaris-dun.vercel.app` (Build Vite réussi en 4.20s, vérification curl OK).
+     - Dépôt GitHub synchronisé : `main` (`a2297b7`).
 - **Refonte Complète de l'Académie : Studio Masterclass Vidéo Épuré Déployé en Production** :
   1. **Architecture Studio 8/4 Épurée (`AcademyView.tsx`)** :
      - Remplacement de l'ancien système de défilement textuel lourd par un **Studio Vidéo Masterclass** immersif et sobre.
