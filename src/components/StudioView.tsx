@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type FC, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type FC, type FormEvent, type ChangeEvent } from 'react';
 import {
   Music,
   Download,
@@ -15,11 +15,15 @@ import {
   Share2,
   Wand2,
   Disc3,
-  Radio
+  Radio,
+  ArrowLeft,
+  Upload,
+  ChevronRight,
+  Headphones
 } from 'lucide-react';
 import type { Order } from '../types';
 import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
-import { createSharedTrack } from '../services/shared-tracks';
+import { createSharedTrack, uploadAudioTrack } from '../services/shared-tracks';
 
 interface StudioViewProps {
   orders: Order[];
@@ -27,10 +31,6 @@ interface StudioViewProps {
   onSelectOrder: (id: string) => void;
   onUpdateOrder: (updated: Order) => void;
 }
-
-/* ------------------------------------------------------------------ */
-/* TYPES & DONNÉES DU STUDIO                                          */
-/* ------------------------------------------------------------------ */
 
 export interface GeneratedSong {
   id: string;
@@ -61,7 +61,6 @@ const STORAGE_KEY_SONGS = 'velaris_studio_songs_v2';
 const STORAGE_KEY_SUNO = 'velaris_studio_suno_v2';
 const STORAGE_KEY_CLIENT_LINKS = 'velaris_studio_client_links_v2';
 
-// 3 chansons de prestige pré-chargées dans la bibliothèque
 const SEED_SONGS: GeneratedSong[] = [
   {
     id: 'song-seed-1',
@@ -110,27 +109,30 @@ const SEED_SONGS: GeneratedSong[] = [
 export const StudioView: FC<StudioViewProps> = ({
   orders,
   selectedOrderId,
-  onSelectOrder,
+  onSelectOrder: _onSelectOrder,
   onUpdateOrder,
 }) => {
-  // Navigation entre les 3 sections majeures du Studio
-  const [activeTab, setActiveTab] = useState<'generate' | 'suno_extractor' | 'client_links'>('generate');
+  // Navigation du Studio : 'hub' (Cartes d'accueil) ou 'generate' | 'suno_extractor' | 'client_links'
+  const [currentModule, setCurrentModule] = useState<'hub' | 'generate' | 'suno_extractor' | 'client_links'>('hub');
 
-  // Commande actuellement sélectionnée (s'il y en a une)
   const currentOrder = orders.find((o) => o.id === selectedOrderId) || orders[0];
 
   /* ------------------------------------------------------------------ */
-  /* ÉTAT SECTION 1 : GÉNÉRATEUR DE CHANSONS & BIBLIOTHÈQUE             */
+  /* SECTION 1 : CRÉATION DE CHANSONS & BIBLIOTHÈQUE                     */
   /* ------------------------------------------------------------------ */
   const [songTitle, setSongTitle] = useState(currentOrder ? `Chanson pour ${currentOrder.recipient}` : 'Ma Chanson Personnalisée');
-  const [songStyle, setSongStyle] = useState(currentOrder?.style || 'Afro-Love Acoustique');
+  // Style en saisie libre au clavier (ex: Zouk, Afro-Love, etc.)
+  const [songStyle, setSongStyle] = useState(currentOrder?.style || 'Zouk');
   const [songVoice, setSongVoice] = useState<'Masculine' | 'Féminine' | 'Duo'>('Féminine');
   const [songDuration, setSongDuration] = useState<'1 min' | '2 min' | '3 min'>('2 min');
   const [songLyrics, setSongLyrics] = useState(currentOrder?.transcription || '');
   const [isGeneratingSong, setIsGeneratingSong] = useState(false);
   const [generationStep, setGenerationStep] = useState<string | null>(null);
 
-  // Bibliothèque locale persistée
+  // Suggestions rapides de style
+  const styleSuggestions = ['Zouk', 'Afro-Love', 'Rumba Congolaise', 'Gospel', 'Amapiano', 'Acoustique Pure', 'Mandingue'];
+
+  // Bibliothèque
   const [librarySongs, setLibrarySongs] = useState<GeneratedSong[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SONGS);
@@ -140,17 +142,12 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   });
 
-  // Filtre et recherche dans la bibliothèque
   const [searchQuery, setSearchQuery] = useState('');
-  const [styleFilter, setStyleFilter] = useState('all');
-
-  // Lecteur Audio Global du Studio
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [songDurationSec, setSongDurationSec] = useState(0);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
-  // Sauvegarde bibliothèque
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_SONGS, JSON.stringify(librarySongs));
@@ -159,7 +156,6 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   }, [librarySongs]);
 
-  // Synchronisation si une commande est sélectionnée
   useEffect(() => {
     if (currentOrder) {
       setSongTitle(`Chanson pour ${currentOrder.recipient}`);
@@ -170,7 +166,6 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   }, [currentOrder?.id]);
 
-  // Génération automatique des paroles avec l'IA
   const handleAutoWriteLyrics = () => {
     const recipient = currentOrder?.recipient || songTitle.replace(/Chanson pour /i, '').trim() || 'Awa';
     const occasion = detectOccasion(songTitle + ' ' + songLyrics);
@@ -178,7 +173,7 @@ export const StudioView: FC<StudioViewProps> = ({
       recipient,
       occasion,
       style: songStyle,
-      memories: songLyrics ? [songLyrics] : ['Une personne au cœur d’or', 'Toujours présente pour les siens'],
+      memories: songLyrics ? [songLyrics] : ['Une personne formidable', 'Toujours généreuse et bienveillante'],
       senderName: currentOrder?.clientName?.split(' ')[0] || 'La famille',
     });
 
@@ -188,20 +183,19 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
-  // Lancement de la génération complète de chanson
   const handleGenerateSong = (e: FormEvent) => {
     e.preventDefault();
     if (!songTitle.trim()) return;
 
     setIsGeneratingSong(true);
-    setGenerationStep('Composition de la mélodie et harmonie...');
+    setGenerationStep('Composition de la mélodie et arrangement...');
 
     setTimeout(() => {
-      setGenerationStep('Génération des voix et arrangement des instruments...');
+      setGenerationStep('Synthèse vocale et harmonies...');
     }, 1200);
 
     setTimeout(() => {
-      setGenerationStep('Mixage studio et mastering haute définition...');
+      setGenerationStep('Mixage studio et mastering haute fidélité...');
     }, 2400);
 
     setTimeout(() => {
@@ -210,13 +204,11 @@ export const StudioView: FC<StudioViewProps> = ({
       const s = durSec % 60;
       const formattedDur = `${m}:${s < 10 ? '0' : ''}${s}`;
 
-      // Sélection d'une cover luxueuse aléatoire
       const covers = [
         'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
         'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=400&auto=format&fit=crop&q=80'
       ];
       const selectedCover = covers[Math.floor(Math.random() * covers.length)];
 
@@ -225,7 +217,7 @@ export const StudioView: FC<StudioViewProps> = ({
         title: songTitle.trim(),
         recipient: currentOrder?.recipient || songTitle.trim(),
         occasion: currentOrder?.occasion || 'Célébration',
-        style: songStyle,
+        style: songStyle.trim() || 'Afro-Love',
         voice: songVoice,
         duration: formattedDur,
         durationSeconds: durSec,
@@ -247,17 +239,15 @@ export const StudioView: FC<StudioViewProps> = ({
     }, 3600);
   };
 
-  // Filtrage de la bibliothèque
   const filteredSongs = useMemo(() => {
     return librarySongs.filter((song) => {
       const matchSearch = song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          song.recipient.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStyle = styleFilter === 'all' || song.style.toLowerCase().includes(styleFilter.toLowerCase());
-      return matchSearch && matchStyle;
+                          song.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          song.style.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchSearch;
     });
-  }, [librarySongs, searchQuery, styleFilter]);
+  }, [librarySongs, searchQuery]);
 
-  // Contrôles du lecteur audio
   const handlePlaySong = (song: GeneratedSong) => {
     if (playingSongId === song.id) {
       if (audioPlayerRef.current) {
@@ -278,11 +268,10 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
-  // Téléchargement propre du fichier MP3
   const handleDownloadSong = (song: GeneratedSong) => {
     const link = document.createElement('a');
     link.href = song.audioUrl;
-    link.download = `${song.title.replace(/[^a-zA-Z0-9-]/g, '_')}_Master_Studio.mp3`;
+    link.download = `${song.title.replace(/[^a-zA-Z0-9-]/g, '_')}_Master.mp3`;
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -290,7 +279,7 @@ export const StudioView: FC<StudioViewProps> = ({
   };
 
   /* ------------------------------------------------------------------ */
-  /* ÉTAT SECTION 2 : EXTRACTEUR EXPRESS DE LIENS SUNO                  */
+  /* SECTION 2 : EXTRACTEUR EXPRESS DE LIENS SUNO                       */
   /* ------------------------------------------------------------------ */
   const [sunoInputUrls, setSunoInputUrls] = useState('');
   const [isExtractingSuno, setIsExtractingSuno] = useState(false);
@@ -303,7 +292,6 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   });
 
-  // Sauvegarde des extractions Suno
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_SUNO, JSON.stringify(extractedSunoList));
@@ -312,7 +300,6 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   }, [extractedSunoList]);
 
-  // Extraction déterministe d'un ou plusieurs liens Suno
   const handleExtractSuno = (e: FormEvent) => {
     e.preventDefault();
     if (!sunoInputUrls.trim()) return;
@@ -320,15 +307,10 @@ export const StudioView: FC<StudioViewProps> = ({
     setIsExtractingSuno(true);
 
     setTimeout(() => {
-      // Détection des UUIDs ou des liens suno.com/song/UUID ou cdn1.suno.ai/UUID.mp3
       const text = sunoInputUrls;
-      // Regex pour capturer les UUIDs Suno
       const uuidRegex = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
       const matches = text.match(uuidRegex) || [];
-
-      // Si pas d'UUID strict, découper par ligne
       const lines = text.split(/[\n,]+/).map((l) => l.trim()).filter(Boolean);
-
       const newExtracted: ExtractedSunoTrack[] = [];
 
       if (matches.length > 0) {
@@ -345,7 +327,6 @@ export const StudioView: FC<StudioViewProps> = ({
           });
         });
       } else {
-        // Fallback simulation avec les liens fournis
         lines.forEach((line, idx) => {
           const fakeUuid = `suno-${Date.now().toString(16)}-${idx}`;
           newExtracted.push({
@@ -363,23 +344,57 @@ export const StudioView: FC<StudioViewProps> = ({
       setExtractedSunoList((prev) => [...newExtracted, ...prev]);
       setIsExtractingSuno(false);
       setSunoInputUrls('');
-    }, 900);
+    }, 700);
   };
 
   /* ------------------------------------------------------------------ */
-  /* ÉTAT SECTION 3 : LIENS D'ÉCOUTE CLIENTS SÉCURISÉS                  */
+  /* SECTION 3 : LIENS D'ÉCOUTE CLIENTS SÉCURISÉS (AVEC UPLOAD DIRECT)  */
   /* ------------------------------------------------------------------ */
   const [clientRecipient, setClientRecipient] = useState(currentOrder?.recipient || '');
   const [clientOccasion, setClientOccasion] = useState(currentOrder?.occasion || 'Anniversaire');
   const [track1Title, setTrack1Title] = useState('Version 01 (Afro-Love)');
   const [track1Url, setTrack1Url] = useState('');
+  const [track1FileName, setTrack1FileName] = useState('');
   const [track2Title, setTrack2Title] = useState('Version 02 (Acoustique)');
   const [track2Url, setTrack2Url] = useState('');
+  const [track2FileName, setTrack2FileName] = useState('');
   const [allowClientDownload, setAllowClientDownload] = useState(false);
+  const [isUploadingTrack1, setIsUploadingTrack1] = useState(false);
+  const [isUploadingTrack2, setIsUploadingTrack2] = useState(false);
   const [isCreatingClientLink, setIsCreatingClientLink] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
-  // Historique des liens d'écoute créés
+  // Upload direct d'un fichier audio (Track 1)
+  const handleUploadAudioFile = async (e: ChangeEvent<HTMLInputElement>, trackNum: 1 | 2) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (trackNum === 1) {
+      setIsUploadingTrack1(true);
+      setTrack1FileName(file.name);
+      const res = await uploadAudioTrack(file, 'v1');
+      if (res.url) {
+        setTrack1Url(res.url);
+      } else {
+        // Fallback ObjectURL local
+        const localUrl = URL.createObjectURL(file);
+        setTrack1Url(localUrl);
+      }
+      setIsUploadingTrack1(false);
+    } else {
+      setIsUploadingTrack2(true);
+      setTrack2FileName(file.name);
+      const res = await uploadAudioTrack(file, 'v2');
+      if (res.url) {
+        setTrack2Url(res.url);
+      } else {
+        const localUrl = URL.createObjectURL(file);
+        setTrack2Url(localUrl);
+      }
+      setIsUploadingTrack2(false);
+    }
+  };
+
   const [createdLinks, setCreatedLinks] = useState<Array<{
     id: string;
     recipient: string;
@@ -405,7 +420,6 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   });
 
-  // Sauvegarde des liens
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_CLIENT_LINKS, JSON.stringify(createdLinks));
@@ -414,7 +428,6 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   }, [createdLinks]);
 
-  // Création du lien d'écoute client sécurisé
   const handleCreateClientLink = async (e: FormEvent) => {
     e.preventDefault();
     if (!clientRecipient.trim()) return;
@@ -423,7 +436,6 @@ export const StudioView: FC<StudioViewProps> = ({
     const linkId = `audition-${Date.now().toString(36)}`;
     const finalShareUrl = `https://djelia.store/ecoute.html?id=${linkId}`;
 
-    // Tentative d'enregistrement dans Supabase si connecté
     try {
       await createSharedTrack({
         id: linkId,
@@ -437,7 +449,7 @@ export const StudioView: FC<StudioViewProps> = ({
         allow_download: allowClientDownload,
       });
     } catch {
-      // Fallback local transparent
+      // Ignore
     }
 
     const newLinkItem = {
@@ -461,7 +473,6 @@ export const StudioView: FC<StudioViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 animate-in fade-in duration-300">
-      {/* Audio Element Unique Caché pour les Pré-écoutes */}
       <audio
         ref={audioPlayerRef}
         onTimeUpdate={() => {
@@ -473,7 +484,7 @@ export const StudioView: FC<StudioViewProps> = ({
       />
 
       {/* ============================================================ */}
-      {/* EN-TÊTE DU STUDIO AVEC NAVIGATION PAR ONGLETS ÉPURÉS        */}
+      {/* 1. EN-TÊTE ÉPURÉ DU STUDIO                                   */}
       {/* ============================================================ */}
       <header className="rounded-3xl border border-white/[0.06] bg-[#08090C] p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -486,91 +497,130 @@ export const StudioView: FC<StudioViewProps> = ({
               <span className="text-xs text-[#8A90A0]">Création Musicale, Extraction & Liens Clients</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Atelier de Production Chansons
+              Atelier Studio Musical
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 bg-[#050608] border border-white/[0.06] p-1.5 rounded-2xl">
+          {currentModule !== 'hub' && (
             <button
               type="button"
-              onClick={() => setActiveTab('generate')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'generate'
-                  ? 'bg-white text-black font-bold shadow-md'
-                  : 'text-[#8A90A0] hover:text-white'
-              }`}
+              onClick={() => setCurrentModule('hub')}
+              className="px-4 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-semibold text-white/90 inline-flex items-center gap-2 transition-colors cursor-pointer self-start sm:self-auto"
             >
-              <Music className="w-3.5 h-3.5" />
-              <span>Génération & Bibliothèque</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Retour à l'accueil du Studio</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('suno_extractor')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'suno_extractor'
-                  ? 'bg-white text-black font-bold shadow-md'
-                  : 'text-[#8A90A0] hover:text-white'
-              }`}
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              <span>Extracteur Suno</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('client_links')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === 'client_links'
-                  ? 'bg-white text-black font-bold shadow-md'
-                  : 'text-[#8A90A0] hover:text-white'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span>Liens d'Écoute Client</span>
-            </button>
-          </div>
+          )}
         </div>
       </header>
 
-      {/* Barre de commandes en attente (Régie) */}
-      {orders.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          <span className="text-[11px] font-mono text-[#8A90A0] shrink-0 mr-1">Régie Commandes :</span>
-          {orders.map((o) => {
-            const active = o.id === currentOrder?.id;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => onSelectOrder(o.id)}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition cursor-pointer ${
-                  active
-                    ? 'bg-white text-black font-bold shadow-sm'
-                    : 'border border-white/[0.08] bg-[#08090C] text-[#C7CAD4] hover:text-white'
-                }`}
-              >
-                <span>{o.recipient}</span>
-                <span className={`text-[10px] font-mono ${active ? 'text-black/60' : 'text-neutral-500'}`}>
-                  ({o.occasion})
-                </span>
-              </button>
-            );
-          })}
+      {/* ============================================================ */}
+      {/* 2. VUE D'ACCUEIL DU STUDIO PAR CARTES DE PRESTIGE (LE HUB)   */}
+      {/* ============================================================ */}
+      {currentModule === 'hub' && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* CARTE 1 : CRÉATION DE CHANSONS & BIBLIOTHÈQUE */}
+            <div
+              onClick={() => setCurrentModule('generate')}
+              className="group p-6 rounded-3xl bg-[#08090C] border border-white/[0.08] hover:border-[#E2BD6B]/50 transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-6 hover:shadow-2xl hover:shadow-black/50 relative overflow-hidden"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#E2BD6B]/15 border border-[#E2BD6B]/30 flex items-center justify-center text-[#E2BD6B] group-hover:scale-105 transition-transform duration-300">
+                  <Music className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[#E2BD6B] font-bold">
+                    Pôle 01
+                  </span>
+                  <h3 className="text-lg font-bold text-white group-hover:text-[#E2BD6B] transition-colors">
+                    Création & Discothèque
+                  </h3>
+                  <p className="text-xs text-[#8A90A0] leading-relaxed">
+                    Composez des chansons avec titre, style sur-mesure au clavier, type de voix, durée et paroles. Téléchargez vos masters HD avec jaquette.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white/90 group-hover:text-white">
+                <span>Ouvrir l'atelier création</span>
+                <ChevronRight className="w-4 h-4 text-[#E2BD6B] group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* CARTE 2 : EXTRACTEUR EXPRESS DE LIENS SUNO */}
+            <div
+              onClick={() => setCurrentModule('suno_extractor')}
+              className="group p-6 rounded-3xl bg-[#08090C] border border-white/[0.08] hover:border-[#E2BD6B]/50 transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-6 hover:shadow-2xl hover:shadow-black/50 relative overflow-hidden"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#10D98E]/15 border border-[#10D98E]/30 flex items-center justify-center text-[#10D98E] group-hover:scale-105 transition-transform duration-300">
+                  <Link2 className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-[#10D98E] font-bold">
+                    Pôle 02
+                  </span>
+                  <h3 className="text-lg font-bold text-white group-hover:text-[#10D98E] transition-colors">
+                    Extracteur Suno Express
+                  </h3>
+                  <p className="text-xs text-[#8A90A0] leading-relaxed">
+                    Collez 1 ou plusieurs liens Suno (liens de partage, liens courts ou identifiants UUID) et extrayez instantanément le MP3 HD et la cover officielle.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white/90 group-hover:text-white">
+                <span>Extraire des liens</span>
+                <ChevronRight className="w-4 h-4 text-[#10D98E] group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+
+            {/* CARTE 3 : LIENS D'ÉCOUTE CLIENT SÉCURISÉS */}
+            <div
+              onClick={() => setCurrentModule('client_links')}
+              className="group p-6 rounded-3xl bg-[#08090C] border border-white/[0.08] hover:border-[#E2BD6B]/50 transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-6 hover:shadow-2xl hover:shadow-black/50 relative overflow-hidden"
+            >
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 group-hover:scale-105 transition-transform duration-300">
+                  <Headphones className="w-6 h-6" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 font-bold">
+                    Pôle 03
+                  </span>
+                  <h3 className="text-lg font-bold text-white group-hover:text-sky-400 transition-colors">
+                    Auditions Clients Privées
+                  </h3>
+                  <p className="text-xs text-[#8A90A0] leading-relaxed">
+                    Uploadez directement vos morceaux pour générer une page d'écoute fermée. Choisissez d'autoriser ou de verrouiller le téléchargement avant solde.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs font-semibold text-white/90 group-hover:text-white">
+                <span>Gérer les liens d'écoute</span>
+                <ChevronRight className="w-4 h-4 text-sky-400 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* SECTION 1 : GÉNÉRATEUR DE CHANSONS & BIBLIOTHÈQUE             */}
+      {/* 3. PÔLE 1 : CRÉATION DE CHANSONS & BIBLIOTHÈQUE              */}
       {/* ============================================================ */}
-      {activeTab === 'generate' && (
+      {currentModule === 'generate' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in">
-          {/* Colonne Gauche (5/12) : Formulaire de Génération de Chanson */}
+          {/* Formulaire de Composition de Chanson */}
           <div className="lg:col-span-5 rounded-3xl border border-white/[0.08] bg-[#08090C] p-5 sm:p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
                 <Wand2 className="w-4 h-4 text-[#E2BD6B]" />
-                <h3 className="text-sm font-bold text-white">Créer une Nouvelle Chanson</h3>
+                <h3 className="text-sm font-bold text-white">Composer une Chanson</h3>
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.05] text-[#8A90A0]">
                 Moteur Suno IA
@@ -588,29 +638,42 @@ export const StudioView: FC<StudioViewProps> = ({
                   required
                   value={songTitle}
                   onChange={(e) => setSongTitle(e.target.value)}
-                  placeholder="Ex: Chanson pour Aminata, Reine de nos Cœurs"
+                  placeholder="Ex: Aminata, Reine de nos Cœurs"
                   className="w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
                 />
               </div>
 
-              {/* 2. Style Musical */}
+              {/* 2. Style Musical au clavier libre */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-[#8A90A0]">
-                  Style Musical *
+                  Style Musical (saisie libre au clavier) *
                 </label>
-                <select
+                <input
+                  type="text"
+                  required
                   value={songStyle}
                   onChange={(e) => setSongStyle(e.target.value)}
+                  placeholder="Tapez le style : Zouk, Afro-Love, Rumba, Gospel, Amapiano..."
                   className="w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
-                >
-                  <option value="Afro-Love Acoustique">Afro-Love Acoustique (Guitare & Log Drum)</option>
-                  <option value="Zouk Doux & Romantique">Zouk Doux & Gouyad Romantique</option>
-                  <option value="Rumba Congolaise">Rumba Congolaise Élégante</option>
-                  <option value="Gospel de Louange">Gospel Africain & Louange</option>
-                  <option value="Amapiano Émotion">Amapiano Piano & Percussions Douces</option>
-                  <option value="Guitare & Voix Pure">Acoustique Pure & Cordes Intimes</option>
-                  <option value="Mandingue Moderne">Mandingue Contemporain & Kora</option>
-                </select>
+                />
+
+                {/* Suggestions rapides en 1 clic */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {styleSuggestions.map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setSongStyle(st)}
+                      className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                        songStyle.toLowerCase() === st.toLowerCase()
+                          ? 'bg-[#E2BD6B]/20 border-[#E2BD6B] text-[#E2BD6B]'
+                          : 'bg-white/[0.03] border-white/[0.06] text-[#8A90A0] hover:text-white'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* 3. Choix de la Voix */}
@@ -678,12 +741,11 @@ export const StudioView: FC<StudioViewProps> = ({
                   rows={6}
                   value={songLyrics}
                   onChange={(e) => setSongLyrics(e.target.value)}
-                  placeholder="Écrivez ou collez les paroles ici, ou cliquez sur 'Rédiger avec l'IA' pour composer automatiquement le texte..."
+                  placeholder="Écrivez ou collez les paroles ici, ou cliquez sur 'Rédiger avec l'IA'..."
                   className="w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B] font-mono leading-relaxed resize-none"
                 />
               </div>
 
-              {/* Bouton de génération */}
               <button
                 type="submit"
                 disabled={isGeneratingSong}
@@ -704,9 +766,8 @@ export const StudioView: FC<StudioViewProps> = ({
             </form>
           </div>
 
-          {/* Colonne Droite (7/12) : Bibliothèque des Chansons Générées */}
+          {/* Bibliothèque des Chansons Générées */}
           <div className="lg:col-span-7 space-y-4">
-            {/* Barre de recherche & filtres */}
             <div className="rounded-3xl border border-white/[0.06] bg-[#08090C] p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="relative w-full sm:w-72">
                 <Search className="w-4 h-4 text-[#8A90A0] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -714,147 +775,118 @@ export const StudioView: FC<StudioViewProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher par titre ou destinataire..."
+                  placeholder="Rechercher par titre, destinataire ou style..."
                   className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-[#050608] border border-white/[0.06] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <select
-                  value={styleFilter}
-                  onChange={(e) => setStyleFilter(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-[#050608] border border-white/[0.06] text-xs text-white/80 focus:outline-none"
-                >
-                  <option value="all">Tous les styles</option>
-                  <option value="afro">Afro-Love</option>
-                  <option value="zouk">Zouk</option>
-                  <option value="gospel">Gospel</option>
-                  <option value="rumba">Rumba</option>
-                </select>
-
-                <span className="text-[11px] font-mono text-[#8A90A0] shrink-0">
-                  {filteredSongs.length} morceau{filteredSongs.length > 1 ? 's' : ''}
-                </span>
-              </div>
+              <span className="text-[11px] font-mono text-[#8A90A0]">
+                {filteredSongs.length} morceau{filteredSongs.length > 1 ? 's' : ''} en discothèque
+              </span>
             </div>
 
-            {/* Liste des Chansons avec Jaquette & Lecteur */}
             <div className="space-y-3">
-              {filteredSongs.length > 0 ? (
-                filteredSongs.map((song) => {
-                  const isPlaying = playingSongId === song.id;
+              {filteredSongs.map((song) => {
+                const isPlaying = playingSongId === song.id;
 
-                  return (
-                    <div
-                      key={song.id}
-                      className="p-4 rounded-3xl bg-[#08090C] border border-white/[0.06] hover:border-white/[0.1] transition-all space-y-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        {/* Jaquette carrée & Métadonnées */}
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-black shrink-0 border border-white/[0.08] shadow-md group">
-                            <img
-                              src={song.coverUrl}
-                              alt={song.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handlePlaySong(song)}
-                              className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
-                              title={isPlaying ? 'Pause' : 'Écouter'}
-                            >
-                              {isPlaying ? (
-                                <Pause className="w-5 h-5 fill-white" />
-                              ) : (
-                                <Play className="w-5 h-5 fill-white translate-x-0.5" />
-                              )}
-                            </button>
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-bold text-white truncate">{song.title}</h4>
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-[#E2BD6B] font-mono shrink-0">
-                                {song.duration}
-                              </span>
-                            </div>
-
-                            <p className="text-xs text-[#8A90A0] truncate">
-                              Pour <strong className="text-white/90">{song.recipient}</strong> · {song.style} ({song.voice})
-                            </p>
-                          </div>
+                return (
+                  <div
+                    key={song.id}
+                    className="p-4 rounded-3xl bg-[#08090C] border border-white/[0.06] hover:border-white/[0.1] transition-all space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-black shrink-0 border border-white/[0.08] shadow-md group">
+                          <img
+                            src={song.coverUrl}
+                            alt={song.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handlePlaySong(song)}
+                            className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
+                          >
+                            {isPlaying ? (
+                              <Pause className="w-5 h-5 fill-white" />
+                            ) : (
+                              <Play className="w-5 h-5 fill-white translate-x-0.5" />
+                            )}
+                          </button>
                         </div>
 
-                        {/* Actions : Téléchargement MP3 & Lien Client */}
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadSong(song)}
-                            className="p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/90 hover:text-white transition-colors cursor-pointer"
-                            title="Télécharger le Master MP3 HD"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setClientRecipient(song.recipient);
-                              setTrack1Title(song.title);
-                              setTrack1Url(song.audioUrl);
-                              setActiveTab('client_links');
-                            }}
-                            className="px-3 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors cursor-pointer"
-                            title="Créer un lien client pour ce morceau"
-                          >
-                            <Share2 className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Partager au client</span>
-                          </button>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-white truncate">{song.title}</h4>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-[#E2BD6B] font-mono shrink-0">
+                              {song.duration}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#8A90A0] truncate">
+                            Pour <strong className="text-white/90">{song.recipient}</strong> · Style : {song.style} ({song.voice})
+                          </p>
                         </div>
                       </div>
 
-                      {/* Barre d'écoute en direct si actif */}
-                      {isPlaying && (
-                        <div className="pt-2 border-t border-white/[0.04] flex items-center gap-3">
-                          <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                            <div
-                              className="h-full bg-[#E2BD6B] rounded-full transition-all"
-                              style={{ width: `${(currentTime / (songDurationSec || 1)) * 100}%` }}
-                            />
-                          </div>
-                          <span className="font-mono text-[10px] text-white/60">
-                            {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60) < 10 ? '0' : ''}{Math.floor(currentTime % 60)} / {song.duration}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadSong(song)}
+                          className="p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/90 hover:text-white transition-colors cursor-pointer"
+                          title="Télécharger le Master MP3 HD"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setClientRecipient(song.recipient);
+                            setTrack1Title(song.title);
+                            setTrack1Url(song.audioUrl);
+                            setCurrentModule('client_links');
+                          }}
+                          className="px-3 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors cursor-pointer"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Lien client</span>
+                        </button>
+                      </div>
                     </div>
-                  );
-                })
-              ) : (
-                <div className="p-8 rounded-3xl bg-[#08090C] border border-white/[0.04] text-center space-y-2">
-                  <p className="text-xs font-semibold text-white/80">Aucun morceau ne correspond à votre recherche</p>
-                  <p className="text-[11px] text-[#8A90A0]">Utilisez le formulaire à gauche pour générer votre premier hit.</p>
-                </div>
-              )}
+
+                    {isPlaying && (
+                      <div className="pt-2 border-t border-white/[0.04] flex items-center gap-3">
+                        <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className="h-full bg-[#E2BD6B] rounded-full transition-all"
+                            style={{ width: `${(currentTime / (songDurationSec || 1)) * 100}%` }}
+                          />
+                        </div>
+                        <span className="font-mono text-[10px] text-white/60">
+                          {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60) < 10 ? '0' : ''}{Math.floor(currentTime % 60)} / {song.duration}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* SECTION 2 : EXTRACTEUR EXPRESS DE LIENS SUNO                  */}
+      {/* 4. PÔLE 2 : EXTRACTEUR EXPRESS DE LIENS SUNO                 */}
       {/* ============================================================ */}
-      {activeTab === 'suno_extractor' && (
-        <div className="space-y-6 animate-in fade-in">
-          {/* Cadre de saisie des liens */}
-          <div className="rounded-3xl border border-white/[0.08] bg-[#08090C] p-6 sm:p-7 space-y-4 max-w-3xl mx-auto">
+      {currentModule === 'suno_extractor' && (
+        <div className="space-y-6 animate-in fade-in max-w-4xl mx-auto">
+          <div className="rounded-3xl border border-white/[0.08] bg-[#08090C] p-6 sm:p-7 space-y-4">
             <div className="flex items-center gap-2">
               <Link2 className="w-4 h-4 text-[#E2BD6B]" />
-              <h3 className="text-base font-bold text-white">Extracteur Express de Liens Suno</h3>
+              <h3 className="text-base font-bold text-white">Extracteur de Liens Suno</h3>
             </div>
             <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Collez un ou plusieurs liens Suno (liens de partage <code className="text-white/80 font-mono">suno.com/song/...</code>, liens courts <code className="text-white/80 font-mono">suno.com/s/...</code> ou identifiants UUID). Le système extrait immédiatement l'audio MP3 HD et la jaquette officielle en une fraction de seconde.
+              Collez un ou plusieurs liens Suno (liens de partage <code className="text-white/80 font-mono">suno.com/song/...</code>, liens courts <code className="text-white/80 font-mono">suno.com/s/...</code> ou identifiants UUID). Le système extrait immédiatement l'audio MP3 HD et la jaquette officielle.
             </p>
 
             <form onSubmit={handleExtractSuno} className="space-y-4 pt-1">
@@ -869,7 +901,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] text-[#8A90A0]">
-                  Prend en charge 1 lien solo ou les 2 versions simultanées produites par Suno.
+                  Gère 1 lien ou les 2 versions générées simultanément.
                 </span>
 
                 <button
@@ -893,9 +925,8 @@ export const StudioView: FC<StudioViewProps> = ({
             </form>
           </div>
 
-          {/* Liste des Morceaux Extraits */}
           {extractedSunoList.length > 0 && (
-            <div className="max-w-3xl mx-auto space-y-3">
+            <div className="space-y-3">
               <div className="flex items-center justify-between px-1">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A90A0]">
                   Morceaux Extraits ({extractedSunoList.length})
@@ -903,7 +934,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setExtractedSunoList([])}
-                  className="text-[11px] text-white/50 hover:text-white transition-colors"
+                  className="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
                 >
                   Vider la liste
                 </button>
@@ -933,7 +964,7 @@ export const StudioView: FC<StudioViewProps> = ({
                         download={`${track.uuid}.mp3`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-semibold text-white inline-flex items-center gap-1.5 transition-colors"
+                        className="px-3.5 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Télécharger MP3</span>
@@ -944,9 +975,9 @@ export const StudioView: FC<StudioViewProps> = ({
                         onClick={() => {
                           setTrack1Title(track.title);
                           setTrack1Url(track.audioUrl);
-                          setActiveTab('client_links');
+                          setCurrentModule('client_links');
                         }}
-                        className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors"
+                        className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors cursor-pointer"
                         title="Créer un lien d'écoute client"
                       >
                         <Radio className="w-3.5 h-3.5" />
@@ -961,16 +992,16 @@ export const StudioView: FC<StudioViewProps> = ({
       )}
 
       {/* ============================================================ */}
-      {/* SECTION 3 : LIENS D'ÉCOUTE CLIENTS SÉCURISÉS (LECTEUR FERMÉ) */}
+      {/* 5. PÔLE 3 : LIENS D'ÉCOUTE CLIENTS (AVEC UPLOAD DIRECT)      */}
       {/* ============================================================ */}
-      {activeTab === 'client_links' && (
+      {currentModule === 'client_links' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in">
-          {/* Colonne Gauche (6/12) : Générateur de Lien Fermé */}
+          {/* Formulaire de Création avec Upload Direct */}
           <div className="lg:col-span-6 rounded-3xl border border-white/[0.08] bg-[#08090C] p-5 sm:p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
                 <Radio className="w-4 h-4 text-[#E2BD6B]" />
-                <h3 className="text-sm font-bold text-white">Générer un Lien d'Écoute Privé</h3>
+                <h3 className="text-sm font-bold text-white">Générer un Lien d'Écoute Client</h3>
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
                 Audition Sécurisée
@@ -978,7 +1009,7 @@ export const StudioView: FC<StudioViewProps> = ({
             </div>
 
             <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Créez une page d'écoute prestigieuse et confidentielle pour votre client. Il peut comparer les versions 1 et 2 directement depuis son smartphone sans quitter WhatsApp.
+              Uploadez directement les fichiers MP3 ou collez leurs URLs pour créer la page confidentielle de votre client.
             </p>
 
             <form onSubmit={handleCreateClientLink} className="space-y-4">
@@ -1011,9 +1042,17 @@ export const StudioView: FC<StudioViewProps> = ({
                 </div>
               </div>
 
-              {/* Version 1 */}
+              {/* Version 1 avec Upload Audio Direct */}
               <div className="space-y-2 p-3.5 rounded-2xl bg-[#050608] border border-white/[0.06]">
-                <span className="text-[11px] font-semibold text-[#E2BD6B]">Morceau 01 (Version Principale)</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#E2BD6B]">Morceau 01 (Version Principale)</span>
+                  {track1FileName && (
+                    <span className="text-[10px] text-white/50 font-mono truncate max-w-[140px]">
+                      {track1FileName}
+                    </span>
+                  )}
+                </div>
+
                 <input
                   type="text"
                   value={track1Title}
@@ -1021,18 +1060,40 @@ export const StudioView: FC<StudioViewProps> = ({
                   placeholder="Titre : Version 01 (Afro-Love)"
                   className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white focus:outline-none"
                 />
-                <input
-                  type="text"
-                  value={track1Url}
-                  onChange={(e) => setTrack1Url(e.target.value)}
-                  placeholder="URL Audio directe (MP3 ou Suno CDN)"
-                  className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white/80 font-mono focus:outline-none"
-                />
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={track1Url}
+                    onChange={(e) => setTrack1Url(e.target.value)}
+                    placeholder="URL Audio directe ou uploadez le fichier ci-contre →"
+                    className="flex-1 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white/80 font-mono focus:outline-none truncate"
+                  />
+
+                  <label className="px-3 py-2 rounded-xl bg-white text-black text-xs font-bold shrink-0 cursor-pointer hover:bg-neutral-200 transition-colors inline-flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingTrack1 ? 'Upload…' : 'Uploader'}</span>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => handleUploadAudioFile(e, 1)}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
               </div>
 
-              {/* Version 2 (Optionnelle) */}
+              {/* Version 2 avec Upload Audio Direct (Optionnelle) */}
               <div className="space-y-2 p-3.5 rounded-2xl bg-[#050608] border border-white/[0.06]">
-                <span className="text-[11px] font-semibold text-white/70">Morceau 02 (Seconde Version Alternative)</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-white/70">Morceau 02 (Seconde Version Alternative)</span>
+                  {track2FileName && (
+                    <span className="text-[10px] text-white/50 font-mono truncate max-w-[140px]">
+                      {track2FileName}
+                    </span>
+                  )}
+                </div>
+
                 <input
                   type="text"
                   value={track2Title}
@@ -1040,13 +1101,27 @@ export const StudioView: FC<StudioViewProps> = ({
                   placeholder="Titre : Version 02 (Acoustique douce)"
                   className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white focus:outline-none"
                 />
-                <input
-                  type="text"
-                  value={track2Url}
-                  onChange={(e) => setTrack2Url(e.target.value)}
-                  placeholder="URL Audio directe alternative (optionnel)"
-                  className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white/80 font-mono focus:outline-none"
-                />
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={track2Url}
+                    onChange={(e) => setTrack2Url(e.target.value)}
+                    placeholder="URL Audio directe alternative (optionnel)"
+                    className="flex-1 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white/80 font-mono focus:outline-none truncate"
+                  />
+
+                  <label className="px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold shrink-0 cursor-pointer transition-colors inline-flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingTrack2 ? 'Upload…' : 'Uploader'}</span>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => handleUploadAudioFile(e, 2)}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
               </div>
 
               {/* Interrupteur Déterminant : Téléchargement Verrouillé ou Autorisé */}
@@ -1097,7 +1172,7 @@ export const StudioView: FC<StudioViewProps> = ({
             </form>
           </div>
 
-          {/* Colonne Droite (6/12) : Historique des Liens d'Écoute Actifs */}
+          {/* Historique des Liens d'Écoute Actifs */}
           <div className="lg:col-span-6 space-y-4">
             <div className="flex items-center justify-between px-1">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A90A0]">

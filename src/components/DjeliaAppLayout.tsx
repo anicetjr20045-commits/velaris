@@ -385,7 +385,7 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
           </button>
         </header>
 
-        <main className="flex-1 w-full max-w-3xl mx-auto px-5 sm:px-8 pt-3 md:pt-10 pb-16">
+        <main className="flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 pt-3 md:pt-10 pb-16">
           {currentTab === 'revenus' && (
             <RevenusView
               orders={orders}

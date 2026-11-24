@@ -13,10 +13,8 @@ import {
   Type,
   Video,
   FileText,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
   AlertCircle,
+  Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { useWahaSession } from '../hooks/useWaha';
@@ -181,80 +179,8 @@ export const SimpleWhatsAppView: FC = () => {
   const sessionName = user ? `studio_${user.id.slice(0, 8)}` : 'Test';
   const waha = useWahaSession(sessionName, { enabled: true, syncToStudio: true });
 
+  const [activeTab, setActiveTab] = useState<'qr' | 'automations'>('qr');
   const [showQrWhenConnected, setShowQrWhenConnected] = useState(false);
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-
-  // Pilote automatique général & Coordonnées
-  const [autopilot, setAutopilot] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('velaris_autopilot_enabled');
-      return saved !== null ? saved === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const [welcomeMessage, setWelcomeMessage] = useState<string>(() => {
-    try {
-      return (
-        localStorage.getItem('velaris_welcome_message') ||
-        "Bonjour ! Bienvenue chez notre Studio de Chansons Personnalisées. Pour qui souhaitez-vous créer une chanson et pour quelle occasion ?"
-      );
-    } catch {
-      return "Bonjour ! Bienvenue chez notre Studio de Chansons Personnalisées. Pour qui souhaitez-vous créer une chanson et pour quelle occasion ?";
-    }
-  });
-
-  const [paymentPhone, setPaymentPhone] = useState<string>(() => {
-    try {
-      return (
-        localStorage.getItem('velaris_payment_phone') ||
-        (user?.user_metadata?.phone as string) ||
-        ''
-      );
-    } catch {
-      return '';
-    }
-  });
-
-  const [paymentName, setPaymentName] = useState<string>(() => {
-    try {
-      return (
-        localStorage.getItem('velaris_payment_name') ||
-        (user?.user_metadata?.studio_name as string) ||
-        ''
-      );
-    } catch {
-      return '';
-    }
-  });
-
-  const [autoVoice, setAutoVoice] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('velaris_auto_voice');
-      return saved !== null ? saved === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const [isDirty, setIsDirty] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-
-  const handleSaveSettings = () => {
-    try {
-      localStorage.setItem('velaris_autopilot_enabled', String(autopilot));
-      localStorage.setItem('velaris_welcome_message', welcomeMessage);
-      localStorage.setItem('velaris_payment_phone', paymentPhone);
-      localStorage.setItem('velaris_payment_name', paymentName);
-      localStorage.setItem('velaris_auto_voice', String(autoVoice));
-      setIsDirty(false);
-      setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2500);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   // Synchronisation des règles Supabase
   const { data: dbRules, setData: setDbRules } = useStudioLive<AutomationRule[]>(
@@ -603,245 +529,166 @@ export const SimpleWhatsAppView: FC = () => {
         </div>
       )}
 
-      {/* En-tête */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-white">WhatsApp & Pilote Automatique</h1>
-        <p className="text-sm text-[#8A90A0]">
-          Connectez votre ligne et configurez vos réponses instantanées déclenchées par réactions emojis.
-        </p>
+      {/* En-tête & Sélecteur de sous-onglets WhatsApp */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-white">WhatsApp & Studio</h1>
+          <p className="text-sm text-[#8A90A0]">
+            Gérez votre ligne WhatsApp connectée et vos automatisations par réactions emojis.
+          </p>
+        </div>
+
+        {/* Sélecteur de sous-onglets épuré */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#0D0F14] border border-white/[0.06] self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('qr')}
+            className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'qr'
+                ? 'bg-white text-black shadow-sm'
+                : 'text-[#8A90A0] hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Code QR & Connexion</span>
+            {waha.isOnline && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10D98E]" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('automations')}
+            className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'automations'
+                ? 'bg-white text-black shadow-sm'
+                : 'text-[#8A90A0] hover:text-white'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Réponses Automatiques</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] font-mono">
+              {allRules.length}
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* Statut de connexion */}
-      <section className="rounded-3xl bg-[#0D0F14] p-5 flex items-center justify-between gap-4 border border-white/[0.06]">
-        <div className="flex items-center gap-3.5 min-w-0">
-          <span
-            className={`w-3 h-3 rounded-full shrink-0 ${
-              waha.isOnline ? 'bg-[#10D98E] shadow-[0_0_12px_#10D98E]' : 'bg-[#E2BD6B]'
-            }`}
-          />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {waha.isOnline ? connectedPhone || 'Ligne WhatsApp Connectée' : 'En attente de scan'}
-            </p>
-            <p className="text-xs text-[#8A90A0] mt-0.5 truncate">
-              {waha.isOnline
-                ? 'Passerelle active 24h/24 · Écoute des réactions emojis opérationnelle'
-                : 'Scannez le QR Code ci-dessous pour connecter votre WhatsApp'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {waha.isOnline && (
-            <button
-              type="button"
-              onClick={() => setShowQrWhenConnected((prev) => !prev)}
-              className="px-3.5 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium text-white transition-colors cursor-pointer"
-            >
-              {showQrWhenConnected ? 'Masquer QR' : 'Voir QR'}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => waha.restart()}
-            aria-label="Rafraîchir la connexion WhatsApp"
-            className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8A90A0] hover:text-white transition-colors cursor-pointer"
-          >
-            <RotateCw className="w-4 h-4" />
-          </button>
-        </div>
-      </section>
-
-      {/* Bloc QR Code (affiché si déconnecté ou sur demande) */}
-      {shouldShowQr && (
-        <section className="rounded-3xl bg-[#0D0F14] p-6 flex flex-col items-center text-center space-y-5 border border-white/[0.06]">
-          <div className="p-4 rounded-2xl bg-white flex items-center justify-center min-h-[208px] min-w-[208px]">
-            {waha.qrUrl ? (
-              <img
-                src={waha.qrUrl}
-                alt="QR Code WhatsApp"
-                className="w-48 h-48 object-contain"
+      {/* SOUS-ONGLET 1 : CODE QR & CONNEXION WHATSAPP */}
+      {activeTab === 'qr' && (
+        <div className="space-y-6">
+          {/* Statut de connexion */}
+          <section className="rounded-3xl bg-[#0D0F14] p-5 flex items-center justify-between gap-4 border border-white/[0.06]">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <span
+                className={`w-3 h-3 rounded-full shrink-0 ${
+                  waha.isOnline ? 'bg-[#10D98E] shadow-[0_0_12px_#10D98E]' : 'bg-[#E2BD6B]'
+                }`}
               />
-            ) : (
-              <div className="text-center text-black/60 text-xs space-y-2 py-8 px-4">
-                <RotateCw className="w-5 h-5 animate-spin mx-auto text-black/40" />
-                <p>Génération du QR Code…</p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white truncate">
+                  {waha.isOnline ? connectedPhone || 'Ligne WhatsApp Connectée' : 'En attente de connexion WhatsApp'}
+                </p>
+                <p className="text-xs text-[#8A90A0] mt-0.5 truncate">
+                  {waha.isOnline
+                    ? 'Passerelle active 24h/24 · Écoute des réactions emojis opérationnelle'
+                    : 'Scannez le QR Code ci-dessous pour synchroniser votre WhatsApp avec le Studio'}
+                </p>
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-1 max-w-xs">
-            <p className="text-sm font-semibold text-white">Scanner avec WhatsApp</p>
-            <p className="text-xs text-[#8A90A0] leading-relaxed">
-              Ouvrez WhatsApp → Paramètres → Appareils connectés → Connecter un appareil.
-            </p>
-          </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {waha.isOnline && (
+                <button
+                  type="button"
+                  onClick={() => setShowQrWhenConnected((prev) => !prev)}
+                  className="px-3.5 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium text-white transition-colors cursor-pointer"
+                >
+                  {showQrWhenConnected ? 'Masquer QR' : 'Afficher QR'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => waha.restart()}
+                aria-label="Rafraîchir la connexion WhatsApp"
+                title="Rafraîchir la connexion"
+                className="w-9 h-9 rounded-full bg-white/[0.06] hover:bg-white/[0.1] flex items-center justify-center text-[#8A90A0] hover:text-white transition-colors cursor-pointer"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+            </div>
+          </section>
 
-          <button
-            type="button"
-            onClick={() => waha.restart()}
-            className="px-4 py-2.5 rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium text-white inline-flex items-center gap-2 transition-colors cursor-pointer"
-          >
-            <RotateCw className="w-3.5 h-3.5" />
-            <span>Régénérer le QR Code</span>
-          </button>
-        </section>
+          {/* Grand QR Code épuré */}
+          {shouldShowQr && (
+            <section className="rounded-3xl bg-[#0D0F14] p-6 sm:p-8 flex flex-col items-center text-center space-y-6 border border-white/[0.06]">
+              <div className="p-4 rounded-3xl bg-white flex items-center justify-center min-h-[220px] min-w-[220px] shadow-2xl">
+                {waha.qrUrl ? (
+                  <img
+                    src={waha.qrUrl}
+                    alt="QR Code WhatsApp"
+                    className="w-52 h-52 object-contain"
+                  />
+                ) : (
+                  <div className="text-center text-black/60 text-xs space-y-2 py-10 px-4">
+                    <RotateCw className="w-5 h-5 animate-spin mx-auto text-black/40" />
+                    <p>Génération du QR Code…</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 max-w-sm text-center">
+                <p className="text-base font-semibold text-white">Scanner avec votre WhatsApp</p>
+                <div className="space-y-2 text-xs text-[#8A90A0] text-left bg-[#08090C] p-4 rounded-2xl border border-white/[0.05]">
+                  <p className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
+                    <span>Ouvrez <strong>WhatsApp</strong> sur votre smartphone</span>
+                  </p>
+                  <p className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
+                    <span>Accédez à <strong>Réglages</strong> (ou ⋮) &gt; <strong>Appareils connectés</strong></span>
+                  </p>
+                  <p className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-white/[0.08] text-white flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
+                    <span>Appuyez sur <strong>Connecter un appareil</strong> et scannez ce code</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => waha.restart()}
+                className="px-5 py-2.5 rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-xs font-medium text-white inline-flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                <span>Régénérer le QR Code</span>
+              </button>
+            </section>
+          )}
+
+          {/* Carte informative si connecté */}
+          {waha.isOnline && !showQrWhenConnected && (
+            <div className="p-6 rounded-3xl bg-[#08090C] border border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-white">Votre Studio WhatsApp est en ligne</p>
+                <p className="text-xs text-[#8A90A0] leading-relaxed max-w-lg">
+                  Toutes les réponses par emojis, notes vocales et flux clients fonctionnent en tâche de fond 24h/24. Vous pouvez tester ou modifier vos règles dans l’onglet dédié.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('automations')}
+                className="px-4 py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-white/90 transition-colors shrink-0 cursor-pointer"
+              >
+                Gérer les automatisations
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Pilote Automatique Général & Coordonnées (Repliable) */}
-      <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvancedSettings((v) => !v)}
-          className="w-full p-5 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#E2BD6B]/10 border border-[#E2BD6B]/20 flex items-center justify-center text-[#E2BD6B]">
-              <SlidersHorizontal className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Pilote Automatique & Coordonnées de Paiement</p>
-              <p className="text-xs text-[#8A90A0] mt-0.5">
-                Accueil automatique 24h/24 et numéros Wave / Orange Money pour vos encaissements
-              </p>
-            </div>
-          </div>
-          <div className="text-[#8A90A0]">
-            {showAdvancedSettings ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-          </div>
-        </button>
-
-        {showAdvancedSettings && (
-          <div className="p-5 sm:p-6 border-t border-white/[0.06] space-y-5 bg-[#06070A]/40">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-[#08090C] border border-white/[0.06] flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-white">Pilote Automatique 24h/24</p>
-                  <p className="text-xs text-[#8A90A0] mt-0.5">Prend le brief des clients même quand vous dormez</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={autopilot}
-                  onClick={() => {
-                    setAutopilot((v) => !v);
-                    setIsDirty(true);
-                  }}
-                  className={`w-11 h-6 rounded-full p-0.5 transition-colors shrink-0 cursor-pointer ${
-                    autopilot ? 'bg-[#10D98E]' : 'bg-white/15'
-                  }`}
-                >
-                  <span
-                    className={`block w-5 h-5 rounded-full bg-black transition-transform ${
-                      autopilot ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-[#08090C] border border-white/[0.06] flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-white">Vocal de procédure automatique</p>
-                  <p className="text-xs text-[#8A90A0] mt-0.5">Envoie l’explication vocale de commande</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={autoVoice}
-                  onClick={() => {
-                    setAutoVoice((v) => !v);
-                    setIsDirty(true);
-                  }}
-                  className={`w-11 h-6 rounded-full p-0.5 transition-colors shrink-0 cursor-pointer ${
-                    autoVoice ? 'bg-[#E2BD6B]' : 'bg-white/15'
-                  }`}
-                >
-                  <span
-                    className={`block w-5 h-5 rounded-full bg-black transition-transform ${
-                      autoVoice ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="wa-welcome-msg" className="block text-xs font-medium text-[#8A90A0]">
-                Message d'accueil automatique
-              </label>
-              <textarea
-                id="wa-welcome-msg"
-                rows={2}
-                value={welcomeMessage}
-                onChange={(e) => {
-                  setWelcomeMessage(e.target.value);
-                  setIsDirty(true);
-                }}
-                className="w-full p-3.5 rounded-2xl bg-[#08090C] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="wa-momo-phone" className="block text-xs font-medium text-[#8A90A0]">
-                  Numéro Wave / Orange Money
-                </label>
-                <input
-                  id="wa-momo-phone"
-                  type="tel"
-                  value={paymentPhone}
-                  onChange={(e) => {
-                    setPaymentPhone(e.target.value);
-                    setIsDirty(true);
-                  }}
-                  placeholder="+226 70 00 00 00"
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#08090C] border border-white/[0.08] text-sm text-white tabular-nums focus:outline-none focus:border-[#E2BD6B]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="wa-momo-name" className="block text-xs font-medium text-[#8A90A0]">
-                  Nom du titulaire
-                </label>
-                <input
-                  id="wa-momo-name"
-                  type="text"
-                  value={paymentName}
-                  onChange={(e) => {
-                    setPaymentName(e.target.value);
-                    setIsDirty(true);
-                  }}
-                  placeholder="Ex : Awa Diallo"
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#08090C] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveSettings}
-              className={`w-full py-3 rounded-2xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                isSaved
-                  ? 'bg-[#10D98E]/15 text-[#10D98E]'
-                  : isDirty
-                  ? 'bg-white text-black hover:bg-white/90'
-                  : 'bg-white/[0.07] text-white/80 hover:bg-white/[0.12]'
-              }`}
-            >
-              {isSaved ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Enregistré</span>
-                </>
-              ) : (
-                <span>Enregistrer ces coordonnées</span>
-              )}
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* SECTION AUTOMATISATIONS PAR EMOJIS & RÉACTIONS WHATSAPP */}
+      {/* SOUS-ONGLET 2 : AUTOMATISATIONS PAR EMOJIS & RÉACTIONS WHATSAPP */}
+      {activeTab === 'automations' && (
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -1034,6 +881,7 @@ export const SimpleWhatsAppView: FC = () => {
           })}
         </div>
       </section>
+      )}
 
       {/* MODAL DE CRÉATION / MODIFICATION D'UNE AUTOMATISATION */}
       {draft && (
