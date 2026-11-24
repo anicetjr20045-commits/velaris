@@ -25,8 +25,17 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy** (`academy.djelia.store` / `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (08:38 UTC)
-- **Déploiement Production Vercel Validé** : `https://velaris-dun.vercel.app`
+- **Dernière mise à jour** : 24 Novembre 2026 (10:22 UTC)
+- **Intégration du Nouveau Design depuis Google Drive (`velaris-redesign-update.zip`)** :
+  - Archive téléchargée via `rclone` depuis `gdrive:velaris-redesign-update.zip`.
+  - Intégration de la nouvelle architecture visuelle :
+    1. **Vue Revenus Stripe Glow (`src/components/RevenusView.tsx`)** : carte solde lumineuse avec sélecteur 7j / 30j / Tout, courbe SVG douce et liste des dernières ventes.
+    2. **Sidebar & Layout Haute-Horlogerie (`src/components/DjeliaAppLayout.tsx`)** : 6 onglets clairs (`Revenus`, `WhatsApp`, `Site & Affiliation`, `Académie`, `Studio IA`, `Crédits & Compte`).
+    3. **Site & Affiliation (`src/components/AffiliationView.tsx`)** : gestion du mini-site public et tableau de bord parrainage avec retrait Wave/OM.
+    4. **WhatsApp View (`src/components/SimpleWhatsAppView.tsx`)** : gestion de ligne WAHA et automatisations d'encaissement.
+    5. **Profil & Packs de Crédits (`src/components/StudioProfileView.tsx`)** : cartes de packs (1 000, 2 500, 5 000, 10 000 F), renouvellement Pass Créateur 4 900 F.
+    6. **Typographie & Thème Global (`src/index.css` & `index.html`)** : polices Inter, JetBrains Mono, Syne, Plus Jakarta Sans, fond `#06070A`.
+  - Build testé et validé avec 0 erreur (`tsc -b && vite build` en 5.04s).
 - **Refonte Design Intérieur Épuré & Élimination du "Touffu" (Conforme aux Choix Utilisateur)** :
   1. **Header Sticky Épuré (`src/components/DjeliaAppLayout.tsx`)** :
      - Élimination des badges superflus (plus de "Serveur Live 24/7", plus de badge de crédits dans le header car déjà présent dans la sidebar).

@@ -144,7 +144,7 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
 
   // 3. Utilisateur déjà connecté arrivant sur la racine -> redirection automatique vers l'Atelier
   if (checkHasSavedAuthSession()) {
-    return { activeTab: 'studio', studioSubTab: 'studio_ai' };
+    return { activeTab: 'cockpit', studioSubTab: 'revenus' };
   }
 
   return { activeTab: 'home', studioSubTab: 'studio_ai' };
@@ -314,7 +314,7 @@ export function App() {
   // Redirection automatique des utilisateurs connectés vers l'Atelier dès confirmation de la session
   useEffect(() => {
     if (user && activeTab === 'home' && !userExplicitlyNavigatedToHomeRef.current) {
-      changeTab('studio', 'studio_ai');
+      changeTab('cockpit', 'revenus');
     }
   }, [user, activeTab, changeTab]);
 
@@ -535,14 +535,14 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07080a] text-[#e8eaed] font-sans selection:bg-white/20 selection:text-white relative">
+    <div className="min-h-screen bg-[#06070A] text-[#F5F6FA] font-sans selection:bg-[#E2BD6B]/25 selection:text-white relative">
       <CosmicBackground />
       <div className="relative z-10 flex min-h-screen flex-col">
         {/* Public Navigation Bar (only on home & decouvrir) */}
         {(activeTab === 'home' || activeTab === 'decouvrir') && (
           <Navbar
             onEnterStudio={() => {
-              changeTab('studio', 'studio_ai');
+              changeTab('cockpit', 'revenus');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenPayment={() => {
@@ -600,6 +600,7 @@ export function App() {
               }}
               orders={orders}
               metrics={currentMetrics}
+              isWhatsAppConnected={isWhatsAppConnected}
               onReturnToHome={handleReturnToHome}
               onSelectOrderForStudio={handleSelectOrderForStudio}
               onOpenQrModal={() => setIsQrModalOpen(true)}
@@ -646,7 +647,7 @@ export function App() {
           onDismiss={() => setIsPaymentSuccessModalOpen(false)}
           onEnterStudio={() => {
             setIsPaymentSuccessModalOpen(false);
-            changeTab('studio', 'studio_ai');
+            changeTab('cockpit', 'revenus');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
