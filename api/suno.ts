@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
@@ -40,6 +41,79 @@ function extractMeta(html: string, prop: string): string {
   return m?.[1]?.trim() || '';
 }
 
+async function decryptSunoMangoAudio(uuid: string): Promise<{ buffer: Buffer; mimeType: string; ext: string } | null> {
+  // 1. Pipeline Suno Mango officiel (AES-256-GCM key unwrap + AES-128-CTR decrypt sur CloudFront M4A)
+  try {
+    const rightsRes = await fetch('https://studio-api-prod.suno.com/api/mango/rights', {
+      method: 'POST',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content_params: { content_id: uuid, content_type: 'clip' },
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (rightsRes.ok) {
+      const rights: any = await rightsRes.json().catch(() => null);
+      if (rights?.glt && rights?.key && rights?.iv) {
+        const userKeyBytes = crypto.createHash('sha256').update(String(rights.glt)).digest();
+        const aad = Buffer.from(uuid);
+        const unwrap = (b64: string) => {
+          const raw = Buffer.from(b64, 'base64');
+          const iv = raw.subarray(0, 12);
+          const ciphertext = raw.subarray(12, raw.length - 16);
+          const tag = raw.subarray(raw.length - 16);
+          const decipher = crypto.createDecipheriv('aes-256-gcm', userKeyBytes, iv);
+          decipher.setAAD(aad);
+          decipher.setAuthTag(tag);
+          return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        };
+
+        const contentKey = unwrap(rights.key);
+        const contentIv = unwrap(rights.iv);
+
+        const encRes = await fetch(`https://d2lwuy8qc234o3.cloudfront.net/1/clip/${uuid}.m4a`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          signal: AbortSignal.timeout(25000),
+        });
+        if (encRes.ok) {
+          const encBuf = Buffer.from(await encRes.arrayBuffer());
+          const dec = crypto.createDecipheriv('aes-128-ctr', contentKey, contentIv);
+          const decBuf = Buffer.concat([dec.update(encBuf), dec.final()]);
+          if (decBuf.length > 10000) {
+            return { buffer: decBuf, mimeType: 'audio/mp4', ext: 'm4a' };
+          }
+        }
+      }
+    }
+  } catch {
+    // Repli sur CDN classique
+  }
+
+  // 2. Repli CDN classique pour anciens morceaux non chiffrés
+  for (const candidate of [`https://cdn1.suno.ai/${uuid}.mp3`, `https://cdn2.suno.ai/${uuid}.mp3`]) {
+    try {
+      const res = await fetch(candidate, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length > 10000) {
+          return { buffer: buf, mimeType: 'audio/mpeg', ext: 'mp3' };
+        }
+      }
+    } catch {
+      // essayer suivant
+    }
+  }
+
+  return null;
+}
+
 async function resolveSunoEntry(rawInput: string) {
   const trimmed = rawInput.trim();
   if (!trimmed) return null;
@@ -55,7 +129,7 @@ async function resolveSunoEntry(rawInput: string) {
         method: 'GET',
         redirect: 'follow',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
         signal: AbortSignal.timeout(8000),
       });
@@ -76,58 +150,38 @@ async function resolveSunoEntry(rawInput: string) {
 
   const uuid = uuidMatch[1].toLowerCase();
   let title = `Chanson Suno ${uuid.slice(0, 8)}`;
-  let audioUrl = `https://cdn1.suno.ai/${uuid}.mp3`;
   let coverUrl = `https://cdn2.suno.ai/image_${uuid}.jpeg`;
   let style = '';
   let duration: number | undefined = undefined;
 
-  // 1. Tentative via l'API publique clip de Suno
+  // 1. Récupération des métadonnées via suno.com/song/<uuid> (OpenGraph + titre)
   try {
-    const clipRes = await fetch(`https://studio-api.prod.suno.com/api/clip/${uuid}`, {
+    const pageRes = await fetch(`https://suno.com/song/${uuid}`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        Accept: 'application/json',
       },
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(7000),
     });
-    if (clipRes.ok) {
-      const clip: any = await clipRes.json().catch(() => null);
-      if (clip) {
-        if (clip.title) title = String(clip.title).trim();
-        if (clip.audio_url) audioUrl = String(clip.audio_url);
-        if (clip.image_large_url || clip.image_url) coverUrl = String(clip.image_large_url || clip.image_url);
-        if (clip.metadata?.tags) style = String(clip.metadata.tags);
-        if (clip.metadata?.duration) duration = Math.round(Number(clip.metadata.duration));
+    if (pageRes.ok) {
+      const html = await pageRes.text();
+      const ogTitle = extractMeta(html, 'og:title');
+      const ogImage = extractMeta(html, 'og:image');
+      if (ogTitle && ogTitle.toLowerCase() !== 'suno') {
+        title = ogTitle.replace(/\s*\|\s*Suno.*$/i, '').trim();
+      } else {
+        const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+        if (titleTag) {
+          title = titleTag.replace(/\s*\|\s*Suno.*$/i, '').trim();
+        }
       }
+      if (ogImage) coverUrl = ogImage;
     }
   } catch {
-    // Repli sur OpenGraph HTML
+    // Conserver couverture par défaut
   }
 
-  // 2. Enrichissement OpenGraph depuis suno.com/song/<uuid> si le titre est encore générique
-  if (title.startsWith('Chanson Suno ')) {
-    try {
-      const pageRes = await fetch(`https://suno.com/song/${uuid}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
-        },
-        signal: AbortSignal.timeout(6000),
-      });
-      if (pageRes.ok) {
-        const html = await pageRes.text();
-        const ogTitle = extractMeta(html, 'og:title');
-        const ogAudio = extractMeta(html, 'og:audio');
-        const ogImage = extractMeta(html, 'og:image');
-        if (ogTitle && !ogTitle.toLowerCase().includes('suno')) {
-          title = ogTitle.replace(/\s*\|\s*Suno.*$/i, '').trim();
-        }
-        if (ogAudio) audioUrl = ogAudio;
-        if (ogImage) coverUrl = ogImage;
-      }
-    } catch {
-      // Conserver les URLs CDN officielles
-    }
-  }
+  // URL audio garantie via notre déchiffreur Mango intégré
+  const audioUrl = `/api/suno?action=suno-audio&uuid=${uuid}&title=${encodeURIComponent(title)}`;
 
   return {
     uuid,
@@ -329,6 +383,37 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true, tracks: unique });
     }
 
+    // 5B. LECTURE & TÉLÉCHARGEMENT AUDIO SUNO DÉCHIFFRÉ (PROTOCOLE MANGO)
+    if (req.method === 'GET' && action === 'suno-audio') {
+      const uuid = String(req.query?.uuid || '').trim().toLowerCase();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uuid)) {
+        return res.status(400).json({ error: 'UUID Suno invalide' });
+      }
+      const isDownload = String(req.query?.download || '') === '1';
+      const rawTitle = String(req.query?.title || `chanson_${uuid.slice(0, 8)}`)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._ -]/g, '_')
+        .trim()
+        .slice(0, 80) || 'chanson_suno';
+
+      const decoded = await decryptSunoMangoAudio(uuid);
+      if (!decoded) {
+        return res.status(404).json({ error: 'Audio Suno introuvable ou protégé' });
+      }
+
+      res.setHeader('Content-Type', decoded.mimeType);
+      res.setHeader('Content-Length', decoded.buffer.length);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader(
+        'Content-Disposition',
+        isDownload
+          ? `attachment; filename="${rawTitle}.${decoded.ext}"`
+          : `inline; filename="${rawTitle}.${decoded.ext}"`
+      );
+      return res.status(200).send(decoded.buffer);
+    }
+
     // 6. TÉLÉCHARGEMENT FORCÉ SANS OUVERTURE D'ONGLET
     if (req.method === 'GET' && action === 'download') {
       const targetUrl = String(req.query?.url || '').trim();
@@ -337,7 +422,10 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: 'URL invalide' });
       }
 
-      const upstream = await fetch(targetUrl, { signal: AbortSignal.timeout(30000) });
+      const upstream = await fetch(targetUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(30000),
+      });
       if (!upstream.ok) {
         return res.status(upstream.status).json({ error: `Impossible de récupérer le fichier (${upstream.status})` });
       }

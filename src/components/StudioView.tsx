@@ -1309,19 +1309,20 @@ export const StudioView: FC<StudioViewProps> = ({
                       </button>
 
                       <a
-                        href={`/api/suno?action=download&url=${encodeURIComponent(track.audioUrl)}&filename=${encodeURIComponent(`${track.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp3`)}`}
-                        download={`${track.uuid}.mp3`}
+                        href={`/api/suno?action=suno-audio&uuid=${encodeURIComponent(track.uuid)}&download=1&title=${encodeURIComponent(track.title)}`}
+                        download={`${track.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.m4a`}
                         className="px-3.5 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Télécharger MP3</span>
+                        <span>Télécharger Audio</span>
                       </a>
 
                       <button
                         type="button"
                         onClick={() => {
                           setTrack1Title(track.title);
-                          setTrack1Url(track.audioUrl);
+                          const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.djelia.store';
+                          setTrack1Url(`${origin}/api/suno?action=suno-audio&uuid=${encodeURIComponent(track.uuid)}&title=${encodeURIComponent(track.title)}`);
                           setCurrentModule('client_links');
                         }}
                         className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors cursor-pointer"

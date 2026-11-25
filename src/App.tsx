@@ -104,7 +104,7 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
     return { activeTab: 'studio', studioSubTab: 'studio_ai' };
   }
   if (rawHash === 'conversations' || rawHash === 'discussions' || rawHash === 'messages' || rawHash === 'chat' || rawHash === 'whatsapp-web' || rawHash === 'cockpit-chat' || pathname === '/chat') {
-    return { activeTab: 'studio', studioSubTab: 'conversations' };
+    return { activeTab: 'cockpit', studioSubTab: 'revenus' };
   }
   if (rawHash === 'pipeline') {
     return { activeTab: 'studio', studioSubTab: 'pipeline' };
@@ -142,9 +142,10 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
     const savedSubTab = localStorage.getItem('velaris_studio_subtab') as StudioTab | null;
 
     if (savedActive && ['studio', 'cockpit', 'academy', 'copilot', 'decouvrir'].includes(savedActive)) {
+      const cleanSubTab = savedSubTab === 'conversations' ? 'revenus' : savedSubTab;
       return {
-        activeTab: savedActive,
-        studioSubTab: savedSubTab || (savedActive === 'cockpit' ? 'revenus' : savedActive === 'copilot' ? 'analyste' : savedActive === 'academy' ? 'academy' : 'studio_ai'),
+        activeTab: savedSubTab === 'conversations' ? 'cockpit' : savedActive,
+        studioSubTab: cleanSubTab || (savedActive === 'cockpit' ? 'revenus' : savedActive === 'copilot' ? 'analyste' : savedActive === 'academy' ? 'academy' : 'studio_ai'),
       };
     }
   } catch {

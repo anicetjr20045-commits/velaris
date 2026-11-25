@@ -595,7 +595,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
           <div className="space-y-1">
             <h2 className="text-base font-semibold text-white">Journal des Transactions</h2>
             <p className="text-xs text-[#8A90A0]">
-              Retrouvez chaque client WhatsApp et accédez à sa conversation en 1 clic.
+              Historique complet de vos clients et accès direct WhatsApp en 1 clic.
             </p>
           </div>
 

@@ -25,7 +25,14 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 25 Novembre 2026 (00:38 UTC)
+- **Dernière mise à jour** : 25 Novembre 2026 (01:08 UTC)
+- **Suppression Totale de l'Onglet Discussions & Déchiffrement Suno Mango Intégré** :
+  1. **Éradication Complète des Discussions (`DjeliaAppLayout.tsx`, `App.tsx`, `RevenusView.tsx`)** :
+     - Suppression de l'onglet `Discussions` et de `ConversationsView` de l'interface du site.
+     - Redirection automatique de toute ancienne route/hash/localStorage (`#chat`, `#discussions`, `#conversations`) et de l'ouverture PWA directement vers **Revenus** (`cockpit / revenus`).
+  2. **Extracteur Suno Mango Définitif (`api/suno.ts`, `StudioView.tsx`)** :
+     - Intégration native du déchiffrement Suno Mango (`POST studio-api-prod.suno.com/api/mango/rights` ➔ déballage `AES-256-GCM` ➔ déchiffrement du flux CloudFront `.m4a` via `AES-128-CTR` en Node.js pur, avec repli CDN classique).
+     - Endpoint `/api/suno?action=suno-audio` pour la lecture directe et le téléchargement forcé (`download=1`) de chaque chanson extraite.
 - **Suite Complète PWA, Studio Suno/Kie.ai, Extracteur, Auditions Protégées, VoiceLab & Analytique Revenus** :
   1. **PWA Mobile Installable (`manifest.json`, `sw.js`, `PwaInstallPrompt.tsx`)** :
      - Icônes officielles or & obsidienne (`192x192`, `512x512`, `apple-touch-icon.png`), manifeste `Djelia Studio` en mode `standalone`, Service Worker `djelia-studio-pwa-v2`, et bannière de suggestion d'installation Android (`beforeinstallprompt`) + guide iOS Safari.
