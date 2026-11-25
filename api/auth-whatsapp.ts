@@ -181,29 +181,71 @@ export default async function handler(req: any, res: any) {
     const code = String(crypto.randomInt(100000, 1000000));
     const challengeToken = createChallenge(phone, code, config.hmacSecret);
 
-    // Envoi via WAHA
+    // Envoi via WAHA (multi-passerelle résiliente : GOWS waha2 + fallback waha principal)
     const cleanDigits = phone.replace(/\D/g, '');
-    const message = `Djelia Academy : votre code de connexion sécurisé est ${code}.\nCe code expire dans 5 minutes. Ne le partagez avec personne.`;
+    const message = `Djelia Studio : votre code de connexion sécurisé est ${code}.\nCe code expire dans 5 minutes. Ne le partagez avec personne.`;
 
-    try {
-      const wahaRes = await fetch(`${config.wahaBaseUrl}/api/sendText`, {
+    const trySendGateway = async (baseUrl: string, apiKey: string, preferredSession: string) => {
+      let targetSession = preferredSession;
+      try {
+        const sRes = await fetch(`${baseUrl}/api/sessions?all=true`, {
+          headers: { 'X-Api-Key': apiKey },
+          signal: AbortSignal.timeout(4000),
+        });
+        if (sRes.ok) {
+          const sessions: any[] = await sRes.json().catch(() => []);
+          const exact = sessions.find((s) => s.name === preferredSession && s.status === 'WORKING');
+          const anyWorking = sessions.find((s) => s.status === 'WORKING');
+          if (exact) targetSession = exact.name;
+          else if (anyWorking) targetSession = anyWorking.name;
+          else return { ok: false, status: 503, errJson: { message: 'Aucune session WORKING' } };
+        }
+      } catch {
+        // continuer avec preferredSession
+      }
+
+      const wRes = await fetch(`${baseUrl}/api/sendText`, {
         method: 'POST',
         headers: {
-          'X-Api-Key': config.wahaApiKey,
+          'X-Api-Key': apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          session: config.wahaSession,
+          session: targetSession,
           chatId: `${cleanDigits}@c.us`,
           text: message,
         }),
+        signal: AbortSignal.timeout(10000),
       });
+      if (wRes.ok) return { ok: true };
+      const errJson = await wRes.json().catch(() => ({}));
+      return { ok: false, status: wRes.status, errJson };
+    };
 
-      if (!wahaRes.ok) {
+    try {
+      const gowsUrl = (process.env.WAHA_GOWS_URL || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, '');
+      const gowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
+
+      // 1. Essai prioritaire sur la passerelle active GOWS (studio_5756a961)
+      let result = await trySendGateway(gowsUrl, gowsKey, 'studio_5756a961').catch(() => ({
+        ok: false,
+        status: 503,
+        errJson: {},
+      }));
+
+      // 2. Repli sur la passerelle principale (Test)
+      if (!result.ok) {
+        result = await trySendGateway(config.wahaBaseUrl, config.wahaApiKey, config.wahaSession).catch(() => ({
+          ok: false,
+          status: 503,
+          errJson: {},
+        }));
+      }
+
+      if (!result.ok) {
         phoneRateLimits.delete(phone);
-        const errJson = await wahaRes.json().catch(() => ({}));
-        console.error('Erreur WAHA sendText:', errJson);
-        const errMsg = String((errJson as any)?.exception?.message || '');
+        console.error('Erreur WAHA sendText multi-passerelle:', result.errJson);
+        const errMsg = String((result.errJson as any)?.exception?.message || (result.errJson as any)?.message || '');
         if (errMsg.includes('No LID') || errMsg.includes('not registered')) {
           return res.status(400).json({
             error: `Le numéro ${phone} n'est pas reconnu sur WhatsApp. Assurez-vous d'avoir saisi le bon numéro.`,
