@@ -46,8 +46,16 @@
      - Rétablissement du calcul direct du chiffre d'affaires et parsing de dates résilient (`rawCreatedAt || createdAt`).
   6. **Résilience & Fallback Supabase (`supabase.ts`)** :
      - Ajout de logs explicites `console.error` et d'une requête de repli sans jointure `contacts` pour garantir que les commandes ne soient jamais perdues.
-  7. **Build & Validation** :
-     - Build Vite réussi en 4.96s, 0 erreur TypeScript.
+  7. **Vérification Complète des Vocaux de Procédure & Automatisations Métier** :
+     - Les vocaux officiels WhatsApp (voix féminine studio clonée, format OGG Opus natif WhatsApp) sont bien intégrés sur 3 niveaux :
+       1. En base dans `automation_rules` rattachés au compte `5756a961-04ce-467d-be49-311ccff6bad9` (`05 77 73 08`) :
+          - Règle `🎵` : *Vocal Procédure Djelia* (`https://waha.velarisagent.life/qr/assets/vocal_procedure_soeur.opus`)
+          - Règle `☺️` : *Vocal Prise de Commande* (`https://waha.velarisagent.life/qr/assets/vocal_commande_soeur.opus`)
+          - Règle `🎥` : *Vidéo Démo & Tutoriel Studio* (`https://waha.velarisagent.life/qr/assets/324048.mp4`)
+       2. Dans le moteur d'ingestion WhatsApp (`emoji-automations.ts` & `outbox.ts`) : exécution déterministe lors des réactions emoji du vendeur (`🎵`, `☺️`, `🎥`) ou lors de l'étape autonome `VOICE_SAMPLE_DUE`.
+       3. Dans le site web (`SimpleWhatsAppView.tsx` & `supabase.ts`) : résolution directe des URLs HTTP/HTTPS pour permettre l'écoute et la prévisualisation audio immédiate des vocaux dans l'interface du studio.
+  8. **Build & Validation** :
+     - Build Vite réussi en 5.16s, 0 erreur TypeScript, déploiement Vercel production Ready.
 - **Détection & Enregistrement Automatique des Ventes par Réaction Emoji WhatsApp Déployés** :
   1. **Configuration Fine des Formules & Encaissements (`SimpleWhatsAppView.tsx`)** :
      - Type d'action d'automatisation dédié `payment` (*« Encaisser Vente »*) avec icône `BadgeCheck`.
