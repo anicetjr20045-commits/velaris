@@ -251,6 +251,7 @@ export async function getLiveAutomationRules(): Promise<AutomationRule[]> {
         active: !!r.enabled,
         kind,
         mediaPath: r.media_path || undefined,
+        mediaUrl: r.media_path && (r.media_path.startsWith('http://') || r.media_path.startsWith('https://')) ? r.media_path : undefined,
         mediaName: r.media_path ? mediaNameOf(r.media_path) : undefined,
         offerName,
         amount,
@@ -380,6 +381,8 @@ export async function uploadAutomationMedia(file: Blob, filename: string): Promi
 }
 
 export async function getAutomationMediaUrl(path: string): Promise<string | null> {
+  if (!path) return null;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
   const { data, error } = await supabase.storage.from(AUTOMATION_MEDIA_BUCKET).createSignedUrl(path, 3600);
   return error || !data ? null : data.signedUrl;
 }
