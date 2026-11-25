@@ -16,7 +16,7 @@ import { getLiveOrders, createLiveOrder, updateLiveOrder, subscribeStudioRealtim
 import type { Order, StudioMetrics } from './types';
 import { ProtectedStreamView, type ProtectedShareData } from './components/ProtectedStreamView';
 import { getSharedTrackById } from './services/shared-tracks';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Lock, MessageCircle } from 'lucide-react';
 import { MiniSiteView } from './components/MiniSiteView';
 import { PaymentSuccessModal } from './components/PaymentSuccessModal';
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
@@ -210,6 +210,12 @@ export function App() {
   };
 
   const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(null);
+  const [listenUnavailable, setListenUnavailable] = useState<{
+    reason: 'disabled' | 'not_found';
+    studioName?: string;
+    recipient?: string;
+    creatorPhone?: string;
+  } | null>(null);
   const [isLoadingListen, setIsLoadingListen] = useState<boolean>(() => Boolean(extractListenIdFromLocation()));
 
   // Détection retour de paiement Chariow réussi (?payment=success ou ?sale_id=...)
@@ -227,12 +233,16 @@ export function App() {
       if (!listenId) {
         if (isMounted) {
           setListenShareData(null);
+          setListenUnavailable(null);
           setIsLoadingListen(false);
         }
         return;
       }
 
-      if (isMounted) setIsLoadingListen(true);
+      if (isMounted) {
+        setIsLoadingListen(true);
+        setListenUnavailable(null);
+      }
 
       // 1. Chargement prioritaire via /api/audio-stream (ne divulgue jamais l'URL brute si verrouillé)
       try {
@@ -240,6 +250,7 @@ export function App() {
         if (res.ok) {
           const meta = await res.json();
           if (!isMounted) return;
+          setListenUnavailable(null);
           setListenShareData({
             id: meta.id,
             recipient: meta.recipient,
@@ -258,8 +269,15 @@ export function App() {
           return;
         }
         if (res.status === 410 || res.status === 404) {
+          const errBody = await res.json().catch(() => ({}));
           if (!isMounted) return;
           setListenShareData(null);
+          setListenUnavailable({
+            reason: res.status === 410 ? 'disabled' : 'not_found',
+            studioName: errBody.studioName || 'le studio',
+            recipient: errBody.recipient,
+            creatorPhone: errBody.creatorPhone,
+          });
           setIsLoadingListen(false);
           return;
         }
@@ -570,28 +588,57 @@ export function App() {
     );
   }
 
-  const hasListenParam = typeof window !== 'undefined' && Boolean(new URLSearchParams(window.location.search).get('listen'));
-  if (hasListenParam && !listenShareData) {
+  const hasListenTarget = Boolean(extractListenIdFromLocation());
+  if ((listenUnavailable || hasListenTarget) && !listenShareData) {
+    const isDisabled = listenUnavailable?.reason === 'disabled';
+    const studioLabel = listenUnavailable?.studioName || 'le studio';
+    const rawPhone = listenUnavailable?.creatorPhone || '+22605777308';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    const waText = listenUnavailable?.recipient
+      ? `Bonjour ${studioLabel} ! Mon lien d'écoute privée pour ${listenUnavailable.recipient} indique qu'il n'est plus actif. Pouvez-vous me guider ?`
+      : `Bonjour ${studioLabel} ! Mon lien d'écoute privée semble désactivé. Pouvez-vous me guider ?`;
+
     return (
-      <div className="min-h-screen bg-[#050608] text-white flex flex-col items-center justify-center px-6 text-center space-y-4 font-sans select-none">
-        <div className="h-14 w-14 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center text-neutral-400">
-          <ShieldCheck className="h-6 w-6 text-[#E5B54F]" />
+      <div className="min-h-screen bg-[#050608] text-white flex flex-col items-center justify-center px-6 text-center space-y-6 font-sans select-none relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[420px] w-[420px] rounded-full bg-[#E5B54F]/[0.06] blur-[120px]"
+        />
+        <div className="relative z-10 max-w-md w-full rounded-3xl border border-white/[0.08] bg-[#0B0C10] p-7 sm:p-8 space-y-5 shadow-2xl">
+          <div className="mx-auto h-14 w-14 rounded-full border border-[#E2BD6B]/30 bg-[#E2BD6B]/10 flex items-center justify-center">
+            {isDisabled ? (
+              <Lock className="h-6 w-6 text-[#E2BD6B]" />
+            ) : (
+              <ShieldCheck className="h-6 w-6 text-[#E2BD6B]" />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#E2BD6B]">
+              {studioLabel} · Audition Privée
+            </p>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              {isDisabled ? 'Ce lien d’écoute a été désactivé' : 'Lien d’écoute introuvable ou expiré'}
+            </h2>
+            <p className="text-sm text-neutral-400 leading-relaxed">
+              {listenUnavailable?.recipient
+                ? `Bonjour ${listenUnavailable.recipient}, cette session d’écoute privée n’est plus accessible pour le moment. Merci de revenir directement vers ${studioLabel} sur WhatsApp pour réactiver l’accès ou recevoir votre chanson.`
+                : `Cette session d’écoute privée n’est plus accessible pour le moment. Merci de revenir directement vers ${studioLabel} sur WhatsApp pour demander un nouvel accès.`}
+            </p>
+          </div>
+
+          {cleanPhone && (
+            <a
+              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(waText)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-[#10D98E] hover:bg-emerald-400 text-black font-bold px-5 py-3.5 text-sm transition-all shadow-lg active:scale-[0.98]"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>Revenir vers {studioLabel} sur WhatsApp</span>
+            </a>
+          )}
         </div>
-        <h2 className="text-xl font-bold text-white">Lien d'écoute introuvable ou expiré</h2>
-        <p className="text-sm text-neutral-400 max-w-md">
-          Ce lien de streaming privé n'est plus accessible ou a été supprimé par le studio.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, '', cleanUrl);
-            window.location.href = cleanUrl;
-          }}
-          className="rounded-full bg-white px-5 py-2.5 text-xs font-semibold text-black hover:bg-neutral-200 transition-colors cursor-pointer"
-        >
-          Retour au studio
-        </button>
       </div>
     );
   }

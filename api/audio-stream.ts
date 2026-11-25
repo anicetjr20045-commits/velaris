@@ -231,6 +231,9 @@ export default async function handler(req: any, res: any) {
   if (isRowDisabled(row)) {
     return res.status(410).json({
       disabled: true,
+      recipient: row.recipient || undefined,
+      studioName: row.studio_name || 'Djelia Studio',
+      creatorPhone: row.creator_phone || undefined,
       error: 'Ce lien d’écoute privée a été désactivé par le studio.',
     });
   }
