@@ -185,7 +185,11 @@ export default async function handler(req: any, res: any) {
     const cleanDigits = phone.replace(/\D/g, '');
     const message = `Djelia Studio : votre code de connexion sécurisé est ${code}.\nCe code expire dans 5 minutes. Ne le partagez avec personne.`;
 
-    const trySendGateway = async (baseUrl: string, apiKey: string, preferredSession: string) => {
+    const trySendGateway = async (
+      baseUrl: string,
+      apiKey: string,
+      preferredSession: string
+    ): Promise<{ ok: true } | { ok: false; status: number; errJson: any }> => {
       let targetSession = preferredSession;
       try {
         const sRes = await fetch(`${baseUrl}/api/sessions?all=true`, {
@@ -227,8 +231,12 @@ export default async function handler(req: any, res: any) {
       const gowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
 
       // 1. Essai prioritaire sur la passerelle active GOWS (studio_5756a961)
-      let result = await trySendGateway(gowsUrl, gowsKey, 'studio_5756a961').catch(() => ({
-        ok: false,
+      let result: { ok: true } | { ok: false; status: number; errJson: any } = await trySendGateway(
+        gowsUrl,
+        gowsKey,
+        'studio_5756a961'
+      ).catch(() => ({
+        ok: false as const,
         status: 503,
         errJson: {},
       }));
@@ -236,7 +244,7 @@ export default async function handler(req: any, res: any) {
       // 2. Repli sur la passerelle principale (Test)
       if (!result.ok) {
         result = await trySendGateway(config.wahaBaseUrl, config.wahaApiKey, config.wahaSession).catch(() => ({
-          ok: false,
+          ok: false as const,
           status: 503,
           errJson: {},
         }));
