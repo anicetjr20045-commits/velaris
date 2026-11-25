@@ -1,13 +1,13 @@
 {
-  "name": "Velaris Cockpit",
-  "short_name": "Velaris",
-  "description": "Cockpit de Production et Régie WhatsApp Velaris",
-  "start_url": "/#chat",
+  "name": "Djelia Studio",
+  "short_name": "Djelia",
+  "description": "Studio Musical IA & Régie WhatsApp Djelia",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "any",
+  "orientation": "portrait-primary",
   "background_color": "#050608",
-  "theme_color": "#08090C",
+  "theme_color": "#06070A",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -20,12 +20,7 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
     }
   ],
-  "categories": ["productivity", "business"]
+  "categories": ["music", "productivity", "business"]
 }

@@ -54,6 +54,8 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
 
   // Voix sélectionnée (Awa par défaut)
   const [selectedVoice, setSelectedVoice] = useState<FishVoiceItem>(FISH_VOICES[0]);
+  const selectedVoiceRef = useRef<FishVoiceItem>(selectedVoice);
+  selectedVoiceRef.current = selectedVoice;
 
   // Écoute des extraits de voix du catalogue
   const [playingSampleId, setPlayingSampleId] = useState<string | null>(null);
@@ -200,8 +202,8 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
       durationSec: recording.durationSec,
     });
 
-    // Lancement de la métamorphose vocale vers la voix active
-    await transformAudioToVoice(recording.blob, selectedVoice);
+    // Lancement de la métamorphose vocale vers la voix active (via ref pour éviter toute closure obsolète)
+    await transformAudioToVoice(recording.blob, selectedVoiceRef.current);
   };
 
   // Retransformer la même prise originale avec une autre voix du catalogue
@@ -253,7 +255,17 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
     }
   };
 
-  // Envoi Flash direct sur WhatsApp en format PTT natif
+  // Recharger le lecteur audio transformé dès qu'une nouvelle voix est générée
+  useEffect(() => {
+    if (transformedAudioRef.current && transformedAudio?.url) {
+      transformedAudioRef.current.pause();
+      setIsPlayingTransformed(false);
+      setTransformedProgress(0);
+      transformedAudioRef.current.load();
+    }
+  }, [transformedAudio?.url]);
+
+  // Envoi Flash direct sur WhatsApp en format PTT natif (OGG/Opus)
   const handleSendFlashWhatsApp = async () => {
     if (!transformedAudio) return;
 
@@ -268,7 +280,24 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
     setSendError(null);
 
     try {
-      const res = await sendWahaVoiceMessage(targetPhone, transformedAudio.blob, sessionName);
+      // Génération directe au format natif WhatsApp OGG/Opus pour éviter toute perte de conversion
+      let blobToSend = transformedAudio.blob;
+      if (transformedAudio.text) {
+        try {
+          const opusSynth = await generateFishVoice(
+            transformedAudio.text,
+            selectedVoiceRef.current.reference_id,
+            'opus'
+          );
+          if (opusSynth.blob.size > 0) {
+            blobToSend = opusSynth.blob;
+          }
+        } catch {
+          // Repli sur le blob MP3 existant (converti automatiquement par WAHA)
+        }
+      }
+
+      const res = await sendWahaVoiceMessage(targetPhone, blobToSend, sessionName);
       if (res.success) {
         setSendSuccess(`Note vocale expédiée en format PTT natif au ${targetPhone} !`);
         showToast(`Envoyé en note vocale native au ${targetPhone}`, true);

@@ -21,11 +21,20 @@ import {
   ChevronRight,
   Headphones,
   Mic,
+  Film,
+  AlertTriangle,
 } from 'lucide-react';
 import type { Order } from '../types';
 import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
 import { createSharedTrack, uploadAudioTrack } from '../services/shared-tracks';
 import { VoiceLabView } from './VoiceLabView';
+import { useAuth } from '../hooks/useAuth';
+
+const KIE_LIMITS = {
+  title: 80,
+  style: 1000,
+  lyrics: 5000,
+} as const;
 
 interface StudioViewProps {
   orders: Order[];
@@ -36,6 +45,8 @@ interface StudioViewProps {
 
 export interface GeneratedSong {
   id: string;
+  taskId?: string;
+  audioId?: string;
   title: string;
   recipient: string;
   occasion: string;
@@ -46,6 +57,8 @@ export interface GeneratedSong {
   lyrics: string;
   coverUrl: string;
   audioUrl: string;
+  videoUrl?: string;
+  videoStatus?: 'idle' | 'generating' | 'ready' | 'failed';
   createdAt: string;
 }
 
@@ -53,6 +66,7 @@ export interface ExtractedSunoTrack {
   id: string;
   uuid: string;
   title: string;
+  style?: string;
   audioUrl: string;
   coverUrl: string;
   sourceUrl: string;
@@ -114,8 +128,28 @@ export const StudioView: FC<StudioViewProps> = ({
   onSelectOrder: _onSelectOrder,
   onUpdateOrder,
 }) => {
+  const { user } = useAuth();
+  const userMeta = (user?.user_metadata || {}) as Record<string, any>;
+  const studioName = String(userMeta.studio_name || 'Djelia Studio');
+  const studioSlug = String(
+    userMeta.studio_slug ||
+      studioName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') ||
+      'studio'
+  );
+  const creatorPhone = String(userMeta.phone || userMeta.studio_whatsapp_phone || '');
+
   // Navigation du Studio : 'hub' (Cartes d'accueil) ou 'generate' | 'suno_extractor' | 'client_links' | 'voice_lab'
   const [currentModule, setCurrentModule] = useState<'hub' | 'generate' | 'suno_extractor' | 'client_links' | 'voice_lab'>('hub');
+  const [studioNotice, setStudioNotice] = useState<{ text: string; tone: 'error' | 'ok' | 'warn' } | null>(null);
+  const notifyStudio = (text: string, tone: 'error' | 'ok' | 'warn' = 'warn') => {
+    setStudioNotice({ text, tone });
+    setTimeout(() => setStudioNotice(null), 5500);
+  };
 
   const currentOrder = orders.find((o) => o.id === selectedOrderId) || orders[0];
 
@@ -185,68 +219,205 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
-  const handleGenerateSong = (e: FormEvent) => {
+  const isTitleOver = songTitle.length > KIE_LIMITS.title;
+  const isStyleOver = songStyle.length > KIE_LIMITS.style;
+  const isLyricsOver = songLyrics.length > KIE_LIMITS.lyrics;
+
+  const handleGenerateSong = async (e: FormEvent) => {
     e.preventDefault();
-    if (!songTitle.trim()) return;
+    if (!songTitle.trim()) {
+      notifyStudio('Veuillez saisir un titre pour la chanson.', 'error');
+      return;
+    }
+    if (isTitleOver) {
+      notifyStudio(`Titre trop long : ${songTitle.length}/${KIE_LIMITS.title} caractères maximum acceptés par Suno/Kie.ai.`, 'error');
+      return;
+    }
+    if (isStyleOver) {
+      notifyStudio(`Style trop long : ${songStyle.length}/${KIE_LIMITS.style} caractères maximum acceptés par Suno/Kie.ai.`, 'error');
+      return;
+    }
+    if (isLyricsOver) {
+      notifyStudio(`Paroles trop longues : ${songLyrics.length}/${KIE_LIMITS.lyrics} caractères maximum acceptés par Suno/Kie.ai.`, 'error');
+      return;
+    }
 
     setIsGeneratingSong(true);
-    setGenerationStep('Composition de la mélodie et arrangement...');
+    setGenerationStep('Envoi vers Suno via Kie.ai…');
 
-    setTimeout(() => {
-      setGenerationStep('Synthèse vocale et harmonies...');
-    }, 1200);
+    try {
+      const vocalGender =
+        songVoice === 'Féminine' ? 'f' : songVoice === 'Masculine' ? 'm' : 'duo';
 
-    setTimeout(() => {
-      setGenerationStep('Mixage studio et mastering haute fidélité...');
-    }, 2400);
+      const genRes = await fetch('/api/suno?action=generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: songTitle.trim(),
+          style: songStyle.trim() || 'Afro-Love acoustique',
+          prompt: songLyrics.trim(),
+          customMode: true,
+          instrumental: !songLyrics.trim(),
+          vocalGender,
+          model: 'V4_5',
+        }),
+      });
 
-    setTimeout(() => {
-      const durSec = songDuration === '1 min' ? 75 : songDuration === '2 min' ? 145 : 195;
-      const m = Math.floor(durSec / 60);
-      const s = durSec % 60;
-      const formattedDur = `${m}:${s < 10 ? '0' : ''}${s}`;
-
-      const covers = [
-        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&auto=format&fit=crop&q=80',
-      ];
-      const selectedCover = covers[Math.floor(Math.random() * covers.length)];
-
-      const newSong: GeneratedSong = {
-        id: `song-${Date.now()}`,
-        title: songTitle.trim(),
-        recipient: currentOrder?.recipient || songTitle.trim(),
-        occasion: currentOrder?.occasion || 'Célébration',
-        style: songStyle.trim() || 'Afro-Love',
-        voice: songVoice,
-        duration: formattedDur,
-        durationSeconds: durSec,
-        lyrics: songLyrics.trim() || 'Paroles composées au Studio Velaris.',
-        coverUrl: selectedCover,
-        audioUrl: 'https://cdn.freesound.org/previews/612/612610_5674468-lq.mp3',
-        createdAt: new Date().toISOString(),
-      };
-
-      setLibrarySongs((prev) => [newSong, ...prev]);
-      if (currentOrder && onUpdateOrder) {
-        onUpdateOrder({
-          ...currentOrder,
-          status: 'production_suno',
-        });
+      const genJson = await genRes.json().catch(() => ({}));
+      if (!genRes.ok || !genJson.taskId) {
+        notifyStudio(genJson.error || 'Impossible de lancer la génération Suno via Kie.ai.', 'error');
+        setIsGeneratingSong(false);
+        setGenerationStep(null);
+        return;
       }
+
+      const taskId = String(genJson.taskId);
+      setGenerationStep('Composition Suno en cours (1 à 3 min)…');
+
+      // Polling jusqu'à obtention des 2 pistes Suno
+      let completed = false;
+      const started = Date.now();
+      while (Date.now() - started < 6 * 60 * 1000) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const stRes = await fetch(`/api/suno?action=status&taskId=${encodeURIComponent(taskId)}`);
+        const stJson = await stRes.json().catch(() => null);
+        const data = stJson?.data;
+        if (!data) continue;
+
+        const rawStatus = String(data.status || '').toUpperCase();
+        const sunoData = data.response?.sunoData || data.sunoData || [];
+
+        if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE' || rawStatus === 'FIRST_SUCCESS') {
+          if (Array.isArray(sunoData) && sunoData.length > 0) {
+            const generatedTracks: GeneratedSong[] = sunoData
+              .filter((t: any) => t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url)
+              .map((t: any, idx: number) => {
+                const durSec = Math.round(Number(t.duration || 150));
+                const m = Math.floor(durSec / 60);
+                const s = durSec % 60;
+                return {
+                  id: `song-${taskId}-${idx}-${Date.now()}`,
+                  taskId,
+                  audioId: t.id || t.audioId || t.audio_id,
+                  title: sunoData.length > 1 ? `${t.title || songTitle.trim()} (v${idx + 1})` : (t.title || songTitle.trim()),
+                  recipient: currentOrder?.recipient || songTitle.trim(),
+                  occasion: currentOrder?.occasion || 'Création Studio',
+                  style: t.tags || songStyle.trim() || 'Afro-Love',
+                  voice: songVoice,
+                  duration: `${m}:${s < 10 ? '0' : ''}${s}`,
+                  durationSeconds: durSec,
+                  lyrics: t.prompt || songLyrics.trim() || 'Composition instrumentale',
+                  coverUrl: t.imageUrl || t.image_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+                  audioUrl: t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url,
+                  videoStatus: 'idle',
+                  createdAt: new Date().toISOString(),
+                };
+              });
+
+            if (generatedTracks.length > 0) {
+              setLibrarySongs((prev) => [...generatedTracks, ...prev]);
+              if (currentOrder && onUpdateOrder) {
+                onUpdateOrder({ ...currentOrder, status: 'production_suno' });
+              }
+              notifyStudio(`${generatedTracks.length} version(s) Suno prête(s) et ajoutée(s) à votre discothèque.`, 'ok');
+              completed = true;
+              break;
+            }
+          }
+        } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR' || rawStatus === 'CREATE_TASK_FAILED') {
+          notifyStudio(data.errorMessage || data.failReason || 'Échec de génération Suno.', 'error');
+          completed = true;
+          break;
+        }
+      }
+
+      if (!completed) {
+        notifyStudio('La génération prend plus de temps que prévu sur Kie.ai. Vérifiez votre historique dans un instant.', 'warn');
+      }
+    } catch (err: any) {
+      notifyStudio(`Erreur réseau Suno/Kie.ai : ${err?.message || 'inconnue'}`, 'error');
+    } finally {
       setIsGeneratingSong(false);
       setGenerationStep(null);
-    }, 3600);
+    }
+  };
+
+  const handleCreateLyricsVideo = async (song: GeneratedSong) => {
+    if (!song.taskId || !song.audioId) {
+      notifyStudio('La vidéo lyrics est disponible pour les chansons générées via Suno/Kie.ai.', 'warn');
+      return;
+    }
+
+    setLibrarySongs((prev) =>
+      prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'generating' } : s))
+    );
+    notifyStudio(`Génération de la vidéo lyrics MP4 pour « ${song.title} »…`, 'ok');
+
+    try {
+      const res = await fetch('/api/suno?action=music-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskId: song.taskId,
+          audioId: song.audioId,
+          author: studioName,
+          domainName: 'djelia.store',
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.taskId) {
+        setLibrarySongs((prev) =>
+          prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed' } : s))
+        );
+        notifyStudio(json.error || 'Impossible de lancer la vidéo lyrics.', 'error');
+        return;
+      }
+
+      const vTaskId = String(json.taskId);
+      const started = Date.now();
+      while (Date.now() - started < 5 * 60 * 1000) {
+        await new Promise((r) => setTimeout(r, 5000));
+        const stRes = await fetch(`/api/suno?action=video-status&taskId=${encodeURIComponent(vTaskId)}`);
+        const stJson = await stRes.json().catch(() => null);
+        const data = stJson?.data;
+        if (!data) continue;
+        const flag = String(data.successFlag || data.status || '').toUpperCase();
+        const videoUrl = data.response?.videoUrl || data.response?.video_url || data.videoUrl;
+        if ((flag === 'SUCCESS' || flag === 'COMPLETE' || flag === '1') && videoUrl) {
+          setLibrarySongs((prev) =>
+            prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'ready', videoUrl } : s))
+          );
+          notifyStudio(`Vidéo lyrics MP4 prête pour « ${song.title} » !`, 'ok');
+          return;
+        }
+        if (flag === 'FAILED' || flag === 'ERROR' || flag === 'CREATE_TASK_FAILED') {
+          break;
+        }
+      }
+
+      setLibrarySongs((prev) =>
+        prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed' } : s))
+      );
+      notifyStudio('Échec de génération de la vidéo lyrics MP4.', 'error');
+    } catch (err: any) {
+      setLibrarySongs((prev) =>
+        prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed' } : s))
+      );
+      notifyStudio(err?.message || 'Erreur réseau vidéo lyrics.', 'error');
+    }
   };
 
   const filteredSongs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return librarySongs;
     return librarySongs.filter((song) => {
-      const matchSearch = song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          song.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          song.style.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchSearch;
+      return (
+        song.title.toLowerCase().includes(q) ||
+        song.recipient.toLowerCase().includes(q) ||
+        song.style.toLowerCase().includes(q) ||
+        song.occasion.toLowerCase().includes(q) ||
+        song.lyrics.toLowerCase().includes(q)
+      );
     });
   }, [librarySongs, searchQuery]);
 
@@ -271,10 +442,10 @@ export const StudioView: FC<StudioViewProps> = ({
   };
 
   const handleDownloadSong = (song: GeneratedSong) => {
+    const filename = `${song.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Master.mp3`;
     const link = document.createElement('a');
-    link.href = song.audioUrl;
-    link.download = `${song.title.replace(/[^a-zA-Z0-9-]/g, '_')}_Master.mp3`;
-    link.target = '_blank';
+    link.href = `/api/suno?action=download&url=${encodeURIComponent(song.audioUrl)}&filename=${encodeURIComponent(filename)}`;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -302,51 +473,43 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   }, [extractedSunoList]);
 
-  const handleExtractSuno = (e: FormEvent) => {
+  const handleExtractSuno = async (e: FormEvent) => {
     e.preventDefault();
     if (!sunoInputUrls.trim()) return;
 
     setIsExtractingSuno(true);
-
-    setTimeout(() => {
-      const text = sunoInputUrls;
-      const uuidRegex = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi;
-      const matches = text.match(uuidRegex) || [];
-      const lines = text.split(/[\n,]+/).map((l) => l.trim()).filter(Boolean);
-      const newExtracted: ExtractedSunoTrack[] = [];
-
-      if (matches.length > 0) {
-        matches.forEach((uuid, idx) => {
-          const cleanUuid = uuid.toLowerCase();
-          newExtracted.push({
-            id: `suno-${cleanUuid}-${Date.now()}-${idx}`,
-            uuid: cleanUuid,
-            title: `Morceau Suno ${cleanUuid.slice(0, 8)}`,
-            audioUrl: `https://cdn1.suno.ai/${cleanUuid}.mp3`,
-            coverUrl: `https://cdn2.suno.ai/image_${cleanUuid}.jpeg`,
-            sourceUrl: `https://suno.com/song/${cleanUuid}`,
-            extractedAt: new Date().toISOString(),
-          });
-        });
-      } else {
-        lines.forEach((line, idx) => {
-          const fakeUuid = `suno-${Date.now().toString(16)}-${idx}`;
-          newExtracted.push({
-            id: `suno-${Date.now()}-${idx}`,
-            uuid: fakeUuid,
-            title: `Piste Extraite #${idx + 1}`,
-            audioUrl: line.startsWith('http') ? line : `https://cdn1.suno.ai/${fakeUuid}.mp3`,
-            coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
-            sourceUrl: line,
-            extractedAt: new Date().toISOString(),
-          });
-        });
+    try {
+      const res = await fetch('/api/suno?action=extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: sunoInputUrls }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !Array.isArray(json.tracks) || json.tracks.length === 0) {
+        notifyStudio(json.error || 'Aucun lien Suno valide trouvé.', 'error');
+        setIsExtractingSuno(false);
+        return;
       }
 
+      const newExtracted: ExtractedSunoTrack[] = json.tracks.map((t: any, idx: number) => ({
+        id: `suno-${t.uuid}-${Date.now()}-${idx}`,
+        uuid: t.uuid,
+        title: t.title || `Chanson Suno ${t.uuid.slice(0, 8)}`,
+        style: t.style || '',
+        audioUrl: t.audioUrl,
+        coverUrl: t.coverUrl,
+        sourceUrl: t.sourceUrl,
+        extractedAt: new Date().toISOString(),
+      }));
+
       setExtractedSunoList((prev) => [...newExtracted, ...prev]);
-      setIsExtractingSuno(false);
       setSunoInputUrls('');
-    }, 700);
+      notifyStudio(`${newExtracted.length} morceau(x) Suno extrait(s) avec succès.`, 'ok');
+    } catch (err: any) {
+      notifyStudio(`Erreur d'extraction Suno : ${err?.message || 'réseau'}`, 'error');
+    } finally {
+      setIsExtractingSuno(false);
+    }
   };
 
   /* ------------------------------------------------------------------ */
@@ -433,23 +596,42 @@ export const StudioView: FC<StudioViewProps> = ({
   const handleCreateClientLink = async (e: FormEvent) => {
     e.preventDefault();
     if (!clientRecipient.trim()) return;
+    if (!track1Url.trim()) {
+      notifyStudio('Veuillez uploader au moins un morceau audio avant de créer le lien.', 'error');
+      return;
+    }
 
     setIsCreatingClientLink(true);
-    const linkId = `audition-${Date.now().toString(36)}`;
-    const finalShareUrl = `https://djelia.store/ecoute.html?id=${linkId}`;
+    const cleanRecipientSlug = clientRecipient
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 18);
+    const linkId = `${cleanRecipientSlug || 'audition'}-${Date.now().toString(36).slice(-5)}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.djelia.store';
+    const finalShareUrl = `${origin}/ecoute/${studioSlug}/${linkId}`;
 
     try {
-      await createSharedTrack({
+      const saveRes = await createSharedTrack({
         id: linkId,
         recipient: clientRecipient.trim(),
         occasion: clientOccasion.trim(),
-        studio_name: 'Studio Velaris',
+        studio_name: studioName,
+        creator_phone: creatorPhone || undefined,
         track1_title: track1Title.trim() || 'Version 01',
-        track1_url: track1Url.trim() || 'https://cdn.freesound.org/previews/612/612610_5674468-lq.mp3',
-        track2_title: track2Title.trim() || 'Version 02',
-        track2_url: track2Url.trim() || 'https://cdn.freesound.org/previews/612/612611_5674468-lq.mp3',
+        track1_url: track1Url.trim(),
+        track2_title: track2Url.trim() ? (track2Title.trim() || 'Version 02') : undefined,
+        track2_url: track2Url.trim() || undefined,
         allow_download: allowClientDownload,
       });
+      if (!saveRes.success) {
+        notifyStudio(saveRes.error || 'Erreur lors de la sauvegarde du lien.', 'warn');
+      } else {
+        notifyStudio('Lien d’audition privée généré et sécurisé.', 'ok');
+      }
     } catch {
       // Ignore
     }
@@ -475,6 +657,20 @@ export const StudioView: FC<StudioViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 animate-in fade-in duration-300">
+      {studioNotice && (
+        <div
+          className={`fixed top-5 right-5 z-50 max-w-md flex items-center gap-2.5 px-4 py-3 rounded-2xl border shadow-2xl text-xs font-medium animate-in fade-in slide-in-from-top-2 ${
+            studioNotice.tone === 'error'
+              ? 'bg-rose-950/95 border-rose-500/40 text-rose-200'
+              : studioNotice.tone === 'ok'
+              ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200'
+              : 'bg-amber-950/95 border-amber-500/40 text-amber-200'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>{studioNotice.text}</span>
+        </div>
+      )}
       <audio
         ref={audioPlayerRef}
         onTimeUpdate={() => {
@@ -486,35 +682,37 @@ export const StudioView: FC<StudioViewProps> = ({
       />
 
       {/* ============================================================ */}
-      {/* 1. EN-TÊTE ÉPURÉ DU STUDIO                                   */}
+      {/* 1. EN-TÊTE ÉPURÉ DU STUDIO (masqué dans VoiceLab qui a déjà le sien) */}
       {/* ============================================================ */}
-      <header className="rounded-3xl border border-white/[0.06] bg-[#08090C] p-5 sm:p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-[#E2BD6B] font-semibold">
-                Studio Régie IA
-              </span>
-              <span className="text-white/20">·</span>
-              <span className="text-xs text-[#8A90A0]">Création Musicale, Extraction & Liens Clients</span>
+      {currentModule !== 'voice_lab' && (
+        <header className="rounded-3xl border border-white/[0.06] bg-[#08090C] p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono uppercase tracking-[0.12em] text-[#E2BD6B] font-semibold">
+                  Studio Régie IA
+                </span>
+                <span className="text-white/20">·</span>
+                <span className="text-xs text-[#8A90A0]">Création Musicale, Extraction & Liens Clients</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                Atelier Studio Musical
+              </h1>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Atelier Studio Musical
-            </h1>
-          </div>
 
-          {currentModule !== 'hub' && (
-            <button
-              type="button"
-              onClick={() => setCurrentModule('hub')}
-              className="px-4 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-semibold text-white/90 inline-flex items-center gap-2 transition-colors cursor-pointer self-start sm:self-auto"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Retour à l'accueil du Studio</span>
-            </button>
-          )}
-        </div>
-      </header>
+            {currentModule !== 'hub' && (
+              <button
+                type="button"
+                onClick={() => setCurrentModule('hub')}
+                className="px-4 py-2 rounded-2xl bg-white/[0.06] hover:bg-white/[0.12] text-xs font-semibold text-white/90 inline-flex items-center gap-2 transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Retour à l'accueil du Studio</span>
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* ============================================================ */}
       {/* 2. VUE D'ACCUEIL DU STUDIO PAR CARTES DE PRESTIGE (LE HUB)   */}
@@ -661,32 +859,84 @@ export const StudioView: FC<StudioViewProps> = ({
             <form onSubmit={handleGenerateSong} className="space-y-4">
               {/* 1. Titre de la chanson */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-[#8A90A0]">
-                  Titre de la chanson *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-medium text-[#8A90A0]">
+                    Titre de la chanson *
+                  </label>
+                  <span
+                    className={`text-[10px] font-mono ${
+                      isTitleOver
+                        ? 'text-rose-400 font-bold'
+                        : songTitle.length >= KIE_LIMITS.title * 0.9
+                        ? 'text-amber-400'
+                        : 'text-white/40'
+                    }`}
+                  >
+                    {songTitle.length} / {KIE_LIMITS.title}
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
                   value={songTitle}
-                  onChange={(e) => setSongTitle(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSongTitle(v);
+                    if (v.length > KIE_LIMITS.title && songTitle.length <= KIE_LIMITS.title) {
+                      notifyStudio(`Limite Suno/Kie.ai atteinte : le titre ne doit pas dépasser ${KIE_LIMITS.title} caractères.`, 'warn');
+                    }
+                  }}
                   placeholder="Ex: Aminata, Reine de nos Cœurs"
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
+                  className={`w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border text-sm text-white focus:outline-none ${
+                    isTitleOver ? 'border-rose-500 focus:border-rose-400' : 'border-white/[0.08] focus:border-[#E2BD6B]'
+                  }`}
                 />
+                {isTitleOver && (
+                  <p className="text-[11px] text-rose-400">
+                    Dépassement de {songTitle.length - KIE_LIMITS.title} caractère(s) sur la limite Suno ({KIE_LIMITS.title} max).
+                  </p>
+                )}
               </div>
 
               {/* 2. Style Musical au clavier libre */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-[#8A90A0]">
-                  Style Musical (saisie libre au clavier) *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-medium text-[#8A90A0]">
+                    Style Musical (champ style Kie.ai) *
+                  </label>
+                  <span
+                    className={`text-[10px] font-mono ${
+                      isStyleOver
+                        ? 'text-rose-400 font-bold'
+                        : songStyle.length >= KIE_LIMITS.style * 0.9
+                        ? 'text-amber-400'
+                        : 'text-white/40'
+                    }`}
+                  >
+                    {songStyle.length} / {KIE_LIMITS.style}
+                  </span>
+                </div>
                 <input
                   type="text"
                   required
                   value={songStyle}
-                  onChange={(e) => setSongStyle(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSongStyle(v);
+                    if (v.length > KIE_LIMITS.style && songStyle.length <= KIE_LIMITS.style) {
+                      notifyStudio(`Limite Suno/Kie.ai atteinte : le style ne doit pas dépasser ${KIE_LIMITS.style} caractères.`, 'warn');
+                    }
+                  }}
                   placeholder="Tapez le style : Zouk, Afro-Love, Rumba, Gospel, Amapiano..."
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
+                  className={`w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border text-xs text-white focus:outline-none ${
+                    isStyleOver ? 'border-rose-500 focus:border-rose-400' : 'border-white/[0.08] focus:border-[#E2BD6B]'
+                  }`}
                 />
+                {isStyleOver && (
+                  <p className="text-[11px] text-rose-400">
+                    Dépassement de {songStyle.length - KIE_LIMITS.style} caractère(s) sur la limite Suno ({KIE_LIMITS.style} max).
+                  </p>
+                )}
 
                 {/* Suggestions rapides en 1 clic */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
@@ -755,26 +1005,52 @@ export const StudioView: FC<StudioViewProps> = ({
 
               {/* 5. Paroles de la chanson */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Paroles du Morceau (Couplets & Refrain)
+                    Paroles (champ prompt Kie.ai)
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleAutoWriteLyrics}
-                    className="text-[11px] text-[#E2BD6B] hover:underline inline-flex items-center gap-1 cursor-pointer font-medium"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>Rédiger avec l'IA</span>
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-[10px] font-mono ${
+                        isLyricsOver
+                          ? 'text-rose-400 font-bold'
+                          : songLyrics.length >= KIE_LIMITS.lyrics * 0.9
+                          ? 'text-amber-400'
+                          : 'text-white/40'
+                      }`}
+                    >
+                      {songLyrics.length} / {KIE_LIMITS.lyrics}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAutoWriteLyrics}
+                      className="text-[11px] text-[#E2BD6B] hover:underline inline-flex items-center gap-1 cursor-pointer font-medium"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Rédiger avec l'IA</span>
+                    </button>
+                  </div>
                 </div>
                 <textarea
                   rows={6}
                   value={songLyrics}
-                  onChange={(e) => setSongLyrics(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSongLyrics(v);
+                    if (v.length > KIE_LIMITS.lyrics && songLyrics.length <= KIE_LIMITS.lyrics) {
+                      notifyStudio(`Limite Suno/Kie.ai atteinte : les paroles ne doivent pas dépasser ${KIE_LIMITS.lyrics} caractères.`, 'warn');
+                    }
+                  }}
                   placeholder="Écrivez ou collez les paroles ici, ou cliquez sur 'Rédiger avec l'IA'..."
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#E2BD6B] font-mono leading-relaxed resize-none"
+                  className={`w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border text-xs text-white focus:outline-none font-mono leading-relaxed resize-none ${
+                    isLyricsOver ? 'border-rose-500 focus:border-rose-400' : 'border-white/[0.08] focus:border-[#E2BD6B]'
+                  }`}
                 />
+                {isLyricsOver && (
+                  <p className="text-[11px] text-rose-400">
+                    Dépassement de {songLyrics.length - KIE_LIMITS.lyrics} caractère(s) sur la limite Suno ({KIE_LIMITS.lyrics} max).
+                  </p>
+                )}
               </div>
 
               <button
@@ -800,13 +1076,13 @@ export const StudioView: FC<StudioViewProps> = ({
           {/* Bibliothèque des Chansons Générées */}
           <div className="lg:col-span-7 space-y-4">
             <div className="rounded-3xl border border-white/[0.06] bg-[#08090C] p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="relative w-full sm:w-72">
+              <div className="relative w-full sm:w-80">
                 <Search className="w-4 h-4 text-[#8A90A0] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher par titre, destinataire ou style..."
+                  placeholder="Rechercher par titre, mots des paroles, style..."
                   className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-[#050608] border border-white/[0.06] text-xs text-white focus:outline-none focus:border-[#E2BD6B]"
                 />
               </div>
@@ -859,7 +1135,7 @@ export const StudioView: FC<StudioViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleDownloadSong(song)}
@@ -868,6 +1144,30 @@ export const StudioView: FC<StudioViewProps> = ({
                         >
                           <Download className="w-4 h-4" />
                         </button>
+
+                        {song.videoUrl ? (
+                          <a
+                            href={`/api/suno?action=download&url=${encodeURIComponent(song.videoUrl)}&filename=${encodeURIComponent(`${song.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Lyrics.mp4`)}`}
+                            className="px-2.5 py-2 rounded-xl bg-[#E2BD6B]/15 border border-[#E2BD6B]/40 text-[#E2BD6B] text-[11px] font-semibold inline-flex items-center gap-1.5 hover:bg-[#E2BD6B]/25 transition-colors"
+                            title="Télécharger la Vidéo Lyrics MP4"
+                          >
+                            <Film className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">MP4 Lyrics</span>
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={song.videoStatus === 'generating'}
+                            onClick={() => handleCreateLyricsVideo(song)}
+                            className="px-2.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Transformer en Vidéo Lyrics MP4 via Kie.ai"
+                          >
+                            <Film className={`w-3.5 h-3.5 ${song.videoStatus === 'generating' ? 'animate-spin text-[#E2BD6B]' : ''}`} />
+                            <span className="hidden sm:inline">
+                              {song.videoStatus === 'generating' ? 'Vidéo…' : 'Vidéo Lyrics'}
+                            </span>
+                          </button>
+                        )}
 
                         <button
                           type="button"
@@ -990,11 +1290,27 @@ export const StudioView: FC<StudioViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (playingSongId === track.id && audioPlayerRef.current) {
+                            if (audioPlayerRef.current.paused) audioPlayerRef.current.play();
+                            else audioPlayerRef.current.pause();
+                          } else if (audioPlayerRef.current) {
+                            setPlayingSongId(track.id);
+                            audioPlayerRef.current.src = track.audioUrl;
+                            audioPlayerRef.current.play().catch(() => {});
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/90 hover:text-white transition-colors cursor-pointer"
+                        title="Écouter l'extrait"
+                      >
+                        {playingSongId === track.id ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                      </button>
+
                       <a
-                        href={track.audioUrl}
+                        href={`/api/suno?action=download&url=${encodeURIComponent(track.audioUrl)}&filename=${encodeURIComponent(`${track.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.mp3`)}`}
                         download={`${track.uuid}.mp3`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="px-3.5 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors"
                       >
                         <Download className="w-3.5 h-3.5" />
@@ -1209,7 +1525,7 @@ export const StudioView: FC<StudioViewProps> = ({
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A90A0]">
                 Liens d'Écoute Actifs ({createdLinks.length})
               </h4>
-              <span className="text-[11px] text-[#8A90A0]">Hébergés sur djelia.store/ecoute.html</span>
+              <span className="text-[11px] text-[#8A90A0] font-mono">/ecoute/{studioSlug}/...</span>
             </div>
 
             <div className="space-y-3">

@@ -25,7 +25,23 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 24 Novembre 2026 (23:50 UTC)
+- **Dernière mise à jour** : 25 Novembre 2026 (00:38 UTC)
+- **Suite Complète PWA, Studio Suno/Kie.ai, Extracteur, Auditions Protégées, VoiceLab & Analytique Revenus** :
+  1. **PWA Mobile Installable (`manifest.json`, `sw.js`, `PwaInstallPrompt.tsx`)** :
+     - Icônes officielles or & obsidienne (`192x192`, `512x512`, `apple-touch-icon.png`), manifeste `Djelia Studio` en mode `standalone`, Service Worker `djelia-studio-pwa-v2`, et bannière de suggestion d'installation Android (`beforeinstallprompt`) + guide iOS Safari.
+  2. **Création Suno via Kie.ai & Vidéo Lyrics (`api/suno.ts`, `StudioView.tsx`)** :
+     - Branchement réel vers Kie.ai (`POST /api/suno?action=generate` & `GET ?action=status`) avec routage exact (`title` ≤ 80, `style` ≤ 1000, `prompt` paroles ≤ 5000, suppression automatique des emojis).
+     - Compteurs de caractères en direct + alertes immédiates en cas de dépassement ou de crédits Kie.ai insuffisants.
+     - Téléchargement MP3 forcé (`/api/suno?action=download`), recherche étendue jusque dans les paroles, et conversion en **Vidéo Lyrics MP4** (`/api/suno?action=music-video`).
+  3. **Extracteur Suno Express (`/api/suno?action=extract`)** :
+     - Résolution des liens courts (`suno.com/s/...`), pages `suno.com/song/...` et UUID avec récupération du titre, cover, style et téléchargement MP3 direct.
+  4. **Auditions Clients Privées Inviolables (`/api/audio-stream.ts`, `ProtectedStreamView.tsx`)** :
+     - Liens courts personnalisés par studio (`/ecoute/<slug>/<id>`).
+     - Lorsque le téléchargement est verrouillé (`allowDownload === false`), lecture exclusivement via Web Audio API (`AudioContext` + `decodeAudioData` + en-tête `X-Djelia-Player: 1` et jeton HMAC éphémère) sans aucune balise `<audio src>` ni URL MP3 exposée dans le DOM.
+  5. **Correctifs Studio Vocal (`VoiceLabView.tsx`, `VoiceNoteRecorder.tsx`, `StudioView.tsx`)** :
+     - Résolution de la closure obsolète dans `VoiceNoteRecorder` (`onCompleteRef` + `selectedVoiceRef`) qui bloquait le Voice-to-Voice sur la voix par défaut, rechargement automatique du lecteur audio, envoi WhatsApp direct en OGG/Opus natif PTT, et suppression du double bouton de retour.
+  6. **Statistiques Enrichies des Revenus (`RevenusView.tsx`)** :
+     - Ajout des blocs analytiques : **Pays Majeurs**, **Sexes & Voix Choisis**, **Paiements & Formules**, et **Créneaux Horaires & Taux de Livraison**.
 - **Résolution Critique du Bug Dashboard Vierge ("Tout aussi vierge") & Chargement Complet des 754 Commandes (987 600 - 1 122 600 F CFA)** :
   1. **Diagnostic Chirurgical de la Cause Racine (JWT Bloaté & Erreur 400 Cloudflare)** :
      - Une image de studio encodée en base64 de 370 Ko (`data:image/jpeg;base64,...`) avait été enregistrée dans `user_metadata.studio_photo_url` du compte `5756a961-04ce-467d-be49-311ccff6bad9` (`wa_22605777308@djelia.store`).

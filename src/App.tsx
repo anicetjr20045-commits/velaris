@@ -19,6 +19,7 @@ import { getSharedTrackById } from './services/shared-tracks';
 import { ShieldCheck } from 'lucide-react';
 import { MiniSiteView } from './components/MiniSiteView';
 import { PaymentSuccessModal } from './components/PaymentSuccessModal';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 
 export type MainTab = 'home' | 'cockpit' | 'studio' | 'academy' | 'qr' | 'decouvrir' | 'copilot';
 
@@ -197,13 +198,18 @@ export function App() {
     };
   }, []);
 
-  // Détection du mode d'écoute publique sécurisé (?listen=...)
-  const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(null);
-  const [isLoadingListen, setIsLoadingListen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
+  // Détection du mode d'écoute publique sécurisé (?listen=... ou /ecoute/:slug/:id)
+  const extractListenIdFromLocation = () => {
+    if (typeof window === 'undefined') return null;
     const urlParams = new URLSearchParams(window.location.search);
-    return Boolean(urlParams.get('listen'));
-  });
+    const fromQuery = urlParams.get('listen');
+    if (fromQuery) return fromQuery;
+    const ecouteMatch = window.location.pathname.match(/^\/ecoute\/(?:[^/]+\/)?([^/]+)$/);
+    return ecouteMatch ? decodeURIComponent(ecouteMatch[1]) : null;
+  };
+
+  const [listenShareData, setListenShareData] = useState<ProtectedShareData | null>(null);
+  const [isLoadingListen, setIsLoadingListen] = useState<boolean>(() => Boolean(extractListenIdFromLocation()));
 
   // Détection retour de paiement Chariow réussi (?payment=success ou ?sale_id=...)
   const [isPaymentSuccessModalOpen, setIsPaymentSuccessModalOpen] = useState<boolean>(() => {
@@ -216,8 +222,7 @@ export function App() {
     let isMounted = true;
     const checkAndLoadListen = async () => {
       if (typeof window === 'undefined') return;
-      const urlParams = new URLSearchParams(window.location.search);
-      const listenId = urlParams.get('listen');
+      const listenId = extractListenIdFromLocation();
       if (!listenId) {
         if (isMounted) {
           setListenShareData(null);
@@ -227,6 +232,34 @@ export function App() {
       }
 
       if (isMounted) setIsLoadingListen(true);
+
+      // 1. Chargement prioritaire via /api/audio-stream (ne divulgue jamais l'URL brute si verrouillé)
+      try {
+        const res = await fetch(`/api/audio-stream?mode=meta&id=${encodeURIComponent(listenId)}`);
+        if (res.ok) {
+          const meta = await res.json();
+          if (!isMounted) return;
+          setListenShareData({
+            id: meta.id,
+            recipient: meta.recipient,
+            occasion: meta.occasion,
+            studioName: meta.studio_name,
+            creatorPhone: meta.creator_phone,
+            track1Title: meta.tracks?.[0]?.title || 'Version 01',
+            track1Url: meta.tracks?.[0]?.streamUrl || '',
+            track2Title: meta.tracks?.[1]?.title,
+            track2Url: meta.tracks?.[1]?.streamUrl,
+            tracks: meta.tracks,
+            allowDownload: Boolean(meta.allow_download),
+            createdAt: meta.created_at || new Date().toISOString(),
+          });
+          setIsLoadingListen(false);
+          return;
+        }
+      } catch {
+        // Repli sur lecture directe Supabase
+      }
+
       const record = await getSharedTrackById(listenId);
       if (!isMounted) return;
 
@@ -662,6 +695,9 @@ export function App() {
 
       {/* Authentication & Studio Creation Modal */}
       <AuthModal />
+
+      {/* Suggestion d'installation PWA Mobile */}
+      <PwaInstallPrompt />
 
       {/* Célébration & Redirection Automatique après Paiement Chariow */}
       {isPaymentSuccessModalOpen && (

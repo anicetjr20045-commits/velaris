@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { MessageCircle, TrendingUp, Sparkles } from 'lucide-react';
+import { MessageCircle, TrendingUp, Sparkles, Globe2, Users, Wallet, Clock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
 
@@ -145,6 +145,96 @@ export const RevenusView: FC<RevenusViewProps> = ({
   const avgBasket = totalSalesCount > 0 ? Math.round(totalConsolidatedRevenue / totalSalesCount) : 0;
 
   const [visibleCount, setVisibleCount] = useState<number>(50);
+
+  // Statistiques avancées (Pays majeurs, Sexes/Voix, Paiements, Créneaux horaires, Taux de livraison)
+  const analytics = useMemo(() => {
+    const countryMap = new Map<string, { name: string; code: string; count: number; revenue: number }>();
+    const genderMap = { Femme: 0, Homme: 0, Duo: 0 };
+    const paymentMap = new Map<string, { label: string; count: number; revenue: number }>();
+    const formulaMap = new Map<string, { label: string; count: number; revenue: number }>();
+    const slotMap = { Matin: 0, 'Après-midi': 0, Soirée: 0, Nuit: 0 };
+    let deliveredCount = 0;
+
+    for (const o of filteredWhatsAppOrders) {
+      // 1. Pays
+      const cName = o.country || 'Afrique de l’Ouest';
+      const cCode = o.countryCode || 'AFR';
+      const prevC = countryMap.get(cName) || { name: cName, code: cCode, count: 0, revenue: 0 };
+      prevC.count += 1;
+      prevC.revenue += o.amount || 0;
+      countryMap.set(cName, prevC);
+
+      // 2. Voix / Sexe
+      if (o.voiceGender === 'femme') genderMap.Femme += 1;
+      else if (o.voiceGender === 'duo') genderMap.Duo += 1;
+      else genderMap.Homme += 1;
+
+      // 3. Moyen de paiement
+      const rawPay = (o.paymentMethod || 'Wave').trim();
+      const payLabel = /orange/i.test(rawPay)
+        ? 'Orange Money'
+        : /wave/i.test(rawPay)
+        ? 'Wave'
+        : /mtn/i.test(rawPay)
+        ? 'MTN MoMo'
+        : rawPay || 'Mobile Money';
+      const prevP = paymentMap.get(payLabel) || { label: payLabel, count: 0, revenue: 0 };
+      prevP.count += 1;
+      prevP.revenue += o.amount || 0;
+      paymentMap.set(payLabel, prevP);
+
+      // 4. Formules par montant
+      const amt = Math.round(o.amount || 0);
+      const fLabel = amt > 0 ? `${amt.toLocaleString('fr-FR')} F` : 'Autre';
+      const prevF = formulaMap.get(fLabel) || { label: fLabel, count: 0, revenue: 0 };
+      prevF.count += 1;
+      prevF.revenue += amt;
+      formulaMap.set(fLabel, prevF);
+
+      // 5. Créneau horaire
+      const ts = o.rawCreatedAt ? Date.parse(o.rawCreatedAt) : NaN;
+      if (!Number.isNaN(ts)) {
+        const h = new Date(ts).getHours();
+        if (h >= 6 && h < 12) slotMap.Matin += 1;
+        else if (h >= 12 && h < 18) slotMap['Après-midi'] += 1;
+        else if (h >= 18) slotMap.Soirée += 1;
+        else slotMap.Nuit += 1;
+      }
+
+      if (o.status === 'livre') deliveredCount += 1;
+    }
+
+    const totalOrders = filteredWhatsAppOrders.length || 1;
+    const topCountries = [...countryMap.values()]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+    const topPayments = [...paymentMap.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+    const topFormulas = [...formulaMap.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+    const genderBreakdown = [
+      { label: 'Voix Féminine', count: genderMap.Femme, pct: Math.round((genderMap.Femme / totalOrders) * 100) },
+      { label: 'Voix Masculine', count: genderMap.Homme, pct: Math.round((genderMap.Homme / totalOrders) * 100) },
+      { label: 'Duo (Homme + Femme)', count: genderMap.Duo, pct: Math.round((genderMap.Duo / totalOrders) * 100) },
+    ];
+    const peakSlot = Object.entries(slotMap).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Soirée';
+    const deliveryRate = filteredWhatsAppOrders.length > 0
+      ? Math.round((deliveredCount / filteredWhatsAppOrders.length) * 100)
+      : 0;
+
+    return {
+      topCountries,
+      topPayments,
+      topFormulas,
+      genderBreakdown,
+      slotMap,
+      peakSlot,
+      deliveryRate,
+      deliveredCount,
+    };
+  }, [filteredWhatsAppOrders]);
 
   // Liste unifiée des transactions récentes (WhatsApp + Affiliation)
   interface UnifiedTransaction {
@@ -376,6 +466,128 @@ export const RevenusView: FC<RevenusViewProps> = ({
           </p>
         </div>
       </section>
+
+      {/* 2B. ANALYTIQUE DÉTAILLÉE (PAYS MAJEURS, VOIX/SEXES, PAIEMENTS, CRÉNEAUX) */}
+      {filteredWhatsAppOrders.length > 0 && (
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* Pays Majeurs */}
+          <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">Pays Majeurs</span>
+              <Globe2 className="w-4 h-4 text-[#E2BD6B]" />
+            </div>
+            <div className="space-y-2.5">
+              {analytics.topCountries.map((c) => {
+                const pct = Math.round((c.count / filteredWhatsAppOrders.length) * 100);
+                return (
+                  <div key={c.name} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-white/90 truncate flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[9px] font-mono text-[#E2BD6B]">
+                          {c.code}
+                        </span>
+                        <span className="truncate">{c.name}</span>
+                      </span>
+                      <span className="font-mono text-[11px] text-[#8A90A0] shrink-0">
+                        {c.count} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#E2BD6B]"
+                        style={{ width: `${Math.max(4, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sexes / Voix Demandées */}
+          <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">Sexes & Voix Choisis</span>
+              <Users className="w-4 h-4 text-[#10D98E]" />
+            </div>
+            <div className="space-y-2.5">
+              {analytics.genderBreakdown.map((g) => (
+                <div key={g.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-white/90">{g.label}</span>
+                    <span className="font-mono text-[11px] text-[#8A90A0]">
+                      {g.count} ({g.pct}%)
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#10D98E]"
+                      style={{ width: `${Math.max(2, g.pct)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Moyens de Paiement & Formules */}
+          <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">Paiements & Formules</span>
+              <Wallet className="w-4 h-4 text-sky-400" />
+            </div>
+            <div className="space-y-2">
+              {analytics.topPayments.map((p) => (
+                <div key={p.label} className="flex items-center justify-between text-xs">
+                  <span className="text-white/90">{p.label}</span>
+                  <span className="font-mono text-[11px] text-white/70">
+                    {fmtFCFA(p.revenue)} <span className="text-white/40">({p.count})</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 border-t border-white/[0.06] flex flex-wrap gap-1.5">
+              {analytics.topFormulas.map((f) => (
+                <span
+                  key={f.label}
+                  className="px-2 py-0.5 rounded-full bg-white/[0.05] text-[10px] font-mono text-[#8A90A0]"
+                >
+                  {f.label} · {f.count}x
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Créneaux & Livraison */}
+          <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">Rythme & Livraison</span>
+              <Clock className="w-4 h-4 text-violet-400" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {Object.entries(analytics.slotMap).map(([slot, cnt]) => (
+                <div
+                  key={slot}
+                  className={`p-2 rounded-xl border ${
+                    slot === analytics.peakSlot
+                      ? 'bg-[#E2BD6B]/10 border-[#E2BD6B]/30 text-white'
+                      : 'bg-white/[0.02] border-white/[0.05] text-[#8A90A0]'
+                  }`}
+                >
+                  <p className="text-[10px] font-mono uppercase">{slot}</p>
+                  <p className="text-sm font-bold tabular-nums">{cnt}</p>
+                </div>
+              ))}
+            </div>
+            <div className="pt-1 flex items-center justify-between text-[11px] text-[#8A90A0]">
+              <span>Taux de livraison</span>
+              <span className="font-mono font-semibold text-[#10D98E]">
+                {analytics.deliveryRate}% ({analytics.deliveredCount}/{filteredWhatsAppOrders.length})
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 3. HISTORIQUE & JOURNAL DES TRANSACTIONS */}
       <section className="space-y-5">

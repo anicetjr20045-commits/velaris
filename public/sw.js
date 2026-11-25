@@ -1,40 +1,29 @@
 /**
- * Velaris Cockpit - Production Service Worker
- * Strategy: Cache-first for static shell assets, Network-first with passthrough for APIs & Realtime.
+ * Djelia Studio - Service Worker PWA
+ * Stratégie : Network-first pour HTML/Navigation (évite les pages obsolètes),
+ * passthrough direct pour /api, Supabase et WAHA.
  */
 
-const CACHE_NAME = 'velaris-cockpit-v1';
+const CACHE_NAME = 'djelia-studio-pwa-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/#chat',
   '/manifest.json',
-  '/favicon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch(() => {
-        // Continue even if some individual assets fail to cache immediately
-      });
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {}))
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : Promise.resolve())))
+    )
   );
   self.clients.claim();
 });
@@ -42,43 +31,29 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass service worker cache for non-GET requests, WebSocket, Supabase REST/Realtime, WAHA API
   if (
     event.request.method !== 'GET' ||
     url.pathname.startsWith('/api') ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('velarisagent.life') ||
+    url.hostname.includes('kie.ai') ||
     url.protocol.startsWith('ws')
   ) {
     return;
   }
 
-  // Navigation requests (HTML shell): Network first, falling back to cache
+  // HTML / navigation : Network first pour garantir les dernières mises à jour
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/') || caches.match('/#chat');
-      })
+      fetch(event.request).catch(() => caches.match('/'))
     );
     return;
   }
 
-  // Static assets: Cache-first, fallback to network
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-          return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
-        return networkResponse;
-      });
-    })
-  );
+  // Icônes & assets statiques : Cache-first
+  if (url.pathname.startsWith('/icons/') || url.pathname === '/manifest.json') {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request))
+    );
+  }
 });

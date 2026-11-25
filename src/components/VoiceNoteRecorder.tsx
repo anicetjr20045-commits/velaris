@@ -65,6 +65,10 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
   const peaksRef = useRef<number[]>([]);
   const discardRef = useRef(false);
   const ownedUrlRef = useRef<string | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const autoSubmitRef = useRef(autoSubmitOnStop);
+  autoSubmitRef.current = autoSubmitOnStop;
 
   const releaseDevices = useCallback(() => {
     cancelAnimationFrame(frameRef.current);
@@ -163,10 +167,10 @@ export const VoiceNoteRecorder: FC<VoiceNoteRecorderProps> = ({
           peaks: peaksRef.current.slice(),
         };
         setRecording(recData);
-        if (autoSubmitOnStop) {
+        if (autoSubmitRef.current) {
           ownedUrlRef.current = null;
           setPhase('idle');
-          onComplete(recData);
+          onCompleteRef.current(recData);
         } else {
           setPhase('review');
         }
