@@ -23,10 +23,17 @@ import {
   Mic,
   Film,
   AlertTriangle,
+  Trash2,
+  Power,
 } from 'lucide-react';
 import type { Order } from '../types';
 import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
-import { createSharedTrack, uploadAudioTrack } from '../services/shared-tracks';
+import {
+  createSharedTrack,
+  uploadAudioTrack,
+  listMySharedTracks,
+  manageSharedTrack,
+} from '../services/shared-tracks';
 import { VoiceLabView } from './VoiceLabView';
 import { useAuth } from '../hooks/useAuth';
 
@@ -565,25 +572,96 @@ export const StudioView: FC<StudioViewProps> = ({
     recipient: string;
     occasion: string;
     allowDownload: boolean;
+    active?: boolean;
+    playsCount?: number;
     shareUrl: string;
     createdAt: string;
   }>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CLIENT_LINKS);
-      return saved ? JSON.parse(saved) : [
-        {
-          id: 'ecoute-demo-1',
-          recipient: 'Mariam',
-          occasion: 'Anniversaire 30 ans',
-          allowDownload: false,
-          shareUrl: 'https://djelia.store/ecoute.html?id=demo-mariam',
-          createdAt: new Date().toISOString()
-        }
-      ];
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
   });
+  const [busyLinkId, setBusyLinkId] = useState<string | null>(null);
+  const [isBulkUnlocking, setIsBulkUnlocking] = useState(false);
+
+  // Synchronisation complète avec Supabase (inclut tous les liens déjà envoyés)
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    listMySharedTracks().then((remote) => {
+      if (cancelled || remote.length === 0) return;
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.djelia.store';
+      setCreatedLinks(
+        remote.map((r) => ({
+          id: r.id,
+          recipient: r.recipient,
+          occasion: r.occasion,
+          allowDownload: r.allowDownload,
+          active: r.active,
+          playsCount: r.playsCount,
+          shareUrl: `${origin}/ecoute/${studioSlug}/${r.id}`,
+          createdAt: r.createdAt,
+        }))
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, studioSlug]);
+
+  const handleToggleLinkDownload = async (link: { id: string; allowDownload: boolean }) => {
+    setBusyLinkId(link.id);
+    const next = !link.allowDownload;
+    const res = await manageSharedTrack({ action: 'toggle-download', id: link.id, allowDownload: next });
+    if (res.success) {
+      setCreatedLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, allowDownload: next } : l)));
+      notifyStudio(next ? 'Téléchargement déverrouillé pour ce client.' : 'Téléchargement verrouillé (écoute seule).', 'ok');
+    } else {
+      notifyStudio(res.error || 'Impossible de modifier le téléchargement.', 'error');
+    }
+    setBusyLinkId(null);
+  };
+
+  const handleToggleLinkActive = async (link: { id: string; active?: boolean }) => {
+    setBusyLinkId(link.id);
+    const currentlyActive = link.active !== false;
+    const nextActive = !currentlyActive;
+    const res = await manageSharedTrack({ action: 'toggle-active', id: link.id, active: nextActive });
+    if (res.success) {
+      setCreatedLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, active: nextActive } : l)));
+      notifyStudio(nextActive ? 'Lien réactivé.' : 'Lien désactivé : le client ne peut plus y accéder.', 'ok');
+    } else {
+      notifyStudio(res.error || 'Impossible de modifier le statut du lien.', 'error');
+    }
+    setBusyLinkId(null);
+  };
+
+  const handleDeleteLink = async (id: string) => {
+    setBusyLinkId(id);
+    const res = await manageSharedTrack({ action: 'delete', id });
+    if (res.success) {
+      setCreatedLinks((prev) => prev.filter((l) => l.id !== id));
+      notifyStudio('Lien d’écoute supprimé définitivement.', 'ok');
+    } else {
+      notifyStudio(res.error || 'Impossible de supprimer ce lien.', 'error');
+    }
+    setBusyLinkId(null);
+  };
+
+  const handleBulkUnlockDownloads = async () => {
+    setIsBulkUnlocking(true);
+    const res = await manageSharedTrack({ action: 'bulk-download', allowDownload: true });
+    if (res.success) {
+      setCreatedLinks((prev) => prev.map((l) => ({ ...l, allowDownload: true })));
+      notifyStudio('Toutes les chansons de vos liens sont désormais téléchargeables.', 'ok');
+    } else {
+      notifyStudio(res.error || 'Impossible de mettre à jour tous les liens.', 'error');
+    }
+    setIsBulkUnlocking(false);
+  };
 
   useEffect(() => {
     try {
@@ -1522,68 +1600,132 @@ export const StudioView: FC<StudioViewProps> = ({
 
           {/* Historique des Liens d'Écoute Actifs */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="flex items-center justify-between px-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[#8A90A0]">
-                Liens d'Écoute Actifs ({createdLinks.length})
+                Liens d'Écoute ({createdLinks.length})
               </h4>
-              <span className="text-[11px] text-[#8A90A0] font-mono">/ecoute/{studioSlug}/...</span>
+
+              {createdLinks.some((l) => !l.allowDownload) && (
+                <button
+                  type="button"
+                  disabled={isBulkUnlocking}
+                  onClick={handleBulkUnlockDownloads}
+                  className="px-3 py-1.5 rounded-xl bg-[#10D98E]/15 border border-[#10D98E]/30 text-[#10D98E] text-[11px] font-semibold inline-flex items-center gap-1.5 hover:bg-[#10D98E]/25 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Unlock className="w-3 h-3" />
+                  <span>{isBulkUnlocking ? 'Activation…' : 'Tout rendre téléchargeable'}</span>
+                </button>
+              )}
             </div>
 
             <div className="space-y-3">
-              {createdLinks.map((link) => (
-                <div
-                  key={link.id}
-                  className="p-4 rounded-3xl bg-[#08090C] border border-white/[0.06] hover:border-white/[0.1] transition-all space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-white">{link.recipient}</h4>
-                        <span className="text-xs text-[#E2BD6B]">({link.occasion})</span>
+              {createdLinks.map((link) => {
+                const isActive = link.active !== false;
+                const isBusy = busyLinkId === link.id;
+                return (
+                  <div
+                    key={link.id}
+                    className={`p-4 rounded-3xl bg-[#08090C] border transition-all space-y-3 ${
+                      isActive ? 'border-white/[0.06] hover:border-white/[0.1]' : 'border-rose-500/20 opacity-65'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-white truncate">{link.recipient}</h4>
+                          <span className="text-xs text-[#E2BD6B]">({link.occasion})</span>
+                          {!isActive && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 font-mono">
+                              Désactivé
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[#8A90A0] font-mono mt-0.5">
+                          Réf: {link.id}{typeof link.playsCount === 'number' ? ` · ${link.playsCount} écoute(s)` : ''}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-[#8A90A0] font-mono mt-0.5">
-                        Réf: {link.id}
-                      </p>
+
+                      <span
+                        className={`text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold inline-flex items-center gap-1 shrink-0 ${
+                          link.allowDownload
+                            ? 'bg-[#10D98E]/15 text-[#10D98E] border border-[#10D98E]/30'
+                            : 'bg-[#E2BD6B]/15 text-[#E2BD6B] border border-[#E2BD6B]/30'
+                        }`}
+                      >
+                        {link.allowDownload ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                        <span>{link.allowDownload ? 'Téléchargeable' : 'Écoute seule'}</span>
+                      </span>
                     </div>
 
-                    <span
-                      className={`text-[10px] px-2.5 py-1 rounded-full font-mono font-semibold inline-flex items-center gap-1 ${
-                        link.allowDownload
-                          ? 'bg-[#10D98E]/15 text-[#10D98E] border border-[#10D98E]/30'
-                          : 'bg-[#E2BD6B]/15 text-[#E2BD6B] border border-[#E2BD6B]/30'
-                      }`}
-                    >
-                      {link.allowDownload ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                      <span>{link.allowDownload ? 'Téléchargeable' : 'Écoute seule'}</span>
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="flex-1 px-3 py-2 rounded-xl bg-[#050608] border border-white/[0.06] text-xs text-white/80 font-mono truncate">
+                        {link.shareUrl}
+                      </div>
 
-                  <div className="flex items-center gap-2 pt-1">
-                    <div className="flex-1 px-3 py-2 rounded-xl bg-[#050608] border border-white/[0.06] text-xs text-white/80 font-mono truncate">
-                      {link.shareUrl}
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(link.shareUrl, link.id)}
+                        className="px-3 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors cursor-pointer shrink-0"
+                      >
+                        {copiedLink === link.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedLink === link.id ? 'Copié' : 'Copier'}</span>
+                      </button>
+
+                      <a
+                        href={link.shareUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors"
+                        title="Ouvrir la page client"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(link.shareUrl, link.id)}
-                      className="px-3 py-2 rounded-xl bg-white text-black text-xs font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 transition-colors cursor-pointer shrink-0"
-                    >
-                      {copiedLink === link.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedLink === link.id ? 'Copié' : 'Copier'}</span>
-                    </button>
+                    {/* Contrôles rapides 1-clic : Téléchargement, Activer/Désactiver, Supprimer */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/[0.05]">
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleToggleLinkDownload(link)}
+                        className={`flex-1 min-w-[160px] px-3 py-2 rounded-xl text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 border transition-colors cursor-pointer disabled:opacity-50 ${
+                          link.allowDownload
+                            ? 'bg-white/[0.04] border-white/[0.08] text-white/80 hover:bg-white/[0.08]'
+                            : 'bg-[#10D98E]/15 border-[#10D98E]/30 text-[#10D98E] hover:bg-[#10D98E]/25'
+                        }`}
+                      >
+                        {link.allowDownload ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                        <span>{link.allowDownload ? 'Verrouiller téléchargement' : 'Rendre téléchargeable'}</span>
+                      </button>
 
-                    <a
-                      href={link.shareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors"
-                      title="Tester l'audition client"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleToggleLinkActive(link)}
+                        className={`px-3 py-2 rounded-xl text-[11px] font-semibold inline-flex items-center gap-1.5 border transition-colors cursor-pointer disabled:opacity-50 ${
+                          isActive
+                            ? 'bg-amber-500/10 border-amber-500/25 text-amber-300 hover:bg-amber-500/20'
+                            : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
+                        }`}
+                      >
+                        <Power className="w-3 h-3" />
+                        <span>{isActive ? 'Désactiver' : 'Réactiver'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleDeleteLink(link.id)}
+                        className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-400 hover:bg-rose-500/20 text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        title="Supprimer ce lien"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Supprimer</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

@@ -257,6 +257,12 @@ export function App() {
           setIsLoadingListen(false);
           return;
         }
+        if (res.status === 410 || res.status === 404) {
+          if (!isMounted) return;
+          setListenShareData(null);
+          setIsLoadingListen(false);
+          return;
+        }
       } catch {
         // Repli sur lecture directe Supabase
       }

@@ -25,7 +25,14 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 25 Novembre 2026 (01:08 UTC)
+- **Dernière mise à jour** : 25 Novembre 2026 (14:18 UTC)
+- **Gestion Complète des Liens d'Écoute Privée (Y compris Liens Déjà Envoyés)** :
+  1. **Synchronisation Live (`api/audio-stream.ts?mode=list` & `mode=manage`)** :
+     - Récupération authentifiée de tous les liens créés dans `shared_tracks` (y compris les anciens liens créés avec `user_id: null` comme `sonia-ruth-fki8m`, `sonia-ruth-eowc4`, `client-5rgwm`).
+  2. **Contrôles 1-Clic par Lien & En Masse (`StudioView.tsx`, `shared-tracks.ts`)** :
+     - **Rendre téléchargeable / Verrouiller** (`toggle-download` par lien + bouton global **« Tout rendre téléchargeable »** `bulk-download`).
+     - **Désactiver / Réactiver** (`toggle-active` via préfixe réversible `disabled::`, renvoyant HTTP 410 si le client tente d'ouvrir un lien désactivé).
+     - **Supprimer** (`delete` définitif en base `shared_tracks`).
 - **Suppression Totale de l'Onglet Discussions & Déchiffrement Suno Mango Intégré** :
   1. **Éradication Complète des Discussions (`DjeliaAppLayout.tsx`, `App.tsx`, `RevenusView.tsx`)** :
      - Suppression de l'onglet `Discussions` et de `ConversationsView` de l'interface du site.

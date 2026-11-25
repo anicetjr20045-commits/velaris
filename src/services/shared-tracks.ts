@@ -53,10 +53,12 @@ export async function uploadAudioTrack(file: File, prefix = 'track'): Promise<{ 
  */
 export async function createSharedTrack(track: Omit<SharedTrackRecord, 'created_at' | 'plays_count'>): Promise<{ success: boolean; error?: string }> {
   try {
+    const { data: { session } } = await supabase.auth.getSession();
     const { error } = await supabase
       .from('shared_tracks')
       .insert({
         id: track.id,
+        user_id: session?.user?.id || null,
         recipient: track.recipient,
         occasion: track.occasion,
         studio_name: track.studio_name || 'Studio Velaris',
@@ -155,5 +157,62 @@ export async function getRecentSharedTracks(limit = 20): Promise<SharedTrackReco
     }));
   } catch {
     return [];
+  }
+}
+
+export interface ManagedSharedLink {
+  id: string;
+  recipient: string;
+  occasion: string;
+  studioName?: string;
+  allowDownload: boolean;
+  active: boolean;
+  playsCount: number;
+  track1Title?: string;
+  track2Title?: string;
+  createdAt: string;
+}
+
+export async function listMySharedTracks(): Promise<ManagedSharedLink[]> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return [];
+    const res = await fetch('/api/audio-stream?mode=list', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !Array.isArray(json?.links)) return [];
+    return json.links;
+  } catch {
+    return [];
+  }
+}
+
+export async function manageSharedTrack(payload: {
+  action: 'toggle-active' | 'toggle-download' | 'bulk-download' | 'delete';
+  id?: string;
+  active?: boolean;
+  allowDownload?: boolean;
+}): Promise<{ success: boolean; active?: boolean; allowDownload?: boolean; error?: string }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return { success: false, error: 'Session expirée' };
+    const res = await fetch('/api/audio-stream?mode=manage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { success: false, error: json.error || 'Action refusée' };
+    return {
+      success: true,
+      active: json.active,
+      allowDownload: json.allowDownload,
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erreur réseau' };
   }
 }
