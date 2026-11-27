@@ -820,7 +820,7 @@ function analyzeNextStep(conv: ConversationItem, messages: ThreadMessage[]): Nex
       detectedIntent: 'Demande d\'écoute ou de démonstration',
       detectedOccasion,
       recipientName,
-      recommendedReply: `Voici un extrait pour vous donner une idée : https://dnwlqgsftauqsyjwhoza.supabase.co/storage/v1/object/public/product-files/assets/montage_sample.mp4\nDites-moi ce que vous en pensez !`,
+      recommendedReply: `Voici un extrait pour vous donner une idée : https://waha.velarisagent.life/qr/assets/djelia_tuto_mobile.mp4\nDites-moi ce que vous en pensez !`,
       actionKind: 'reply',
     };
   }

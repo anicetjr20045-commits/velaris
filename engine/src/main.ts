@@ -97,6 +97,28 @@ if (conciergeService) {
   log('Concierge Djélia 24/7 ACTIVÉ (Onboarding Web-First + Support Différé 30s + Vision Screenshots + Typing Indicator)');
 }
 
+const wakeWaiters: Array<() => void> = [];
+function wakeWorkers(): void {
+  while (wakeWaiters.length > 0) {
+    const resolve = wakeWaiters.shift();
+    resolve?.();
+  }
+}
+
+function sleepOrWake(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    wakeWaiters.push(done);
+  });
+}
+
 const ingestDeps: IngestServerDeps = {
   db,
   spool,
@@ -110,6 +132,9 @@ const ingestDeps: IngestServerDeps = {
   voiceCloner,
   draftManager,
   conciergeService,
+  onWake: wakeWorkers,
+  supabaseUrl: config.supabaseUrl,
+  supabaseSecretKey: config.supabaseSecretKey,
   signMedia: createMediaSigner({ supabaseUrl: config.supabaseUrl, secretKey: config.supabaseSecretKey }),
 };
 
@@ -152,14 +177,40 @@ async function loop(name: string, everyMs: number, fn: () => Promise<unknown>): 
   }
 }
 
+async function adaptiveLoop(
+  name: string,
+  minMs: number,
+  maxMs: number,
+  fn: () => Promise<boolean>,
+): Promise<void> {
+  let delayMs = minMs;
+  while (!stopping) {
+    let hadWork = false;
+    try {
+      hadWork = await fn();
+    } catch (err) {
+      log(`${name} failed`, { error: String((err as Error).message) });
+    }
+    delayMs = hadWork ? minMs : Math.min(maxMs, Math.max(minMs, delayMs * 2));
+    await sleepOrWake(delayMs);
+  }
+}
+
 const server = createIngestServer(ingestDeps);
 server.listen(config.port, '0.0.0.0', () => log('ingest listening', { port: config.port }));
 
-void loop('turn-worker', 500, () => turnWorker.tick());
-void loop('outbox', 500, () => sender.tick());
-void loop('turn-sweeper', 30_000, () => turnSweeper.tick());
+void adaptiveLoop('turn-worker', 400, 60_000, async () => {
+  const claimed = await turnWorker.tick();
+  if (claimed > 0) wakeWorkers();
+  return claimed > 0;
+});
+void adaptiveLoop('outbox', 400, 60_000, async () => {
+  const started = await sender.tick();
+  return started.length > 0;
+});
+void loop('turn-sweeper', 120_000, () => turnSweeper.tick());
 
-void loop('stale-events', 15_000, async () => {
+void loop('stale-events', 60_000, async () => {
   const rows = await db.rpc<Array<{ id: number; payload: unknown }>>('agent_stale_inbound_events', { p_older_than_seconds: 10, p_limit: 50 });
   for (const r of rows ?? []) {
     const norm = normalizeWahaEvent(r.payload);
@@ -168,9 +219,13 @@ void loop('stale-events', 15_000, async () => {
   }
 });
 
-void loop('spool-replay', 20_000, async () => {
+void loop('spool-replay', 60_000, async () => {
   const n = await spool.replay(async (entry) => { await recordAndProcess(entry.body, 'spool_replay', ingestDeps); });
   if (n > 0) log('spool replayed', { entries: n });
+});
+
+void loop('stale-cleanup', 86_400_000, async () => {
+  await db.rpc('agent_cleanup_stale_events', {});
 });
 
 function shutdown(signal: string): void {

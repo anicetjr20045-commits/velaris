@@ -10,7 +10,9 @@
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { Spool } from '../db/spool.js';
 import type { WahaClient } from '../send/waha-client.js';
 import { verifyWahaHmac } from './hmac.js';
@@ -37,15 +39,43 @@ export interface IngestServerDeps extends ProcessDeps {
   voiceCloner?: VoiceClonerService | undefined;
   draftManager?: DraftClonerManager | undefined;
   conciergeService?: ConciergeService | undefined;
+  onWake?: (() => void) | undefined;
+  supabaseUrl?: string | undefined;
+  supabaseSecretKey?: string | undefined;
+  mediaDir?: string | undefined;
 }
 
-function readBody(req: IncomingMessage): Promise<Buffer> {
+const jwtCache = new Map<string, { userId: string; expiresAt: number }>();
+
+async function verifySupabaseJwt(token: string, supabaseUrl?: string, secretKey?: string): Promise<string | null> {
+  if (!token || !supabaseUrl || !secretKey) return null;
+  const cached = jwtCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) return cached.userId;
+  try {
+    const res = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/auth/v1/user`, {
+      headers: { apikey: secretKey, Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { id?: string };
+    if (!data?.id) return null;
+    jwtCache.set(token, { userId: data.id, expiresAt: Date.now() + 60_000 });
+    if (jwtCache.size > 500) {
+      const first = jwtCache.keys().next().value;
+      if (first) jwtCache.delete(first);
+    }
+    return data.id;
+  } catch {
+    return null;
+  }
+}
+
+function readBody(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
     req.on('data', (c: Buffer) => {
       size += c.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new Error('body_too_large'));
         req.destroy();
         return;
@@ -283,7 +313,7 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       // CORS permissif pour les appels dashboard et pages publiques
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-File-Name, X-Admin-Key');
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();
@@ -293,6 +323,37 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, at: new Date().toISOString() });
 
       const parsedUrl = new URL(req.url || '/', 'http://localhost');
+
+      // Upload média direct vers le VPS (évite l'egress Supabase Storage)
+      if (parsedUrl.pathname === '/api/media/upload' && req.method === 'POST') {
+        const authHeader = req.headers['authorization'];
+        const token = typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')
+          ? authHeader.slice(7).trim()
+          : '';
+        const userId = await verifySupabaseJwt(token, deps.supabaseUrl, deps.supabaseSecretKey);
+        if (!userId) return json(res, 401, { ok: false, error: 'unauthorized' });
+
+        let raw: Buffer;
+        try {
+          raw = await readBody(req, 20 * 1024 * 1024);
+        } catch {
+          return json(res, 413, { ok: false, error: 'file_too_large_max_20mb' });
+        }
+        if (raw.length === 0) return json(res, 400, { ok: false, error: 'empty_body' });
+
+        const rawName = String(req.headers['x-file-name'] || parsedUrl.searchParams.get('filename') || 'media.bin');
+        const rawExt = (path.extname(rawName).replace('.', '') || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const allowedExt = new Set(['mp3', 'm4a', 'ogg', 'opus', 'wav', 'webm', 'mp4', 'pdf', 'jpg', 'jpeg', 'png', 'webp']);
+        const ext = allowedExt.has(rawExt) ? rawExt : 'bin';
+        const safeFilename = `${userId.slice(0, 8)}_${Date.now()}_${randomUUID().slice(0, 6)}.${ext}`;
+        const mediaDir = deps.mediaDir || '/app/data/media';
+        await mkdir(mediaDir, { recursive: true });
+        await writeFile(path.join(mediaDir, safeFilename), raw);
+
+        const publicUrl = `https://waha.velarisagent.life/qr/media/${safeFilename}`;
+        deps.log('media uploaded to vps', { userId, filename: safeFilename, bytes: raw.length });
+        return json(res, 200, { ok: true, url: publicUrl, path: publicUrl });
+      }
 
       // Endpoints publics d'appairage QR Code WhatsApp
       if (parsedUrl.pathname === '/api/qr/status' && req.method === 'GET') {
@@ -595,6 +656,7 @@ export function createIngestServer(deps: IngestServerDeps): Server {
       }
       try {
         const outcome = await recordAndProcess(body, 'webhook', deps);
+        deps.onWake?.();
         return json(res, 200, { ok: true, outcome });
       } catch (err) {
         await deps.spool.append({ receivedAt: new Date().toISOString(), body });

@@ -16,7 +16,7 @@ export const SASPAY_CONFIG = {
   // Lien hébergé montant libre : le paiement n'est rattaché à aucun studio, réconciliation manuelle
   freePaymentLinkUrl: 'https://link.saspay.me/b1w0ra13bhc',
   webhooks: {
-    supabaseEndpoint: 'https://dnwlqgsftauqsyjwhoza.supabase.co/functions/v1/saspay-webhook',
+    supabaseEndpoint: 'https://zoamdwupbhegcmancaeu.supabase.co/functions/v1/saspay-webhook',
     directEndpoint: 'https://velaris.money/api/public/webhooks/saspay',
     activeEvents: ['transaction.success', 'transaction.failed', 'transaction.cancelled', 'settlement.success']
   },

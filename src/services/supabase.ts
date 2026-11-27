@@ -39,8 +39,8 @@ function formatExactOrderTime(dateStr?: string): string {
 
 const metaEnv = (import.meta as any)?.env || {};
 export const SUPABASE_CONFIG = {
-  projectId: metaEnv.VITE_SUPABASE_PROJECT_ID || 'dnwlqgsftauqsyjwhoza',
-  url: metaEnv.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co',
+  projectId: metaEnv.VITE_SUPABASE_PROJECT_ID || 'zoamdwupbhegcmancaeu',
+  url: metaEnv.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co',
   publishableKey: metaEnv.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_38Tf-R7h1t-aFeNmOv6vMg_-VgH3DDI',
 };
 
@@ -366,18 +366,29 @@ export const AUTOMATION_MEDIA_BUCKET = 'product-files';
 export const AUTOMATION_MEDIA_MAX_BYTES = 16 * 1024 * 1024;
 
 /**
- * Dépose un média d'automatisation dans le dossier privé du studio (RLS storage : <uid>/…)
+ * Dépose un média d'automatisation sur le serveur média VPS (zéro egress Supabase Storage)
  */
 export async function uploadAutomationMedia(file: Blob, filename: string): Promise<{ path: string } | { error: string }> {
   if (file.size > AUTOMATION_MEDIA_MAX_BYTES) return { error: 'Fichier trop lourd (16 Mo maximum).' };
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user) return { error: 'Connectez-vous pour enregistrer un média.' };
+  if (!session?.user || !session.access_token) return { error: 'Connectez-vous pour enregistrer un média.' };
   const safe = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]/g, '_').slice(-80);
-  const path = `${session.user.id}/automations/${Date.now()}-${safe}`;
-  // Type sans paramètre de codec : le moteur choisit alors la conversion WAHA adaptée
-  const contentType = (file.type || 'application/octet-stream').split(';')[0];
-  const { error } = await supabase.storage.from(AUTOMATION_MEDIA_BUCKET).upload(path, file, { contentType, upsert: false });
-  return error ? { error: error.message } : { path };
+  try {
+    const res = await fetch('https://waha.velarisagent.life/api/media/upload', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'X-File-Name': safe || 'media.bin',
+        'Content-Type': (file.type || 'application/octet-stream').split(';')[0],
+      },
+      body: file,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.url) return { error: data?.error || `Échec upload (${res.status})` };
+    return { path: data.url };
+  } catch (err: any) {
+    return { error: err?.message || 'Erreur réseau lors de l\'upload' };
+  }
 }
 
 export async function getAutomationMediaUrl(path: string): Promise<string | null> {
@@ -388,6 +399,7 @@ export async function getAutomationMediaUrl(path: string): Promise<string | null
 }
 
 export async function removeAutomationMedia(path: string): Promise<void> {
+  if (!path || path.startsWith('http://') || path.startsWith('https://')) return;
   await supabase.storage.from(AUTOMATION_MEDIA_BUCKET).remove([path]);
 }
 
@@ -958,17 +970,11 @@ export type StudioLiveTable = 'messages' | 'conversations' | 'orders' | 'automat
  * Retourne la fonction de désabonnement.
  */
 export function subscribeStudioRealtime(
-  tables: StudioLiveTable[],
-  onChange: (table: StudioLiveTable) => void
+  _tables: StudioLiveTable[],
+  _onChange: (table: StudioLiveTable) => void
 ): () => void {
-  let channel = supabase.channel(`studio-live-${tables.join('-')}-${Math.random().toString(36).slice(2, 8)}`);
-  for (const table of tables) {
-    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table));
-  }
-  channel.subscribe();
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  // Optimisé pour le plan gratuit : pas de WebSocket Realtime permanent (économie de connexions et logs)
+  return () => {};
 }
 
 /**

@@ -5,7 +5,7 @@ import { Buffer } from 'node:buffer';
 import { createClient } from '@supabase/supabase-js';
 
 function getEnvConfig() {
-  let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co';
+  let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
   let webhookSecret = process.env.CHARIOW_WEBHOOK_SECRET || 'chariow_sec_djelia_2026_9dc757c6';
   let wahaBaseUrl = (process.env.WAHA_BASE_URL || 'https://waha.velarisagent.life').replace(/\/+$/, '');

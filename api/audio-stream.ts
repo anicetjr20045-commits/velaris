@@ -5,7 +5,7 @@ import { Buffer } from 'node:buffer';
 import { createClient } from '@supabase/supabase-js';
 
 function getConfig() {
-  let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co';
+  let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
   let hmacSecret = process.env.AUTH_HMAC_SECRET || 'djelia-stream-shield-2026';
 

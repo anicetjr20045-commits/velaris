@@ -16,32 +16,33 @@ export interface SharedTrackRecord {
 }
 
 /**
- * Uploade un fichier audio dans le bucket public 'shared-audio' de Supabase
+ * Uploade un fichier audio directement sur le serveur média VPS (zéro egress Supabase Storage)
  */
 export async function uploadAudioTrack(file: File, prefix = 'track'): Promise<{ url: string | null; error?: string }> {
   try {
-    const ext = file.name.split('.').pop() || 'mp3';
-    const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const filename = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${cleanExt}`;
-    const storagePath = `tracks/${filename}`;
-
-    const { data, error } = await supabase.storage
-      .from('shared-audio')
-      .upload(storagePath, file, {
-        contentType: file.type || 'audio/mpeg',
-        upsert: true,
-      });
-
-    if (error || !data) {
-      console.error('Erreur upload audio Supabase:', error);
-      return { url: null, error: error?.message || 'Upload échoué' };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { url: null, error: 'Session expirée, veuillez vous reconnecter.' };
     }
+    const ext = file.name.split('.').pop() || 'mp3';
+    const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp3';
+    const filename = `${prefix}_${Date.now()}.${cleanExt}`;
 
-    const { data: pubData } = supabase.storage
-      .from('shared-audio')
-      .getPublicUrl(storagePath);
+    const res = await fetch('https://waha.velarisagent.life/api/media/upload', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'X-File-Name': filename,
+        'Content-Type': file.type || 'audio/mpeg',
+      },
+      body: file,
+    });
 
-    return { url: pubData.publicUrl };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.url) {
+      return { url: null, error: data?.error || `Upload échoué (${res.status})` };
+    }
+    return { url: data.url };
   } catch (err: any) {
     console.error('Exception upload audio:', err);
     return { url: null, error: err.message || 'Erreur réseau lors de l\'upload' };

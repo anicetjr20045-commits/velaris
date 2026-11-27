@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
 function getEnvConfig() {
-  let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://dnwlqgsftauqsyjwhoza.supabase.co';
+  let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
   let wahaBaseUrl = (process.env.WAHA_BASE_URL || process.env.VITE_WAHA_BASE_URL || 'https://waha.velarisagent.life').replace(/\/+$/, '');
   let wahaApiKey = process.env.WAHA_API_KEY || process.env.VITE_WAHA_API_KEY || '';
@@ -197,7 +197,7 @@ export default async function handler(req: any, res: any) {
           signal: AbortSignal.timeout(4000),
         });
         if (sRes.ok) {
-          const sessions: any[] = await sRes.json().catch(() => []);
+          const sessions = (await sRes.json().catch(() => [])) as any[];
           const exact = sessions.find((s) => s.name === preferredSession && s.status === 'WORKING');
           const anyWorking = sessions.find((s) => s.status === 'WORKING');
           if (exact) targetSession = exact.name;

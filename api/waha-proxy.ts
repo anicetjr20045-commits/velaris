@@ -27,7 +27,7 @@ function getConfig() {
   const env = (k: string, fallback = '') => (process.env[k] || local[k] || fallback).trim();
 
   return {
-    supabaseUrl: env('SUPABASE_URL') || env('VITE_SUPABASE_URL') || 'https://dnwlqgsftauqsyjwhoza.supabase.co',
+    supabaseUrl: env('SUPABASE_URL') || env('VITE_SUPABASE_URL') || 'https://zoamdwupbhegcmancaeu.supabase.co',
     supabaseSecretKey: env('SUPABASE_SECRET_KEY'),
     wahaChromeUrl: (env('WAHA_BASE_URL') || 'https://waha.velarisagent.life').replace(/\/+$/, ''),
     wahaChromeKey: env('WAHA_API_KEY') || 'b4cffb1ef75fb400a79e30faa3a97802',
