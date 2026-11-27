@@ -534,6 +534,7 @@ export default async function handler(req: any, res: any) {
         },
         body: JSON.stringify({
           model: 'deepseek-v4-1-flash',
+          stream: false,
           input: prompt,
           temperature: 0.15,
           reasoning: { effort: 'none' },
