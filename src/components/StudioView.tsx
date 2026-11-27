@@ -377,8 +377,12 @@ export const StudioView: FC<StudioViewProps> = ({
     if (!file) return;
     setIsUploadingRemixAudio(true);
     try {
-      const publicUrl = await uploadAudioTrack(file);
-      setRemixSource({ title: file.name.replace(/\.[^.]+$/, ''), uploadUrl: publicUrl });
+      const up = await uploadAudioTrack(file);
+      if (!up?.url) {
+        notifyStudio(up?.error || 'Impossible d’importer ce fichier audio.', 'error');
+        return;
+      }
+      setRemixSource({ title: file.name.replace(/\.[^.]+$/, ''), uploadUrl: up.url });
       notifyStudio('Audio importé. Modifiez les paroles, la voix ou le style puis lancez le remix.', 'ok');
     } catch (err: any) {
       notifyStudio(err?.message || 'Impossible d’importer ce fichier audio.', 'error');
