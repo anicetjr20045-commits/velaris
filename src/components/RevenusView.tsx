@@ -120,6 +120,13 @@ function inferClientGender(rawName?: string): 'femme' | 'homme' | 'inconnu' {
   return 'inconnu';
 }
 
+interface TopClientItem {
+  name: string;
+  phone?: string;
+  ordersCount: number;
+  totalSpent: number;
+}
+
 interface AiBusinessReport {
   analyzedAt: string;
   sinceAt: string | null;
@@ -134,6 +141,11 @@ interface AiBusinessReport {
   unknownCount: number;
   totalOrdersAnalyzed: number;
   totalRevenueAnalyzed: number;
+  totalUniqueBuyers?: number;
+  returningClientsCount?: number;
+  returningOrdersCount?: number;
+  returningRevenuePct?: number;
+  topClients?: TopClientItem[];
   topOccasions?: string[];
   verdict: string;
   recommendations?: string[];
@@ -727,6 +739,49 @@ export const RevenusView: FC<RevenusViewProps> = ({
                   </li>
                 ))}
               </ul>
+            )}
+
+            {(aiReport.returningClientsCount !== undefined || (aiReport.topClients && aiReport.topClients.length > 0)) && (
+              <div className="pt-3 border-t border-white/[0.06] grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-3.5 space-y-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8A90A0]">
+                    Fidélité & Clients qui Reviennent
+                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold text-white tabular-nums">
+                      {aiReport.returningClientsCount ?? 0}
+                    </span>
+                    <span className="text-xs text-[#10D98E] font-mono">
+                      client{(aiReport.returningClientsCount ?? 0) > 1 ? 's' : ''} fidèle{(aiReport.returningClientsCount ?? 0) > 1 ? 's' : ''} ({aiReport.returningRevenuePct ?? 0}% du CA)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7280]">
+                    {aiReport.returningOrdersCount ?? 0} commande{(aiReport.returningOrdersCount ?? 0) > 1 ? 's' : ''} passée{(aiReport.returningOrdersCount ?? 0) > 1 ? 's' : ''} par des clients ayant acheté 2 fois ou plus.
+                  </p>
+                </div>
+
+                {aiReport.topClients && aiReport.topClients.length > 0 && (
+                  <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-3.5 space-y-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8A90A0]">
+                      Meilleurs Clients (VIP)
+                    </span>
+                    <div className="space-y-1.5">
+                      {aiReport.topClients.map((c, idx) => (
+                        <div key={`${c.name}-${idx}`} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-[10px] text-[#E2BD6B]">0{idx + 1}</span>
+                            <span className="text-white/90 truncate">{c.name}</span>
+                            {c.phone && <span className="text-[10px] text-[#6B7280] font-mono hidden sm:inline">{c.phone}</span>}
+                          </div>
+                          <span className="font-mono text-[11px] text-white/80 shrink-0">
+                            {c.ordersCount} cmd · {fmtFCFA(c.totalSpent)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

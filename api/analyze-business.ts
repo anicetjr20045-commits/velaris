@@ -43,6 +43,83 @@ function detectCountryFromPhone(raw?: string): string {
   return 'Autre';
 }
 
+const FEMALE_NAMES = new Set([
+  'mme', 'madame', 'mlle', 'mademoiselle', 'soeur', 'tante', 'tata', 'maman', 'reine', 'princesse',
+  'fatou', 'fatoumata', 'aminata', 'amina', 'aicha', 'aichatou', 'awa', 'mariam', 'mariama', 'maimouna',
+  'kadiatou', 'kady', 'kadi', 'kadidia', 'kadidja', 'salimata', 'sali', 'safiatou', 'safia', 'fanta',
+  'djeneba', 'rokia', 'rokhaya', 'binta', 'bintou', 'assita', 'assetou', 'oumou', 'oumu', 'hawa',
+  'nene', 'ramata', 'ramatoulaye', 'bibata', 'zenab', 'zeinab', 'zeynab', 'nafissatou', 'nadia',
+  'nathalie', 'christelle', 'christine', 'carine', 'karine', 'sandrine', 'mireille', 'sonia', 'ruth',
+  'esther', 'sarah', 'sara', 'grace', 'benedicte', 'beatrice', 'veronique', 'valerie', 'celine',
+  'celestine', 'charlotte', 'claire', 'clarisse', 'cynthia', 'danielle', 'delphine', 'diane', 'dorothee',
+  'edwige', 'elodie', 'elise', 'emilie', 'estelle', 'evelyne', 'fabienne', 'fanny', 'florence',
+  'francine', 'francoise', 'genevieve', 'geraldine', 'ghislaine', 'giselle', 'gisele', 'helene',
+  'hortense', 'ines', 'irene', 'isabelle', 'jacqueline', 'jeanne', 'jessica', 'jocelyne', 'joelle',
+  'josephine', 'judith', 'julie', 'julienne', 'justine', 'laetitia', 'laure', 'laurence', 'lea',
+  'leila', 'leonie', 'linda', 'lisa', 'louise', 'lucie', 'lydie', 'madeleine', 'magali', 'manon',
+  'marguerite', 'marie', 'marina', 'marine', 'marlene', 'marthe', 'martine', 'melanie', 'melissa',
+  'michele', 'michelle', 'monique', 'nadege', 'naomi', 'naomie', 'nicole', 'noelle', 'noemie',
+  'odette', 'odile', 'olivia', 'pascale', 'patricia', 'pauline', 'pelagie', 'prisca', 'rachel',
+  'raissa', 'rebecca', 'regine', 'renee', 'rita', 'rose', 'roseline', 'sabine', 'salome', 'sandra',
+  'solange', 'sophie', 'stephanie', 'suzanne', 'sylviane', 'sylvie', 'tatiana', 'therese', 'vanessa',
+  'victoire', 'victoria', 'virginie', 'viviane', 'yolande', 'yvette', 'yvonne', 'adjoua', 'akissi',
+  'affoue', 'aya', 'amenan', 'amoin', 'abiba', 'habiba', 'habibatou', 'mawa', 'masseni', 'tenin',
+  'korotoumou', 'noura', 'aissata', 'aissatou', 'djamila', 'jamila', 'samira', 'yasmine', 'yasmina',
+  'angele', 'angelique', 'audrey', 'aurelie', 'barbara', 'bernadette', 'brigitte', 'camille', 'caroline',
+  'catherine', 'cecile', 'chantal', 'chloe', 'claudine', 'corinne', 'deborah', 'denise', 'edith',
+  'emmanuelle', 'eugenie', 'flore', 'gabrielle', 'gaelle', 'georgette', 'germaine', 'gladys',
+  'henriette', 'jennifer', 'johanna', 'karen', 'katia', 'kelly', 'lara', 'laurette', 'liliane',
+  'line', 'lucile', 'maelle', 'maeva', 'maite', 'marcelline', 'margaux', 'marianne', 'mathilde',
+  'morgane', 'muriel', 'myriam', 'nadine', 'natacha', 'nelly', 'oceane', 'ophelie', 'pamela',
+  'paula', 'paule', 'perrine', 'philomene', 'rosalie', 'roselyne', 'roxane', 'sabrina', 'salima',
+  'severine', 'sharon', 'sheila', 'simone', 'solene', 'stella', 'tania', 'tiffany', 'valentine',
+  'wendy', 'zoe', 'solen',
+]);
+
+const MALE_NAMES = new Set([
+  'mr', 'monsieur', 'frere', 'tonton', 'papa', 'roi', 'prince',
+  'moussa', 'ibrahim', 'ibrahima', 'issouf', 'issa', 'ismael', 'ismail', 'abdoul', 'abdoulaye',
+  'abou', 'aboubacar', 'abraham', 'adam', 'amadou', 'boubacar', 'boukary', 'cheick', 'cheikh',
+  'daouda', 'dramane', 'drissa', 'idrissa', 'karim', 'kassim', 'lassina', 'madou', 'mahamadou',
+  'mamadou', 'modibo', 'mohamed', 'mohammed', 'mouhamadou', 'moustapha', 'ousmane', 'oumar', 'oumarou',
+  'salif', 'salifou', 'saydou', 'seydou', 'sidiki', 'souleymane', 'soumaila', 'tidiane', 'yacouba',
+  'yaya', 'youssouf', 'zakaria', 'aziz', 'ali', 'aliou', 'amine', 'amir', 'anis', 'arthur', 'augustin',
+  'axel', 'baptiste', 'basile', 'benjamin', 'benoit', 'bernard', 'bertrand', 'brice', 'bruno', 'cedric',
+  'charles', 'christian', 'christophe', 'claude', 'clement', 'cyril', 'damien', 'daniel', 'david',
+  'denis', 'didier', 'dieudonne', 'dimitri', 'dylan', 'edouard', 'elie', 'emile', 'emmanuel', 'eric',
+  'ernest', 'etienne', 'fabien', 'fabrice', 'felix', 'fernand', 'florent', 'florian', 'franck',
+  'francois', 'frederic', 'gabriel', 'gael', 'gaston', 'georges', 'gerard', 'germain', 'ghislain',
+  'gilbert', 'gilles', 'gregoire', 'guillaume', 'guy', 'henri', 'herve', 'hugues', 'igor', 'ivan',
+  'jacques', 'jean', 'jeremie', 'jerome', 'joel', 'jonathan', 'jordan', 'joseph', 'jules', 'julien',
+  'justin', 'kevin', 'koffi', 'kouadio', 'kouakou', 'kouame', 'kouassi', 'konan', 'yao', 'nguessan',
+  'aubin', 'landry', 'laurent', 'leo', 'leon', 'lionel', 'loic', 'louis', 'luc', 'lucas', 'ludovic',
+  'marc', 'marcel', 'martial', 'martin', 'mathieu', 'matthieu', 'maurice', 'maxime', 'michel', 'mickael',
+  'moise', 'nathan', 'nicolas', 'noel', 'norbert', 'olivier', 'omar', 'oscar', 'pascal', 'patrice',
+  'patrick', 'paul', 'philippe', 'pierre', 'quentin', 'raphael', 'raymond', 'regis', 'remi', 'remy',
+  'renaud', 'richard', 'robert', 'robin', 'roger', 'roland', 'romain', 'romuald', 'samuel',
+  'sebastien', 'serge', 'simon', 'stephane', 'sylvain', 'thierry', 'thomas', 'timothee', 'tony',
+  'tristan', 'ulrich', 'valentin', 'victor', 'vincent', 'wilfried', 'william', 'willy', 'xavier',
+  'yann', 'yannick', 'yohan', 'yves', 'anicet', 'wendyam', 'alexandre', 'alexis', 'alain', 'albert',
+  'alex', 'alfred', 'alphonse', 'andre', 'antoine', 'armand', 'arnaud',
+]);
+
+function inferGenderFast(rawName?: string): 'femme' | 'homme' | 'inconnu' {
+  if (!rawName) return 'inconnu';
+  const cleaned = rawName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z\s'-]/g, ' ')
+    .trim();
+  if (!cleaned || cleaned.startsWith('client ')) return 'inconnu';
+  const tokens = cleaned.split(/[\s'-]+/).filter(Boolean);
+  for (const tok of tokens.slice(0, 3)) {
+    if (FEMALE_NAMES.has(tok)) return 'femme';
+    if (MALE_NAMES.has(tok)) return 'homme';
+  }
+  return 'inconnu';
+}
+
 function extractKieText(payload: any): string {
   if (typeof payload?.output_text === 'string' && payload.output_text.trim()) {
     return payload.output_text;
@@ -91,7 +168,6 @@ export default async function handler(req: any, res: any) {
   }
   const userId = userData.user.id;
 
-  // GET : renvoie uniquement l'état en cache sans déclencher d'analyse
   if (req.method === 'GET') {
     const { data: stateRow } = await admin
       .from('studio_analytics_state')
@@ -113,27 +189,47 @@ export default async function handler(req: any, res: any) {
   const sinceAt = reset ? null : (existingState?.last_analyzed_at || null);
   const nowIso = new Date().toISOString();
 
-  // Charger uniquement les NOUVELLES commandes et NOUVEAUX contacts depuis last_analyzed_at
+  // 1. Charger les NOUVELLES commandes & NOUVEAUX contacts depuis last_analyzed_at (ou tout l'historique si 1ère fois / reset)
+  const fetchLimit = sinceAt ? 300 : 2000;
   let ordersQuery = admin
     .from('orders')
-    .select('id, amount_cents, price_xof, status, payment_method, occasion, recipient_name, notes, created_at')
+    .select('id, contact_id, amount_cents, price_xof, status, payment_method, occasion, recipient_name, notes, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(150);
+    .limit(fetchLimit);
 
   let contactsQuery = admin
     .from('contacts')
     .select('id, name, phone, occasion, notes, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .limit(150);
+    .limit(fetchLimit);
 
   if (sinceAt) {
     ordersQuery = ordersQuery.gt('created_at', sinceAt);
     contactsQuery = contactsQuery.gt('created_at', sinceAt);
   }
 
-  const [ordersRes, contactsRes] = await Promise.all([ordersQuery, contactsQuery]);
+  // Toujours calculer les Meilleurs Clients & Clients qui Reviennent sur l'ensemble des commandes (colonnes ultra-légères)
+  const allOrdersLightQuery = admin
+    .from('orders')
+    .select('contact_id, amount_cents, price_xof, recipient_name, created_at')
+    .eq('user_id', userId)
+    .limit(2500);
+
+  const allContactsLightQuery = admin
+    .from('contacts')
+    .select('id, name, phone')
+    .eq('user_id', userId)
+    .limit(2500);
+
+  const [ordersRes, contactsRes, allOrdersLightRes, allContactsLightRes] = await Promise.all([
+    ordersQuery,
+    contactsQuery,
+    allOrdersLightQuery,
+    allContactsLightQuery,
+  ]);
+
   const newOrders = ordersRes.data || [];
   const newContacts = contactsRes.data || [];
 
@@ -146,76 +242,116 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // Calculs mathématiques exacts (100% déterministes)
+  // 2. Calcul exact des Clients qui Reviennent & Meilleurs Clients (VIP)
+  const contactLookup = new Map<string, { name: string; phone: string }>();
+  for (const c of allContactsLightRes.data || []) {
+    contactLookup.set(c.id, { name: String(c.name || '').trim(), phone: String(c.phone || '').trim() });
+  }
+
+  const clientAgg = new Map<string, { name: string; phone: string; ordersCount: number; totalSpent: number }>();
+  let totalAllRevenue = 0;
+
+  for (const o of allOrdersLightRes.data || []) {
+    const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
+    totalAllRevenue += amt;
+    const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
+    const displayName = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || cInfo?.name || 'Client').trim();
+    const key = o.contact_id || `name:${displayName.toLowerCase()}`;
+    const prev = clientAgg.get(key) || { name: displayName, phone: cInfo?.phone || '', ordersCount: 0, totalSpent: 0 };
+    prev.ordersCount += 1;
+    prev.totalSpent += amt;
+    if (!prev.name && displayName) prev.name = displayName;
+    if (!prev.phone && cInfo?.phone) prev.phone = cInfo.phone;
+    clientAgg.set(key, prev);
+  }
+
+  const allBuyers = [...clientAgg.values()];
+  const returningBuyers = allBuyers.filter((b) => b.ordersCount >= 2);
+  const returningClientsCount = returningBuyers.length;
+  const returningOrdersCount = returningBuyers.reduce((acc, b) => acc + b.ordersCount, 0);
+  const returningRevenue = returningBuyers.reduce((acc, b) => acc + b.totalSpent, 0);
+  const returningRevenuePct = totalAllRevenue > 0 ? Math.round((returningRevenue / totalAllRevenue) * 100) : 0;
+  const topClients = allBuyers
+    .filter((b) => b.name && !b.name.toLowerCase().startsWith('client whatsapp'))
+    .sort((a, b) => b.totalSpent - a.totalSpent || b.ordersCount - a.ordersCount)
+    .slice(0, 5);
+
+  // 3. Calculs mathématiques exacts du delta
   let deltaRevenue = 0;
   const countryMap = new Map<string, number>();
-  const paymentMap = new Map<string, number>();
 
   for (const o of newOrders) {
     const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
     deltaRevenue += amt;
-    const pay = String(o.payment_method || 'Mobile Money').trim();
-    paymentMap.set(pay, (paymentMap.get(pay) || 0) + 1);
   }
-
   for (const c of newContacts) {
     const country = detectCountryFromPhone(c.phone);
     countryMap.set(country, (countryMap.get(country) || 0) + 1);
   }
 
-  // Préparer un échantillon compact pour le jugement IA (max 80 fiches)
-  const peopleForAi: Array<{ id: string; name: string; occasion: string; notes: string }> = [];
-  const seenIds = new Set<string>();
-
-  for (const c of newContacts) {
-    if (peopleForAi.length >= 80) break;
-    seenIds.add(c.id);
-    peopleForAi.push({
-      id: c.id,
-      name: String(c.name || '').slice(0, 60),
-      occasion: String(c.occasion || '').slice(0, 60),
-      notes: String(c.notes || '').slice(0, 120),
-    });
-  }
-  for (const o of newOrders) {
-    if (peopleForAi.length >= 80) break;
-    if (seenIds.has(o.id)) continue;
-    peopleForAi.push({
-      id: o.id,
-      name: String(o.recipient_name || '').slice(0, 60),
-      occasion: String(o.occasion || '').slice(0, 60),
-      notes: String(o.notes || '').slice(0, 120),
-    });
-  }
-
+  // 4. Classification rapide par prénom + envoi des cas ambigus à l'IA (1 seul appel)
   let deltaWomen = 0;
   let deltaMen = 0;
   let deltaUnknown = 0;
+  const ambiguousForAi: Array<{ id: string; name: string; occasion: string; notes: string }> = [];
+  const seenIds = new Set<string>();
+
+  const processPerson = (id: string, name: string, occasion: string, notes: string) => {
+    if (seenIds.has(id)) return;
+    seenIds.add(id);
+    const fast = inferGenderFast(name);
+    if (fast === 'femme') {
+      deltaWomen += 1;
+    } else if (fast === 'homme') {
+      deltaMen += 1;
+    } else if (ambiguousForAi.length < 100) {
+      ambiguousForAi.push({
+        id,
+        name: name.slice(0, 60),
+        occasion: occasion.slice(0, 60),
+        notes: notes.slice(0, 120),
+      });
+    } else {
+      deltaUnknown += 1;
+    }
+  };
+
+  for (const c of newContacts) {
+    processPerson(c.id, String(c.name || ''), String(c.occasion || ''), String(c.notes || ''));
+  }
+  for (const o of newOrders) {
+    processPerson(o.id, String(o.recipient_name || ''), String(o.occasion || ''), String(o.notes || ''));
+  }
+
   let topOccasions: string[] = [];
   let verdict = '';
   let recommendations: string[] = [];
 
-  if (kieApiKey && peopleForAi.length > 0) {
+  if (kieApiKey) {
     try {
       const prompt = [
         'Tu es un analyste business expert pour un studio de chansons personnalisées vendues sur WhatsApp en Afrique francophone.',
-        'On te donne UNIQUEMENT les nouveaux contacts et commandes depuis la dernière analyse.',
+        sinceAt
+          ? 'On te donne UNIQUEMENT les nouveautés depuis la dernière analyse.'
+          : 'Première analyse complète de tout l’historique du compte.',
         '',
-        `Chiffres exacts de cette nouvelle période : ${newOrders.length} ventes, ${deltaRevenue} F CFA, ${newContacts.length} nouveaux contacts.`,
-        `Pays des nouveaux contacts : ${JSON.stringify(Object.fromEntries(countryMap))}`,
-        `Précédent bilan (continuité) : ${existingState?.last_report?.verdict || 'Première analyse'}`,
+        `Chiffres exacts de la période : ${newOrders.length} ventes, ${deltaRevenue} F CFA, ${newContacts.length} contacts.`,
+        `Fidélité globale : ${returningClientsCount} client(s) revenu(s) (>= 2 commandes) générant ${returningRevenuePct}% du chiffre d'affaires (${returningOrdersCount} commandes).`,
+        `Top clients VIP : ${JSON.stringify(topClients.slice(0, 3))}`,
+        `Pays : ${JSON.stringify(Object.fromEntries(countryMap))}`,
+        `Précédent bilan : ${existingState?.last_report?.verdict || 'Aucun (bilan initial)'}`,
         '',
-        `Nouvelles fiches à juger (${peopleForAi.length}) :`,
-        JSON.stringify(peopleForAi),
+        `Fiches ambiguës à classer (${ambiguousForAi.length}) :`,
+        JSON.stringify(ambiguousForAi),
         '',
-        'Réponds STRICTEMENT en JSON valide avec cette structure exacte :',
+        'Réponds STRICTEMENT en JSON valide :',
         '{',
         '  "genders": [ { "id": "uuid", "gender": "femme" | "homme" | "inconnu" } ],',
         '  "topOccasions": ["Occasion 1", "Occasion 2"],',
-        '  "verdict": "2 à 3 phrases directes et utiles sur ce qui ressort de cette période par rapport à avant.",',
-        '  "recommendations": ["Action concrète 1 pour demain", "Action concrète 2"]',
+        '  "verdict": "2 à 3 phrases directes et concrètes sur la performance, la fidélité client et le profil qui achète.",',
+        '  "recommendations": ["Action concrète 1", "Action concrète 2"]',
         '}',
-        'Règles pour "genders" : déduis le sexe du CLIENT qui contacte (ex: prénom féminin/masculin, ou indice dans occasion/notes comme "pour mon mari" => femme, "pour ma femme" => homme). Si impossible à savoir (pseudo, numéro pur), mets "inconnu".',
+        'Pour "genders" : déduis le sexe du CLIENT qui contacte (indices dans occasion/notes comme "pour mon mari" => femme, "pour ma femme" => homme, ou prénom). Sinon "inconnu".',
       ].join('\n');
 
       const aiRes = await fetch('https://api.kie.ai/openai/v1/responses', {
@@ -247,6 +383,10 @@ export default async function handler(req: any, res: any) {
             else if (g.gender === 'homme') deltaMen += 1;
             else deltaUnknown += 1;
           }
+          // Tout ambigu non renvoyé par l'IA passe en inconnu
+          for (const item of ambiguousForAi) {
+            if (!judgedIds.has(item.id)) deltaUnknown += 1;
+          }
           if (Array.isArray(parsed.topOccasions)) topOccasions = parsed.topOccasions.slice(0, 4).map(String);
           if (typeof parsed.verdict === 'string') verdict = parsed.verdict;
           if (Array.isArray(parsed.recommendations)) recommendations = parsed.recommendations.slice(0, 3).map(String);
@@ -254,11 +394,14 @@ export default async function handler(req: any, res: any) {
       }
     } catch (err) {
       console.error('analyze-business LLM error:', err);
+      deltaUnknown += ambiguousForAi.length;
     }
+  } else {
+    deltaUnknown += ambiguousForAi.length;
   }
 
   if (!verdict) {
-    verdict = `Nouvelle période analysée : ${newOrders.length} vente(s) pour ${deltaRevenue.toLocaleString('fr-FR')} F CFA et ${newContacts.length} nouveau(x) contact(s).`;
+    verdict = `Période analysée : ${newOrders.length} vente(s) pour ${deltaRevenue.toLocaleString('fr-FR')} F CFA. ${returningClientsCount} client(s) fidèle(s) représentent ${returningRevenuePct}% de votre chiffre d'affaires.`;
   }
 
   const baseWomen = reset ? 0 : (existingState?.women_count || 0);
@@ -287,6 +430,11 @@ export default async function handler(req: any, res: any) {
     unknownCount,
     totalOrdersAnalyzed,
     totalRevenueAnalyzed,
+    totalUniqueBuyers: allBuyers.length,
+    returningClientsCount,
+    returningOrdersCount,
+    returningRevenuePct,
+    topClients,
     topOccasions,
     topCountries: [...countryMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => ({ name, count })),
     verdict,

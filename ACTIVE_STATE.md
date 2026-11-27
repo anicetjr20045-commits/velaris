@@ -37,6 +37,9 @@
      - Ajout de `POST /api/media/upload` dans `velaris-engine` (authentifié par JWT Supabase avec cache 60 s, écriture dans `/root/waha-vps-setup/qrserve/media`, servi en HTTPS direct par Caddy).
      - Mise à jour de `shared-tracks.ts` et `supabase.ts` pour ne plus consommer d'egress Supabase Storage.
      - Mise à jour Vercel (`app.djelia.store`) et VPS (`velaris-engine` + `caddy`) validée en production.
+  4. **Analyse IA Incrémentale à la Demande (`api/analyze-business.ts`, `studio_analytics_state`, `RevenusView.tsx`)** :
+     - Curseur incrémental par utilisateur (`last_analyzed_at` + totaux cumulés en base avec RLS `user_id = auth.uid()`), ne lisant et n'analysant que les nouvelles commandes/contacts depuis le dernier bilan (0 double comptage, 0 appel LLM si aucune nouveauté).
+     - Calculs financiers 100% déterministes + 1 appel `deepseek-v4-1-flash` pour le jugement business (sexe réel des clients, occasions dominantes, bilan comparatif et 2 actions concrètes).
 - **Gestion Complète des Liens d'Écoute Privée (Y compris Liens Déjà Envoyés)** :
   1. **Synchronisation Live (`api/audio-stream.ts?mode=list` & `mode=manage`)** :
      - Récupération authentifiée de tous les liens créés dans `shared_tracks` (y compris les anciens liens créés avec `user_id: null` comme `sonia-ruth-fki8m`, `sonia-ruth-eowc4`, `client-5rgwm`).
