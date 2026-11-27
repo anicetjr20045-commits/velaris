@@ -959,15 +959,16 @@ export const StudioView: FC<StudioViewProps> = ({
 
   const handleCreateClientLink = async (e: FormEvent) => {
     e.preventDefault();
-    if (!clientRecipient.trim()) return;
     if (!track1Url.trim()) {
       notifyStudio('Veuillez uploader au moins un morceau audio avant de créer le lien.', 'error');
       return;
     }
 
+    const effectiveRecipient = clientRecipient.trim() || 'Client';
+    const effectiveOccasion = clientOccasion.trim() || 'Audition Privée';
+
     setIsCreatingClientLink(true);
-    const cleanRecipientSlug = clientRecipient
-      .trim()
+    const cleanRecipientSlug = effectiveRecipient
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -981,8 +982,8 @@ export const StudioView: FC<StudioViewProps> = ({
     try {
       const saveRes = await createSharedTrack({
         id: linkId,
-        recipient: clientRecipient.trim(),
-        occasion: clientOccasion.trim(),
+        recipient: effectiveRecipient,
+        occasion: effectiveOccasion,
         studio_name: studioName,
         creator_phone: creatorPhone || undefined,
         track1_title: track1Title.trim() || 'Version 01',
@@ -1002,8 +1003,8 @@ export const StudioView: FC<StudioViewProps> = ({
 
     const newLinkItem = {
       id: linkId,
-      recipient: clientRecipient.trim(),
-      occasion: clientOccasion.trim(),
+      recipient: effectiveRecipient,
+      occasion: effectiveOccasion,
       allowDownload: allowClientDownload,
       shareUrl: finalShareUrl,
       createdAt: new Date().toISOString(),
@@ -1954,11 +1955,10 @@ export const StudioView: FC<StudioViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Destinataire / Client *
+                    Destinataire (optionnel)
                   </label>
                   <input
                     type="text"
-                    required
                     value={clientRecipient}
                     onChange={(e) => setClientRecipient(e.target.value)}
                     placeholder="Ex: Aminata, Marc..."
@@ -1968,7 +1968,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Occasion *
+                    Occasion (optionnel)
                   </label>
                   <input
                     type="text"

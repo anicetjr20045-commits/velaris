@@ -26,7 +26,7 @@ import {
   type FishVoiceItem,
 } from '../services/fishVoice';
 import { sendWahaVoiceMessage, wahaSessionNameFor } from '../services/waha';
-import { saveAutomationRule, uploadAutomationMedia } from '../services/supabase';
+import { saveAutomationRule, uploadAutomationMedia, supabase } from '../services/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { VoiceNoteRecorder, type VoiceRecording } from './VoiceNoteRecorder';
 import { transcribeAudioBlob } from '../services/whisper-stt';
@@ -83,6 +83,7 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
     mimeType: string;
     text: string;
     voiceName: string;
+    voiceReferenceId: string;
   } | null>(null);
 
   // Lecteur de l'audio transformé
@@ -94,15 +95,50 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
   const [manualText, setManualText] = useState<string>('');
   const [isGeneratingManual, setIsGeneratingManual] = useState<boolean>(false);
 
-  // Envoi Flash WhatsApp
-  const [selectedClientPhone, setSelectedClientPhone] = useState<string>(
-    orders[0]?.clientPhone || ''
-  );
+  // Envoi Flash WhatsApp : saisie directe par défaut (indicatif + numéro) ou choix parmi les contacts récents
+  const [countryCode, setCountryCode] = useState<string>('+226');
   const [customPhone, setCustomPhone] = useState<string>('');
-  const [useCustomPhone, setUseCustomPhone] = useState<boolean>(orders.length === 0);
+  const [useRecentContact, setUseRecentContact] = useState<boolean>(false);
+  const [recentContacts, setRecentContacts] = useState<Array<{ name: string; phone: string }>>([]);
+  const [selectedClientPhone, setSelectedClientPhone] = useState<string>('');
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState<boolean>(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const merged = new Map<string, { name: string; phone: string }>();
+      for (const o of orders) {
+        const p = String(o.clientPhone || '').trim();
+        const d = p.replace(/\D/g, '');
+        if (d.length >= 8 && !merged.has(d.slice(-8))) {
+          merged.set(d.slice(-8), { name: o.clientName || p, phone: p });
+        }
+      }
+      if (user) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('name, phone')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(25);
+        for (const c of data || []) {
+          const p = String(c.phone || '').trim();
+          const d = p.replace(/\D/g, '');
+          if (d.length >= 8 && !merged.has(d.slice(-8))) {
+            merged.set(d.slice(-8), { name: String(c.name || p).trim(), phone: p });
+          }
+        }
+      }
+      if (!cancelled) {
+        const list = [...merged.values()].slice(0, 25);
+        setRecentContacts(list);
+        if (list.length > 0 && !selectedClientPhone) setSelectedClientPhone(list[0].phone);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, orders.length]);
 
   // Sauvegarde comme Règle d'Automatisation
   const [ruleEmoji, setRuleEmoji] = useState<string>('🎵');
@@ -182,6 +218,7 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
         mimeType: synth.mimeType,
         text: spokenText,
         voiceName: voice.name,
+        voiceReferenceId: voice.reference_id,
       });
 
       setRuleName(`Vocal ${voice.name} · ${spokenText.slice(0, 24)}...`);
@@ -245,6 +282,7 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
         mimeType: result.mimeType,
         text: clean,
         voiceName: selectedVoice.name,
+        voiceReferenceId: selectedVoice.reference_id,
       });
       setRuleName(`Vocal ${selectedVoice.name} · ${clean.slice(0, 24)}...`);
       showToast(`Note vocale générée avec succès (${selectedVoice.name}) !`, true);
@@ -269,9 +307,23 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
   const handleSendFlashWhatsApp = async () => {
     if (!transformedAudio) return;
 
-    const targetPhone = useCustomPhone ? customPhone.trim() : selectedClientPhone.trim();
-    if (!targetPhone) {
-      setSendError('Veuillez sélectionner un client ou indiquer un numéro WhatsApp.');
+    let targetPhone = '';
+    if (useRecentContact) {
+      targetPhone = selectedClientPhone.trim();
+    } else {
+      const raw = customPhone.trim();
+      if (raw.startsWith('+') || raw.startsWith('00')) {
+        targetPhone = raw.replace(/^00/, '+');
+      } else {
+        const digits = raw.replace(/\D/g, '');
+        if (digits) {
+          targetPhone = `${countryCode}${digits}`;
+        }
+      }
+    }
+
+    if (!targetPhone || targetPhone.replace(/\D/g, '').length < 8) {
+      setSendError('Veuillez saisir un numéro WhatsApp valide (avec indicatif) ou choisir un contact récent.');
       return;
     }
 
@@ -280,13 +332,13 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
     setSendError(null);
 
     try {
-      // Génération directe au format natif WhatsApp OGG/Opus pour éviter toute perte de conversion
+      // Génération directe au format natif WhatsApp OGG/Opus avec la voix exacte transformée
       let blobToSend = transformedAudio.blob;
       if (transformedAudio.text) {
         try {
           const opusSynth = await generateFishVoice(
             transformedAudio.text,
-            selectedVoiceRef.current.reference_id,
+            transformedAudio.voiceReferenceId,
             'opus'
           );
           if (opusSynth.blob.size > 0) {
@@ -862,33 +914,58 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
                 {/* Choix du destinataire */}
                 <div className="space-y-2 pt-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#8A90A0]">Destinataire</span>
-                    <button
-                      type="button"
-                      onClick={() => setUseCustomPhone((v) => !v)}
-                      className="text-[#E2BD6B] hover:underline cursor-pointer"
-                    >
-                      {useCustomPhone ? 'Choisir un client' : 'Numéro personnalisé'}
-                    </button>
+                    <span className="text-[#8A90A0]">Destinataire WhatsApp</span>
+                    {recentContacts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setUseRecentContact((v) => !v)}
+                        className="text-[#E2BD6B] hover:underline cursor-pointer"
+                      >
+                        {useRecentContact ? 'Taper un numéro' : `Contacts récents (${recentContacts.length})`}
+                      </button>
+                    )}
                   </div>
 
-                  {useCustomPhone || orders.length === 0 ? (
-                    <input
-                      type="tel"
-                      value={customPhone}
-                      onChange={(e) => setCustomPhone(e.target.value)}
-                      placeholder="+226 70 00 00 00 ou +225..."
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white tabular-nums focus:outline-none focus:border-[#10D98E]"
-                    />
+                  {!useRecentContact ? (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="px-2.5 py-2.5 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white font-mono focus:outline-none focus:border-[#10D98E] shrink-0"
+                      >
+                        <option value="+226">🇧🇫 +226</option>
+                        <option value="+225">🇨🇮 +225</option>
+                        <option value="+221">🇸🇳 +221</option>
+                        <option value="+223">🇲🇱 +223</option>
+                        <option value="+228">🇹🇬 +228</option>
+                        <option value="+229">🇧🇯 +229</option>
+                        <option value="+227">🇳🇪 +227</option>
+                        <option value="+224">🇬🇳 +224</option>
+                        <option value="+237">🇨🇲 +237</option>
+                        <option value="+241">🇬🇦 +241</option>
+                        <option value="+242">🇨🇬 +242</option>
+                        <option value="+243">🇨🇩 +243</option>
+                        <option value="+33">🇫🇷 +33</option>
+                        <option value="+1">🇺🇸 +1</option>
+                        <option value="">Autre</option>
+                      </select>
+                      <input
+                        type="tel"
+                        value={customPhone}
+                        onChange={(e) => setCustomPhone(e.target.value)}
+                        placeholder="70 00 00 00"
+                        className="flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white tabular-nums focus:outline-none focus:border-[#10D98E]"
+                      />
+                    </div>
                   ) : (
                     <select
                       value={selectedClientPhone}
                       onChange={(e) => setSelectedClientPhone(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white focus:outline-none focus:border-[#10D98E]"
                     >
-                      {orders.map((o) => (
-                        <option key={o.id} value={o.clientPhone}>
-                          {o.clientName} ({o.clientPhone || 'Sans numéro'}) · {o.occasion}
+                      {recentContacts.map((c) => (
+                        <option key={c.phone} value={c.phone}>
+                          {c.name} ({c.phone})
                         </option>
                       ))}
                     </select>
