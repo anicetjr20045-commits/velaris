@@ -171,7 +171,7 @@ interface WahaChatDigest {
   lastTimestamp: number;
   dateIso: string;
   dayKey: string;
-  messages: Array<{ fromMe: boolean; body: string }>;
+  messages: Array<{ fromMe: boolean; at: string; body: string }>;
 }
 
 async function fetchLiveWhatsAppChats(
@@ -208,13 +208,13 @@ async function fetchLiveWhatsAppChats(
         const digits = chatId.replace(/@.*$/, '').replace(/\D/g, '');
         const phone = digits ? `+${digits}` : '';
         const name = String(c?.name || phone || 'Client WhatsApp').trim();
-        let msgs: Array<{ fromMe: boolean; body: string }> = [];
+        let msgs: Array<{ fromMe: boolean; at: string; body: string }> = [];
 
         try {
           const mCtrl = new AbortController();
           const mTimer = setTimeout(() => mCtrl.abort(), 4500);
           const mRes = await fetch(
-            `${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=8`,
+            `${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=12`,
             { headers: { 'X-Api-Key': wahaKey }, signal: mCtrl.signal },
           );
           clearTimeout(mTimer);
@@ -224,16 +224,21 @@ async function fetchLiveWhatsAppChats(
               msgs = rawMsgs
                 .map((m) => ({
                   fromMe: Boolean(m?.fromMe),
+                  at: new Date((Number(m?.timestamp) || ts) * 1000).toISOString(),
                   body: String(m?.body || '').trim().slice(0, 140),
                 }))
                 .filter((m) => m.body.length > 0)
-                .slice(0, 6);
+                .slice(0, 10);
             }
           }
         } catch {}
 
         if (msgs.length === 0 && c?.lastMessage?.body) {
-          msgs = [{ fromMe: Boolean(c.lastMessage.fromMe), body: String(c.lastMessage.body).slice(0, 140) }];
+          msgs = [{
+            fromMe: Boolean(c.lastMessage.fromMe),
+            at: new Date(ts * 1000).toISOString(),
+            body: String(c.lastMessage.body).slice(0, 140),
+          }];
         }
 
         const dt = new Date(ts * 1000);
@@ -517,13 +522,13 @@ export default async function handler(req: any, res: any) {
         '',
         'Réponds STRICTEMENT en JSON valide :',
         '{',
-        '  "detectedSales": [ { "chatId": "...", "amountXof": 1200, "occasion": "Anniversaire", "reason": "Livraison audio confirmée" } ],',
+        '  "detectedSales": [ { "chatId": "...", "amountXof": 1200, "saleDateIso": "2026-11-26T18:16:00Z", "occasion": "Anniversaire", "reason": "Livraison audio confirmée" } ],',
         '  "genders": [ { "id": "...", "gender": "femme" | "homme" | "inconnu" } ],',
         '  "topOccasions": ["Occasion 1", "Occasion 2"],',
         '  "verdict": "2 à 3 phrases directes et concrètes sur l\'activité WhatsApp réelle, les ventes détectées et le profil client.",',
         '  "recommendations": ["Action concrète 1", "Action concrète 2"]',
         '}',
-        'Règle stricte pour "detectedSales" : n\'inclus un chat QUE si les messages prouvent vraiment un paiement reçu ou une livraison de chanson effectuée (ex: lien d\'écoute/chanson envoyée, "paiement reçu", "j\'ai écouté", "merci beaucoup pour la chanson"). Ne devine pas une vente sur un simple "Bonjour".',
+        'Règle stricte pour "detectedSales" : n\'inclus un chat QUE si les messages prouvent vraiment un paiement reçu ou une livraison de chanson effectuée (ex: lien d\'écoute/chanson envoyée, "paiement reçu", "j\'ai écouté", "merci beaucoup pour la chanson"). Mets dans "saleDateIso" la date exacte (`at`) du message où le paiement ou la livraison a eu lieu (pour bien séparer hier, aujourd\'hui et les autres jours). Ne devine pas une vente sur un simple "Bonjour".',
       ].join('\n');
 
       const aiRes = await fetch('https://api.kie.ai/openai/v1/responses', {
@@ -553,9 +558,15 @@ export default async function handler(req: any, res: any) {
           for (const sale of detectedSales) {
             const wc = waChatsForSaleDetection.find((x) => x.chatId === sale?.chatId);
             if (!wc) continue;
+            const parsedSaleMs = sale?.saleDateIso ? Date.parse(String(sale.saleDateIso)) : NaN;
+            const nowMs = Date.now();
+            const saleIso = Number.isFinite(parsedSaleMs) && parsedSaleMs <= nowMs && parsedSaleMs >= nowMs - 14 * 86400 * 1000
+              ? new Date(parsedSaleMs).toISOString()
+              : wc.dateIso;
+            const saleDay = saleIso.slice(0, 10);
             const digits = wc.phone.replace(/\D/g, '');
             const tail8 = digits.slice(-8);
-            const dedupKey = `${tail8}|${wc.dayKey}`;
+            const dedupKey = `${tail8}|${saleDay}`;
             if (existingOrderDayKeys.has(dedupKey)) continue;
             existingOrderDayKeys.add(dedupKey);
 
@@ -574,8 +585,8 @@ export default async function handler(req: any, res: any) {
               occasion: String(sale.occasion || 'Chanson personnalisée').slice(0, 80),
               recipient_name: wc.name,
               notes: `Vente détectée par Analyse IA depuis WhatsApp (${String(sale.reason || '').slice(0, 120)})`,
-              created_at: wc.dateIso,
-              payment_confirmed_at: wc.dateIso,
+              created_at: saleIso,
+              payment_confirmed_at: saleIso,
             });
             if (insErr) {
               console.error('analyze-business orders insert error:', insErr.message);
