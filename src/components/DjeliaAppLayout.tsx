@@ -10,7 +10,8 @@ import {
   X,
   Smartphone,
   AlertTriangle,
-  CalendarClock
+  CalendarClock,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
@@ -18,6 +19,7 @@ import { RevenusView } from './RevenusView';
 import { SimpleWhatsAppView } from './SimpleWhatsAppView';
 import { AffiliationView } from './AffiliationView';
 import { StudioProfileView } from './StudioProfileView';
+import { AdminDashboardView } from './AdminDashboardView';
 import { PlanGate } from './PlanGate';
 import { getStudioCredits, getStudioSubscription, subscribeToBilling } from '../services/billing';
 import {
@@ -42,7 +44,7 @@ export type StudioTab =
   | 'pipeline'
   | 'admin';
 
-type PrimaryTab = 'revenus' | 'whatsapp' | 'affiliation' | 'academy' | 'studio_ai' | 'profile';
+type PrimaryTab = 'revenus' | 'whatsapp' | 'affiliation' | 'academy' | 'studio_ai' | 'profile' | 'admin';
 
 interface DjeliaAppLayoutProps {
   initialTab?: StudioTab;
@@ -77,7 +79,8 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     if (t === 'affiliation') return 'affiliation';
     if (t === 'academy') return 'academy';
     if (t === 'studio_ai') return 'studio_ai';
-    if (t === 'profile' || t === 'admin') return 'profile';
+    if (t === 'profile') return 'profile';
+    if (t === 'admin') return 'admin';
     return 'revenus';
   };
 
@@ -196,6 +199,22 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     (user?.user_metadata?.full_name as string) ||
     (user?.email ? user.email.split('@')[0] : 'Mon Studio');
 
+  const isAdminUser = useMemo(() => {
+    const email = String(user?.email || '').toLowerCase();
+    const phone = String(user?.user_metadata?.phone || user?.phone || '');
+    return (
+      user?.user_metadata?.is_admin === true ||
+      user?.user_metadata?.role === 'admin' ||
+      email.includes('admin') ||
+      email.includes('anicet') ||
+      email.includes('05777308') ||
+      email.includes('56240533') ||
+      phone.includes('05777308') ||
+      phone.includes('56240533') ||
+      phone.includes('58357772')
+    );
+  }, [user]);
+
   const navItems: Array<{
     id: PrimaryTab;
     label: string;
@@ -208,6 +227,7 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     { id: 'academy', label: 'Académie', icon: GraduationCap },
     { id: 'studio_ai', label: 'Studio IA', icon: Music2 },
     { id: 'profile', label: 'Crédits & Compte', icon: SlidersHorizontal },
+    ...(isAdminUser ? [{ id: 'admin' as PrimaryTab, label: 'Administration', icon: ShieldCheck }] : []),
   ];
 
   const sidebarContent = (
@@ -436,6 +456,7 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
               onSignedOut={onReturnToHome}
             />
           )}
+          {currentTab === 'admin' && <AdminDashboardView />}
         </main>
       </div>
     </div>

@@ -25,7 +25,10 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 27 Novembre 2026 (23:07 UTC)
+- **Dernière mise à jour** : 27 Novembre 2026 (23:18 UTC)
+- **Console d'Administration Plateforme (`api/admin.ts`, `AdminDashboardView.tsx`)** :
+  - `api/admin.ts` : endpoint sécurisé (`401` sans jeton, `403` non-admin) agrégeant les revenus Chariow (total, aujourd'hui, 7j, 30j, 14 jours quotidiens, Pass vs Packs), la liste des 500 membres, le Top 10 meilleurs utilisateurs, les statistiques de consommation IA, les retraits affiliation et les sessions WAHA (`GOWS`/`WEBJS`), plus actions admin (`adjust-credits`, `extend-subscription`, `mark-payout-paid`).
+  - `src/components/AdminDashboardView.tsx` & `DjeliaAppLayout.tsx` : onglet `Administration` réservé au propriétaire avec carte revenus Stripe-style + courbe 14 jours, Top 10 créateurs, annuaire membres filtrable et gestion des retraits.
 - **Responsive Mobile-First, Tablette & Desktop (`LandingPage.tsx`, `StudioAudioShowcase.tsx`, `App.tsx`)** :
   - `src/components/LandingPage.tsx` : refonte complète des échelles typographiques, espacements verticaux (`space-y-14 sm:space-y-24`), paddings cartes (`p-5 sm:p-8`) et suppression de `min-h-[480px]` et de `Moteur Suno V6` sur le Hero pour un rendu compact et net sur mobile, tablette et desktop.
   - `src/components/StudioAudioShowcase.tsx` & `src/App.tsx` : `min-w-0 flex-1` sur les pistes audio et `overflow-x-hidden` global pour éliminer tout débordement horizontal sur mobile.
