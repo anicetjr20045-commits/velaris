@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { MessageCircle, TrendingUp, Sparkles, Globe2, Users, Wallet, Clock } from 'lucide-react';
+import { MessageCircle, TrendingUp, Sparkles, Globe2, Users, Wallet, Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../services/supabase';
 import type { Order, StudioMetrics } from '../types';
 
 interface RevenusViewProps {
@@ -119,6 +120,25 @@ function inferClientGender(rawName?: string): 'femme' | 'homme' | 'inconnu' {
   return 'inconnu';
 }
 
+interface AiBusinessReport {
+  analyzedAt: string;
+  sinceAt: string | null;
+  deltaOrders: number;
+  deltaRevenue: number;
+  deltaContacts: number;
+  deltaWomen: number;
+  deltaMen: number;
+  deltaUnknown: number;
+  womenCount: number;
+  menCount: number;
+  unknownCount: number;
+  totalOrdersAnalyzed: number;
+  totalRevenueAnalyzed: number;
+  topOccasions?: string[];
+  verdict: string;
+  recommendations?: string[];
+}
+
 export const RevenusView: FC<RevenusViewProps> = ({
   orders,
   metrics,
@@ -144,6 +164,84 @@ export const RevenusView: FC<RevenusViewProps> = ({
     balance: 0,
     commissions: [],
   });
+
+  const reportCacheKey = user?.id ? `velaris_ai_report_${user.id}` : '';
+  const [aiReport, setAiReport] = useState<AiBusinessReport | null>(() => {
+    if (!reportCacheKey || typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(reportCacheKey);
+      return raw ? (JSON.parse(raw) as AiBusinessReport) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiUpToDate, setAiUpToDate] = useState(false);
+
+  useEffect(() => {
+    if (!reportCacheKey) return;
+    try {
+      const raw = localStorage.getItem(reportCacheKey);
+      if (raw) {
+        setAiReport(JSON.parse(raw) as AiBusinessReport);
+        return;
+      }
+    } catch {}
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return;
+        const res = await fetch('/api/analyze-business', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const json = await res.json();
+        if (!cancelled && json?.ok && json.report) {
+          setAiReport(json.report);
+          try { localStorage.setItem(reportCacheKey, JSON.stringify(json.report)); } catch {}
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [reportCacheKey]);
+
+  const runIncrementalAnalysis = async (reset = false) => {
+    setAiLoading(true);
+    setAiError(null);
+    setAiUpToDate(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setAiError('Session expirée, veuillez vous reconnecter.');
+        return;
+      }
+      const res = await fetch('/api/analyze-business', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reset }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        setAiError(json?.error || 'Impossible de lancer l\'analyse.');
+        return;
+      }
+      if (json.report) {
+        setAiReport(json.report);
+        if (reportCacheKey) {
+          try { localStorage.setItem(reportCacheKey, JSON.stringify(json.report)); } catch {}
+        }
+      }
+      setAiUpToDate(Boolean(json.upToDate));
+    } catch (err: any) {
+      setAiError(err?.message || 'Erreur réseau lors de l\'analyse.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -546,7 +644,95 @@ export const RevenusView: FC<RevenusViewProps> = ({
         </div>
       </section>
 
-      {/* 2B. ANALYTIQUE DÉTAILLÉE (PAYS MAJEURS, VOIX/SEXES, PAIEMENTS, CRÉNEAUX) */}
+      {/* 2B. ANALYSE IA INCRÉMENTALE (À LA DEMANDE) */}
+      <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.08] p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#E2BD6B]" />
+              <span className="text-sm font-semibold text-white">Bilan & Jugement IA</span>
+              {aiUpToDate && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-[#10D98E] bg-[#10D98E]/10 border border-[#10D98E]/20 rounded-full px-2 py-0.5">
+                  <CheckCircle2 className="w-3 h-3" /> À jour
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[#8A90A0]">
+              {aiReport?.analyzedAt
+                ? `Dernière analyse le ${new Date(aiReport.analyzedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} — reprendra uniquement les nouveautés.`
+                : 'Analyse à la demande des nouveaux contacts, sexes, occasions et revenus.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {aiReport && (
+              <button
+                type="button"
+                disabled={aiLoading}
+                onClick={() => runIncrementalAnalysis(true)}
+                className="px-3 py-2 rounded-full text-xs text-[#8A90A0] hover:text-white border border-white/[0.08] hover:border-white/20 transition disabled:opacity-50"
+              >
+                Tout réanalyser
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={aiLoading}
+              onClick={() => runIncrementalAnalysis(false)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white text-[#08090C] text-xs font-semibold hover:bg-white/90 transition disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${aiLoading ? 'animate-spin' : ''}`} />
+              {aiLoading ? 'Analyse en cours...' : aiReport ? 'Analyser les nouveautés' : 'Analyser ma journée'}
+            </button>
+          </div>
+        </div>
+
+        {aiError && (
+          <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">
+            {aiError}
+          </p>
+        )}
+
+        {aiReport && (
+          <div className="space-y-3 pt-2 border-t border-white/[0.06]">
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <span className="px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-white/80 font-mono">
+                +{aiReport.deltaOrders} vente{aiReport.deltaOrders > 1 ? 's' : ''}
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-[#E2BD6B] font-mono">
+                +{fmtFCFA(aiReport.deltaRevenue)}
+              </span>
+              <span className="px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-white/80 font-mono">
+                +{aiReport.deltaContacts} contact{aiReport.deltaContacts > 1 ? 's' : ''}
+              </span>
+              {(aiReport.deltaWomen > 0 || aiReport.deltaMen > 0) && (
+                <span className="px-2.5 py-1 rounded-full bg-[#10D98E]/10 border border-[#10D98E]/20 text-[#10D98E] font-mono">
+                  +{aiReport.deltaWomen} F / +{aiReport.deltaMen} H
+                </span>
+              )}
+              {(aiReport.topOccasions || []).map((occ) => (
+                <span key={occ} className="px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-white/70">
+                  {occ}
+                </span>
+              ))}
+            </div>
+
+            <p className="text-xs leading-relaxed text-white/90">{aiReport.verdict}</p>
+
+            {aiReport.recommendations && aiReport.recommendations.length > 0 && (
+              <ul className="space-y-1 text-xs text-[#8A90A0]">
+                {aiReport.recommendations.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-[#E2BD6B] font-mono text-[11px]">0{i + 1}</span>
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* 2C. ANALYTIQUE DÉTAILLÉE (PAYS MAJEURS, SEXE DES CLIENTS, PAIEMENTS, CRÉNEAUX) */}
       {filteredWhatsAppOrders.length > 0 && (
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Pays Majeurs */}
@@ -586,11 +772,27 @@ export const RevenusView: FC<RevenusViewProps> = ({
           {/* Sexe des Clients */}
           <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 space-y-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">Sexe des Clients</span>
+              <span className="text-xs font-semibold text-white">
+                Sexe des Clients {aiReport && (aiReport.womenCount + aiReport.menCount > 0) ? '· IA' : ''}
+              </span>
               <Users className="w-4 h-4 text-[#10D98E]" />
             </div>
             <div className="space-y-2.5">
-              {analytics.genderBreakdown.map((g) => (
+              {(aiReport && (aiReport.womenCount + aiReport.menCount > 0)
+                ? [
+                    {
+                      label: 'Femmes',
+                      count: aiReport.womenCount,
+                      pct: Math.round((aiReport.womenCount / (aiReport.womenCount + aiReport.menCount)) * 100),
+                    },
+                    {
+                      label: 'Hommes',
+                      count: aiReport.menCount,
+                      pct: Math.round((aiReport.menCount / (aiReport.womenCount + aiReport.menCount)) * 100),
+                    },
+                  ]
+                : analytics.genderBreakdown
+              ).map((g) => (
                 <div key={g.label} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-white/90">{g.label}</span>
@@ -606,9 +808,9 @@ export const RevenusView: FC<RevenusViewProps> = ({
                   </div>
                 </div>
               ))}
-              {analytics.unknownGenderCount > 0 && (
+              {(aiReport ? aiReport.unknownCount : analytics.unknownGenderCount) > 0 && (
                 <p className="text-[11px] text-[#6B7280] pt-1">
-                  {analytics.unknownGenderCount} contact{analytics.unknownGenderCount > 1 ? 's' : ''} non identifié{analytics.unknownGenderCount > 1 ? 's' : ''} (numéro ou pseudo)
+                  {aiReport ? aiReport.unknownCount : analytics.unknownGenderCount} non identifié(s)
                 </p>
               )}
             </div>
