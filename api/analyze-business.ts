@@ -333,9 +333,11 @@ export default async function handler(req: any, res: any) {
     .maybeSingle();
 
   const sinceAt = reset ? null : (existingState?.last_analyzed_at || null);
-  const waSinceAt = reset ? null : (existingState?.last_report?.waSyncedAt || null);
+  const waSinceAt = (reset || existingState?.last_report?.waScannerVersion !== 2)
+    ? null
+    : (existingState?.last_report?.waSyncedAt || null);
   const nowIso = new Date().toISOString();
-  // Checkpoint strict : si waSyncedAt existe, on ne scanne que les nouveautés (avec 5 min de marge) ; sinon rattrapage 72h
+  // Checkpoint strict : si waSyncedAt (v2) existe, on ne scanne que les nouveautés (avec 5 min de marge) ; sinon rattrapage 72h
   const waCutoffSec = waSinceAt
     ? Math.max(0, Math.floor(Date.parse(waSinceAt) / 1000) - 300)
     : Math.floor((Date.now() - 72 * 3600 * 1000) / 1000);
@@ -554,7 +556,7 @@ export default async function handler(req: any, res: any) {
         '  "verdict": "2 à 3 phrases directes et concrètes sur l\'activité WhatsApp réelle, les ventes détectées et le profil client.",',
         '  "recommendations": ["Action concrète 1", "Action concrète 2"]',
         '}',
-        'Règle stricte pour "detectedSales" : n\'inclus un chat QUE si les messages prouvent vraiment un paiement reçu ou une livraison de chanson effectuée (ex: lien d\'écoute/chanson envoyée, "paiement reçu", "j\'ai écouté", "merci beaucoup pour la chanson"). Mets dans "saleDateIso" la date exacte (`at`) du message où le paiement ou la livraison a eu lieu (pour bien séparer hier, aujourd\'hui et les autres jours). Ne devine pas une vente sur un simple "Bonjour".',
+        'Règle stricte pour "detectedSales" : n\'inclus un chat QUE si les messages prouvent vraiment un paiement reçu ou une livraison de chanson effectuée : par exemple [DOCUMENT] ou [AUDIO/VOCAL] ou [VIDEO] envoyé par Moi ("Vos chansons", "Votre chanson", "Bonne écoute"), lien d\'écoute envoyé, "paiement reçu", "vous serez livré", "à tout à l\'heure pour la chanson", "merci pour la confiance", "j\'ai écouté", "merci beaucoup pour la chanson". Mets dans "saleDateIso" la date exacte (`at`) du message où le paiement ou la livraison a eu lieu (pour bien séparer hier, aujourd\'hui et les autres jours). Ne devine pas une vente sur un simple "Bonjour" ou une demande de prix.',
       ].join('\n');
 
       const aiRes = await fetch('https://api.kie.ai/openai/v1/responses', {
@@ -710,6 +712,7 @@ export default async function handler(req: any, res: any) {
   const report = {
     analyzedAt: nowIso,
     waSyncedAt: nowIso,
+    waScannerVersion: 2,
     sinceAt,
     deltaOrders: totalNewOrders,
     deltaRevenue: totalNewRevenue,
