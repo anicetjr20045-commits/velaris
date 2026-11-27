@@ -8,8 +8,9 @@ import {
   LogOut,
   Menu,
   X,
-  ArrowUpRight,
-  Smartphone
+  Smartphone,
+  AlertTriangle,
+  CalendarClock
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import type { Order, StudioMetrics } from '../types';
@@ -106,12 +107,20 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     });
   }, []);
 
-  const isPro = useMemo(() => {
+  const subscriptionInfo = useMemo(() => {
+    const expiresTime = subscription.expiresAt ? new Date(subscription.expiresAt).getTime() : 0;
+    const now = Date.now();
+    const hasActiveDate = Boolean(subscription.expiresAt) && expiresTime > now;
+    const daysRemaining = hasActiveDate ? Math.ceil((expiresTime - now) / (1000 * 3600 * 24)) : 0;
+    const exactDateLabel = subscription.expiresAt
+      ? new Date(subscription.expiresAt).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : null;
+
     if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname.toLowerCase();
-      if (hostname === 'app.djelia.store' || hostname.startsWith('app.') || hostname.includes('velaris-dun')) {
-        return true;
-      }
       const search = window.location.search;
       const hash = window.location.hash.toLowerCase();
       if (
@@ -120,30 +129,35 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
         hash.includes('preview=true') ||
         hash.includes('demo=1')
       ) {
-        return true;
-      }
-      try {
-        if (
-          sessionStorage.getItem('velaris_preview_mode') === 'true' ||
-          localStorage.getItem('velaris_preview_mode') === 'true'
-        ) {
-          return true;
-        }
-      } catch {
-        // ignore
+        return { isPro: true, daysRemaining, isExpiringSoon: false, exactDateLabel };
       }
     }
 
-    if (user?.email && (user.email.includes('admin') || user.email.includes('anicet') || user.email.includes('05777308'))) return true;
     const phone = String(user?.user_metadata?.phone || user?.phone || '');
-    if (phone.includes('05777308') || phone.includes('56240533') || phone.includes('58357772')) return true;
-    if (user?.user_metadata?.plan === 'pro' || user?.user_metadata?.subscription_status === 'ACTIVE') return true;
+    const isAdminBypass =
+      Boolean(user?.email && (user.email.includes('admin') || user.email.includes('anicet') || user.email.includes('05777308'))) ||
+      phone.includes('05777308') ||
+      phone.includes('56240533') ||
+      phone.includes('58357772');
 
-    const hasActiveDate = subscription.expiresAt
-      ? new Date(subscription.expiresAt).getTime() > Date.now()
-      : false;
-    return subscription.status === 'active' && hasActiveDate;
+    if (isAdminBypass || user?.user_metadata?.plan === 'pro') {
+      return { isPro: true, daysRemaining, isExpiringSoon: hasActiveDate && daysRemaining <= 5, exactDateLabel };
+    }
+
+    // Si une date d'expiration est connue, elle fait foi même si subscription_status n'a pas encore basculé
+    const activeByDate = subscription.expiresAt
+      ? hasActiveDate
+      : subscription.status === 'active' || user?.user_metadata?.subscription_status === 'ACTIVE';
+
+    return {
+      isPro: activeByDate,
+      daysRemaining,
+      isExpiringSoon: activeByDate && hasActiveDate && daysRemaining <= 5 && daysRemaining > 0,
+      exactDateLabel,
+    };
   }, [subscription, user]);
+
+  const isPro = subscriptionInfo.isPro;
 
   const handleTabClick = (tab: PrimaryTab) => {
     setCurrentTab(tab);
@@ -195,57 +209,6 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     { id: 'studio_ai', label: 'Studio IA', icon: Music2 },
     { id: 'profile', label: 'Crédits & Compte', icon: SlidersHorizontal },
   ];
-
-  // Paywall minimaliste si l'utilisateur n'est pas abonné
-  if (!isPro) {
-    const isExpired =
-      subscription.status === 'expired' ||
-      Boolean(subscription.expiresAt && new Date(subscription.expiresAt).getTime() <= Date.now());
-
-    return (
-      <div className="min-h-screen bg-[#06070A] text-[#F5F6FA] flex flex-col">
-        <header className="h-16 border-b border-white/[0.06] bg-[#06070A]/90 backdrop-blur-xl px-5 sm:px-8 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#E2BD6B]/15 flex items-center justify-center font-bold text-[#E2BD6B] text-sm">
-              V
-            </div>
-            <span className="font-bold text-base tracking-tight text-white">Velaris</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onReturnToHome}
-              className="text-xs font-medium text-[#8A90A0] hover:text-white px-3 py-2 cursor-pointer transition-colors"
-            >
-              Accueil
-            </button>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="text-xs font-medium text-rose-400 hover:text-rose-300 px-3 py-2 cursor-pointer transition-colors"
-            >
-              Déconnexion
-            </button>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-3xl w-full mx-auto p-5 sm:p-8 flex items-center justify-center">
-          <PlanGate
-            isPro={false}
-            featureDescription={
-              isExpired
-                ? 'Votre abonnement a expiré. Réactivez votre Pass Créateur (4 900 F CFA) pour retrouver vos revenus, WhatsApp et le Studio IA.'
-                : 'Activez votre Pass Créateur (4 900 F CFA / 30 jours) pour débloquer l’ensemble des outils et vos 30 crédits.'
-            }
-            onUpgrade={handleUpgradeToPro}
-          >
-            {null}
-          </PlanGate>
-        </main>
-      </div>
-    );
-  }
 
   const sidebarContent = (
     <div className="h-full flex flex-col justify-between p-6">
@@ -303,18 +266,6 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
             );
           })}
         </nav>
-
-        {/* Lien retour vitrine discret */}
-        <div className="pt-2 border-t border-white/[0.06]">
-          <button
-            type="button"
-            onClick={onReturnToHome}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-xs font-medium text-[#8A90A0] hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer"
-          >
-            <span>Voir le site public</span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
       </div>
 
       {/* Pied de menu : Compte & Déconnexion */}
@@ -327,8 +278,12 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
           <p className="text-xs font-semibold text-white truncate group-hover:text-[#E2BD6B] transition-colors">
             {userDisplayName}
           </p>
-          <p className="text-[11px] text-[#10D98E] mt-0.5 tabular-nums">
-            Pass Actif · {credits.balance.toFixed(0)} cr.
+          <p className={`text-[11px] mt-0.5 tabular-nums ${isPro ? 'text-[#10D98E]' : 'text-rose-400'}`}>
+            {isPro
+              ? subscriptionInfo.exactDateLabel
+                ? `Fin ${subscriptionInfo.exactDateLabel} · ${credits.balance.toFixed(0)} cr.`
+                : `Pass Actif · ${credits.balance.toFixed(0)} cr.`
+              : `Pass expiré · ${credits.balance.toFixed(0)} cr.`}
           </p>
         </button>
 
@@ -399,6 +354,46 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
         </header>
 
         <main className="flex-1 w-full max-w-5xl mx-auto px-5 sm:px-8 pt-3 md:pt-10 pb-16">
+          {subscriptionInfo.isExpiringSoon && (
+            <div className="mb-6 p-4 rounded-2xl bg-[#E2BD6B]/10 border border-[#E2BD6B]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 text-[#F5D060]">
+                <CalendarClock className="w-4 h-4 shrink-0" />
+                <span>
+                  Votre Pass Créateur expire dans{' '}
+                  <strong>
+                    {subscriptionInfo.daysRemaining} jour{subscriptionInfo.daysRemaining > 1 ? 's' : ''}
+                  </strong>
+                  {subscriptionInfo.exactDateLabel ? ` (le ${subscriptionInfo.exactDateLabel})` : ''}. Renouvelez à temps pour éviter le blocage du Studio IA et de WhatsApp.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTabClick('profile')}
+                className="px-3.5 py-1.5 rounded-xl bg-[#E2BD6B] text-black font-semibold hover:bg-[#F5D060] transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                Renouveler
+              </button>
+            </div>
+          )}
+
+          {!isPro && (
+            <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 text-rose-200">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>
+                  Votre abonnement est expiré{subscriptionInfo.exactDateLabel ? ` depuis le ${subscriptionInfo.exactDateLabel}` : ''}. Le Studio IA, WhatsApp IA et l’Affiliation sont bloqués jusqu’au renouvellement.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTabClick('profile')}
+                className="px-3.5 py-1.5 rounded-xl bg-white text-black font-semibold hover:bg-white/90 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                Réactiver mon Pass
+              </button>
+            </div>
+          )}
+
           {currentTab === 'revenus' && (
             <RevenusView
               orders={orders}
@@ -407,10 +402,34 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
               onOpenVentes={() => handleTabClick('studio_ai')}
             />
           )}
-          {currentTab === 'whatsapp' && <SimpleWhatsAppView />}
-          {currentTab === 'affiliation' && <AffiliationView />}
+          {currentTab === 'whatsapp' && (
+            <PlanGate
+              isPro={isPro}
+              featureDescription="Votre Pass Créateur a expiré. Réactivez-le pour accéder à WhatsApp IA, au QR Code et aux automatisations."
+              onUpgrade={handleUpgradeToPro}
+            >
+              <SimpleWhatsAppView />
+            </PlanGate>
+          )}
+          {currentTab === 'affiliation' && (
+            <PlanGate
+              isPro={isPro}
+              featureDescription="Votre Pass Créateur a expiré. Réactivez-le pour gérer votre mini-site et vos commissions d’affiliation."
+              onUpgrade={handleUpgradeToPro}
+            >
+              <AffiliationView />
+            </PlanGate>
+          )}
           {currentTab === 'academy' && renderAcademy()}
-          {currentTab === 'studio_ai' && renderStudioAI()}
+          {currentTab === 'studio_ai' && (
+            <PlanGate
+              isPro={isPro}
+              featureDescription="Votre Pass Créateur a expiré. Réactivez-le pour générer des chansons, voix et vidéos lyrics dans le Studio IA."
+              onUpgrade={handleUpgradeToPro}
+            >
+              {renderStudioAI()}
+            </PlanGate>
+          )}
           {currentTab === 'profile' && (
             <StudioProfileView
               onOpenWhatsApp={() => handleTabClick('whatsapp')}

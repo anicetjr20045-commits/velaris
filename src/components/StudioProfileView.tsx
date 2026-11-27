@@ -349,7 +349,8 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
           <div>
             <p className="text-base font-semibold text-white">Pass Créateur</p>
             <p className="text-xs text-[#8A90A0] mt-0.5">
-              4 900 F CFA / mois · Échéance {fmtDate(subscription.expiresAt)}
+              4 900 F CFA / mois · Fin exacte le {fmtDate(subscription.expiresAt)}
+              {!isExpired && daysRemaining > 0 ? ` (${daysRemaining} j. restants)` : ''}
             </p>
           </div>
           <span

@@ -152,7 +152,7 @@ export const StudioView: FC<StudioViewProps> = ({
 }) => {
   const { user } = useAuth();
   const userMeta = (user?.user_metadata || {}) as Record<string, any>;
-  const studioName = String(userMeta.studio_name || 'Djelia Studio');
+  const studioName = String(userMeta.studio_name || '').trim() || 'Djelia Studio';
   const studioSlug = String(
     userMeta.studio_slug ||
       studioName

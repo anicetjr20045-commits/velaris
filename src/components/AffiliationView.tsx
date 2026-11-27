@@ -29,6 +29,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../services/supabase';
+import {
+  formatChariowFullPhone,
+  getSavedChariowPaymentInfo,
+  saveChariowPaymentInfo,
+  type CountryInfo,
+} from '../services/chariow';
+import { ChariowCountryPhonePicker } from './ChariowCountryPhonePicker';
 
 const COLOR_PRESETS = [
   { id: '#E2BD6B', name: 'Or Champagne', class: 'bg-[#E2BD6B]' },
@@ -140,7 +147,11 @@ export const AffiliationView: FC = () => {
   // État Affiliation 50% & Retrait WhatsApp
   const [copiedKey, setCopiedKey] = useState<'mini' | 'short' | null>(null);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [withdrawPhone, setWithdrawPhone] = useState((meta.phone as string) || '');
+  const initialWithdrawPayment = getSavedChariowPaymentInfo((meta.phone as string) || '');
+  const [withdrawCountry, setWithdrawCountry] = useState<CountryInfo>(initialWithdrawPayment.country);
+  const [withdrawPhone, setWithdrawPhone] = useState(initialWithdrawPayment.localPhone);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('');
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawName, setWithdrawName] = useState((meta.full_name as string) || '');
   const [withdrawOperator, setWithdrawOperator] = useState('Wave');
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
@@ -444,15 +455,32 @@ export const AffiliationView: FC = () => {
 
   const handleRequestWithdraw = async (e: FormEvent) => {
     e.preventDefault();
-    if (!withdrawPhone.trim()) return;
+    setWithdrawError(null);
+    const fullPhone = formatChariowFullPhone(withdrawCountry, withdrawPhone);
+    if (!fullPhone) {
+      setWithdrawError('Veuillez saisir un numéro Mobile Money valide.');
+      return;
+    }
+
+    const parsedAmount = Math.round(Number(withdrawAmount || balanceCfa));
+    if (!Number.isFinite(parsedAmount) || parsedAmount < minWithdrawThreshold) {
+      setWithdrawError(`Le montant minimum de retrait est de ${minWithdrawThreshold.toLocaleString('fr-FR')} F CFA.`);
+      return;
+    }
+    if (parsedAmount > balanceCfa) {
+      setWithdrawError(`Le montant demandé dépasse votre solde disponible (${balanceCfa.toLocaleString('fr-FR')} F CFA).`);
+      return;
+    }
+
+    saveChariowPaymentInfo(withdrawCountry.code, withdrawPhone);
 
     if (user?.id) {
       try {
         await (supabase.from('affiliate_payouts') as any).insert({
           user_id: user.id,
-          amount: balanceCfa,
+          amount: parsedAmount,
           operator: withdrawOperator,
-          phone_number: withdrawPhone.trim(),
+          phone_number: `+${fullPhone}`,
           status: 'pending',
         });
       } catch {}
@@ -461,10 +489,12 @@ export const AffiliationView: FC = () => {
     setWithdrawSuccess(true);
 
     const textMsg =
-      `Bonjour l’équipe ! Je souhaite effectuer un retrait de mes commissions d'affiliation de ${balanceCfa.toLocaleString('fr-FR')} F CFA (50% de mes ventes).\n\n` +
+      `Bonjour l’équipe ! Je souhaite effectuer un retrait de mes commissions d'affiliation.\n\n` +
+      `Montant demandé : ${parsedAmount.toLocaleString('fr-FR')} F CFA\n` +
+      `Pays : ${withdrawCountry.flag} ${withdrawCountry.name} (${withdrawCountry.dialCode})\n` +
       `Studio : ${studioName} (Slug: ${cleanSlug})\n` +
       `Opérateur : ${withdrawOperator}\n` +
-      `Numéro de réception : ${withdrawPhone.trim()}\n` +
+      `Numéro de réception : +${fullPhone}\n` +
       `Nom du titulaire : ${withdrawName.trim() || studioName}\n\n` +
       `Merci de procéder au virement !`;
 
@@ -1471,19 +1501,53 @@ export const AffiliationView: FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="payout-phone" className="block text-xs font-medium text-[#8A90A0]">
-                  Numéro de réception ({withdrawOperator})
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="payout-amount" className="block text-xs font-medium text-[#8A90A0]">
+                    Montant à retirer (F CFA)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setWithdrawAmount(String(minWithdrawThreshold))}
+                      className="px-2 py-0.5 rounded-md bg-white/[0.06] hover:bg-white/[0.12] text-[10px] text-white/80 cursor-pointer"
+                    >
+                      1 500 F
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWithdrawAmount(String(balanceCfa))}
+                      className="px-2 py-0.5 rounded-md bg-white/[0.06] hover:bg-white/[0.12] text-[10px] text-white/80 cursor-pointer"
+                    >
+                      Tout
+                    </button>
+                  </div>
+                </div>
                 <input
-                  id="payout-phone"
-                  type="tel"
-                  value={withdrawPhone}
-                  onChange={(e) => setWithdrawPhone(e.target.value)}
-                  placeholder="+225 07 00 00 00 ou +226 70 00 00 00"
+                  id="payout-amount"
+                  type="number"
+                  min={minWithdrawThreshold}
+                  max={balanceCfa}
+                  step={100}
+                  value={withdrawAmount || balanceCfa}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#06070A] border border-white/[0.08] text-sm text-white tabular-nums focus:outline-none focus:border-[#E2BD6B]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#06070A] border border-white/[0.08] text-sm font-bold text-white tabular-nums focus:outline-none focus:border-[#E2BD6B]"
                 />
               </div>
+
+              <ChariowCountryPhonePicker
+                compact
+                selectedCountry={withdrawCountry}
+                phoneNumber={withdrawPhone}
+                onCountryChange={(c) => {
+                  setWithdrawCountry(c);
+                  saveChariowPaymentInfo(c.code, withdrawPhone);
+                }}
+                onPhoneChange={(digits) => {
+                  setWithdrawPhone(digits);
+                  saveChariowPaymentInfo(withdrawCountry.code, digits);
+                }}
+              />
 
               <div className="space-y-1.5">
                 <label htmlFor="payout-name" className="block text-xs font-medium text-[#8A90A0]">
@@ -1499,6 +1563,12 @@ export const AffiliationView: FC = () => {
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#06070A] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-[#E2BD6B]"
                 />
               </div>
+
+              {withdrawError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300">
+                  {withdrawError}
+                </div>
+              )}
 
               <div className="pt-2">
                 <button

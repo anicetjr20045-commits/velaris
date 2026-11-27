@@ -25,7 +25,22 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 27 Novembre 2026 (08:35 UTC)
+- **Dernière mise à jour** : 27 Novembre 2026 (22:42 UTC)
+- **Audit Complet, Forfait/Blocage Expiration, Retrait Affiliation & Nettoyage Menu** :
+  - `src/components/DjeliaAppLayout.tsx` : suppression du bypass `hostname === 'app.djelia.store'` dans `isPro` (expiration réelle appliquée), suppression du bouton « Voir le site public », affichage de la date de fin exacte dans la sidebar, alerte d'approche d'expiration (`<= 5 j`) et blocage via `PlanGate` de `studio_ai`, `whatsapp` et `affiliation` quand expiré tout en gardant `profile`, `revenus` et `academy` accessibles pour consulter et renouveler.
+  - `src/components/AffiliationView.tsx` : modale de retrait avec sélecteur pays+drapeau+numéro (`ChariowCountryPhonePicker`), montant personnalisable (>= 1 500 F CFA et <= solde), enregistrement `affiliate_payouts` et redirection WhatsApp.
+  - `src/components/StudioProfileView.tsx` & `src/components/StudioView.tsx` : affichage date exacte de fin + jours restants ; signature vidéo lyrics (`author`) nettoyée depuis `user_metadata.studio_name`.
+  - Audit VPS/WAHA : VPS 7.5 Go RAM (2.5 Go dispo) / 8 vCPU ; `waha.velarisagent.life` tourne en `WEBJS` `CORE` (~6–10 sessions max en RAM, limite multi-session CORE), `waha2` tourne en `GOWS` `CORE` (~80–120 sessions en RAM si passé en tier `PLUS`).
+- **Paiement Chariow (Pays/Drapeaux/Numéro) & Persistance Navigation (`commit 19cebc5`)** :
+  - `src/services/chariow.ts` & `src/components/ChariowCountryPhonePicker.tsx` : sélecteur unifié pays + drapeaux + indicatif + numéro Mobile Money avec mémorisation `localStorage` (`velaris_chariow_country`, `velaris_chariow_phone`) et détection automatique depuis le profil.
+  - `src/components/StudioProfileView.tsx`, `src/components/PlanGate.tsx`, `src/components/DjeliaAppLayout.tsx` : pays et numéro affichés et modifiables à tout moment pour les packs de crédits et le Pass Créateur.
+  - `src/App.tsx` : `parseInitialRoute()` restaure `localStorage` (`velaris_active_tab`, `velaris_studio_subtab`) avant le fallback `isAppDomain` et gère les pathnames (`/studio`, `/profile`, `/whatsapp`, `/affiliation`, `/academy`, `/ventes`, `/cockpit`, `/lines`), empêchant de sortir de la section au rafraîchissement.
+- **Sécurité Crédits, Chariow Pulse & Notifications (`commit 9c47b21`, `velaris-12w4s06f8-velaris6.vercel.app` ● Ready)** :
+  - `api/chariow-webhook.ts` : authentification HMAC/jeton strictement obligatoire (`401` sans signature ni jeton).
+  - `src/services/fishVoice.ts` : suppression du repli client `FALLBACK_FISH_API_KEY`, toute synthèse vocale passe par `/api/fish-voice` avec débit serveur.
+  - `api/chariow-verify.ts`, `src/services/chariow.ts`, `src/components/PaymentSuccessModal.tsx`, `src/components/StudioProfileView.tsx` : confirmation et redirection automatique adaptées aux 3 packs de crédits (`prd_ps1n1r1z` +20, `prd_6x7tpj8z` +55, `prd_x88amcm9` +125) et au Pass Créateur (`prd_bh3vpcup` +30), avec rafraîchissement immédiat du solde.
+  - `src/components/StudioView.tsx` : icône `CheckCircle2` émeraude pour les notifications positives (`tone === 'ok'`) au lieu de `AlertTriangle`.
+  - Vérification live (`https://app.djelia.store`) : `POST /api/chariow-webhook`, `POST /api/suno?action=generate` et `POST /api/fish-voice` sans authentification renvoient tous `401`.
 - **Migration Supabase & Architecture Zéro-Surcoût (Plan Gratuit Optimisé)** :
   1. **Migration Complète vers `zoamdwupbhegcmancaeu.supabase.co`** :
      - Suite au dépassement des quotas gratuits (`exceed_egress_quota` + Log Ingestion) sur l'ancien projet `dnwlqgsftauqsyjwhoza`, migration complète réalisée via `pg_dump`/`psql` (8 utilisateurs `auth.users` + `identities`, 756 commandes, 862 contacts, 856 conversations, 41 règles d'automatisation, 7 pistes partagées, triggers `auth.users` et fonctions RPC) pour une taille totale de base de **36 Mo / 500 Mo**.
