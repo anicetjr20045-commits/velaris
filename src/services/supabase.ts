@@ -41,7 +41,7 @@ const metaEnv = (import.meta as any)?.env || {};
 export const SUPABASE_CONFIG = {
   projectId: metaEnv.VITE_SUPABASE_PROJECT_ID || 'zoamdwupbhegcmancaeu',
   url: metaEnv.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co',
-  publishableKey: metaEnv.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_38Tf-R7h1t-aFeNmOv6vMg_-VgH3DDI',
+  publishableKey: metaEnv.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_MlmyfrUphWnT6VpPAabFDg_rsvKZku_',
 };
 
 // Instance du client Supabase

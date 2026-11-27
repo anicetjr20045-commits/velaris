@@ -25,7 +25,18 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 25 Novembre 2026 (14:18 UTC)
+- **Dernière mise à jour** : 27 Novembre 2026 (08:35 UTC)
+- **Migration Supabase & Architecture Zéro-Surcoût (Plan Gratuit Optimisé)** :
+  1. **Migration Complète vers `zoamdwupbhegcmancaeu.supabase.co`** :
+     - Suite au dépassement des quotas gratuits (`exceed_egress_quota` + Log Ingestion) sur l'ancien projet `dnwlqgsftauqsyjwhoza`, migration complète réalisée via `pg_dump`/`psql` (8 utilisateurs `auth.users` + `identities`, 756 commandes, 862 contacts, 856 conversations, 41 règles d'automatisation, 7 pistes partagées, triggers `auth.users` et fonctions RPC) pour une taille totale de base de **36 Mo / 500 Mo**.
+     - Exclusion volontaire de l'historique brut de `inbound_events` (61k lignes) pour garder la base légère, avec purge automatique 24h (`agent_cleanup_stale_events`).
+  2. **Réduction > 99% des Requêtes & Log Ingestion (`engine/src/main.ts`, `http.ts`)** :
+     - Remplacement du polling fixe 500 ms sur `turn-worker` et `outbox` (~10,6 millions de requêtes/mois à vide) par un **backoff adaptatif** (400 ms actif ➔ 60 s au repos) avec **réveil instantané (0 ms)** à réception d'un webhook WAHA.
+     - Ralentissement de `turn-sweeper` (120 s) et `stale-events` (60 s), et désactivation des WebSockets Realtime inutiles côté frontend (`subscribeStudioRealtime`).
+  3. **Déportation Totale des Médias hors Supabase Storage (`waha.velarisagent.life/qr/media/*`)** :
+     - Ajout de `POST /api/media/upload` dans `velaris-engine` (authentifié par JWT Supabase avec cache 60 s, écriture dans `/root/waha-vps-setup/qrserve/media`, servi en HTTPS direct par Caddy).
+     - Mise à jour de `shared-tracks.ts` et `supabase.ts` pour ne plus consommer d'egress Supabase Storage.
+     - Mise à jour Vercel (`app.djelia.store`) et VPS (`velaris-engine` + `caddy`) validée en production.
 - **Gestion Complète des Liens d'Écoute Privée (Y compris Liens Déjà Envoyés)** :
   1. **Synchronisation Live (`api/audio-stream.ts?mode=list` & `mode=manage`)** :
      - Récupération authentifiée de tous les liens créés dans `shared_tracks` (y compris les anciens liens créés avec `user_id: null` comme `sonia-ruth-fki8m`, `sonia-ruth-eowc4`, `client-5rgwm`).
