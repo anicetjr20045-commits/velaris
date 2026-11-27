@@ -25,12 +25,16 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 27 Novembre 2026 (22:42 UTC)
-- **Audit Complet, Forfait/Blocage Expiration, Retrait Affiliation & Nettoyage Menu** :
+- **Dernière mise à jour** : 27 Novembre 2026 (22:53 UTC)
+- **Landing Page, Auth Anti-Fraude & Récupération WhatsApp/Email** :
+  - `src/components/LandingPage.tsx` : correction du Hero (`Encaissez 24h/24 sur WhatsApp`), suppression de toute mention `Suno`, ajout de l'encadré ROI irrésistible (2 chansons vendues remboursent le Pass).
+  - `api/auth-whatsapp.ts` : suivi serveur des tentatives échouées (`failedCodeAttempts`) par `codeHash` en plus du jeton HMAC pour bloquer tout rejeu brute-force.
+  - `src/components/AuthModal.tsx` : récupération de compte (« Mot de passe oublié ? ») disponible par **WhatsApp OTP** (avec passage direct à la définition du nouveau mot de passe) et par **Email**.
+- **Audit Complet, Forfait/Blocage Expiration, Retrait Affiliation & Nettoyage Menu (`commit 7806ac6`)** :
   - `src/components/DjeliaAppLayout.tsx` : suppression du bypass `hostname === 'app.djelia.store'` dans `isPro` (expiration réelle appliquée), suppression du bouton « Voir le site public », affichage de la date de fin exacte dans la sidebar, alerte d'approche d'expiration (`<= 5 j`) et blocage via `PlanGate` de `studio_ai`, `whatsapp` et `affiliation` quand expiré tout en gardant `profile`, `revenus` et `academy` accessibles pour consulter et renouveler.
   - `src/components/AffiliationView.tsx` : modale de retrait avec sélecteur pays+drapeau+numéro (`ChariowCountryPhonePicker`), montant personnalisable (>= 1 500 F CFA et <= solde), enregistrement `affiliate_payouts` et redirection WhatsApp.
   - `src/components/StudioProfileView.tsx` & `src/components/StudioView.tsx` : affichage date exacte de fin + jours restants ; signature vidéo lyrics (`author`) nettoyée depuis `user_metadata.studio_name`.
-  - Audit VPS/WAHA : VPS 7.5 Go RAM (2.5 Go dispo) / 8 vCPU ; `waha.velarisagent.life` tourne en `WEBJS` `CORE` (~6–10 sessions max en RAM, limite multi-session CORE), `waha2` tourne en `GOWS` `CORE` (~80–120 sessions en RAM si passé en tier `PLUS`).
+  - Audit VPS/WAHA : VPS 7.5 Go RAM (2.5 Go dispo) / 8 vCPU ; WAHA `2026.9.2` inclut le multi-session gratuitement dans `CORE` (Plus fusionné dans Core depuis `2026.6.1`). `waha.velarisagent.life` tourne en `WEBJS` (~6–10 sessions max en RAM), `waha2` tourne en `GOWS` (~80–120 sessions simultanées en RAM).
 - **Paiement Chariow (Pays/Drapeaux/Numéro) & Persistance Navigation (`commit 19cebc5`)** :
   - `src/services/chariow.ts` & `src/components/ChariowCountryPhonePicker.tsx` : sélecteur unifié pays + drapeaux + indicatif + numéro Mobile Money avec mémorisation `localStorage` (`velaris_chariow_country`, `velaris_chariow_phone`) et détection automatique depuis le profil.
   - `src/components/StudioProfileView.tsx`, `src/components/PlanGate.tsx`, `src/components/DjeliaAppLayout.tsx` : pays et numéro affichés et modifiables à tout moment pour les packs de crédits et le Pass Créateur.

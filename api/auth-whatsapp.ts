@@ -37,12 +37,16 @@ function getEnvConfig() {
 const phoneRateLimits = new Map<string, { lastSentAt: number; count: number; windowStart: number }>();
 const ipRateLimits = new Map<string, { count: number; windowStart: number }>();
 const usedChallenges = new Map<string, number>();
+const failedCodeAttempts = new Map<string, { count: number; firstAt: number }>();
 
 // Nettoyage périodique des entrées expirées (anti-fuite mémoire)
 function purgeOldCaches() {
   const now = Date.now();
   for (const [hash, timestamp] of usedChallenges.entries()) {
     if (now - timestamp > 600_000) usedChallenges.delete(hash);
+  }
+  for (const [hash, entry] of failedCodeAttempts.entries()) {
+    if (now - entry.firstAt > 600_000) failedCodeAttempts.delete(hash);
   }
   for (const [ip, entry] of ipRateLimits.entries()) {
     if (now - entry.windowStart > 600_000) ipRateLimits.delete(ip);
@@ -303,9 +307,13 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Incohérence entre le numéro et le jeton de sécurité.' });
     }
 
-    // Protection anti-rejeu (Replay attack prevention)
+    // Protection anti-rejeu (Replay attack prevention) & anti brute-force serveur
     if (usedChallenges.has(payload.codeHash)) {
       return res.status(400).json({ error: 'Ce code de vérification a déjà été utilisé.' });
+    }
+    const serverAttempts = failedCodeAttempts.get(payload.codeHash);
+    if (serverAttempts && serverAttempts.count >= 3) {
+      return res.status(400).json({ error: 'Nombre maximal de tentatives dépassé. Demandez un nouveau code.' });
     }
 
     // Calcul du hash attendu avec timing-safe comparison
@@ -315,13 +323,21 @@ export default async function handler(req: any, res: any) {
     const match = expectedBuf.length === checkBuf.length && crypto.timingSafeEqual(expectedBuf, checkBuf);
 
     if (!match) {
-      payload.attemptsLeft -= 1;
+      const nextCount = (serverAttempts?.count || 0) + 1;
+      failedCodeAttempts.set(payload.codeHash, {
+        count: nextCount,
+        firstAt: serverAttempts?.firstAt || Date.now(),
+      });
+      payload.attemptsLeft = Math.max(0, Math.min(payload.attemptsLeft - 1, 3 - nextCount));
       const updatedB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
       const updatedSig = crypto.createHmac('sha256', config.hmacSecret).update(updatedB64).digest('base64url');
       const updatedChallenge = `${updatedB64}.${updatedSig}`;
 
       return res.status(400).json({
-        error: `Code incorrect. Il vous reste ${payload.attemptsLeft} tentative(s) avant verrouillage.`,
+        error:
+          payload.attemptsLeft <= 0
+            ? 'Nombre maximal de tentatives dépassé. Demandez un nouveau code.'
+            : `Code incorrect. Il vous reste ${payload.attemptsLeft} tentative(s) avant verrouillage.`,
         challengeToken: updatedChallenge,
       });
     }

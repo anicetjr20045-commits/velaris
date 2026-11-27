@@ -59,7 +59,7 @@ const BENTO_OFFERS = [
   },
   {
     num: '02',
-    badge: 'Technologie & Moteur Suno V6',
+    badge: 'Technologie Audio Haute Fidélité',
     title: 'Le Studio IA de Composition',
     desc: "Vous n'avez jamais écrit de poème ni joué d'un instrument ? L'intelligence artificielle analyse l'histoire du client, rédige des couplets poétiques en rimes riches et génère 2 versions MP3 complètes masterisées en 15 minutes chrono.",
     icon: Music2,
@@ -208,17 +208,17 @@ export const LandingPage: FC<LandingPageProps> = ({
             <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-inner">
               <span className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]"></span>
               <span className="text-[11px] font-mono tracking-wider text-[#C7CAD4] uppercase font-semibold">
-                Architecture de Commerce Autonome · Chansons & E-books WhatsApp
+                Studio Musical IA & Commerce Autonome WhatsApp
               </span>
             </div>
 
             <h1 className="font-heading text-5xl sm:text-6xl lg:text-[74px] font-extrabold tracking-tight leading-[1.0] text-white">
-              Vendez sans interruption.<br />
-              <span className="text-gradient-gold">Encaissés directement chez vous.</span>
+              Votre Studio Musical IA.<br />
+              <span className="text-gradient-gold">Encaissez 24h/24 sur WhatsApp.</span>
             </h1>
 
             <p className="text-[#C7CAD4] text-base sm:text-lg max-w-2xl font-light leading-relaxed mx-auto lg:mx-0">
-              Déployez une infrastructure commerciale privée. Vos agents autonomes qualifient chaque prospect WhatsApp, rédigent les paroles, composent la musique et déclenchent l'encaissement direct sur vos comptes <span className="text-white font-medium">Wave</span> et <span className="text-white font-medium">Orange Money</span> avec livraison instantanée chiffrée.
+              Aucune compétence musicale requise. L&apos;IA rédige les paroles, compose la chanson en 15 minutes et votre Concierge WhatsApp qualifie vos clients pour encaisser directement sur votre <span className="text-white font-medium">Wave</span> ou <span className="text-white font-medium">Orange Money</span>, sans stock ni livreur.
             </p>
 
             {/* Dual Flagship Actions */}
@@ -933,7 +933,10 @@ export const LandingPage: FC<LandingPageProps> = ({
           })}
         </div>
 
-        <div className="text-center pt-4">
+        <div className="text-center pt-4 space-y-4">
+          <div className="max-w-2xl mx-auto rounded-2xl bg-[#10D98E]/10 border border-[#10D98E]/25 px-5 py-3.5 text-xs sm:text-sm text-[#D7FBE9]">
+            <strong className="text-white">Calcul simple :</strong> le Pass Créateur coûte 4 900 F CFA/mois (163 F/jour) avec 30 crédits inclus. Il suffit de vendre <strong className="text-[#10D98E]">2 chansons à 3 500 F</strong> pour être déjà rentable — tout le reste du mois est du bénéfice net sur votre Mobile Money.
+          </div>
           <button
             type="button"
             disabled={checkoutLoading}

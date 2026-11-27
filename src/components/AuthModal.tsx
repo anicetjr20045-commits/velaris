@@ -151,6 +151,7 @@ export const AuthModal: FC = () => {
   const [now, setNow] = useState(() => Date.now());
   const [sentTo, setSentTo] = useState<{ email: string; kind: 'confirm' | 'reset' } | null>(null);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [resetChannel, setResetChannel] = useState<'whatsapp' | 'email'>('whatsapp');
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const lockRemaining = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
@@ -264,6 +265,11 @@ export const AuthModal: FC = () => {
     if (res.error) {
       registerFailure();
       setErrorMessage(humanizeAuthError(res.error));
+    } else if (authModalMode === 'reset') {
+      setWhatsappStep('phone');
+      setWhatsappOtp('');
+      setSuccessInfo('Identité confirmée. Choisissez votre nouveau mot de passe.');
+      openAuthModal('recovery');
     }
   };
 
@@ -1008,39 +1014,154 @@ export const AuthModal: FC = () => {
 
         {/* ---------------- MODE MOT DE PASSE OUBLIÉ (RESET) ---------------- */}
         {!sentTo && authModalMode === 'reset' && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <Field id="auth-reset-email" label="Adresse email de votre compte" icon={Mail}>
-              <input
-                id="auth-reset-email"
-                type="email"
-                required
-                maxLength={254}
-                autoComplete="email"
-                inputMode="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="contact@monstudio.com"
-                className={inputClass}
-              />
-            </Field>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => {
+                  setResetChannel('whatsapp');
+                  setErrorMessage(null);
+                  setWhatsappStep('phone');
+                }}
+                className={`py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  resetChannel === 'whatsapp' ? 'bg-white text-black font-semibold' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Par WhatsApp (instantané)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setResetChannel('email');
+                  setErrorMessage(null);
+                }}
+                className={`py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  resetChannel === 'email' ? 'bg-white text-black font-semibold' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                Par Email
+              </button>
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading || lockRemaining > 0}
-              className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Envoi en cours…</span>
-                </>
+            {resetChannel === 'whatsapp' ? (
+              whatsappStep === 'phone' ? (
+                <form onSubmit={handleSendWhatsAppCode} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="reset-wa-phone" className="block text-xs font-medium text-neutral-300">
+                      Numéro WhatsApp du compte
+                    </label>
+                    <div className="flex items-center rounded-xl bg-black/50 border border-white/10 focus-within:border-white/30 overflow-hidden">
+                      <select
+                        aria-label="Indicatif pays"
+                        value={countryPrefix}
+                        onChange={(e) => setCountryPrefix(e.target.value)}
+                        className="h-11 px-2.5 bg-white/[0.04] text-xs font-mono text-white border-r border-white/10 focus:outline-none"
+                      >
+                        <option value="+226" className="bg-[#0B0D14]">+226 BF</option>
+                        <option value="+225" className="bg-[#0B0D14]">+225 CI</option>
+                        <option value="+221" className="bg-[#0B0D14]">+221 SN</option>
+                        <option value="+237" className="bg-[#0B0D14]">+237 CM</option>
+                        <option value="+223" className="bg-[#0B0D14]">+223 ML</option>
+                        <option value="+229" className="bg-[#0B0D14]">+229 BJ</option>
+                        <option value="+228" className="bg-[#0B0D14]">+228 TG</option>
+                        <option value="+241" className="bg-[#0B0D14]">+241 GA</option>
+                        <option value="+243" className="bg-[#0B0D14]">+243 CD</option>
+                        <option value="+224" className="bg-[#0B0D14]">+224 GN</option>
+                        <option value="+33" className="bg-[#0B0D14]">+33 FR</option>
+                      </select>
+                      <input
+                        id="reset-wa-phone"
+                        type="tel"
+                        required
+                        value={phoneLocal}
+                        onChange={(e) => setPhoneLocal(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                        placeholder="70 00 00 00"
+                        className="flex-1 h-11 px-3.5 bg-transparent text-sm text-white placeholder-neutral-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || whatsappCooldown > 0}
+                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Envoi sur WhatsApp…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Recevoir le code sur WhatsApp</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
               ) : (
-                <>
-                  <span>Envoyer les instructions</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
+                <form onSubmit={handleVerifyWhatsAppCode} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="reset-wa-otp" className="block text-xs font-medium text-neutral-300 text-center">
+                      Code à 6 chiffres reçu sur WhatsApp
+                    </label>
+                    <input
+                      id="reset-wa-otp"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      required
+                      value={whatsappOtp}
+                      onChange={(e) => setWhatsappOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      className="w-full h-12 rounded-xl bg-black/50 border border-white/15 text-center font-mono text-lg tracking-[0.4em] text-white focus:outline-none focus:border-white/40"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-black hover:bg-neutral-200 transition-all disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Vérifier et réinitialiser</span>}
+                  </button>
+                </form>
+              )
+            ) : (
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <Field id="auth-reset-email" label="Adresse email de votre compte" icon={Mail}>
+                  <input
+                    id="auth-reset-email"
+                    type="email"
+                    required
+                    maxLength={254}
+                    autoComplete="email"
+                    inputMode="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="contact@monstudio.com"
+                    className={inputClass}
+                  />
+                </Field>
+
+                <button
+                  type="submit"
+                  disabled={loading || lockRemaining > 0}
+                  className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-white text-xs font-bold text-black hover:bg-neutral-200 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Envoi en cours…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Envoyer les instructions</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
 
             <button
               type="button"
@@ -1050,7 +1171,7 @@ export const AuthModal: FC = () => {
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Retour à la connexion</span>
             </button>
-          </form>
+          </div>
         )}
 
         {/* ---------------- MODE NOUVEAU MOT DE PASSE (RECOVERY) ---------------- */}
