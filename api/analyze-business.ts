@@ -208,8 +208,13 @@ async function fetchLiveWhatsAppChats(
         batch.map(async (c): Promise<WahaChatDigest | null> => {
           const chatId = String(c.id);
           const ts = Number(c?.lastMessage?.timestamp || c?.timestamp || 0);
-          const digits = chatId.replace(/@.*$/, '').replace(/\D/g, '');
-          const phone = digits ? `+${digits}` : '';
+          const info = c?.lastMessage?._data?.Info;
+          const altJid = [info?.RecipientAlt, info?.SenderAlt]
+            .map((v: any) => String(v || ''))
+            .find((v) => v.endsWith('@s.whatsapp.net') || v.endsWith('@c.us'));
+          const rawPhoneSource = chatId.endsWith('@lid') ? (altJid || '') : chatId;
+          const digits = rawPhoneSource.replace(/@.*$/, '').replace(/\D/g, '');
+          const phone = digits.length >= 8 ? `+${digits}` : '';
           const name = String(c?.name || phone || 'Client WhatsApp').trim();
           let msgs: Array<{ fromMe: boolean; at: string; body: string }> = [];
 
@@ -364,7 +369,7 @@ export default async function handler(req: any, res: any) {
 
   const allOrdersLightQuery = admin
     .from('orders')
-    .select('id, contact_id, amount_cents, price_xof, recipient_name, created_at')
+    .select('id, contact_id, amount_cents, price_xof, status, payment_status, recipient_name, created_at')
     .eq('user_id', userId)
     .limit(2500);
 
@@ -395,8 +400,16 @@ export default async function handler(req: any, res: any) {
     contactLookup.set(c.id, { name: String(c.name || '').trim(), phone: p });
   }
 
+  const isPaidOrder = (o: any) =>
+    o?.payment_status === 'confirmed' ||
+    o?.payment_status === 'paid' ||
+    o?.status === 'delivered' ||
+    o?.status === 'validated' ||
+    o?.status === 'paid';
+
   const existingOrderDayKeys = new Set<string>();
   for (const o of allOrdersLightRes.data || []) {
+    if (!isPaidOrder(o)) continue;
     const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
     const digits = String(cInfo?.phone || '').replace(/\D/g, '');
     const day = String(o.created_at || '').slice(0, 10);
@@ -516,18 +529,16 @@ export default async function handler(req: any, res: any) {
   for (const o of newOrders) {
     deltaRevenue += Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
   }
-  for (const c of newContacts) {
+  for (const c of allContactsLightRes.data || []) {
     const country = detectCountryFromPhone(c.phone);
-    countryMap.set(country, (countryMap.get(country) || 0) + 1);
+    if (country !== 'Autre') countryMap.set(country, (countryMap.get(country) || 0) + 1);
   }
-  for (const wc of waChatsForDemographics) {
+  for (const wc of newlySyncedWaChats) {
     const country = detectCountryFromPhone(wc.phone);
-    countryMap.set(country, (countryMap.get(country) || 0) + 1);
+    if (country !== 'Autre') countryMap.set(country, (countryMap.get(country) || 0) + 1);
   }
 
   let topOccasions: string[] = [];
-  let verdict = '';
-  let recommendations: string[] = [];
   let syncedOrdersCount = 0;
   let syncedRevenue = 0;
 
@@ -552,9 +563,7 @@ export default async function handler(req: any, res: any) {
         '{',
         '  "detectedSales": [ { "chatId": "...", "amountXof": 1200, "saleDateIso": "2026-11-26T18:16:00Z", "occasion": "Anniversaire", "reason": "Livraison audio confirmée" } ],',
         '  "genders": [ { "id": "...", "gender": "femme" | "homme" | "inconnu" } ],',
-        '  "topOccasions": ["Occasion 1", "Occasion 2"],',
-        '  "verdict": "2 à 3 phrases directes et concrètes sur l\'activité WhatsApp réelle, les ventes détectées et le profil client.",',
-        '  "recommendations": ["Action concrète 1", "Action concrète 2"]',
+        '  "topOccasions": ["Occasion 1", "Occasion 2"]',
         '}',
         'Règle stricte pour "detectedSales" : n\'inclus un chat QUE si les messages prouvent vraiment un paiement reçu ou une livraison de chanson effectuée : par exemple [DOCUMENT] ou [AUDIO/VOCAL] ou [VIDEO] envoyé par Moi (même seul sans texte, ou avec "Vos chansons", "Votre chanson", "Bonne écoute"), lien d\'écoute envoyé, "paiement reçu", "vous serez livré", "à tout à l\'heure pour la chanson", "merci pour la confiance", "j\'ai écouté", "merci beaucoup pour la chanson". Pour [VIDEO] livrée, le tarif par défaut est 3000 F. Mets dans "saleDateIso" la date exacte (`at`) du message où le paiement ou la livraison a eu lieu (pour bien séparer hier, aujourd\'hui et les autres jours). Ne devine pas une vente sur un simple "Bonjour" ou une demande de prix.',
       ].join('\n');
@@ -637,8 +646,6 @@ export default async function handler(req: any, res: any) {
             if (!judgedIds.has(item.id)) deltaUnknown += 1;
           }
           if (Array.isArray(parsed.topOccasions)) topOccasions = parsed.topOccasions.slice(0, 4).map(String);
-          if (typeof parsed.verdict === 'string') verdict = parsed.verdict;
-          if (Array.isArray(parsed.recommendations)) recommendations = parsed.recommendations.slice(0, 3).map(String);
         }
       }
     } catch (err) {
@@ -649,10 +656,10 @@ export default async function handler(req: any, res: any) {
     deltaUnknown += ambiguousForAi.length;
   }
 
-  // Recalculer Meilleurs Clients & Fidélité après synchro WhatsApp
+  // Recalculer Meilleurs Clients & Fidélité après synchro WhatsApp (uniquement commandes payées/livrées)
   const { data: finalOrdersLight } = await admin
     .from('orders')
-    .select('id, contact_id, amount_cents, price_xof, recipient_name, created_at')
+    .select('id, contact_id, amount_cents, price_xof, status, payment_status, recipient_name, created_at')
     .eq('user_id', userId)
     .limit(2500);
 
@@ -660,6 +667,7 @@ export default async function handler(req: any, res: any) {
   let totalAllRevenue = 0;
 
   for (const o of finalOrdersLight || []) {
+    if (!isPaidOrder(o)) continue;
     const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
     totalAllRevenue += amt;
     const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
@@ -692,10 +700,6 @@ export default async function handler(req: any, res: any) {
   const totalNewOrders = newOrders.length + syncedOrdersCount;
   const totalNewRevenue = deltaRevenue + syncedRevenue;
   const totalNewContacts = newContacts.length + syncedContactsCount;
-
-  if (!verdict) {
-    verdict = `Analyse WhatsApp + base terminée : ${totalNewOrders} vente(s) (${totalNewRevenue.toLocaleString('fr-FR')} F CFA) et ${totalNewContacts} contact(s) traités.`;
-  }
 
   const baseWomen = reset ? 0 : (existingState?.women_count || 0);
   const baseMen = reset ? 0 : (existingState?.men_count || 0);
@@ -734,8 +738,6 @@ export default async function handler(req: any, res: any) {
     topClients,
     topOccasions,
     topCountries: [...countryMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => ({ name, count })),
-    verdict,
-    recommendations,
   };
 
   const { data: savedState, error: saveErr } = await admin

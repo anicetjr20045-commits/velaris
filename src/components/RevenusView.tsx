@@ -905,19 +905,6 @@ export const RevenusView: FC<RevenusViewProps> = ({
               ))}
             </div>
 
-            <p className="text-xs leading-relaxed text-white/90">{aiReport.verdict}</p>
-
-            {aiReport.recommendations && aiReport.recommendations.length > 0 && (
-              <ul className="space-y-1 text-xs text-[#8A90A0]">
-                {aiReport.recommendations.map((rec, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-[#E2BD6B] font-mono text-[11px]">0{i + 1}</span>
-                    <span>{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
             {(aiReport.returningClientsCount !== undefined || (aiReport.topClients && aiReport.topClients.length > 0)) && (
               <div className="pt-3 border-t border-white/[0.06] grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-3.5 space-y-1.5">
