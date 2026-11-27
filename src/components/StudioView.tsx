@@ -25,6 +25,11 @@ import {
   AlertTriangle,
   Trash2,
   Power,
+  MoreVertical,
+  Repeat,
+  Scissors,
+  FastForward,
+  Layers,
 } from 'lucide-react';
 import type { Order } from '../types';
 import { detectOccasion, generateHouseStyleSong } from '../services/lyricsCorpus';
@@ -66,6 +71,9 @@ export interface GeneratedSong {
   audioUrl: string;
   videoUrl?: string;
   videoStatus?: 'idle' | 'generating' | 'ready' | 'failed';
+  stemsStatus?: 'idle' | 'generating' | 'ready' | 'failed';
+  vocalUrl?: string;
+  instrumentalUrl?: string;
   createdAt: string;
 }
 
@@ -175,6 +183,15 @@ export const StudioView: FC<StudioViewProps> = ({
   const [isGeneratingSong, setIsGeneratingSong] = useState(false);
   const [isOptimizingStyle, setIsOptimizingStyle] = useState(false);
   const [generationStep, setGenerationStep] = useState<string | null>(null);
+  const [formMode, setFormMode] = useState<'create' | 'remix'>('create');
+  const [remixSource, setRemixSource] = useState<{ title: string; uploadUrl?: string; taskId?: string; audioId?: string } | null>(null);
+  const [isUploadingRemixAudio, setIsUploadingRemixAudio] = useState(false);
+  const [openMenuSongId, setOpenMenuSongId] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<{ songId: string; mode: 'replace' | 'extend' } | null>(null);
+  const [toolStartSec, setToolStartSec] = useState('30');
+  const [toolEndSec, setToolEndSec] = useState('45');
+  const [toolPrompt, setToolPrompt] = useState('');
+  const [isRunningTool, setIsRunningTool] = useState(false);
 
   // 5 styles officiels pré-optimisés (cliquables en 1 clic)
   const stylePresets: ReadonlyArray<{ label: string; prompt: string }> = [
@@ -289,10 +306,211 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
+  const pollGenerationTask = async (taskId: string, customTitle: string, customStyle: string, customLyrics: string) => {
+    let completed = false;
+    const started = Date.now();
+    while (Date.now() - started < 6 * 60 * 1000) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const stRes = await fetch(`/api/suno?action=status&taskId=${encodeURIComponent(taskId)}`);
+      const stJson = await stRes.json().catch(() => null);
+      const data = stJson?.data;
+      if (!data) continue;
+
+      const rawStatus = String(data.status || '').toUpperCase();
+      const sunoData = data.response?.sunoData || data.sunoData || [];
+
+      if (rawStatus === 'FIRST_SUCCESS') {
+        setGenerationStep('Version 1 prête, finalisation de la version 2…');
+        continue;
+      }
+
+      if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE') {
+        if (Array.isArray(sunoData) && sunoData.length > 0) {
+          const generatedTracks: GeneratedSong[] = sunoData
+            .filter((t: any) => t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url)
+            .map((t: any, idx: number) => {
+              const durSec = Math.round(Number(t.duration || 150));
+              const m = Math.floor(durSec / 60);
+              const s = durSec % 60;
+              return {
+                id: `song-${taskId}-${idx}-${Date.now()}`,
+                taskId,
+                audioId: t.id || t.audioId || t.audio_id,
+                title: sunoData.length > 1 ? `${t.title || customTitle} (v${idx + 1})` : (t.title || customTitle),
+                recipient: currentOrder?.recipient || customTitle,
+                occasion: currentOrder?.occasion || 'Création Studio',
+                style: t.tags || customStyle || 'Afro-Love',
+                voice: songVoice,
+                duration: `${m}:${s < 10 ? '0' : ''}${s}`,
+                durationSeconds: durSec,
+                lyrics: t.prompt || customLyrics || 'Composition instrumentale',
+                coverUrl: t.imageUrl || t.image_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+                audioUrl: t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url,
+                videoStatus: 'idle',
+                createdAt: new Date().toISOString(),
+              };
+            });
+
+          if (generatedTracks.length > 0) {
+            setLibrarySongs((prev) => [...generatedTracks, ...prev]);
+            if (currentOrder && onUpdateOrder) {
+              onUpdateOrder({ ...currentOrder, status: 'production_suno' });
+            }
+            notifyStudio(`${generatedTracks.length} version(s) prête(s) et ajoutée(s) à votre discothèque.`, 'ok');
+            completed = true;
+            break;
+          }
+        }
+      } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR' || rawStatus === 'CREATE_TASK_FAILED') {
+        notifyStudio(data.errorMessage || data.failReason || 'Échec de génération musicale.', 'error');
+        completed = true;
+        break;
+      }
+    }
+    if (!completed) {
+      notifyStudio('La génération prend plus de temps que prévu. Vérifiez votre historique dans un instant.', 'warn');
+    }
+  };
+
+  const handleUploadRemixAudio = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingRemixAudio(true);
+    try {
+      const publicUrl = await uploadAudioTrack(file);
+      setRemixSource({ title: file.name.replace(/\.[^.]+$/, ''), uploadUrl: publicUrl });
+      notifyStudio('Audio importé. Modifiez les paroles, la voix ou le style puis lancez le remix.', 'ok');
+    } catch (err: any) {
+      notifyStudio(err?.message || 'Impossible d’importer ce fichier audio.', 'error');
+    } finally {
+      setIsUploadingRemixAudio(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleStartRemixFromSong = (song: GeneratedSong) => {
+    setFormMode('remix');
+    setRemixSource({
+      title: song.title,
+      uploadUrl: song.audioUrl,
+      taskId: song.taskId,
+      audioId: song.audioId,
+    });
+    setSongTitle(`${song.title.replace(/\s*\(v\d+\)$/i, '')} (Remix)`);
+    if (song.style) setSongStyle(song.style);
+    if (song.lyrics) setSongLyrics(song.lyrics);
+    setOpenMenuSongId(null);
+    notifyStudio(`« ${song.title} » chargé en mode Remix. Modifiez les paroles ou la voix.`, 'ok');
+  };
+
+  const handleRunSongTool = async (song: GeneratedSong) => {
+    if (!activeTool || !song.taskId || !song.audioId) {
+      notifyStudio('Cette action est disponible uniquement sur les morceaux générés dans le studio.', 'warn');
+      return;
+    }
+    setIsRunningTool(true);
+    try {
+      const isReplace = activeTool.mode === 'replace';
+      const endpoint = isReplace ? '/api/suno?action=replace-section' : '/api/suno?action=extend';
+      const body = isReplace
+        ? {
+            taskId: song.taskId,
+            audioId: song.audioId,
+            infillStartS: Number(toolStartSec),
+            infillEndS: Number(toolEndSec),
+            prompt: toolPrompt.trim() || song.lyrics,
+            fullLyrics: song.lyrics,
+            style: song.style,
+            title: `${song.title} (Corrigé)`.slice(0, 80),
+            vocalGender: song.voice === 'Féminine' ? 'f' : song.voice === 'Masculine' ? 'm' : 'duo',
+          }
+        : {
+            audioId: song.audioId,
+            continueAt: Number(toolStartSec),
+            prompt: toolPrompt.trim(),
+            style: song.style,
+            title: `${song.title} (Suite)`.slice(0, 80),
+            vocalGender: song.voice === 'Féminine' ? 'f' : song.voice === 'Masculine' ? 'm' : 'duo',
+          };
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.taskId) {
+        notifyStudio(json.error || 'Impossible de lancer cette modification.', 'error');
+        return;
+      }
+      setActiveTool(null);
+      setIsGeneratingSong(true);
+      setGenerationStep(isReplace ? 'Correction du passage en cours…' : 'Prolongement du morceau en cours…');
+      await pollGenerationTask(String(json.taskId), body.title, song.style, toolPrompt.trim() || song.lyrics);
+    } catch (err: any) {
+      notifyStudio(err?.message || 'Erreur réseau lors de la modification.', 'error');
+    } finally {
+      setIsRunningTool(false);
+      setIsGeneratingSong(false);
+      setGenerationStep(null);
+    }
+  };
+
+  const handleSeparateVocals = async (song: GeneratedSong) => {
+    setOpenMenuSongId(null);
+    if (!song.taskId || !song.audioId) {
+      notifyStudio('La séparation voix/instrumental est disponible pour les morceaux générés dans le studio.', 'warn');
+      return;
+    }
+    setLibrarySongs((prev) => prev.map((s) => (s.id === song.id ? { ...s, stemsStatus: 'generating' } : s)));
+    notifyStudio(`Séparation voix & instrumental lancée pour « ${song.title} »…`, 'ok');
+    try {
+      const res = await fetch('/api/suno?action=separate-vocals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: song.taskId, audioId: song.audioId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.taskId) {
+        setLibrarySongs((prev) => prev.map((s) => (s.id === song.id ? { ...s, stemsStatus: 'failed' } : s)));
+        notifyStudio(json.error || 'Impossible de lancer la séparation.', 'error');
+        return;
+      }
+      const vTaskId = String(json.taskId);
+      const started = Date.now();
+      while (Date.now() - started < 4 * 60 * 1000) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const stRes = await fetch(`/api/suno?action=vocal-status&taskId=${encodeURIComponent(vTaskId)}`);
+        const stJson = await stRes.json().catch(() => null);
+        const data = stJson?.data;
+        if (!data) continue;
+        const flag = String(data.successFlag || data.status || '').toUpperCase();
+        const vocalUrl = data.response?.vocalUrl || data.response?.vocal_url;
+        const instrumentalUrl = data.response?.instrumentalUrl || data.response?.instrumental_url;
+        if ((flag === 'SUCCESS' || flag === 'COMPLETE' || flag === '1') && (vocalUrl || instrumentalUrl)) {
+          setLibrarySongs((prev) =>
+            prev.map((s) => (s.id === song.id ? { ...s, stemsStatus: 'ready', vocalUrl, instrumentalUrl } : s))
+          );
+          notifyStudio(`Pistes Voix & Instrumental prêtes pour « ${song.title} » !`, 'ok');
+          return;
+        }
+        if (flag === 'FAILED' || flag === 'ERROR') break;
+      }
+      setLibrarySongs((prev) => prev.map((s) => (s.id === song.id ? { ...s, stemsStatus: 'failed' } : s)));
+      notifyStudio('Échec de la séparation voix & instrumental.', 'error');
+    } catch {
+      setLibrarySongs((prev) => prev.map((s) => (s.id === song.id ? { ...s, stemsStatus: 'failed' } : s)));
+      notifyStudio('Erreur réseau lors de la séparation.', 'error');
+    }
+  };
+
   const handleGenerateSong = async (e: FormEvent) => {
     e.preventDefault();
     if (!songTitle.trim()) {
       notifyStudio('Veuillez saisir un titre pour la chanson.', 'error');
+      return;
+    }
+    if (formMode === 'remix' && !remixSource?.uploadUrl && !(remixSource?.taskId && remixSource?.audioId)) {
+      notifyStudio('Importez un audio ou choisissez une chanson de la discothèque à remixer.', 'error');
       return;
     }
     if (isTitleOver) {
@@ -309,16 +527,20 @@ export const StudioView: FC<StudioViewProps> = ({
     }
 
     setIsGeneratingSong(true);
-    setGenerationStep('Envoi vers le moteur de création…');
+    setGenerationStep(formMode === 'remix' ? 'Lancement du remix…' : 'Envoi vers le moteur de création…');
 
     try {
       const vocalGender =
         songVoice === 'Féminine' ? 'f' : songVoice === 'Masculine' ? 'm' : 'duo';
 
-      const genRes = await fetch('/api/suno?action=generate', {
+      const endpoint = formMode === 'remix' ? '/api/suno?action=remix' : '/api/suno?action=generate';
+      const genRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(formMode === 'remix' && remixSource
+            ? { uploadUrl: remixSource.uploadUrl, taskId: remixSource.taskId, audioId: remixSource.audioId }
+            : {}),
           title: songTitle.trim(),
           style: songStyle.trim() || 'Emotional Afro-Love with a Warm African Groove',
           prompt: songLyrics.trim(),
@@ -339,73 +561,8 @@ export const StudioView: FC<StudioViewProps> = ({
       }
 
       const taskId = String(genJson.taskId);
-      setGenerationStep('Composition en cours (1 à 3 min)…');
-
-      // Polling jusqu'à obtention complète des 2 versions
-      let completed = false;
-      const started = Date.now();
-      while (Date.now() - started < 6 * 60 * 1000) {
-        await new Promise((r) => setTimeout(r, 5000));
-        const stRes = await fetch(`/api/suno?action=status&taskId=${encodeURIComponent(taskId)}`);
-        const stJson = await stRes.json().catch(() => null);
-        const data = stJson?.data;
-        if (!data) continue;
-
-        const rawStatus = String(data.status || '').toUpperCase();
-        const sunoData = data.response?.sunoData || data.sunoData || [];
-
-        if (rawStatus === 'FIRST_SUCCESS') {
-          setGenerationStep('Version 1 prête, finalisation de la version 2…');
-          continue;
-        }
-
-        if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE') {
-          if (Array.isArray(sunoData) && sunoData.length > 0) {
-            const generatedTracks: GeneratedSong[] = sunoData
-              .filter((t: any) => t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url)
-              .map((t: any, idx: number) => {
-                const durSec = Math.round(Number(t.duration || 150));
-                const m = Math.floor(durSec / 60);
-                const s = durSec % 60;
-                return {
-                  id: `song-${taskId}-${idx}-${Date.now()}`,
-                  taskId,
-                  audioId: t.id || t.audioId || t.audio_id,
-                  title: sunoData.length > 1 ? `${t.title || songTitle.trim()} (v${idx + 1})` : (t.title || songTitle.trim()),
-                  recipient: currentOrder?.recipient || songTitle.trim(),
-                  occasion: currentOrder?.occasion || 'Création Studio',
-                  style: t.tags || songStyle.trim() || 'Afro-Love',
-                  voice: songVoice,
-                  duration: `${m}:${s < 10 ? '0' : ''}${s}`,
-                  durationSeconds: durSec,
-                  lyrics: t.prompt || songLyrics.trim() || 'Composition instrumentale',
-                  coverUrl: t.imageUrl || t.image_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
-                  audioUrl: t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url,
-                  videoStatus: 'idle',
-                  createdAt: new Date().toISOString(),
-                };
-              });
-
-            if (generatedTracks.length > 0) {
-              setLibrarySongs((prev) => [...generatedTracks, ...prev]);
-              if (currentOrder && onUpdateOrder) {
-                onUpdateOrder({ ...currentOrder, status: 'production_suno' });
-              }
-              notifyStudio(`${generatedTracks.length} version(s) prête(s) et ajoutée(s) à votre discothèque.`, 'ok');
-              completed = true;
-              break;
-            }
-          }
-        } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR' || rawStatus === 'CREATE_TASK_FAILED') {
-          notifyStudio(data.errorMessage || data.failReason || 'Échec de génération musicale.', 'error');
-          completed = true;
-          break;
-        }
-      }
-
-      if (!completed) {
-        notifyStudio('La génération prend plus de temps que prévu. Vérifiez votre historique dans un instant.', 'warn');
-      }
+      setGenerationStep(formMode === 'remix' ? 'Remix en cours (1 à 3 min)…' : 'Composition en cours (1 à 3 min)…');
+      await pollGenerationTask(taskId, songTitle.trim(), songStyle.trim(), songLyrics.trim());
     } catch (err: any) {
       notifyStudio(`Erreur réseau lors de la génération : ${err?.message || 'inconnue'}`, 'error');
     } finally {
@@ -989,17 +1146,68 @@ export const StudioView: FC<StudioViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in">
           {/* Formulaire de Composition de Chanson */}
           <div className="lg:col-span-5 rounded-3xl border border-white/[0.08] bg-[#08090C] p-5 sm:p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <Wand2 className="w-4 h-4 text-[#E2BD6B]" />
-                <h3 className="text-sm font-bold text-white">Composer une Chanson</h3>
+                <h3 className="text-sm font-bold text-white">
+                  {formMode === 'remix' ? 'Remixer une Chanson' : 'Composer une Chanson'}
+                </h3>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.05] text-[#8A90A0]">
-                Moteur Studio HD
-              </span>
+              <div className="inline-flex rounded-full bg-[#050608] border border-white/[0.08] p-0.5">
+                {(['create', 'remix'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setFormMode(m)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                      formMode === m ? 'bg-white text-black' : 'text-[#8A90A0] hover:text-white'
+                    }`}
+                  >
+                    {m === 'create' ? 'Créer' : 'Remixer'}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <form onSubmit={handleGenerateSong} className="space-y-4">
+              {formMode === 'remix' && (
+                <div className="rounded-2xl bg-[#050608] border border-[#E2BD6B]/25 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold text-[#E2BD6B]">
+                      Audio source (même mélodie, nouvelles paroles/voix)
+                    </span>
+                    {remixSource && (
+                      <button
+                        type="button"
+                        onClick={() => setRemixSource(null)}
+                        className="text-[10px] text-[#8A90A0] hover:text-white cursor-pointer"
+                      >
+                        Changer
+                      </button>
+                    )}
+                  </div>
+                  {remixSource ? (
+                    <div className="flex items-center gap-2 text-xs text-white/90 bg-white/[0.03] px-3 py-2 rounded-xl border border-white/[0.06]">
+                      <Repeat className="w-3.5 h-3.5 text-[#E2BD6B] shrink-0" />
+                      <span className="truncate">{remixSource.title}</span>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-white/[0.15] hover:border-[#E2BD6B]/60 text-xs text-[#8A90A0] hover:text-white cursor-pointer transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-[#E2BD6B]" />
+                      <span>
+                        {isUploadingRemixAudio ? 'Importation en cours…' : 'Importer un audio (MP3/M4A/WAV) ou cliquez sur Remixer à droite'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        disabled={isUploadingRemixAudio}
+                        onChange={handleUploadRemixAudio}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
               {/* 1. Titre de la chanson */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -1293,7 +1501,7 @@ export const StudioView: FC<StudioViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 relative">
                         <button
                           type="button"
                           onClick={() => handleDownloadSong(song)}
@@ -1303,28 +1511,15 @@ export const StudioView: FC<StudioViewProps> = ({
                           <Download className="w-4 h-4" />
                         </button>
 
-                        {song.videoUrl ? (
+                        {song.videoUrl && (
                           <a
                             href={`/api/suno?action=download&url=${encodeURIComponent(song.videoUrl)}&filename=${encodeURIComponent(`${song.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Lyrics.mp4`)}`}
                             className="px-2.5 py-2 rounded-xl bg-[#E2BD6B]/15 border border-[#E2BD6B]/40 text-[#E2BD6B] text-[11px] font-semibold inline-flex items-center gap-1.5 hover:bg-[#E2BD6B]/25 transition-colors"
                             title="Télécharger la Vidéo Lyrics MP4"
                           >
                             <Film className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">MP4 Lyrics</span>
+                            <span className="hidden sm:inline">MP4</span>
                           </a>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={song.videoStatus === 'generating'}
-                            onClick={() => handleCreateLyricsVideo(song)}
-                            className="px-2.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                            title="Transformer en Vidéo Lyrics MP4"
-                          >
-                            <Film className={`w-3.5 h-3.5 ${song.videoStatus === 'generating' ? 'animate-spin text-[#E2BD6B]' : ''}`} />
-                            <span className="hidden sm:inline">
-                              {song.videoStatus === 'generating' ? 'Vidéo…' : 'Vidéo Lyrics'}
-                            </span>
-                          </button>
                         )}
 
                         <button
@@ -1340,8 +1535,153 @@ export const StudioView: FC<StudioViewProps> = ({
                           <Share2 className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Lien client</span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuSongId(openMenuSongId === song.id ? null : song.id)}
+                          className="p-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white transition-colors cursor-pointer"
+                          title="Plus d'actions"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {openMenuSongId === song.id && (
+                          <div className="absolute right-0 top-11 z-30 w-60 rounded-2xl bg-[#0E1015] border border-white/[0.12] shadow-2xl p-1.5 space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleStartRemixFromSong(song)}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-white/90 hover:bg-white/[0.06] cursor-pointer text-left"
+                            >
+                              <Repeat className="w-3.5 h-3.5 text-[#E2BD6B]" />
+                              <span>Remixer (nouvelles paroles / voix)</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={song.videoStatus === 'generating'}
+                              onClick={() => {
+                                setOpenMenuSongId(null);
+                                handleCreateLyricsVideo(song);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-white/90 hover:bg-white/[0.06] cursor-pointer text-left disabled:opacity-50"
+                            >
+                              <Film className="w-3.5 h-3.5 text-[#E2BD6B]" />
+                              <span>{song.videoStatus === 'generating' ? 'Vidéo Lyrics en cours…' : 'Transformer en Vidéo Lyrics MP4'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuSongId(null);
+                                setActiveTool({ songId: song.id, mode: 'replace' });
+                                setToolStartSec('30');
+                                setToolEndSec('45');
+                                setToolPrompt(song.lyrics);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-white/90 hover:bg-white/[0.06] cursor-pointer text-left"
+                            >
+                              <Scissors className="w-3.5 h-3.5 text-sky-400" />
+                              <span>Corriger un passage</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuSongId(null);
+                                setActiveTool({ songId: song.id, mode: 'extend' });
+                                setToolStartSec(String(Math.max(30, song.durationSeconds - 15)));
+                                setToolPrompt('');
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-white/90 hover:bg-white/[0.06] cursor-pointer text-left"
+                            >
+                              <FastForward className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Prolonger le morceau</span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={song.stemsStatus === 'generating'}
+                              onClick={() => handleSeparateVocals(song)}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-white/90 hover:bg-white/[0.06] cursor-pointer text-left disabled:opacity-50"
+                            >
+                              <Layers className="w-3.5 h-3.5 text-purple-400" />
+                              <span>{song.stemsStatus === 'generating' ? 'Séparation en cours…' : 'Séparer Voix & Instrumental'}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {(song.vocalUrl || song.instrumentalUrl) && (
+                      <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.04]">
+                        {song.vocalUrl && (
+                          <a
+                            href={`/api/suno?action=download&url=${encodeURIComponent(song.vocalUrl)}&filename=${encodeURIComponent(`${song.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Voix.mp3`)}`}
+                            className="px-2.5 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[11px] font-medium inline-flex items-center gap-1.5 hover:bg-purple-500/25"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Voix seule (Acapella)</span>
+                          </a>
+                        )}
+                        {song.instrumentalUrl && (
+                          <a
+                            href={`/api/suno?action=download&url=${encodeURIComponent(song.instrumentalUrl)}&filename=${encodeURIComponent(`${song.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Instrumental.mp3`)}`}
+                            className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium inline-flex items-center gap-1.5 hover:bg-emerald-500/25"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Instrumental seul</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {activeTool?.songId === song.id && (
+                      <div className="p-3 rounded-2xl bg-[#050608] border border-white/[0.08] space-y-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-white">
+                            {activeTool.mode === 'replace' ? 'Corriger un passage (min 10s)' : 'Prolonger le morceau'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTool(null)}
+                            className="text-[11px] text-[#8A90A0] hover:text-white cursor-pointer"
+                          >
+                            Fermer
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            value={toolStartSec}
+                            onChange={(e) => setToolStartSec(e.target.value)}
+                            placeholder={activeTool.mode === 'replace' ? 'Début (s)' : 'Reprendre à (s)'}
+                            className="px-3 py-1.5 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white"
+                          />
+                          {activeTool.mode === 'replace' && (
+                            <input
+                              type="number"
+                              min={10}
+                              value={toolEndSec}
+                              onChange={(e) => setToolEndSec(e.target.value)}
+                              placeholder="Fin (s)"
+                              className="px-3 py-1.5 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white"
+                            />
+                          )}
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={toolPrompt}
+                          onChange={(e) => setToolPrompt(e.target.value)}
+                          placeholder={activeTool.mode === 'replace' ? 'Paroles corrigées pour ce passage...' : 'Paroles de la suite...'}
+                          className="w-full px-3 py-2 rounded-xl bg-[#08090C] border border-white/[0.08] text-xs text-white resize-none"
+                        />
+                        <button
+                          type="button"
+                          disabled={isRunningTool}
+                          onClick={() => handleRunSongTool(song)}
+                          className="px-3.5 py-1.5 rounded-xl bg-white text-black text-xs font-bold hover:bg-neutral-200 cursor-pointer disabled:opacity-50"
+                        >
+                          {isRunningTool ? 'Traitement…' : activeTool.mode === 'replace' ? 'Appliquer la correction' : 'Générer la suite'}
+                        </button>
+                      </div>
+                    )}
 
                     {isPlaying && (
                       <div className="pt-2 border-t border-white/[0.04] flex items-center gap-3">

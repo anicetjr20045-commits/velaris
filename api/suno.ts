@@ -58,6 +58,62 @@ function sanitizeSunoStyle(raw: string): string {
   return cleaned.trim().slice(0, 1000);
 }
 
+function applyVocalToStyle(rawStyle: string, rawVoice: string): { finalStyle: string; vocalGender?: 'm' | 'f' } {
+  const voiceNorm = rawVoice
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const base = sanitizeSunoStyle(rawStyle)
+    .replace(/\b(male and female vocals?|female lead vocals?|male lead vocals?|female vocals?|male vocals?|duet)\b[,.]?\s*/gi, '')
+    .trim();
+
+  if (voiceNorm === 'f' || voiceNorm.includes('fem')) {
+    return {
+      vocalGender: 'f',
+      finalStyle: `female vocals, expressive female lead vocal, ${base}`.slice(0, 1000),
+    };
+  }
+  if (voiceNorm === 'm' || voiceNorm.includes('masc') || voiceNorm.includes('homme')) {
+    return {
+      vocalGender: 'm',
+      finalStyle: `male vocals, expressive male lead vocal, ${base}`.slice(0, 1000),
+    };
+  }
+  if (voiceNorm.includes('duo') || voiceNorm.includes('duet')) {
+    return {
+      finalStyle: `duet, male and female vocals, ${base}`.slice(0, 1000),
+    };
+  }
+  return { finalStyle: base };
+}
+
+async function callKiePost(endpoint: string, apiKey: string, payload: Record<string, any>) {
+  const kieRes = await fetch(`${KIE_BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(25000),
+  });
+  const json: any = await kieRes.json().catch(() => ({}));
+  if (!kieRes.ok || (json?.code && json.code !== 200)) {
+    const rawMsg = String(json?.msg || json?.message || json?.error || `HTTP ${kieRes.status}`);
+    const low = rawMsg.toLowerCase();
+    const friendly =
+      kieRes.status === 402 || low.includes('credit') || low.includes('balance') || low.includes('insufficient')
+        ? 'Crédits de génération insuffisants. Rechargez votre solde.'
+        : rawMsg;
+    return { ok: false as const, status: kieRes.status >= 400 ? kieRes.status : 400, error: friendly, raw: json };
+  }
+  return {
+    ok: true as const,
+    taskId: String(json?.data?.taskId || json?.taskId || ''),
+    data: json?.data,
+  };
+}
+
 function extractMeta(html: string, prop: string): string {
   const re1 = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i');
   const re2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i');
@@ -294,12 +350,8 @@ export default async function handler(req: any, res: any) {
       const instrumental = Boolean(body.instrumental);
       const model = String(body.model || 'V6');
       const rawTitle = stripEmojis(String(body.title || 'Chanson Personnalisée'));
-      const rawStyle = sanitizeSunoStyle(String(body.style || 'Afro-Love acoustique'));
+      const rawStyle = String(body.style || 'Afro-Love acoustique');
       const rawPrompt = stripEmojis(String(body.prompt || body.lyrics || ''));
-      const vocalGenderRaw = String(body.vocalGender || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
 
       if (rawTitle.length > 80) {
         return res.status(400).json({ error: `Le titre dépasse la limite de 80 caractères (${rawTitle.length}/80).` });
@@ -310,25 +362,8 @@ export default async function handler(req: any, res: any) {
       if (customMode && !instrumental && rawPrompt.length > 5000) {
         return res.status(400).json({ error: `Les paroles dépassent la limite de 5000 caractères (${rawPrompt.length}/5000).` });
       }
-      if (!customMode && rawPrompt.length > 400) {
-        return res.status(400).json({ error: `Le prompt simple dépasse la limite de 400 caractères (${rawPrompt.length}/400).` });
-      }
 
-      // Nettoyer tout tag vocal conflictuel avant d'appliquer la voix choisie
-      let finalStyle = rawStyle
-        .replace(/\b(male and female vocals?|female lead vocals?|male lead vocals?|female vocals?|male vocals?|duet)\b[,.]?\s*/gi, '')
-        .trim();
-      let vocalGender: 'm' | 'f' | undefined = undefined;
-      if (vocalGenderRaw === 'f' || vocalGenderRaw === 'femme' || vocalGenderRaw === 'féminine') {
-        vocalGender = 'f';
-        finalStyle = `female vocals, expressive female lead vocal, ${finalStyle}`.slice(0, 1000);
-      } else if (vocalGenderRaw === 'm' || vocalGenderRaw === 'homme' || vocalGenderRaw === 'masculine') {
-        vocalGender = 'm';
-        finalStyle = `male vocals, expressive male lead vocal, ${finalStyle}`.slice(0, 1000);
-      } else if (vocalGenderRaw === 'duo' || vocalGenderRaw === 'duet') {
-        finalStyle = `duet, male and female vocals, ${finalStyle}`.slice(0, 1000);
-      }
-
+      const { finalStyle, vocalGender } = applyVocalToStyle(rawStyle, String(body.vocalGender || ''));
       const payload: Record<string, any> = {
         prompt: rawPrompt,
         style: finalStyle,
@@ -340,32 +375,119 @@ export default async function handler(req: any, res: any) {
       };
       if (vocalGender) payload.vocalGender = vocalGender;
 
-      const kieRes = await fetch(`${KIE_BASE_URL}/generate`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(25000),
-      });
+      const result = await callKiePost('/generate', apiKey, payload);
+      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
+    }
 
-      const json: any = await kieRes.json().catch(() => ({}));
-      if (!kieRes.ok || (json?.code && json.code !== 200)) {
-        const rawMsg = String(json?.msg || json?.message || json?.error || `HTTP ${kieRes.status}`);
-        const low = rawMsg.toLowerCase();
-        const friendly =
-          kieRes.status === 402 || low.includes('credit') || low.includes('balance') || low.includes('insufficient')
-            ? 'Crédits de génération insuffisants. Rechargez votre solde.'
-            : rawMsg;
-        return res.status(kieRes.status >= 400 ? kieRes.status : 400).json({ error: friendly, raw: json });
+    // 1B. REMIX / REPRISE (MÊME MÉLODIE, NOUVELLES PAROLES & NOUVELLE VOIX)
+    if (req.method === 'POST' && action === 'remix') {
+      const body = req.body || {};
+      const uploadUrl = String(body.uploadUrl || '').trim();
+      const sourceTaskId = String(body.taskId || '').trim();
+      const sourceAudioId = String(body.audioId || '').trim();
+      if (!uploadUrl && !(sourceTaskId && sourceAudioId)) {
+        return res.status(400).json({ error: 'Fournissez une URL audio ou une chanson de votre discothèque à remixer.' });
       }
+      const rawTitle = stripEmojis(String(body.title || 'Remix Studio')).slice(0, 80);
+      const rawPrompt = stripEmojis(String(body.prompt || body.lyrics || '')).slice(0, 5000);
+      const instrumental = Boolean(body.instrumental) || !rawPrompt;
+      const { finalStyle, vocalGender } = applyVocalToStyle(String(body.style || 'Afro-Love acoustique'), String(body.vocalGender || ''));
 
-      return res.status(200).json({
-        success: true,
-        taskId: json?.data?.taskId || json?.taskId,
-        data: json?.data,
+      const payload: Record<string, any> = {
+        ...(uploadUrl ? { uploadUrl } : { taskId: sourceTaskId, audioId: sourceAudioId }),
+        prompt: rawPrompt,
+        style: finalStyle,
+        title: rawTitle,
+        customMode: true,
+        instrumental,
+        model: String(body.model || 'V6'),
+        callBackUrl: CALLBACK_URL,
+      };
+      if (vocalGender && !instrumental) payload.vocalGender = vocalGender;
+
+      const result = await callKiePost('/generate/upload-cover', apiKey, payload);
+      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
+    }
+
+    // 1C. PROLONGER UN MORCEAU (EXTEND)
+    if (req.method === 'POST' && action === 'extend') {
+      const body = req.body || {};
+      const audioId = String(body.audioId || '').trim();
+      if (!audioId) return res.status(400).json({ error: 'Identifiant audio manquant pour prolonger le morceau.' });
+      const continueAt = Math.max(5, Number(body.continueAt || 120));
+      const { finalStyle } = applyVocalToStyle(String(body.style || 'Afro-Love'), String(body.vocalGender || ''));
+      const payload: Record<string, any> = {
+        audioId,
+        defaultParamFlag: true,
+        continueAt,
+        prompt: stripEmojis(String(body.prompt || '')).slice(0, 5000),
+        style: finalStyle,
+        title: stripEmojis(String(body.title || 'Suite Studio')).slice(0, 80),
+        model: String(body.model || 'V6'),
+        callBackUrl: CALLBACK_URL,
+      };
+      const result = await callKiePost('/generate/extend', apiKey, payload);
+      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
+    }
+
+    // 1D. CORRIGER UN PASSAGE (REPLACE SECTION)
+    if (req.method === 'POST' && action === 'replace-section') {
+      const body = req.body || {};
+      const taskId = String(body.taskId || '').trim();
+      const audioId = String(body.audioId || '').trim();
+      const infillStartS = Number(body.infillStartS);
+      const infillEndS = Number(body.infillEndS);
+      if (!taskId || !audioId) {
+        return res.status(400).json({ error: 'Identifiants de piste requis pour corriger un passage.' });
+      }
+      if (!Number.isFinite(infillStartS) || !Number.isFinite(infillEndS) || infillEndS - infillStartS < 10) {
+        return res.status(400).json({ error: 'La zone à corriger doit durer au moins 10 secondes (ex: 30s à 45s).' });
+      }
+      const { finalStyle } = applyVocalToStyle(String(body.style || 'Afro-Love'), String(body.vocalGender || ''));
+      const payload: Record<string, any> = {
+        taskId,
+        audioId,
+        infillStartS: Number(infillStartS.toFixed(2)),
+        infillEndS: Number(infillEndS.toFixed(2)),
+        prompt: stripEmojis(String(body.prompt || '')).slice(0, 5000),
+        tags: finalStyle,
+        title: stripEmojis(String(body.title || 'Correction Studio')).slice(0, 80),
+        fullLyrics: stripEmojis(String(body.fullLyrics || body.prompt || '')).slice(0, 5000),
+        callBackUrl: CALLBACK_URL,
+      };
+      const result = await callKiePost('/generate/replace-section', apiKey, payload);
+      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
+    }
+
+    // 1E. SÉPARATION VOIX & INSTRUMENTAL (STEMS)
+    if (req.method === 'POST' && action === 'separate-vocals') {
+      const { taskId, audioId } = req.body || {};
+      if (!taskId || !audioId) {
+        return res.status(400).json({ error: 'Identifiants de piste requis pour séparer voix et instrumental.' });
+      }
+      const result = await callKiePost('/vocal-removal/generate', apiKey, {
+        taskId: String(taskId),
+        audioId: String(audioId),
+        type: 'separate_vocal',
+        callBackUrl: CALLBACK_URL,
       });
+      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      return res.status(200).json({ success: true, taskId: result.taskId });
+    }
+
+    if (req.method === 'GET' && action === 'vocal-status') {
+      const taskId = String(req.query?.taskId || '').trim();
+      if (!taskId) return res.status(400).json({ error: 'taskId manquant' });
+      const kieRes = await fetch(`${KIE_BASE_URL}/vocal-removal/record-info?taskId=${encodeURIComponent(taskId)}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(15000),
+      });
+      const json: any = await kieRes.json().catch(() => ({}));
+      return res.status(kieRes.status).json(json);
     }
 
     // 2. STATUT GÉNÉRATION CHANSON
