@@ -78,9 +78,6 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
     return { activeTab: 'home', studioSubTab: 'studio_ai' };
   }
 
-  const hostname = window.location.hostname.toLowerCase();
-  const isAppDomain = hostname === 'app.djelia.store' || hostname.startsWith('app.') || hostname.includes('velaris-dun');
-
   const rawHash = window.location.hash.toLowerCase().replace('#', '').trim();
   const pathname = window.location.pathname;
 
@@ -147,12 +144,7 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
     // ignore
   }
 
-  // 3. Sur app.djelia.store : entrer par défaut dans le cockpit Studio si aucune section sauvegardée
-  if (isAppDomain) {
-    return { activeTab: 'cockpit', studioSubTab: 'revenus' };
-  }
-
-  // 4. Utilisateur déjà connecté arrivant sur la racine -> redirection automatique vers le Cockpit
+  // 3. Utilisateur déjà connecté arrivant sur la racine -> redirection automatique vers le Cockpit
   if (checkHasSavedAuthSession()) {
     return { activeTab: 'cockpit', studioSubTab: 'revenus' };
   }
@@ -161,7 +153,7 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
 }
 
 export function App() {
-  const { user, isDemoMode, openAuthModal } = useAuth();
+  const { user, isDemoMode } = useAuth();
   const sessionName = user ? (`studio_${user.id.slice(0, 8)}`) : 'Test';
   // Visiteurs non connectés : aucune sonde WAHA (le site public ne doit pas solliciter la passerelle)
   const waha = useWahaSession(sessionName, { enabled: !!user, syncToStudio: true });
@@ -169,20 +161,6 @@ export function App() {
   const initialRoute = useMemo(() => parseInitialRoute(), []);
   const [activeTab, setActiveTab] = useState<MainTab>(initialRoute.activeTab);
   const [studioSubTab, setStudioSubTab] = useState<StudioTab>(initialRoute.studioSubTab);
-
-  // Sur app.djelia.store : inviter immédiatement l'utilisateur à se connecter avec son numéro
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname.toLowerCase();
-      const isAppDomain = hostname === 'app.djelia.store' || hostname.startsWith('app.') || hostname.includes('velaris-dun');
-      if (isAppDomain && !user && !checkHasSavedAuthSession()) {
-        const timer = setTimeout(() => {
-          openAuthModal('login');
-        }, 600);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [user, openAuthModal]);
 
   // Détection d'un mini-site public membre (ex: /s/fatou-music ou ?s=fatou-music)
   const [miniSiteSlug, setMiniSiteSlug] = useState<string | null>(() => getMiniSiteSlug());
