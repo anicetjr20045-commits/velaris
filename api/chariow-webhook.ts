@@ -87,7 +87,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  if (config.webhookSecret && !isAuthenticated && (providedToken || rawSig)) {
+  if (config.webhookSecret && !isAuthenticated) {
     console.warn('[Chariow Webhook] Authentification refusée.');
     return res.status(401).json({ error: 'Signature ou jeton invalide' });
   }

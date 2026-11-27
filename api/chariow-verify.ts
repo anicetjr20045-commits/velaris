@@ -168,6 +168,8 @@ export default async function handler(req: any, res: any) {
         already_applied: true,
         creditsAdded: catalogItem.credits,
         kind: catalogItem.kind,
+        label: catalogItem.label,
+        priceCfa: catalogItem.priceCfa,
       });
     }
 
@@ -223,6 +225,11 @@ export default async function handler(req: any, res: any) {
       status: 'completed',
       expires_at: newExpiresAt,
       credits_added: CREDITS_TO_ADD,
+      creditsAdded: CREDITS_TO_ADD,
+      kind: catalogItem.kind,
+      label: catalogItem.label,
+      priceCfa: catalogItem.priceCfa,
+      newCredits,
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });

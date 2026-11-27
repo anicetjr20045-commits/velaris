@@ -120,11 +120,8 @@ export const VOICE_SCRIPT_TEMPLATES: VoiceScriptTemplate[] = [
 import { supabase } from './supabase';
 import { refreshBilling } from './billing';
 
-const FALLBACK_FISH_API_KEY = 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
-
 /**
- * Synthétise un texte avec la voix Fish Audio choisie.
- * Tente d'abord l'API serverless `/api/fish-voice`, avec repli direct vers `api.fish.audio/v1/tts`.
+ * Synthétise un texte avec la voix Fish Audio choisie via l'API serverless `/api/fish-voice`.
  */
 export async function generateFishVoice(
   text: string,
@@ -153,50 +150,18 @@ export async function generateFishVoice(
       signal: AbortSignal.timeout(35000),
     });
 
-    if (res.status === 401 || res.status === 402) {
+    if (!res.ok) {
       const errJson: any = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || 'Crédits insuffisants.');
+      throw new Error(errJson.error || `Échec de synthèse vocale (${res.status}).`);
     }
 
-    if (res.ok) {
-      const mimeType = format === 'opus' ? 'audio/ogg; codecs=opus' : 'audio/mpeg';
-      const arrayBuffer = await res.arrayBuffer();
-      const blob = new Blob([arrayBuffer], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      if (!isSample) void refreshBilling();
-      return { blob, url, mimeType };
-    }
+    const mimeType = format === 'opus' ? 'audio/ogg; codecs=opus' : 'audio/mpeg';
+    const arrayBuffer = await res.arrayBuffer();
+    const blob = new Blob([arrayBuffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    if (!isSample) void refreshBilling();
+    return { blob, url, mimeType };
   } catch (err: any) {
-    if (err?.message?.includes('Crédits') || err?.message?.includes('Session')) {
-      throw err;
-    }
-    // Repli vers l'API directe Fish Audio uniquement en cas de panne réseau locale
+    throw new Error(err?.message || 'Service de synthèse vocale indisponible.');
   }
-
-  // 2. Repli direct vers l'API Fish Audio côté client
-  const directRes = await fetch('https://api.fish.audio/v1/tts', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${FALLBACK_FISH_API_KEY}`,
-      model: 's2.1-pro-free',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      text: clean,
-      reference_id: referenceId,
-      format,
-    }),
-    signal: AbortSignal.timeout(35000),
-  });
-
-  if (!directRes.ok) {
-    const errText = await directRes.text().catch(() => '');
-    throw new Error(`Échec de synthèse vocale Fish Audio (${directRes.status}): ${errText.slice(0, 200)}`);
-  }
-
-  const mimeType = format === 'opus' ? 'audio/ogg; codecs=opus' : 'audio/mpeg';
-  const arrayBuffer = await directRes.arrayBuffer();
-  const blob = new Blob([arrayBuffer], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  return { blob, url, mimeType };
 }

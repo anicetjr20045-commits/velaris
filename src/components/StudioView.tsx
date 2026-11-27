@@ -23,6 +23,7 @@ import {
   Mic,
   Film,
   AlertTriangle,
+  CheckCircle2,
   Trash2,
   Power,
   MoreVertical,
@@ -1145,11 +1146,15 @@ export const StudioView: FC<StudioViewProps> = ({
             studioNotice.tone === 'error'
               ? 'bg-rose-950/95 border-rose-500/40 text-rose-200'
               : studioNotice.tone === 'ok'
-              ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200'
+              ? 'bg-emerald-950/95 border-emerald-400/50 text-emerald-100 shadow-emerald-950/60'
               : 'bg-amber-950/95 border-amber-500/40 text-amber-200'
           }`}
         >
-          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {studioNotice.tone === 'ok' ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          ) : (
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+          )}
           <span>{studioNotice.text}</span>
         </div>
       )}

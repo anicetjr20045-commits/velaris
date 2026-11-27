@@ -76,7 +76,16 @@ export async function initiateChariowCheckout(options: ChariowCheckoutOptions): 
   }
 }
 
-export async function verifyChariowSale(saleId: string): Promise<{ success: boolean; activated: boolean; status?: string; error?: string }> {
+export async function verifyChariowSale(saleId: string): Promise<{
+  success: boolean;
+  activated: boolean;
+  status?: string;
+  creditsAdded?: number;
+  kind?: 'subscription' | 'credits';
+  label?: string;
+  priceCfa?: number;
+  error?: string;
+}> {
   try {
     const res = await fetch(`/api/chariow-verify?sale_id=${encodeURIComponent(saleId)}`);
     const data = await res.json().catch(() => ({}));
@@ -87,6 +96,10 @@ export async function verifyChariowSale(saleId: string): Promise<{ success: bool
       success: true,
       activated: Boolean(data.activated),
       status: data.status,
+      creditsAdded: typeof data.creditsAdded === 'number' ? data.creditsAdded : data.credits_added,
+      kind: data.kind,
+      label: data.label,
+      priceCfa: data.priceCfa,
     };
   } catch (err: any) {
     return { success: false, activated: false, error: err.message };

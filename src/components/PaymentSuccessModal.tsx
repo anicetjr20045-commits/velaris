@@ -14,6 +14,12 @@ export const PaymentSuccessModal: FC<PaymentSuccessModalProps> = ({
   const [isVerifying, setIsVerifying] = useState(true);
   const [countdown, setCountdown] = useState(4);
   const [expiresDate, setExpiresDate] = useState<string>('');
+  const [saleInfo, setSaleInfo] = useState<{
+    kind?: 'subscription' | 'credits';
+    creditsAdded?: number;
+    label?: string;
+    priceCfa?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -34,7 +40,23 @@ export const PaymentSuccessModal: FC<PaymentSuccessModalProps> = ({
 
       if (paramSaleId) {
         try {
-          await verifyChariowSale(paramSaleId);
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const res = await verifyChariowSale(paramSaleId);
+            if (res.activated) {
+              if (isMounted) {
+                setSaleInfo({
+                  kind: res.kind,
+                  creditsAdded: res.creditsAdded,
+                  label: res.label,
+                  priceCfa: res.priceCfa,
+                });
+              }
+              break;
+            }
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 1500));
+            }
+          }
           if (isMounted) {
             setIsVerifying(false);
             await refreshBilling();
@@ -89,20 +111,31 @@ export const PaymentSuccessModal: FC<PaymentSuccessModalProps> = ({
             <span>Paiement Confirmé • Chariow Mobile Money</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white tracking-tight">
-            Bienvenue dans votre Studio !
+            {saleInfo?.kind === 'credits' ? 'Compte rechargé avec succès !' : 'Bienvenue dans votre Studio !'}
           </h2>
           <p className="text-sm text-[#A0A5B5] max-w-sm mx-auto leading-relaxed">
-            Votre souscription au <strong className="text-white">Pass Créateur (4 900 F CFA)</strong> a été validée avec succès.
+            {saleInfo?.kind === 'credits' ? (
+              <>
+                Votre recharge <strong className="text-white">{saleInfo.label || 'Pack Crédits'}</strong>
+                {saleInfo.priceCfa ? ` (${saleInfo.priceCfa.toLocaleString('fr-FR')} F CFA)` : ''} a été créditée immédiatement.
+              </>
+            ) : (
+              <>
+                Votre souscription au <strong className="text-white">{saleInfo?.label || 'Pass Créateur (4 900 F CFA)'}</strong> a été validée avec succès.
+              </>
+            )}
           </p>
         </div>
 
         {/* Récapitulatif des Avantages Débloqués */}
         <div className="rounded-2xl bg-[#12131C] border border-white/[0.08] p-5 text-left space-y-3 mb-6 relative z-10">
           <div className="flex items-center justify-between text-xs pb-2 border-b border-white/[0.06]">
-            <span className="text-[#8E94A3]">Statut de l'abonnement</span>
+            <span className="text-[#8E94A3]">
+              {saleInfo?.kind === 'credits' ? 'Statut de la recharge' : "Statut de l'abonnement"}
+            </span>
             <span className="font-mono text-emerald-400 font-medium flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              ACTIF (30 jours)
+              {saleInfo?.kind === 'credits' ? 'CRÉDITÉ IMMÉDIATEMENT' : 'ACTIF (30 jours)'}
             </span>
           </div>
 
@@ -110,14 +143,16 @@ export const PaymentSuccessModal: FC<PaymentSuccessModalProps> = ({
             <span className="text-[#8E94A3]">Crédits ajoutés</span>
             <span className="font-mono text-[#E5B54F] font-bold text-sm flex items-center gap-1.5">
               <Music2 className="h-3.5 w-3.5" />
-              +30 Chansons IA
+              +{saleInfo?.creditsAdded ?? 30} Crédits IA
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-xs pb-2 border-b border-white/[0.06]">
-            <span className="text-[#8E94A3]">Valable jusqu'au</span>
-            <span className="font-mono text-white">{expiresDate || '30 jours'}</span>
-          </div>
+          {saleInfo?.kind !== 'credits' && (
+            <div className="flex items-center justify-between text-xs pb-2 border-b border-white/[0.06]">
+              <span className="text-[#8E94A3]">Valable jusqu'au</span>
+              <span className="font-mono text-white">{expiresDate || '30 jours'}</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 pt-1 text-[11px] text-[#A0A5B5]">
             <Smartphone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />

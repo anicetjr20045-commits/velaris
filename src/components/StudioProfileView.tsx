@@ -85,18 +85,22 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
       window.history.replaceState(null, '', clean);
 
       (async () => {
-        setNotice({ tone: 'ok', text: 'Validation de votre abonnement Chariow en cours…' });
+        setNotice({ tone: 'ok', text: 'Validation de votre paiement Chariow en cours…' });
         for (let i = 0; i < 4; i++) {
           const res = await verifyChariowSale(saleId);
           if (res.activated) {
             await refreshBilling();
-            setNotice({ tone: 'ok', text: 'Paiement confirmé. Votre Pass Créateur et vos 30 crédits sont actifs.' });
+            const msg =
+              res.kind === 'credits'
+                ? `Recharge confirmée : +${res.creditsAdded ?? ''} crédits ajoutés à votre compte.`
+                : `Paiement confirmé. Votre Pass Créateur et vos ${res.creditsAdded ?? 30} crédits sont actifs.`;
+            setNotice({ tone: 'ok', text: msg });
             return;
           }
           await new Promise((r) => setTimeout(r, 2000));
         }
         await refreshBilling();
-        setNotice({ tone: 'ok', text: 'Paiement enregistré. Votre Pass est actif.' });
+        setNotice({ tone: 'ok', text: 'Paiement enregistré. Votre solde a été actualisé.' });
       })();
       return;
     }
