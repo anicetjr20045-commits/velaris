@@ -320,6 +320,7 @@ export const StudioView: FC<StudioViewProps> = ({
     occasionSnapshot: string,
     skipCreatePlaceholders = false,
   ) => {
+    resumedTasksRef.current.add(taskId);
     const p1 = `pending-${taskId}-1`;
     const p2 = `pending-${taskId}-2`;
     if (!skipCreatePlaceholders) {

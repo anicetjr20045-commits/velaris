@@ -392,6 +392,22 @@ export default async function handler(req: any, res: any) {
       if (!uploadUrl && !(sourceTaskId && sourceAudioId)) {
         return res.status(400).json({ error: 'Fournissez une URL audio ou une chanson de votre discothèque à remixer.' });
       }
+      if (uploadUrl && !uploadUrl.includes('redpandaai.co') && !uploadUrl.includes('kie.ai')) {
+        try {
+          const upRes = await fetch('https://kieai.redpandaai.co/api/file-url-upload', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileUrl: uploadUrl, uploadPath: 'velaris/remix' }),
+            signal: AbortSignal.timeout(20000),
+          });
+          const upJson: any = await upRes.json().catch(() => null);
+          if (upJson?.data?.downloadUrl) {
+            uploadUrl = String(upJson.data.downloadUrl);
+          }
+        } catch {
+          // Repli sur uploadUrl original
+        }
+      }
       const rawTitle = stripEmojis(String(body.title || 'Remix Studio')).slice(0, 80);
       const rawPrompt = stripEmojis(String(body.prompt || body.lyrics || '')).slice(0, 5000);
       const instrumental = Boolean(body.instrumental) || !rawPrompt;
