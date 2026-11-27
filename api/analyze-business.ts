@@ -6,6 +6,8 @@ function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
   let kieApiKey = process.env.KIE_API_KEY || '';
+  let wahaGowsUrl = (process.env.WAHA_GOWS_URL || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, '');
+  let wahaGowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
 
   if (!supabaseSecretKey || !kieApiKey) {
     try {
@@ -18,12 +20,14 @@ function getEnvConfig() {
             const v = m[2].trim();
             if (k === 'SUPABASE_SECRET_KEY' && !supabaseSecretKey) supabaseSecretKey = v;
             if (k === 'KIE_API_KEY' && !kieApiKey) kieApiKey = v;
+            if (k === 'WAHA_GOWS_URL' && v) wahaGowsUrl = v.replace(/\/+$/, '');
+            if (k === 'WAHA_GOWS_API_KEY' && v) wahaGowsKey = v;
           }
         }
       }
     } catch {}
   }
-  return { supabaseUrl, supabaseSecretKey, kieApiKey };
+  return { supabaseUrl, supabaseSecretKey, kieApiKey, wahaGowsUrl, wahaGowsKey };
 }
 
 function detectCountryFromPhone(raw?: string): string {
@@ -44,7 +48,7 @@ function detectCountryFromPhone(raw?: string): string {
 }
 
 const FEMALE_NAMES = new Set([
-  'mme', 'madame', 'mlle', 'mademoiselle', 'soeur', 'tante', 'tata', 'maman', 'reine', 'princesse',
+  'mme', 'madame', 'mlle', 'mademoiselle', 'soeur', 'tante', 'tata', 'maman', 'reine', 'princesse', 'dame',
   'fatou', 'fatoumata', 'aminata', 'amina', 'aicha', 'aichatou', 'awa', 'mariam', 'mariama', 'maimouna',
   'kadiatou', 'kady', 'kadi', 'kadidia', 'kadidja', 'salimata', 'sali', 'safiatou', 'safia', 'fanta',
   'djeneba', 'rokia', 'rokhaya', 'binta', 'bintou', 'assita', 'assetou', 'oumou', 'oumu', 'hawa', 'haoua',
@@ -74,7 +78,7 @@ const FEMALE_NAMES = new Set([
   'paula', 'paule', 'perrine', 'philomene', 'rosalie', 'roselyne', 'roxane', 'sabrina', 'salima',
   'severine', 'sharon', 'sheila', 'simone', 'solene', 'stella', 'tania', 'tiffany', 'valentine',
   'wendy', 'zoe', 'solen', 'maria', 'ariane', 'claudette', 'armelle', 'dorcas', 'eunice', 'lydia',
-  'miriam', 'naima', 'rahima', 'latifa', 'farida', 'souad', 'asma', 'halima', 'salma',
+  'miriam', 'naima', 'rahima', 'latifa', 'farida', 'souad', 'asma', 'halima', 'salma', 'mounira', 'adissa',
 ]);
 
 const MALE_NAMES = new Set([
@@ -102,10 +106,10 @@ const MALE_NAMES = new Set([
   'tristan', 'ulrich', 'valentin', 'victor', 'vincent', 'wilfried', 'william', 'willy', 'xavier',
   'yann', 'yannick', 'yohan', 'yves', 'anicet', 'wendyam', 'alexandre', 'alexis', 'alain', 'albert',
   'alex', 'alfred', 'alphonse', 'andre', 'antoine', 'armand', 'arnaud', 'anselme', 'pacome', 'rodrigue',
-  'boris', 'arthur', 'ismael', 'souleyman', 'adama', 'issa', 'konate', 'martial', 'desire', 'hermann',
+  'boris', 'souleyman', 'adama', 'konate', 'desire', 'hermann',
 ]);
 
-const FEMALE_SUBSTRINGS = ['fatou', 'aminata', 'amina', 'aicha', 'mariam', 'rokia', 'haoua', 'hawa', 'kadiatou', 'salimata', 'djeneba', 'bintou', 'princesse', 'madame', 'maman', 'sonia', 'mireille', 'nadia', 'nathalie', 'sandrine', 'christelle', 'jessica', 'vanessa', 'esther', 'ruth', 'sarah'];
+const FEMALE_SUBSTRINGS = ['fatou', 'aminata', 'amina', 'aicha', 'mariam', 'rokia', 'haoua', 'hawa', 'kadiatou', 'salimata', 'djeneba', 'bintou', 'princesse', 'madame', 'maman', 'sonia', 'mireille', 'nadia', 'nathalie', 'sandrine', 'christelle', 'jessica', 'vanessa', 'esther', 'ruth', 'sarah', 'mounira', 'adissa'];
 const MALE_SUBSTRINGS = ['moussa', 'ibrahim', 'abdoul', 'mamadou', 'mohamed', 'ousmane', 'souleymane', 'seydou', 'yacouba', 'eric', 'franck', 'emmanuel', 'christian', 'alexandre', 'anselme', 'pacome', 'jonathan', 'kevin', 'wilfried', 'stephane', 'romain', 'nicolas'];
 
 function inferGenderFast(rawName?: string, occasion?: string, notes?: string): 'femme' | 'homme' | 'inconnu' {
@@ -131,7 +135,6 @@ function inferGenderFast(rawName?: string, occasion?: string, notes?: string): '
     if (FEMALE_NAMES.has(tok)) return 'femme';
     if (MALE_NAMES.has(tok)) return 'homme';
   }
-  // Vérification dans les pseudos collés (ex: keitarokia119, ericpacomegbocho21, haouadiakite)
   const compact = cleaned.replace(/\s+/g, '');
   for (const sub of FEMALE_SUBSTRINGS) {
     if (compact.includes(sub)) return 'femme';
@@ -161,6 +164,97 @@ function safeJsonParse(raw: string): any {
   return JSON.parse(cleaned);
 }
 
+interface WahaChatDigest {
+  chatId: string;
+  phone: string;
+  name: string;
+  lastTimestamp: number;
+  dateIso: string;
+  dayKey: string;
+  messages: Array<{ fromMe: boolean; body: string }>;
+}
+
+async function fetchLiveWhatsAppChats(
+  wahaUrl: string,
+  wahaKey: string,
+  sessionName: string,
+  cutoffUnixSec: number,
+): Promise<WahaChatDigest[]> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(`${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/overview?limit=80`, {
+      headers: { 'X-Api-Key': wahaKey },
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return [];
+    const list = (await res.json()) as any[];
+    if (!Array.isArray(list)) return [];
+
+    const recent = list
+      .filter((c) => {
+        const id = String(c?.id || '');
+        if (!id || id.endsWith('@g.us') || id === 'status@broadcast') return false;
+        const ts = Number(c?.lastMessage?.timestamp || c?.timestamp || 0);
+        return ts >= cutoffUnixSec;
+      })
+      .slice(0, 30);
+
+    const digests = await Promise.all(
+      recent.map(async (c): Promise<WahaChatDigest | null> => {
+        const chatId = String(c.id);
+        const ts = Number(c?.lastMessage?.timestamp || c?.timestamp || 0);
+        const digits = chatId.replace(/@.*$/, '').replace(/\D/g, '');
+        const phone = digits ? `+${digits}` : '';
+        const name = String(c?.name || phone || 'Client WhatsApp').trim();
+        let msgs: Array<{ fromMe: boolean; body: string }> = [];
+
+        try {
+          const mCtrl = new AbortController();
+          const mTimer = setTimeout(() => mCtrl.abort(), 3000);
+          const mRes = await fetch(
+            `${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=8`,
+            { headers: { 'X-Api-Key': wahaKey }, signal: mCtrl.signal },
+          );
+          clearTimeout(mTimer);
+          if (mRes.ok) {
+            const rawMsgs = (await mRes.json()) as any[];
+            if (Array.isArray(rawMsgs)) {
+              msgs = rawMsgs
+                .map((m) => ({
+                  fromMe: Boolean(m?.fromMe),
+                  body: String(m?.body || '').trim().slice(0, 140),
+                }))
+                .filter((m) => m.body.length > 0)
+                .slice(0, 6);
+            }
+          }
+        } catch {}
+
+        if (msgs.length === 0 && c?.lastMessage?.body) {
+          msgs = [{ fromMe: Boolean(c.lastMessage.fromMe), body: String(c.lastMessage.body).slice(0, 140) }];
+        }
+
+        const dt = new Date(ts * 1000);
+        return {
+          chatId,
+          phone,
+          name,
+          lastTimestamp: ts,
+          dateIso: dt.toISOString(),
+          dayKey: dt.toISOString().slice(0, 10),
+          messages: msgs,
+        };
+      }),
+    );
+
+    return digests.filter((d): d is WahaChatDigest => d !== null);
+  } catch {
+    return [];
+  }
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -171,7 +265,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ ok: false, error: 'method_not_allowed' });
   }
 
-  const { supabaseUrl, supabaseSecretKey, kieApiKey } = getEnvConfig();
+  const { supabaseUrl, supabaseSecretKey, kieApiKey, wahaGowsUrl, wahaGowsKey } = getEnvConfig();
   if (!supabaseSecretKey) {
     return res.status(500).json({ ok: false, error: 'server_not_configured' });
   }
@@ -189,6 +283,7 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ ok: false, error: 'invalid_token' });
   }
   const userId = userData.user.id;
+  const sessionName = `studio_${userId.slice(0, 8)}`;
 
   if (req.method === 'GET') {
     const { data: stateRow } = await admin
@@ -210,6 +305,10 @@ export default async function handler(req: any, res: any) {
 
   const sinceAt = reset ? null : (existingState?.last_analyzed_at || null);
   const nowIso = new Date().toISOString();
+  // Pour WhatsApp en direct : depuis last_analyzed_at (ou 7 derniers jours au 1er scan)
+  const waCutoffSec = sinceAt
+    ? Math.floor(Date.parse(sinceAt) / 1000)
+    : Math.floor((Date.now() - 7 * 86400 * 1000) / 1000);
 
   const fetchLimit = sinceAt ? 500 : 2500;
   let ordersQuery = admin
@@ -239,121 +338,76 @@ export default async function handler(req: any, res: any) {
 
   const allContactsLightQuery = admin
     .from('contacts')
-    .select('id, name, phone, created_at')
+    .select('id, name, phone, wa_jid, created_at')
     .eq('user_id', userId)
     .limit(2500);
 
-  const [ordersRes, contactsRes, allOrdersLightRes, allContactsLightRes] = await Promise.all([
+  const [ordersRes, contactsRes, allOrdersLightRes, allContactsLightRes, waChats] = await Promise.all([
     ordersQuery,
     contactsQuery,
     allOrdersLightQuery,
     allContactsLightQuery,
+    fetchLiveWhatsAppChats(wahaGowsUrl, wahaGowsKey, sessionName, waCutoffSec),
   ]);
 
   const newOrders = ordersRes.data || [];
   const newContacts = contactsRes.data || [];
 
-  // 1. Calcul exact des Clients qui Reviennent & Meilleurs Clients (VIP) — sans jamais fusionner des inconnus par prénom
+  // Index rapide des contacts et commandes existants pour éviter tout doublon lors de la synchro WhatsApp
+  const existingPhoneToContactId = new Map<string, string>();
   const contactLookup = new Map<string, { name: string; phone: string }>();
   for (const c of allContactsLightRes.data || []) {
-    contactLookup.set(c.id, { name: String(c.name || '').trim(), phone: String(c.phone || '').trim() });
+    const p = String(c.phone || '').trim();
+    const digits = p.replace(/\D/g, '');
+    if (digits.length >= 8) existingPhoneToContactId.set(digits.slice(-8), c.id);
+    contactLookup.set(c.id, { name: String(c.name || '').trim(), phone: p });
   }
 
-  const clientAgg = new Map<string, { name: string; phone: string; ordersCount: number; totalSpent: number }>();
-  let totalAllRevenue = 0;
-
+  const existingOrderDayKeys = new Set<string>();
   for (const o of allOrdersLightRes.data || []) {
-    const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
-    totalAllRevenue += amt;
     const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
-    const rawName = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || cInfo?.name || '').trim();
-    const phone = cInfo?.phone || '';
-    const phoneDigits = phone.replace(/\D/g, '');
-    // Clé stricte : téléphone (>=8 chiffres) ou contact_id, sinon ordre individuel (jamais par prénom seul)
-    const key = phoneDigits.length >= 8
-      ? `tel:${phoneDigits.slice(-8)}`
-      : (o.contact_id ? `cid:${o.contact_id}` : `ord:${o.id}`);
-    const displayName = rawName || phone || 'Client WhatsApp';
-    const prev = clientAgg.get(key) || { name: displayName, phone, ordersCount: 0, totalSpent: 0 };
-    prev.ordersCount += 1;
-    prev.totalSpent += amt;
-    if (prev.name.startsWith('Client ') && rawName && !rawName.startsWith('Client ')) prev.name = rawName;
-    if (!prev.phone && phone) prev.phone = phone;
-    clientAgg.set(key, prev);
+    const digits = String(cInfo?.phone || '').replace(/\D/g, '');
+    const day = String(o.created_at || '').slice(0, 10);
+    if (digits.length >= 8 && day) existingOrderDayKeys.add(`${digits.slice(-8)}|${day}`);
   }
 
-  const allBuyers = [...clientAgg.values()];
-  const returningBuyers = allBuyers.filter((b) => b.ordersCount >= 2);
-  const returningClientsCount = returningBuyers.length;
-  const returningOrdersCount = returningBuyers.reduce((acc, b) => acc + b.ordersCount, 0);
-  const returningRevenue = returningBuyers.reduce((acc, b) => acc + b.totalSpent, 0);
-  const returningRevenuePct = totalAllRevenue > 0 ? Math.round((returningRevenue / totalAllRevenue) * 100) : 0;
-  const topClients = allBuyers
-    .filter((b) => b.phone || (b.name && !b.name.toLowerCase().startsWith('client whatsapp')))
-    .sort((a, b) => b.totalSpent - a.totalSpent || b.ordersCount - a.ordersCount)
-    .slice(0, 8);
-
-  // Activité des 7 derniers jours (contacts + ventes) pour transparence sur Aujourd'hui / Hier
-  const dayStatsMap = new Map<string, { date: string; contacts: number; orders: number; revenue: number }>();
-  const ensureDay = (iso: string) => {
-    const key = String(iso || '').slice(0, 10);
-    if (!key) return null;
-    let d = dayStatsMap.get(key);
-    if (!d) {
-      d = { date: key, contacts: 0, orders: 0, revenue: 0 };
-      dayStatsMap.set(key, d);
-    }
-    return d;
-  };
-  for (const c of allContactsLightRes.data || []) {
-    const d = ensureDay(c.created_at);
-    if (d) d.contacts += 1;
-  }
-  for (const o of allOrdersLightRes.data || []) {
-    const d = ensureDay(o.created_at);
-    if (d) {
-      d.orders += 1;
-      d.revenue += Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
+  // Synchroniser les nouveaux contacts WhatsApp manquants dans `contacts` (avec leur vraie date WhatsApp)
+  let syncedContactsCount = 0;
+  for (const wc of waChats) {
+    const digits = wc.phone.replace(/\D/g, '');
+    if (digits.length < 8) continue;
+    const tail8 = digits.slice(-8);
+    if (!existingPhoneToContactId.has(tail8)) {
+      const { data: inserted } = await admin
+        .from('contacts')
+        .insert({
+          user_id: userId,
+          name: wc.name,
+          phone: wc.phone,
+          wa_jid: wc.chatId,
+          source: 'whatsapp_sync',
+          created_at: wc.dateIso,
+        })
+        .select('id')
+        .single();
+      if (inserted?.id) {
+        existingPhoneToContactId.set(tail8, inserted.id);
+        contactLookup.set(inserted.id, { name: wc.name, phone: wc.phone });
+        syncedContactsCount += 1;
+      }
     }
   }
-  const recentDays = [...dayStatsMap.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
 
-  if (newOrders.length === 0 && newContacts.length === 0 && existingState?.last_report && !reset) {
-    const refreshedReport = {
-      ...existingState.last_report,
-      totalUniqueBuyers: allBuyers.length,
-      returningClientsCount,
-      returningOrdersCount,
-      returningRevenuePct,
-      topClients,
-      recentDays,
-    };
-    await admin
-      .from('studio_analytics_state')
-      .update({ last_report: refreshedReport, updated_at: nowIso })
-      .eq('user_id', userId);
+  if (newOrders.length === 0 && newContacts.length === 0 && waChats.length === 0 && existingState?.last_report && !reset) {
     return res.status(200).json({
       ok: true,
       upToDate: true,
-      state: { ...existingState, last_report: refreshedReport },
-      report: refreshedReport,
+      state: existingState,
+      report: existingState.last_report,
     });
   }
 
-  // 2. Calculs mathématiques exacts du delta
-  let deltaRevenue = 0;
-  const countryMap = new Map<string, number>();
-
-  for (const o of newOrders) {
-    const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
-    deltaRevenue += amt;
-  }
-  for (const c of newContacts) {
-    const country = detectCountryFromPhone(c.phone);
-    countryMap.set(country, (countryMap.get(country) || 0) + 1);
-  }
-
-  // 3. Déduplication stricte des personnes uniques (1 personne = 1 vote de sexe, jamais doublée)
+  // Déduplication stricte des personnes uniques pour l'analyse du sexe
   let deltaWomen = 0;
   let deltaMen = 0;
   let deltaUnknown = 0;
@@ -370,18 +424,24 @@ export default async function handler(req: any, res: any) {
       deltaWomen += 1;
     } else if (fast === 'homme') {
       deltaMen += 1;
-    } else if (cleanName && !cleanName.toLowerCase().startsWith('client ') && ambiguousForAi.length < 180) {
+    } else if (cleanName && !cleanName.toLowerCase().startsWith('client ') && !/^\+?\d+$/.test(cleanName) && ambiguousForAi.length < 180) {
       ambiguousForAi.push({
         id,
         name: cleanName.slice(0, 60),
         occasion: occasion.slice(0, 50),
-        notes: notes.slice(0, 100),
+        notes: notes.slice(0, 120),
       });
     } else {
       deltaUnknown += 1;
     }
   };
 
+  for (const wc of waChats) {
+    const digits = wc.phone.replace(/\D/g, '');
+    const pKey = digits.length >= 8 ? `tel:${digits.slice(-8)}` : `wa:${wc.chatId}`;
+    const snippet = wc.messages.map((m) => `${m.fromMe ? 'Moi' : 'Client'}: ${m.body}`).join(' | ');
+    registerPerson(pKey, wc.chatId, wc.name, '', snippet);
+  }
   for (const c of newContacts) {
     const digits = String(c.phone || '').replace(/\D/g, '');
     const pKey = digits.length >= 8 ? `tel:${digits.slice(-8)}` : `cid:${c.id}`;
@@ -397,35 +457,67 @@ export default async function handler(req: any, res: any) {
     registerPerson(pKey, o.id, name, String(o.occasion || ''), String(o.notes || ''));
   }
 
+  // Préparer les discussions WhatsApp non encore enregistrées comme commandes pour que l'IA détecte les ventes d'hier/aujourd'hui
+  const waChatsForSaleDetection = waChats
+    .filter((wc) => {
+      const digits = wc.phone.replace(/\D/g, '');
+      return digits.length >= 8 && !existingOrderDayKeys.has(`${digits.slice(-8)}|${wc.dayKey}`);
+    })
+    .map((wc) => ({
+      chatId: wc.chatId,
+      name: wc.name,
+      phone: wc.phone,
+      dayKey: wc.dayKey,
+      dateIso: wc.dateIso,
+      messages: wc.messages,
+    }));
+
+  let deltaRevenue = 0;
+  const countryMap = new Map<string, number>();
+  for (const o of newOrders) {
+    deltaRevenue += Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
+  }
+  for (const c of newContacts) {
+    const country = detectCountryFromPhone(c.phone);
+    countryMap.set(country, (countryMap.get(country) || 0) + 1);
+  }
+  for (const wc of waChats) {
+    const country = detectCountryFromPhone(wc.phone);
+    countryMap.set(country, (countryMap.get(country) || 0) + 1);
+  }
+
   let topOccasions: string[] = [];
   let verdict = '';
   let recommendations: string[] = [];
+  let syncedOrdersCount = 0;
+  let syncedRevenue = 0;
 
   if (kieApiKey) {
     try {
       const prompt = [
-        'Tu es un analyste business expert pour un studio de chansons personnalisées vendues sur WhatsApp en Afrique francophone.',
+        'Tu es un analyste business expert pour un studio de chansons personnalisées vendues sur WhatsApp en Afrique francophone (prix standard 1 200 F CFA ou 3 000 F CFA).',
         sinceAt
-          ? 'On te donne UNIQUEMENT les nouveautés depuis la dernière analyse.'
-          : 'Première analyse complète de tout l’historique du compte.',
+          ? 'On te donne UNIQUEMENT les nouveautés depuis la dernière analyse (base + WhatsApp en direct).'
+          : 'Première analyse complète (base + discussions WhatsApp récentes en direct).',
         '',
-        `Chiffres exacts de la période : ${newOrders.length} ventes, ${deltaRevenue} F CFA, ${newContacts.length} nouveaux contacts.`,
-        `Fidélité globale : ${returningClientsCount} client(s) revenu(s) (>= 2 commandes) générant ${returningRevenuePct}% du chiffre d'affaires (${returningOrdersCount} commandes).`,
-        `Top clients VIP : ${JSON.stringify(topClients.slice(0, 3))}`,
-        `Pays : ${JSON.stringify(Object.fromEntries(countryMap))}`,
+        `Chiffres déjà enregistrés en base sur la période : ${newOrders.length} ventes, ${deltaRevenue} F CFA, ${newContacts.length} contacts base, ${waChats.length} discussions WhatsApp récentes.`,
         `Précédent bilan : ${existingState?.last_report?.verdict || 'Aucun (bilan initial)'}`,
         '',
-        `Fiches ambiguës à classer (${ambiguousForAi.length}) :`,
+        `1) Discussions WhatsApp récentes sans commande enregistrée (${waChatsForSaleDetection.length}) — détecte celles où le client a clairement payé ou reçu sa chanson livrée :`,
+        JSON.stringify(waChatsForSaleDetection),
+        '',
+        `2) Fiches ambiguës à classer par sexe (${ambiguousForAi.length}) :`,
         JSON.stringify(ambiguousForAi),
         '',
         'Réponds STRICTEMENT en JSON valide :',
         '{',
-        '  "genders": [ { "id": "uuid", "gender": "femme" | "homme" | "inconnu" } ],',
+        '  "detectedSales": [ { "chatId": "...", "amountXof": 1200, "occasion": "Anniversaire", "reason": "Livraison audio confirmée" } ],',
+        '  "genders": [ { "id": "...", "gender": "femme" | "homme" | "inconnu" } ],',
         '  "topOccasions": ["Occasion 1", "Occasion 2"],',
-        '  "verdict": "2 à 3 phrases directes et concrètes sur la performance, la fidélité client et le profil qui achète.",',
+        '  "verdict": "2 à 3 phrases directes et concrètes sur l\'activité WhatsApp réelle, les ventes détectées et le profil client.",',
         '  "recommendations": ["Action concrète 1", "Action concrète 2"]',
         '}',
-        'Pour "genders" : déduis le sexe du CLIENT qui contacte (prénom ou pseudo africain/francophone, ou indice dans occasion/notes). Si impossible à savoir, mets "inconnu".',
+        'Règle stricte pour "detectedSales" : n\'inclus un chat QUE si les messages prouvent vraiment un paiement reçu ou une livraison de chanson effectuée (ex: lien d\'écoute/chanson envoyée, "paiement reçu", "j\'ai écouté", "merci beaucoup pour la chanson"). Ne devine pas une vente sur un simple "Bonjour".',
       ].join('\n');
 
       const aiRes = await fetch('https://api.kie.ai/openai/v1/responses', {
@@ -437,7 +529,7 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           model: 'deepseek-v4-1-flash',
           input: prompt,
-          temperature: 0.2,
+          temperature: 0.15,
           reasoning: { effort: 'none' },
           text: { format: { type: 'json_object' } },
         }),
@@ -448,6 +540,42 @@ export default async function handler(req: any, res: any) {
         const rawText = extractKieText(aiPayload);
         if (rawText) {
           const parsed = safeJsonParse(rawText);
+
+          // Enregistrer en base les ventes WhatsApp confirmées détectées par l'IA
+          const detectedSales = Array.isArray(parsed.detectedSales) ? parsed.detectedSales : [];
+          for (const sale of detectedSales) {
+            const wc = waChatsForSaleDetection.find((x) => x.chatId === sale?.chatId);
+            if (!wc) continue;
+            const digits = wc.phone.replace(/\D/g, '');
+            const tail8 = digits.slice(-8);
+            const dedupKey = `${tail8}|${wc.dayKey}`;
+            if (existingOrderDayKeys.has(dedupKey)) continue;
+            existingOrderDayKeys.add(dedupKey);
+
+            const amount = Number(sale.amountXof) > 0 ? Number(sale.amountXof) : 1200;
+            const contactId = existingPhoneToContactId.get(tail8) || null;
+            const { error: insErr } = await admin.from('orders').insert({
+              user_id: userId,
+              contact_id: contactId,
+              amount_cents: Math.round(amount * 100),
+              price_xof: amount,
+              currency: 'XOF',
+              status: 'validated',
+              payment_status: 'paid',
+              stage: 'paid',
+              payment_method: 'WhatsApp (Analyse IA)',
+              occasion: String(sale.occasion || 'Chanson personnalisée').slice(0, 80),
+              recipient_name: wc.name,
+              notes: `Vente détectée par Analyse IA depuis WhatsApp (${String(sale.reason || '').slice(0, 120)})`,
+              created_at: wc.dateIso,
+              payment_confirmed_at: wc.dateIso,
+            });
+            if (!insErr) {
+              syncedOrdersCount += 1;
+              syncedRevenue += amount;
+            }
+          }
+
           const genders = Array.isArray(parsed.genders) ? parsed.genders : [];
           const judgedIds = new Set<string>();
           for (const g of genders) {
@@ -473,8 +601,52 @@ export default async function handler(req: any, res: any) {
     deltaUnknown += ambiguousForAi.length;
   }
 
+  // Recalculer Meilleurs Clients & Fidélité après synchro WhatsApp
+  const { data: finalOrdersLight } = await admin
+    .from('orders')
+    .select('id, contact_id, amount_cents, price_xof, recipient_name, created_at')
+    .eq('user_id', userId)
+    .limit(2500);
+
+  const clientAgg = new Map<string, { name: string; phone: string; ordersCount: number; totalSpent: number }>();
+  let totalAllRevenue = 0;
+
+  for (const o of finalOrdersLight || []) {
+    const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
+    totalAllRevenue += amt;
+    const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
+    const rawName = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || cInfo?.name || '').trim();
+    const phone = cInfo?.phone || '';
+    const phoneDigits = phone.replace(/\D/g, '');
+    const key = phoneDigits.length >= 8
+      ? `tel:${phoneDigits.slice(-8)}`
+      : (o.contact_id ? `cid:${o.contact_id}` : `ord:${o.id}`);
+    const displayName = rawName || phone || 'Client WhatsApp';
+    const prev = clientAgg.get(key) || { name: displayName, phone, ordersCount: 0, totalSpent: 0 };
+    prev.ordersCount += 1;
+    prev.totalSpent += amt;
+    if (prev.name.startsWith('Client ') && rawName && !rawName.startsWith('Client ')) prev.name = rawName;
+    if (!prev.phone && phone) prev.phone = phone;
+    clientAgg.set(key, prev);
+  }
+
+  const allBuyers = [...clientAgg.values()];
+  const returningBuyers = allBuyers.filter((b) => b.ordersCount >= 2);
+  const returningClientsCount = returningBuyers.length;
+  const returningOrdersCount = returningBuyers.reduce((acc, b) => acc + b.ordersCount, 0);
+  const returningRevenue = returningBuyers.reduce((acc, b) => acc + b.totalSpent, 0);
+  const returningRevenuePct = totalAllRevenue > 0 ? Math.round((returningRevenue / totalAllRevenue) * 100) : 0;
+  const topClients = allBuyers
+    .filter((b) => b.phone || (b.name && !b.name.toLowerCase().startsWith('client whatsapp')))
+    .sort((a, b) => b.totalSpent - a.totalSpent || b.ordersCount - a.ordersCount)
+    .slice(0, 8);
+
+  const totalNewOrders = newOrders.length + syncedOrdersCount;
+  const totalNewRevenue = deltaRevenue + syncedRevenue;
+  const totalNewContacts = newContacts.length + syncedContactsCount;
+
   if (!verdict) {
-    verdict = `Période analysée : ${newOrders.length} vente(s) pour ${deltaRevenue.toLocaleString('fr-FR')} F CFA. ${returningClientsCount} client(s) fidèle(s) représentent ${returningRevenuePct}% de votre chiffre d'affaires.`;
+    verdict = `Analyse WhatsApp + base terminée : ${totalNewOrders} vente(s) (${totalNewRevenue.toLocaleString('fr-FR')} F CFA) et ${totalNewContacts} contact(s) traités.`;
   }
 
   const baseWomen = reset ? 0 : (existingState?.women_count || 0);
@@ -486,15 +658,17 @@ export default async function handler(req: any, res: any) {
   const womenCount = baseWomen + deltaWomen;
   const menCount = baseMen + deltaMen;
   const unknownCount = baseUnknown + deltaUnknown;
-  const totalOrdersAnalyzed = baseOrders + newOrders.length;
-  const totalRevenueAnalyzed = baseRev + deltaRevenue;
+  const totalOrdersAnalyzed = baseOrders + totalNewOrders;
+  const totalRevenueAnalyzed = baseRev + totalNewRevenue;
 
   const report = {
     analyzedAt: nowIso,
     sinceAt,
-    deltaOrders: newOrders.length,
-    deltaRevenue,
-    deltaContacts: newContacts.length,
+    deltaOrders: totalNewOrders,
+    deltaRevenue: totalNewRevenue,
+    deltaContacts: totalNewContacts,
+    syncedOrdersCount,
+    whatsappChatsScanned: waChats.length,
     deltaWomen,
     deltaMen,
     deltaUnknown,
@@ -508,7 +682,6 @@ export default async function handler(req: any, res: any) {
     returningOrdersCount,
     returningRevenuePct,
     topClients,
-    recentDays,
     topOccasions,
     topCountries: [...countryMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => ({ name, count })),
     verdict,
@@ -538,6 +711,7 @@ export default async function handler(req: any, res: any) {
   return res.status(200).json({
     ok: true,
     upToDate: false,
+    syncedOrdersCount,
     state: savedState,
     report,
   });

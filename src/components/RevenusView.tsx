@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
 import { MessageCircle, TrendingUp, Sparkles, Globe2, Users, Wallet, Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../services/supabase';
+import { getLiveOrders, supabase } from '../services/supabase';
 import type { Order, StudioMetrics } from '../types';
 
 interface RevenusViewProps {
@@ -278,6 +278,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
   const [aiStep, setAiStep] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiUpToDate, setAiUpToDate] = useState(false);
+  const [liveSyncedOrders, setLiveSyncedOrders] = useState<Order[] | null>(null);
 
   useEffect(() => {
     if (!aiLoading) {
@@ -352,6 +353,10 @@ export const RevenusView: FC<RevenusViewProps> = ({
         }
       }
       setAiUpToDate(Boolean(json.upToDate));
+      if (json.syncedOrdersCount > 0 || json.report?.deltaContacts > 0) {
+        const freshOrders = await getLiveOrders();
+        if (freshOrders.length > 0) setLiveSyncedOrders(freshOrders);
+      }
     } catch (err: any) {
       setAiError(err?.message || 'Erreur réseau lors de l\'analyse.');
     } finally {
@@ -383,9 +388,10 @@ export const RevenusView: FC<RevenusViewProps> = ({
   }, [cleanSlug]);
 
   // Commandes directes WhatsApp filtrées par période
+  const activeOrders = liveSyncedOrders ?? orders;
   const filteredWhatsAppOrders = useMemo(() => {
-    return orders.filter((o) => isDateInPeriod(o.rawCreatedAt || o.createdAt, period, customDay, customMonth));
-  }, [orders, period, customDay, customMonth]);
+    return activeOrders.filter((o) => isDateInPeriod(o.rawCreatedAt || o.createdAt, period, customDay, customMonth));
+  }, [activeOrders, period, customDay, customMonth]);
 
   // Commissions d'affiliation filtrées par période
   const filteredCommissions = useMemo(() => {
