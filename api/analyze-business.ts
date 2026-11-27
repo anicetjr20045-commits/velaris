@@ -182,8 +182,8 @@ async function fetchLiveWhatsAppChats(
 ): Promise<WahaChatDigest[]> {
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 5000);
-    const res = await fetch(`${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/overview?limit=80`, {
+    const timer = setTimeout(() => ctrl.abort(), 9000);
+    const res = await fetch(`${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/overview?limit=45`, {
       headers: { 'X-Api-Key': wahaKey },
       signal: ctrl.signal,
     });
@@ -212,7 +212,7 @@ async function fetchLiveWhatsAppChats(
 
         try {
           const mCtrl = new AbortController();
-          const mTimer = setTimeout(() => mCtrl.abort(), 3000);
+          const mTimer = setTimeout(() => mCtrl.abort(), 4500);
           const mRes = await fetch(
             `${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=8`,
             { headers: { 'X-Api-Key': wahaKey }, signal: mCtrl.signal },
@@ -305,9 +305,10 @@ export default async function handler(req: any, res: any) {
 
   const sinceAt = reset ? null : (existingState?.last_analyzed_at || null);
   const nowIso = new Date().toISOString();
-  // Pour WhatsApp en direct : depuis last_analyzed_at (ou 7 derniers jours au 1er scan)
+  // Pour WhatsApp en direct : toujours scanner au moins les 72 dernières heures pour rattraper les ventes non enregistrées
+  const minLookbackSec = Math.floor((Date.now() - 72 * 3600 * 1000) / 1000);
   const waCutoffSec = sinceAt
-    ? Math.floor(Date.parse(sinceAt) / 1000)
+    ? Math.min(Math.floor(Date.parse(sinceAt) / 1000), minLookbackSec)
     : Math.floor((Date.now() - 7 * 86400 * 1000) / 1000);
 
   const fetchLimit = sinceAt ? 500 : 2500;
@@ -372,6 +373,8 @@ export default async function handler(req: any, res: any) {
   }
 
   // Synchroniser les nouveaux contacts WhatsApp manquants dans `contacts` (avec leur vraie date WhatsApp)
+  const preExistingPhoneTails = new Set<string>(existingPhoneToContactId.keys());
+  const newlySyncedWaChats: WahaChatDigest[] = [];
   let syncedContactsCount = 0;
   for (const wc of waChats) {
     const digits = wc.phone.replace(/\D/g, '');
@@ -393,12 +396,28 @@ export default async function handler(req: any, res: any) {
       if (inserted?.id) {
         existingPhoneToContactId.set(tail8, inserted.id);
         contactLookup.set(inserted.id, { name: wc.name, phone: wc.phone });
+        newlySyncedWaChats.push(wc);
         syncedContactsCount += 1;
       }
     }
   }
 
-  if (newOrders.length === 0 && newContacts.length === 0 && waChats.length === 0 && existingState?.last_report && !reset) {
+  // Préparer les discussions WhatsApp non encore enregistrées comme commandes pour que l'IA détecte les ventes d'hier/aujourd'hui
+  const waChatsForSaleDetection = waChats
+    .filter((wc) => {
+      const digits = wc.phone.replace(/\D/g, '');
+      return digits.length >= 8 && !existingOrderDayKeys.has(`${digits.slice(-8)}|${wc.dayKey}`);
+    })
+    .map((wc) => ({
+      chatId: wc.chatId,
+      name: wc.name,
+      phone: wc.phone,
+      dayKey: wc.dayKey,
+      dateIso: wc.dateIso,
+      messages: wc.messages,
+    }));
+
+  if (newOrders.length === 0 && newContacts.length === 0 && newlySyncedWaChats.length === 0 && waChatsForSaleDetection.length === 0 && existingState?.last_report && !reset) {
     return res.status(200).json({
       ok: true,
       upToDate: true,
@@ -436,8 +455,10 @@ export default async function handler(req: any, res: any) {
     }
   };
 
-  for (const wc of waChats) {
+  const waChatsForDemographics = sinceAt ? newlySyncedWaChats : waChats;
+  for (const wc of waChatsForDemographics) {
     const digits = wc.phone.replace(/\D/g, '');
+    if (sinceAt && digits.length >= 8 && preExistingPhoneTails.has(digits.slice(-8))) continue;
     const pKey = digits.length >= 8 ? `tel:${digits.slice(-8)}` : `wa:${wc.chatId}`;
     const snippet = wc.messages.map((m) => `${m.fromMe ? 'Moi' : 'Client'}: ${m.body}`).join(' | ');
     registerPerson(pKey, wc.chatId, wc.name, '', snippet);
@@ -457,21 +478,6 @@ export default async function handler(req: any, res: any) {
     registerPerson(pKey, o.id, name, String(o.occasion || ''), String(o.notes || ''));
   }
 
-  // Préparer les discussions WhatsApp non encore enregistrées comme commandes pour que l'IA détecte les ventes d'hier/aujourd'hui
-  const waChatsForSaleDetection = waChats
-    .filter((wc) => {
-      const digits = wc.phone.replace(/\D/g, '');
-      return digits.length >= 8 && !existingOrderDayKeys.has(`${digits.slice(-8)}|${wc.dayKey}`);
-    })
-    .map((wc) => ({
-      chatId: wc.chatId,
-      name: wc.name,
-      phone: wc.phone,
-      dayKey: wc.dayKey,
-      dateIso: wc.dateIso,
-      messages: wc.messages,
-    }));
-
   let deltaRevenue = 0;
   const countryMap = new Map<string, number>();
   for (const o of newOrders) {
@@ -481,7 +487,7 @@ export default async function handler(req: any, res: any) {
     const country = detectCountryFromPhone(c.phone);
     countryMap.set(country, (countryMap.get(country) || 0) + 1);
   }
-  for (const wc of waChats) {
+  for (const wc of waChatsForDemographics) {
     const country = detectCountryFromPhone(wc.phone);
     countryMap.set(country, (countryMap.get(country) || 0) + 1);
   }
