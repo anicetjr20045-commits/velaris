@@ -175,7 +175,7 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
 
     setSampleLoading(voice.id);
     try {
-      const result = await generateFishVoice(voice.sampleText, voice.reference_id, 'mp3');
+      const result = await generateFishVoice(voice.sampleText, voice.reference_id, 'mp3', true);
       if (sampleAudioRef.current) {
         sampleAudioRef.current.src = result.url;
         sampleAudioRef.current.onended = () => setPlayingSampleId(null);
@@ -332,22 +332,8 @@ export const VoiceLabView: FC<VoiceLabViewProps> = ({
     setSendError(null);
 
     try {
-      // Génération directe au format natif WhatsApp OGG/Opus avec la voix exacte transformée
-      let blobToSend = transformedAudio.blob;
-      if (transformedAudio.text) {
-        try {
-          const opusSynth = await generateFishVoice(
-            transformedAudio.text,
-            transformedAudio.voiceReferenceId,
-            'opus'
-          );
-          if (opusSynth.blob.size > 0) {
-            blobToSend = opusSynth.blob;
-          }
-        } catch {
-          // Repli sur le blob MP3 existant (converti automatiquement par WAHA)
-        }
-      }
+      // Envoi direct du blob déjà synthétisé (WAHA convertit en OGG/Opus PTT natif sans re-consommer de crédit)
+      const blobToSend = transformedAudio.blob;
 
       const res = await sendWahaVoiceMessage(targetPhone, blobToSend, sessionName);
       if (res.success) {

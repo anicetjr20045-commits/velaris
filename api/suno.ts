@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
+import { debitUserCredits } from './_credits.js';
 
 const KIE_BASE_URL = 'https://api.kie.ai/api/v1';
 const CALLBACK_URL = 'https://waha.velarisagent.life/api/suno-callback';
@@ -287,7 +288,7 @@ export default async function handler(req: any, res: any) {
   const apiKey = getKieApiKey();
 
   try {
-    // 0. OPTIMISATION DE STYLE PAR IA (SANS TERMES BANNIS)
+    // 0. OPTIMISATION DE STYLE PAR IA (0.05 crédit)
     if (req.method === 'POST' && action === 'optimize-style') {
       const rawStyle = sanitizeSunoStyle(String(req.body?.style || ''));
       const voiceRaw = String(req.body?.voice || '')
@@ -297,6 +298,9 @@ export default async function handler(req: any, res: any) {
       if (!rawStyle) {
         return res.status(400).json({ error: 'Veuillez saisir un style à optimiser.' });
       }
+      const debit = await debitUserCredits(req.headers['authorization'], 0.05, 'Optimisation de style IA', 'ai_prompt');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
+
       const voiceHint =
         voiceRaw.includes('fem') || voiceRaw === 'f'
           ? 'Expressive female lead vocal, clear French pronunciation'
@@ -328,6 +332,7 @@ export default async function handler(req: any, res: any) {
       });
 
       if (!optRes.ok) {
+        if (debit.refund) await debit.refund();
         return res.status(502).json({ error: 'Impossible d\'optimiser le style pour le moment.' });
       }
       const optJson: any = await optRes.json().catch(() => ({}));
@@ -338,12 +343,13 @@ export default async function handler(req: any, res: any) {
         '';
       const optimizedStyle = sanitizeSunoStyle(String(rawOut).replace(/^["']|["']$/g, ''));
       if (!optimizedStyle) {
+        if (debit.refund) await debit.refund();
         return res.status(502).json({ error: 'Réponse vide lors de l\'optimisation du style.' });
       }
       return res.status(200).json({ success: true, optimizedStyle });
     }
 
-    // 1. GÉNÉRATION DE CHANSON
+    // 1. GÉNÉRATION DE CHANSON (1 crédit)
     if (req.method === 'POST' && action === 'generate') {
       const body = req.body || {};
       const customMode = body.customMode !== false;
@@ -363,6 +369,9 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: `Les paroles dépassent la limite de 5000 caractères (${rawPrompt.length}/5000).` });
       }
 
+      const debit = await debitUserCredits(req.headers['authorization'], 1, `Génération chanson « ${rawTitle.slice(0, 40)} »`, 'song_generation');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
+
       const { finalStyle, vocalGender } = applyVocalToStyle(rawStyle, String(body.vocalGender || ''));
       const payload: Record<string, any> = {
         prompt: rawPrompt,
@@ -376,11 +385,14 @@ export default async function handler(req: any, res: any) {
       if (vocalGender) payload.vocalGender = vocalGender;
 
       const result = await callKiePost('/generate', apiKey, payload);
-      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      if (!result.ok) {
+        if (debit.refund) await debit.refund();
+        return res.status(result.status).json({ error: result.error, raw: result.raw });
+      }
       return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
     }
 
-    // 1B. REMIX / REPRISE (MÊME MÉLODIE, NOUVELLES PAROLES & NOUVELLE VOIX)
+    // 1B. REMIX / REPRISE (1 crédit)
     if (req.method === 'POST' && action === 'remix') {
       const body = req.body || {};
       let uploadUrl = String(body.uploadUrl || '').trim();
@@ -392,6 +404,10 @@ export default async function handler(req: any, res: any) {
       if (!uploadUrl && !(sourceTaskId && sourceAudioId)) {
         return res.status(400).json({ error: 'Fournissez une URL audio ou une chanson de votre discothèque à remixer.' });
       }
+      const rawTitle = stripEmojis(String(body.title || 'Remix Studio')).slice(0, 80);
+      const debit = await debitUserCredits(req.headers['authorization'], 1, `Remix chanson « ${rawTitle.slice(0, 40)} »`, 'song_generation');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
+
       if (uploadUrl && !uploadUrl.includes('redpandaai.co') && !uploadUrl.includes('kie.ai')) {
         try {
           const upRes = await fetch('https://kieai.redpandaai.co/api/file-url-upload', {
@@ -408,7 +424,6 @@ export default async function handler(req: any, res: any) {
           // Repli sur uploadUrl original
         }
       }
-      const rawTitle = stripEmojis(String(body.title || 'Remix Studio')).slice(0, 80);
       const rawPrompt = stripEmojis(String(body.prompt || body.lyrics || '')).slice(0, 5000);
       const instrumental = Boolean(body.instrumental) || !rawPrompt;
       const { finalStyle, vocalGender } = applyVocalToStyle(String(body.style || 'Afro-Love acoustique'), String(body.vocalGender || ''));
@@ -426,15 +441,22 @@ export default async function handler(req: any, res: any) {
       if (vocalGender && !instrumental) payload.vocalGender = vocalGender;
 
       const result = await callKiePost('/generate/upload-cover', apiKey, payload);
-      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      if (!result.ok) {
+        if (debit.refund) await debit.refund();
+        return res.status(result.status).json({ error: result.error, raw: result.raw });
+      }
       return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
     }
 
-    // 1C. PROLONGER UN MORCEAU (EXTEND)
+    // 1C. PROLONGER UN MORCEAU (1 crédit)
     if (req.method === 'POST' && action === 'extend') {
       const body = req.body || {};
       const audioId = String(body.audioId || '').trim();
       if (!audioId) return res.status(400).json({ error: 'Identifiant audio manquant pour prolonger le morceau.' });
+      const rawTitle = stripEmojis(String(body.title || 'Suite Studio')).slice(0, 80);
+      const debit = await debitUserCredits(req.headers['authorization'], 1, `Prolongement « ${rawTitle.slice(0, 40)} »`, 'song_generation');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
+
       const continueAt = Math.max(5, Number(body.continueAt || 120));
       const { finalStyle } = applyVocalToStyle(String(body.style || 'Afro-Love'), String(body.vocalGender || ''));
       const payload: Record<string, any> = {
@@ -443,16 +465,19 @@ export default async function handler(req: any, res: any) {
         continueAt,
         prompt: stripEmojis(String(body.prompt || '')).slice(0, 5000),
         style: finalStyle,
-        title: stripEmojis(String(body.title || 'Suite Studio')).slice(0, 80),
+        title: rawTitle,
         model: String(body.model || 'V6'),
         callBackUrl: CALLBACK_URL,
       };
       const result = await callKiePost('/generate/extend', apiKey, payload);
-      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      if (!result.ok) {
+        if (debit.refund) await debit.refund();
+        return res.status(result.status).json({ error: result.error, raw: result.raw });
+      }
       return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
     }
 
-    // 1D. CORRIGER UN PASSAGE (REPLACE SECTION)
+    // 1D. CORRIGER UN PASSAGE (0.5 crédit)
     if (req.method === 'POST' && action === 'replace-section') {
       const body = req.body || {};
       const taskId = String(body.taskId || '').trim();
@@ -465,6 +490,10 @@ export default async function handler(req: any, res: any) {
       if (!Number.isFinite(infillStartS) || !Number.isFinite(infillEndS) || infillEndS - infillStartS < 10) {
         return res.status(400).json({ error: 'La zone à corriger doit durer au moins 10 secondes (ex: 30s à 45s).' });
       }
+      const rawTitle = stripEmojis(String(body.title || 'Correction Studio')).slice(0, 80);
+      const debit = await debitUserCredits(req.headers['authorization'], 0.5, `Correction passage « ${rawTitle.slice(0, 40)} »`, 'song_edit');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
+
       const { finalStyle } = applyVocalToStyle(String(body.style || 'Afro-Love'), String(body.vocalGender || ''));
       const payload: Record<string, any> = {
         taskId,
@@ -473,28 +502,37 @@ export default async function handler(req: any, res: any) {
         infillEndS: Number(infillEndS.toFixed(2)),
         prompt: stripEmojis(String(body.prompt || '')).slice(0, 5000),
         tags: finalStyle,
-        title: stripEmojis(String(body.title || 'Correction Studio')).slice(0, 80),
+        title: rawTitle,
         fullLyrics: stripEmojis(String(body.fullLyrics || body.prompt || '')).slice(0, 5000),
         callBackUrl: CALLBACK_URL,
       };
       const result = await callKiePost('/generate/replace-section', apiKey, payload);
-      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      if (!result.ok) {
+        if (debit.refund) await debit.refund();
+        return res.status(result.status).json({ error: result.error, raw: result.raw });
+      }
       return res.status(200).json({ success: true, taskId: result.taskId, data: result.data });
     }
 
-    // 1E. SÉPARATION VOIX & INSTRUMENTAL (STEMS)
+    // 1E. SÉPARATION VOIX & INSTRUMENTAL (0.5 crédit)
     if (req.method === 'POST' && action === 'separate-vocals') {
       const { taskId, audioId } = req.body || {};
       if (!taskId || !audioId) {
         return res.status(400).json({ error: 'Identifiants de piste requis pour séparer voix et instrumental.' });
       }
+      const debit = await debitUserCredits(req.headers['authorization'], 0.5, 'Séparation Voix & Instrumental', 'stems');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
+
       const result = await callKiePost('/vocal-removal/generate', apiKey, {
         taskId: String(taskId),
         audioId: String(audioId),
         type: 'separate_vocal',
         callBackUrl: CALLBACK_URL,
       });
-      if (!result.ok) return res.status(result.status).json({ error: result.error, raw: result.raw });
+      if (!result.ok) {
+        if (debit.refund) await debit.refund();
+        return res.status(result.status).json({ error: result.error, raw: result.raw });
+      }
       return res.status(200).json({ success: true, taskId: result.taskId });
     }
 
@@ -522,12 +560,15 @@ export default async function handler(req: any, res: any) {
       return res.status(kieRes.status).json(json);
     }
 
-    // 3. CRÉATION VIDÉO LYRICS / MP4 VIA KIE.AI
+    // 3. CRÉATION VIDÉO LYRICS / MP4 (0.5 crédit)
     if (req.method === 'POST' && action === 'music-video') {
       const { taskId, audioId, author, domainName } = req.body || {};
       if (!taskId || !audioId) {
         return res.status(400).json({ error: 'taskId et audioId sont requis pour générer la vidéo lyrics.' });
       }
+
+      const debit = await debitUserCredits(req.headers['authorization'], 0.5, 'Génération Vidéo Lyrics MP4', 'music_video');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
 
       const kieRes = await fetch(`${KIE_BASE_URL}/mp4/generate`, {
         method: 'POST',
@@ -550,8 +591,9 @@ export default async function handler(req: any, res: any) {
         const rawMsg = String(json?.msg || json?.message || json?.error || `HTTP ${kieRes.status}`);
         const low = rawMsg.toLowerCase();
 
-        // Si la vidéo MP4 existe déjà chez Kie.ai, tenter de la récupérer directement
+        // Si la vidéo MP4 existe déjà chez Kie.ai, rembourser le débit et récupérer le lien existant
         if (low.includes('already exists')) {
+          if (debit.refund) await debit.refund();
           const existingTaskId = String(json?.data?.taskId || taskId);
           try {
             const infoRes = await fetch(`${KIE_BASE_URL}/mp4/record-info?taskId=${encodeURIComponent(existingTaskId)}`, {
@@ -567,9 +609,9 @@ export default async function handler(req: any, res: any) {
             if (infoData) {
               return res.status(200).json({ success: true, taskId: existingTaskId, alreadyExists: true });
             }
-          } catch {
-            // Repli ci-dessous
-          }
+          } catch {}
+        } else if (debit.refund) {
+          await debit.refund();
         }
 
         const friendly =
@@ -623,6 +665,10 @@ export default async function handler(req: any, res: any) {
       if (unique.length === 0) {
         return res.status(400).json({ error: 'Aucun identifiant ou lien Suno valide détecté.' });
       }
+
+      const extractCost = Math.round(unique.length * 0.1 * 100) / 100;
+      const debit = await debitUserCredits(req.headers['authorization'], extractCost, `Extraction Express (${unique.length} morceau${unique.length > 1 ? 'x' : ''})`, 'extract');
+      if (!debit.ok) return res.status(debit.status || 402).json({ error: debit.error });
 
       return res.status(200).json({ success: true, tracks: unique });
     }

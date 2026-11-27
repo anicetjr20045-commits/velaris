@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { CHARIOW_CATALOG } from './_chariow-catalog.js';
 
 function getEnvConfig() {
   let apiKey = process.env.CHARIOW_API_KEY || '';
@@ -61,6 +62,8 @@ export default async function handler(req: any, res: any) {
   }
 
   const body = req.body || {};
+  const requestedProductId = String(body.productId || '').trim();
+  const catalogItem = CHARIOW_CATALOG[requestedProductId] || CHARIOW_CATALOG[config.productId] || CHARIOW_CATALOG.prd_bh3vpcup;
   const userId = String(body.userId || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
   const rawPhone = String(body.phone || '');
@@ -77,7 +80,7 @@ export default async function handler(req: any, res: any) {
   const { number: phoneNumber, countryCode } = parsePhoneAndCountry(rawPhone, hintCountry);
 
   const chariowPayload = {
-    product_id: config.productId,
+    product_id: catalogItem.productId,
     email,
     first_name: firstName.slice(0, 50),
     last_name: lastName.slice(0, 50),
@@ -88,8 +91,10 @@ export default async function handler(req: any, res: any) {
     redirect_url: redirectUrl,
     custom_metadata: {
       user_id: userId || 'anonymous',
-      plan: 'creator_pass',
-      amount_cfa: '4900',
+      product_id: catalogItem.productId,
+      plan: catalogItem.kind === 'subscription' ? 'creator_pass' : 'credit_pack',
+      amount_cfa: String(catalogItem.priceCfa),
+      credits: String(catalogItem.credits),
     },
   };
 

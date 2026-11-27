@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
+import { debitUserCredits } from './_credits.js';
 
 function getFishApiKey(): string {
   let key = process.env.FISH_API_KEY || process.env.VITE_FISH_API_KEY || '';
@@ -36,11 +37,19 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Méthode non autorisée. Utilisez POST.' });
   }
 
-  const { text, reference_id, voiceId, format = 'mp3' } = req.body || {};
+  const { text, reference_id, voiceId, format = 'mp3', isSample = false } = req.body || {};
   const cleanText = (text || '').trim();
 
   if (!cleanText) {
     return res.status(400).json({ error: 'Le texte est requis pour la synthèse vocale.' });
+  }
+
+  const shouldDebit = !(isSample === true && cleanText.length <= 160);
+  const debit = shouldDebit
+    ? await debitUserCredits(req.headers['authorization'], 0.25, `Studio Vocal IA (${cleanText.slice(0, 40)})`, 'voice_synthesis')
+    : { ok: true as const };
+  if (!debit.ok) {
+    return res.status(debit.status || 402).json({ error: debit.error || 'Crédits insuffisants.' });
   }
 
   const targetVoice = reference_id || voiceId || '9bdcf5be57564499848e4ac474f365d5';
@@ -63,6 +72,7 @@ export default async function handler(req: any, res: any) {
     });
 
     if (!fishRes.ok) {
+      if (debit.refund) await debit.refund();
       const errText = await fishRes.text().catch(() => '');
       return res.status(fishRes.status).json({
         error: `Erreur Fish Audio HTTP ${fishRes.status}: ${errText.slice(0, 300)}`,
@@ -77,6 +87,7 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.status(200).send(buffer);
   } catch (err: any) {
+    if (debit.refund) await debit.refund();
     return res.status(500).json({
       error: err.message || 'Erreur interne lors de la synthèse vocale Fish Audio.',
     });

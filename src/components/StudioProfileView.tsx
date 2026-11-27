@@ -16,14 +16,15 @@ import {
   subscribeToBilling
 } from '../services/billing';
 import {
-  createCreditRechargeCheckout,
-  calculateCreditsForCFA,
   clearPendingCheckout,
   getCheckoutStatus,
   getPendingCheckout,
-  SASPAY_CONFIG
 } from '../services/saspay';
-import { initiateChariowCheckout, verifyChariowSale } from '../services/chariow';
+import {
+  CHARIOW_CREDIT_PACKS,
+  initiateChariowCheckout,
+  verifyChariowSale,
+} from '../services/chariow';
 
 interface StudioProfileViewProps {
   onSignedOut?: () => void;
@@ -61,7 +62,7 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
 
   const [credits, setCredits] = useState(getStudioCredits());
   const [subscription, setSubscription] = useState(getStudioSubscription());
-  const [selectedPackCfa, setSelectedPackCfa] = useState<number>(2500);
+  const [selectedPackId, setSelectedPackId] = useState<string>(CHARIOW_CREDIT_PACKS[1].productId);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   useEffect(() => {
@@ -141,15 +142,24 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
     }
   };
 
-  const handleRechargeCredits = async (amountCfa: number) => {
-    if (amountCfa < SASPAY_CONFIG.rates.minCfaRecharge) return;
+  const handleRechargeCredits = async (productId: string) => {
+    if (!user) return;
     setBusy('checkout');
-    const res = await createCreditRechargeCheckout(amountCfa);
+    const res = await initiateChariowCheckout({
+      userId: user.id,
+      email: user.email || '',
+      fullName:
+        (user.user_metadata?.studio_name as string) ||
+        (user.user_metadata?.full_name as string) ||
+        'Créateur Velaris',
+      phone: (user.user_metadata?.phone as string) || '',
+      productId,
+    });
     setBusy(null);
     if (res.success && res.checkoutUrl) {
       window.location.assign(res.checkoutUrl);
     } else {
-      setNotice({ tone: 'err', text: res.error || 'Erreur lors de la recharge.' });
+      setNotice({ tone: 'err', text: res.error || 'Impossible d’initialiser le paiement Chariow.' });
     }
   };
 
@@ -226,48 +236,55 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
         <div className="flex items-baseline justify-between">
           <span className="text-xs font-medium text-white/75">Crédits disponibles</span>
           <span className="text-4xl font-bold text-white tabular-nums leading-none">
-            {credits.balance.toFixed(0)}
+            {Number(credits.balance || 0).toFixed(2).replace(/\.00$/, '')}
           </span>
         </div>
 
         <div className="grid grid-cols-3 gap-2.5">
-          {[1000, 2500, 5000].map((amt) => (
+          {CHARIOW_CREDIT_PACKS.map((pack) => (
             <button
-              key={amt}
+              key={pack.productId}
               type="button"
-              onClick={() => setSelectedPackCfa(amt)}
+              onClick={() => setSelectedPackId(pack.productId)}
               className={`py-3 px-2 rounded-2xl text-center transition-colors cursor-pointer border ${
-                selectedPackCfa === amt
+                selectedPackId === pack.productId
                   ? 'bg-white text-black border-white font-semibold'
                   : 'bg-black/35 text-white border-white/[0.1] hover:bg-black/55'
               }`}
             >
               <span className="block text-sm font-bold tabular-nums">
-                +{calculateCreditsForCFA(amt).formattedCredits}
+                +{pack.credits} cr.
               </span>
               <span
                 className={`block text-[11px] mt-0.5 tabular-nums ${
-                  selectedPackCfa === amt ? 'text-black/70' : 'text-white/60'
+                  selectedPackId === pack.productId ? 'text-black/70' : 'text-white/60'
                 }`}
               >
-                {amt.toLocaleString('fr-FR')} F
+                {pack.priceCfa.toLocaleString('fr-FR')} F
               </span>
             </button>
           ))}
         </div>
 
-        <button
-          type="button"
-          disabled={busy === 'checkout'}
-          onClick={() => handleRechargeCredits(selectedPackCfa)}
-          className="w-full py-3.5 rounded-2xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-        >
-          {busy === 'checkout' ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <span>Recharger {selectedPackCfa.toLocaleString('fr-FR')} F CFA via Mobile Money</span>
-          )}
-        </button>
+        {(() => {
+          const activePack = CHARIOW_CREDIT_PACKS.find((p) => p.productId === selectedPackId) || CHARIOW_CREDIT_PACKS[0];
+          return (
+            <button
+              type="button"
+              disabled={busy === 'checkout'}
+              onClick={() => handleRechargeCredits(activePack.productId)}
+              className="w-full py-3.5 rounded-2xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {busy === 'checkout' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <span>
+                  Recharger +{activePack.credits} crédits ({activePack.priceCfa.toLocaleString('fr-FR')} F CFA)
+                </span>
+              )}
+            </button>
+          );
+        })()}
       </section>
 
       {/* 2. Abonnement Pass Créateur */}

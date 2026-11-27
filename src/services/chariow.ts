@@ -4,6 +4,19 @@
  * pour le Pass Créateur à 4 900 F CFA / mois (30 jours).
  */
 
+export interface ChariowCreditPack {
+  productId: string;
+  name: string;
+  credits: number;
+  priceCfa: number;
+}
+
+export const CHARIOW_CREDIT_PACKS: readonly ChariowCreditPack[] = [
+  { productId: 'prd_ps1n1r1z', name: 'Pack Starter', credits: 20, priceCfa: 2000 },
+  { productId: 'prd_6x7tpj8z', name: 'Pack Studio Pro', credits: 55, priceCfa: 4500 },
+  { productId: 'prd_x88amcm9', name: 'Pack Agence', credits: 125, priceCfa: 9000 },
+];
+
 export interface ChariowCheckoutOptions {
   userId?: string;
   email: string;
@@ -11,6 +24,7 @@ export interface ChariowCheckoutOptions {
   phone?: string;
   countryCode?: string;
   redirectUrl?: string;
+  productId?: string;
 }
 
 export interface ChariowCheckoutResponse {
@@ -37,6 +51,7 @@ export async function initiateChariowCheckout(options: ChariowCheckoutOptions): 
         phone: options.phone,
         countryCode: options.countryCode,
         redirectUrl,
+        ...(options.productId ? { productId: options.productId } : {}),
       }),
     });
 

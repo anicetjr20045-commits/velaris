@@ -117,6 +117,9 @@ export const VOICE_SCRIPT_TEMPLATES: VoiceScriptTemplate[] = [
   },
 ];
 
+import { supabase } from './supabase';
+import { refreshBilling } from './billing';
+
 const FALLBACK_FISH_API_KEY = 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
 
 /**
@@ -126,33 +129,48 @@ const FALLBACK_FISH_API_KEY = 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq
 export async function generateFishVoice(
   text: string,
   referenceId: string,
-  format: 'mp3' | 'opus' = 'mp3'
+  format: 'mp3' | 'opus' = 'mp3',
+  isSample: boolean = false,
 ): Promise<{ blob: Blob; url: string; mimeType: string }> {
   const clean = text.trim();
   if (!clean) throw new Error('Le texte est requis');
 
-  // 1. Essai prioritaire via l'endpoint serveur du projet
+  // 1. Essai prioritaire via l'endpoint serveur du projet (avec débit sécurisé des crédits)
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
     const res = await fetch('/api/fish-voice', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         text: clean,
         reference_id: referenceId,
         format,
+        isSample,
       }),
       signal: AbortSignal.timeout(35000),
     });
+
+    if (res.status === 401 || res.status === 402) {
+      const errJson: any = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Crédits insuffisants.');
+    }
 
     if (res.ok) {
       const mimeType = format === 'opus' ? 'audio/ogg; codecs=opus' : 'audio/mpeg';
       const arrayBuffer = await res.arrayBuffer();
       const blob = new Blob([arrayBuffer], { type: mimeType });
       const url = URL.createObjectURL(blob);
+      if (!isSample) void refreshBilling();
       return { blob, url, mimeType };
     }
-  } catch {
-    // Repli vers l'API directe Fish Audio
+  } catch (err: any) {
+    if (err?.message?.includes('Crédits') || err?.message?.includes('Session')) {
+      throw err;
+    }
+    // Repli vers l'API directe Fish Audio uniquement en cas de panne réseau locale
   }
 
   // 2. Repli direct vers l'API Fish Audio côté client

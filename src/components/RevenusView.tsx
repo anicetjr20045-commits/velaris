@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import { MessageCircle, TrendingUp, Sparkles, Globe2, Users, Wallet, Clock, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getLiveOrders, supabase } from '../services/supabase';
+import { refreshBilling } from '../services/billing';
 import type { Order, StudioMetrics } from '../types';
 
 interface RevenusViewProps {
@@ -353,6 +354,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         }
       }
       setAiUpToDate(Boolean(json.upToDate));
+      if (!json.upToDate) void refreshBilling();
       if (!json.upToDate || json.syncedOrdersCount > 0 || json.report?.deltaContacts > 0) {
         const freshOrders = await getLiveOrders();
         if (freshOrders.length > 0) setLiveSyncedOrders(freshOrders);

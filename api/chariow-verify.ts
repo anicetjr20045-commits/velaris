@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { resolveChariowProduct } from './_chariow-catalog.js';
 
 function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
@@ -138,6 +139,11 @@ export default async function handler(req: any, res: any) {
       }
     } catch {}
 
+    const catalogItem = resolveChariowProduct(
+      sale.product_id || sale.product?.id || metadata.product_id,
+      sale.amount?.value || sale.amount || metadata.amount_cfa,
+    );
+
     // Récupérer le profil et métadonnées
     let currentExpires = 0;
     let currentCredits = 0;
@@ -150,54 +156,58 @@ export default async function handler(req: any, res: any) {
         if (currentMeta.subscription_expires_at) {
           currentExpires = new Date(currentMeta.subscription_expires_at).getTime();
         }
-        currentCredits = Number(currentMeta.credits) || 0;
+        currentCredits = Math.round((Number(currentMeta.credits) || 0) * 100) / 100;
       }
     } catch {}
 
+    if (currentMeta.last_payment_ref === transactionRef) {
+      return res.status(200).json({
+        success: true,
+        activated: true,
+        status: 'completed',
+        already_applied: true,
+        creditsAdded: catalogItem.credits,
+        kind: catalogItem.kind,
+      });
+    }
+
     const baseTime = currentExpires > Date.now() ? currentExpires : Date.now();
-    const newExpiresAt = new Date(baseTime + 30 * 24 * 3600 * 1000).toISOString();
-    const CREDITS_TO_ADD = 30;
-    const newCredits = currentCredits + CREDITS_TO_ADD;
+    const newExpiresAt =
+      catalogItem.kind === 'subscription'
+        ? new Date(baseTime + catalogItem.durationDays * 24 * 3600 * 1000).toISOString()
+        : currentMeta.subscription_expires_at;
+    const CREDITS_TO_ADD = catalogItem.credits;
+    const newCredits = Math.round((currentCredits + CREDITS_TO_ADD) * 100) / 100;
 
     // Mise à jour synchrone user_metadata (garantie)
     await admin.auth.admin.updateUserById(targetUserId, {
       user_metadata: {
         ...currentMeta,
-        subscription_status: 'ACTIVE',
-        subscription_plan: 'monthly',
-        subscription_expires_at: newExpiresAt,
-        subscription_started_at: currentMeta.subscription_started_at || new Date().toISOString(),
+        ...(catalogItem.kind === 'subscription'
+          ? {
+              subscription_status: 'ACTIVE',
+              subscription_plan: 'monthly',
+              subscription_expires_at: newExpiresAt,
+              subscription_started_at: currentMeta.subscription_started_at || new Date().toISOString(),
+            }
+          : {}),
         credits: newCredits,
         last_payment_ref: transactionRef,
         updated_at: new Date().toISOString(),
       },
     });
 
-    // Mise à jour profiles de secours
-    try {
-      await admin
-        .from('profiles')
-        .update({
-          subscription_status: 'ACTIVE',
-          subscription_plan: 'monthly',
-          subscription_expires_at: newExpiresAt,
-          credits: newCredits,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', targetUserId);
-    } catch {}
-
     try {
       await admin.from('credit_transactions').insert({
         user_id: targetUserId,
-        amount_cfa: 4900,
+        amount_cfa: catalogItem.priceCfa,
         credits_added: CREDITS_TO_ADD,
         balance_after: newCredits,
         transaction_ref: transactionRef,
         payment_provider: 'CHARIOW',
         status: 'SUCCESS',
-        kind: 'subscription',
-        reason: 'Pass Créateur Djelia Academy (4 900 F CFA / 30 jours)',
+        kind: catalogItem.kind === 'subscription' ? 'subscription' : 'purchase',
+        reason: catalogItem.label,
         metadata: {
           chariow_sale_id: saleId,
           chariow_product_id: sale.product?.id || config.productId,

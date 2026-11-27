@@ -41,6 +41,8 @@ import {
 } from '../services/shared-tracks';
 import { VoiceLabView } from './VoiceLabView';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../services/supabase';
+import { refreshBilling } from '../services/billing';
 
 const KIE_LIMITS = {
   title: 80,
@@ -170,6 +172,15 @@ export const StudioView: FC<StudioViewProps> = ({
     setTimeout(() => setStudioNotice(null), 5500);
   };
 
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+    } catch {}
+    return headers;
+  };
+
   const currentOrder = orders.find((o) => o.id === selectedOrderId) || orders[0];
 
   /* ------------------------------------------------------------------ */
@@ -296,7 +307,7 @@ export const StudioView: FC<StudioViewProps> = ({
     try {
       const res = await fetch('/api/suno?action=optimize-style', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           style: songStyle.trim(),
           voice: songVoice,
@@ -308,6 +319,7 @@ export const StudioView: FC<StudioViewProps> = ({
         return;
       }
       setSongStyle(json.optimizedStyle);
+      void refreshBilling();
       notifyStudio('Style optimisé pour une qualité studio maximale.', 'ok');
     } catch {
       notifyStudio('Erreur réseau lors de l’optimisation du style.', 'error');
@@ -533,7 +545,7 @@ export const StudioView: FC<StudioViewProps> = ({
           };
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
@@ -541,6 +553,7 @@ export const StudioView: FC<StudioViewProps> = ({
         notifyStudio(json.error || 'Impossible de lancer cette modification.', 'error');
         return;
       }
+      void refreshBilling();
       setActiveTool(null);
       notifyStudio(isReplace ? 'Correction lancée en arrière-plan…' : 'Prolongement lancé en arrière-plan…', 'ok');
       void pollGenerationTask(
@@ -570,7 +583,7 @@ export const StudioView: FC<StudioViewProps> = ({
     try {
       const res = await fetch('/api/suno?action=separate-vocals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ taskId: song.taskId, audioId: song.audioId }),
       });
       const json = await res.json().catch(() => ({}));
@@ -579,6 +592,7 @@ export const StudioView: FC<StudioViewProps> = ({
         notifyStudio(json.error || 'Impossible de lancer la séparation.', 'error');
         return;
       }
+      void refreshBilling();
       const vTaskId = String(json.taskId);
       const started = Date.now();
       while (Date.now() - started < 4 * 60 * 1000) {
@@ -646,7 +660,7 @@ export const StudioView: FC<StudioViewProps> = ({
       const endpoint = formMode === 'remix' ? '/api/suno?action=remix' : '/api/suno?action=generate';
       const genRes = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           ...(formMode === 'remix' && remixSource
             ? { uploadUrl: remixSource.uploadUrl, taskId: remixSource.taskId, audioId: remixSource.audioId }
@@ -667,6 +681,7 @@ export const StudioView: FC<StudioViewProps> = ({
         notifyStudio(genJson.error || 'Impossible de lancer la génération musicale.', 'error');
         return;
       }
+      void refreshBilling();
 
       const taskId = String(genJson.taskId);
       const titleSnap = songTitle.trim();
@@ -749,7 +764,7 @@ export const StudioView: FC<StudioViewProps> = ({
     try {
       const res = await fetch('/api/suno?action=music-video', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           taskId: song.taskId,
           audioId: song.audioId,
@@ -776,6 +791,7 @@ export const StudioView: FC<StudioViewProps> = ({
         notifyStudio(json.error || 'Impossible de lancer la vidéo lyrics.', 'error');
         return;
       }
+      void refreshBilling();
 
       const vTaskId = String(json.taskId);
       setLibrarySongs((prev) =>
@@ -874,7 +890,7 @@ export const StudioView: FC<StudioViewProps> = ({
     try {
       const res = await fetch('/api/suno?action=extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ text: sunoInputUrls }),
       });
       const json = await res.json().catch(() => ({}));
@@ -883,6 +899,7 @@ export const StudioView: FC<StudioViewProps> = ({
         setIsExtractingSuno(false);
         return;
       }
+      void refreshBilling();
 
       const newExtracted: ExtractedSunoTrack[] = json.tracks.map((t: any, idx: number) => ({
         id: `suno-${t.uuid}-${Date.now()}-${idx}`,

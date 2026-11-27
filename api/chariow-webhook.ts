@@ -3,11 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Buffer } from 'node:buffer';
 import { createClient } from '@supabase/supabase-js';
+import { resolveChariowProduct } from './_chariow-catalog.js';
 
 function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
-  let webhookSecret = process.env.CHARIOW_WEBHOOK_SECRET || 'chariow_sec_djelia_2026_9dc757c6';
+  let webhookSecret = process.env.CHARIOW_WEBHOOK_SECRET || 'whsec_mlMpUo07yWwjQoO0lPsNLJUFimVYXV7Hs85Iu04Z';
   let wahaBaseUrl = (process.env.WAHA_BASE_URL || 'https://waha.velarisagent.life').replace(/\/+$/, '');
   let wahaApiKey = process.env.WAHA_API_KEY || '';
   let wahaSession = process.env.WAHA_SESSION || 'Test';
@@ -23,7 +24,7 @@ function getEnvConfig() {
             const k = m[1].trim();
             const v = m[2].trim();
             if (k === 'SUPABASE_SECRET_KEY' && !supabaseSecretKey) supabaseSecretKey = v;
-            if (k === 'CHARIOW_WEBHOOK_SECRET' && webhookSecret === 'chariow_sec_djelia_2026_9dc757c6') webhookSecret = v;
+            if (k === 'CHARIOW_WEBHOOK_SECRET' && webhookSecret === 'whsec_mlMpUo07yWwjQoO0lPsNLJUFimVYXV7Hs85Iu04Z') webhookSecret = v;
             if (k === 'WAHA_API_KEY' && !wahaApiKey) wahaApiKey = v;
           }
         }
@@ -80,8 +81,7 @@ export default async function handler(req: any, res: any) {
   if (!isAuthenticated && providedToken) {
     if (
       safeEqual(providedToken, config.webhookSecret) ||
-      safeEqual(providedToken, 'chariow_sec_djelia_2026_9dc757c6') ||
-      safeEqual(providedToken, 'whsec_Len2tOYxtMT83018eqEwbtv7eCwvCrITfZxoFp8S')
+      safeEqual(providedToken, 'whsec_mlMpUo07yWwjQoO0lPsNLJUFimVYXV7Hs85Iu04Z')
     ) {
       isAuthenticated = true;
     }
@@ -169,7 +169,12 @@ export default async function handler(req: any, res: any) {
       }
     } catch {}
 
-    // 3. Calcul de la nouvelle date d'expiration (30 jours) et crédits
+    // 3. Résolution du produit Chariow (Pass Créateur vs Pack Crédits)
+    const catalogItem = resolveChariowProduct(
+      sale.product_id || sale.product?.id || data.product?.id || metadata.product_id,
+      sale.amount?.value || sale.amount || metadata.amount_cfa,
+    );
+
     let currentExpires = 0;
     let currentCredits = 0;
     let currentMeta: Record<string, any> = {};
@@ -181,65 +186,62 @@ export default async function handler(req: any, res: any) {
         if (currentMeta.subscription_expires_at) {
           currentExpires = new Date(currentMeta.subscription_expires_at).getTime();
         }
-        currentCredits = Number(currentMeta.credits) || 0;
+        currentCredits = Math.round((Number(currentMeta.credits) || 0) * 100) / 100;
       }
     } catch {}
 
+    if (currentMeta.last_payment_ref === transactionRef) {
+      return res.status(200).json({ received: true, applied: false, reason: 'Déjà traité' });
+    }
+
     const baseTime = currentExpires > Date.now() ? currentExpires : Date.now();
-    const newExpiresAt = new Date(baseTime + 30 * 24 * 3600 * 1000).toISOString();
-    const CREDITS_TO_ADD = 30; // 30 crédits de production inclus dans le Pass à 4 900 F CFA
-    const newCredits = currentCredits + CREDITS_TO_ADD;
+    const newExpiresAt =
+      catalogItem.kind === 'subscription'
+        ? new Date(baseTime + catalogItem.durationDays * 24 * 3600 * 1000).toISOString()
+        : currentMeta.subscription_expires_at;
+    const CREDITS_TO_ADD = catalogItem.credits;
+    const newCredits = Math.round((currentCredits + CREDITS_TO_ADD) * 100) / 100;
 
     // 4. Mise à jour atomique du profil via user_metadata (garanti)
     await admin.auth.admin.updateUserById(targetUserId, {
       user_metadata: {
         ...currentMeta,
-        subscription_status: 'ACTIVE',
-        subscription_plan: 'monthly',
-        subscription_expires_at: newExpiresAt,
-        subscription_started_at: currentMeta.subscription_started_at || new Date().toISOString(),
+        ...(catalogItem.kind === 'subscription'
+          ? {
+              subscription_status: 'ACTIVE',
+              subscription_plan: 'monthly',
+              subscription_expires_at: newExpiresAt,
+              subscription_started_at: currentMeta.subscription_started_at || new Date().toISOString(),
+            }
+          : {}),
         credits: newCredits,
         last_payment_ref: transactionRef,
         updated_at: new Date().toISOString(),
       },
     });
 
-    // 5. Mise à jour de secours sur la table profiles si elle existe
-    try {
-      await admin
-        .from('profiles')
-        .update({
-          subscription_status: 'ACTIVE',
-          subscription_plan: 'monthly',
-          subscription_expires_at: newExpiresAt,
-          credits: newCredits,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', targetUserId);
-    } catch {}
-
-    // 6. Enregistrement dans le grand livre des transactions si la table existe
+    // 5. Enregistrement dans le grand livre des transactions si la table existe
     try {
       await admin.from('credit_transactions').insert({
         user_id: targetUserId,
-        amount_cfa: 4900,
+        amount_cfa: catalogItem.priceCfa,
         credits_added: CREDITS_TO_ADD,
         balance_after: newCredits,
         transaction_ref: transactionRef,
         payment_provider: 'CHARIOW',
         status: 'SUCCESS',
-        kind: 'subscription',
-        reason: 'Pass Créateur Djelia Academy (4 900 F CFA / 30 jours)',
+        kind: catalogItem.kind === 'subscription' ? 'subscription' : 'purchase',
+        reason: catalogItem.label,
         metadata: {
           chariow_sale_id: saleId,
-          chariow_product_id: sale.product_id || 'prd_bh3vpcup',
+          chariow_product_id: catalogItem.productId,
           customer_email: customerEmail,
           customer_phone: rawCustomerPhone,
         },
       });
     } catch {}
 
-    console.log(`[Chariow Webhook] ✅ Succès : User ${targetUserId} activé jusqu'au ${newExpiresAt} avec +${CREDITS_TO_ADD} crédits.`);
+    console.log(`[Chariow Webhook] ✅ Succès : User ${targetUserId} (${catalogItem.productId}) +${CREDITS_TO_ADD} crédits (solde ${newCredits}).`);
 
     // 6. Notification WhatsApp de félicitations (si numéro disponible)
     const phoneDigits = rawCustomerPhone.replace(/\D/g, '');
@@ -249,7 +251,10 @@ export default async function handler(req: any, res: any) {
         : `226${phoneDigits}`;
 
       const studioName = currentMeta?.studio_name || currentMeta?.full_name || 'Créateur';
-      const notifMsg = `Djelia Academy : Félicitations ${studioName} !\nVotre Pass Créateur (4 900 F CFA) est maintenant actif.\n30 crédits de production musicale ont été ajoutés à votre studio. Bonnes créations !`;
+      const notifMsg =
+        catalogItem.kind === 'subscription'
+          ? `Djelia Academy : Félicitations ${studioName} !\nVotre Pass Créateur (4 900 F CFA) est maintenant actif.\n30 crédits de production musicale ont été ajoutés à votre studio. Bonnes créations !`
+          : `Djelia Studio : Merci ${studioName} !\nVotre ${catalogItem.label} est validé.\n+${CREDITS_TO_ADD} crédits ont été ajoutés (nouveau solde : ${newCredits} crédits).`;
 
       fetch(`${config.wahaBaseUrl}/api/sendText`, {
         method: 'POST',

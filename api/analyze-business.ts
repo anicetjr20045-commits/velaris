@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { debitUserCredits } from './_credits.js';
 
 function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
@@ -470,6 +471,12 @@ export default async function handler(req: any, res: any) {
       state: existingState,
       report: existingState.last_report,
     });
+  }
+
+  // Débiter 0.25 crédit uniquement quand l'analyse traite de vraies nouveautés
+  const debit = await debitUserCredits(authHeader, 0.25, 'Analyse Business & Scan WhatsApp', 'analytics');
+  if (!debit.ok) {
+    return res.status(debit.status || 402).json({ ok: false, error: debit.error || 'Crédits insuffisants.' });
   }
 
   // Déduplication stricte des personnes uniques pour l'analyse du sexe
