@@ -224,12 +224,11 @@ export const StudioView: FC<StudioViewProps> = ({
     },
   ];
 
-  // Bibliothèque (ignorer les brouillons 'generating' orphelins au rechargement)
+  // Bibliothèque (conserve aussi les morceaux en cours pour reprise après actualisation)
   const [librarySongs, setLibrarySongs] = useState<GeneratedSong[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SONGS);
-      const parsed: GeneratedSong[] = saved ? JSON.parse(saved) : SEED_SONGS;
-      return parsed.filter((s) => s.status !== 'generating');
+      return saved ? JSON.parse(saved) : SEED_SONGS;
     } catch {
       return SEED_SONGS;
     }
@@ -243,11 +242,13 @@ export const StudioView: FC<StudioViewProps> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_SONGS, JSON.stringify(librarySongs.filter((s) => s.status !== 'generating')));
+      localStorage.setItem(STORAGE_KEY_SONGS, JSON.stringify(librarySongs));
     } catch {
       // Ignore
     }
   }, [librarySongs]);
+
+  const resumedTasksRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (currentOrder) {
@@ -317,32 +318,37 @@ export const StudioView: FC<StudioViewProps> = ({
     voiceSnapshot: 'Masculine' | 'Féminine' | 'Duo',
     recipientSnapshot: string,
     occasionSnapshot: string,
+    skipCreatePlaceholders = false,
   ) => {
     const p1 = `pending-${taskId}-1`;
     const p2 = `pending-${taskId}-2`;
-    const placeholders: GeneratedSong[] = [1, 2].map((num) => ({
-      id: num === 1 ? p1 : p2,
-      taskId,
-      title: `${customTitle} (v${num})`,
-      recipient: recipientSnapshot,
-      occasion: occasionSnapshot,
-      style: customStyle,
-      voice: voiceSnapshot,
-      duration: '…',
-      durationSeconds: 0,
-      lyrics: customLyrics,
-      coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
-      audioUrl: '',
-      status: 'generating',
-      statusLabel: `Version ${num} en cours de composition…`,
-      createdAt: new Date().toISOString(),
-    }));
-    setLibrarySongs((prev) => [...placeholders, ...prev]);
+    if (!skipCreatePlaceholders) {
+      const placeholders: GeneratedSong[] = [1, 2].map((num) => ({
+        id: num === 1 ? p1 : p2,
+        taskId,
+        title: `${customTitle} (v${num})`,
+        recipient: recipientSnapshot,
+        occasion: occasionSnapshot,
+        style: customStyle,
+        voice: voiceSnapshot,
+        duration: '…',
+        durationSeconds: 0,
+        lyrics: customLyrics,
+        coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+        audioUrl: '',
+        status: 'generating',
+        statusLabel: `Version ${num} en cours de composition…`,
+        createdAt: new Date().toISOString(),
+      }));
+      setLibrarySongs((prev) => [...placeholders, ...prev]);
+    }
 
     let completed = false;
     const started = Date.now();
     while (Date.now() - started < 6 * 60 * 1000) {
-      await new Promise((r) => setTimeout(r, 5000));
+      if (!skipCreatePlaceholders || Date.now() - started > 1000) {
+        await new Promise((r) => setTimeout(r, 4500));
+      }
       const stRes = await fetch(`/api/suno?action=status&taskId=${encodeURIComponent(taskId)}`);
       const stJson = await stRes.json().catch(() => null);
       const data = stJson?.data;
@@ -405,9 +411,15 @@ export const StudioView: FC<StudioViewProps> = ({
             break;
           }
         }
-      } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR' || rawStatus === 'CREATE_TASK_FAILED') {
+      } else if (
+        rawStatus === 'FAILED' ||
+        rawStatus === 'ERROR' ||
+        rawStatus === 'CREATE_TASK_FAILED' ||
+        rawStatus === 'GENERATE_AUDIO_FAILED' ||
+        rawStatus === 'SENSITIVE_WORD_ERROR'
+      ) {
         setLibrarySongs((prev) => prev.filter((s) => s.id !== p1 && s.id !== p2));
-        notifyStudio(data.errorMessage || data.failReason || 'Échec de génération musicale.', 'error');
+        notifyStudio(data.errorMessage || data.failReason || `Échec de génération (${rawStatus}).`, 'error');
         completed = true;
         break;
       }
@@ -417,6 +429,29 @@ export const StudioView: FC<StudioViewProps> = ({
       notifyStudio('La génération prend plus de temps que prévu. Vérifiez votre historique dans un instant.', 'warn');
     }
   };
+
+  // Reprise automatique des générations en cours après actualisation de la page
+  useEffect(() => {
+    const pendingByTask = new Map<string, GeneratedSong>();
+    for (const s of librarySongs) {
+      if (s.status === 'generating' && s.taskId && !resumedTasksRef.current.has(s.taskId)) {
+        pendingByTask.set(s.taskId, s);
+      }
+    }
+    for (const [taskId, sample] of pendingByTask.entries()) {
+      resumedTasksRef.current.add(taskId);
+      void pollGenerationTask(
+        taskId,
+        sample.title.replace(/\s*\(v\d+\)$/i, ''),
+        sample.style,
+        sample.lyrics,
+        sample.voice,
+        sample.recipient,
+        sample.occasion,
+        true,
+      );
+    }
+  }, [librarySongs.length]);
 
   const handleUploadRemixAudio = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1592,7 +1627,16 @@ export const StudioView: FC<StudioViewProps> = ({
                         </div>
                       </div>
 
-                      {song.status !== 'generating' && (
+                      {song.status === 'generating' ? (
+                        <button
+                          type="button"
+                          onClick={() => setLibrarySongs((prev) => prev.filter((s) => s.id !== song.id))}
+                          className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-[#8A90A0] hover:text-white text-[11px] cursor-pointer shrink-0"
+                          title="Retirer cette carte"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
                       <div className="flex items-center gap-1.5 shrink-0 relative">
                         <button
                           type="button"

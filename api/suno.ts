@@ -383,7 +383,10 @@ export default async function handler(req: any, res: any) {
     // 1B. REMIX / REPRISE (MÊME MÉLODIE, NOUVELLES PAROLES & NOUVELLE VOIX)
     if (req.method === 'POST' && action === 'remix') {
       const body = req.body || {};
-      const uploadUrl = String(body.uploadUrl || '').trim();
+      let uploadUrl = String(body.uploadUrl || '').trim();
+      if (uploadUrl.startsWith('/')) {
+        uploadUrl = `https://app.djelia.store${uploadUrl}`;
+      }
       const sourceTaskId = String(body.taskId || '').trim();
       const sourceAudioId = String(body.audioId || '').trim();
       if (!uploadUrl && !(sourceTaskId && sourceAudioId)) {
