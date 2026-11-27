@@ -42,6 +42,83 @@ const getInitials = (name: string) => {
   return (name.slice(0, 2) || 'CL').toUpperCase();
 };
 
+function inferClientGender(rawName?: string): 'femme' | 'homme' | 'inconnu' {
+  if (!rawName) return 'inconnu';
+  const cleaned = rawName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z\s'-]/g, ' ')
+    .trim();
+  if (!cleaned || cleaned.startsWith('client ')) return 'inconnu';
+
+  const FEMALE_NAMES = new Set([
+    'mme', 'madame', 'mlle', 'mademoiselle', 'soeur', 'tante', 'tata', 'maman', 'reine', 'princesse',
+    'fatou', 'fatoumata', 'aminata', 'amina', 'aicha', 'aichatou', 'awa', 'mariam', 'mariama', 'maimouna',
+    'kadiatou', 'kady', 'kadi', 'kadidia', 'kadidja', 'salimata', 'sali', 'safiatou', 'safia', 'fanta',
+    'djene', 'djeneba', 'rokia', 'rokhaya', 'binta', 'bintou', 'assita', 'assetou', 'oumou', 'oumu',
+    'hawa', 'adama', 'nene', 'ramata', 'ramatoulaye', 'bibata', 'zenab', 'zeinab', 'zeynab', 'nafissatou',
+    'nadia', 'nathalie', 'christelle', 'christine', 'carine', 'karine', 'sandrine', 'mireille', 'sonia',
+    'ruth', 'esther', 'sarah', 'sara', 'grace', 'benedicte', 'beatrice', 'veronique', 'valerie', 'celine',
+    'celestine', 'charlotte', 'claire', 'clarisse', 'cynthia', 'danielle', 'delphine', 'diane', 'dorothee',
+    'edwige', 'elodie', 'elise', 'emilie', 'estelle', 'evelyne', 'fabienne', 'fanny', 'florence', 'francine',
+    'francoise', 'genevieve', 'geraldine', 'ghislaine', 'giselle', 'gisele', 'helene', 'hortense', 'ines',
+    'irene', 'isabelle', 'jacqueline', 'jeanne', 'jessica', 'jocelyne', 'joelle', 'josephine', 'judith',
+    'julie', 'julienne', 'justine', 'laetitia', 'laure', 'laurence', 'lea', 'leila', 'leonie', 'linda',
+    'lisa', 'louise', 'lucie', 'lydie', 'madeleine', 'magali', 'manon', 'marguerite', 'marie', 'marina',
+    'marine', 'marlene', 'marthe', 'martine', 'melanie', 'melissa', 'michele', 'michelle', 'monique',
+    'nadege', 'naomi', 'naomie', 'nicole', 'noelle', 'noemie', 'odette', 'odile', 'olivia',
+    'pascale', 'patricia', 'pauline', 'pelagie', 'prisca', 'rachel', 'raissa', 'rebecca', 'regine', 'renee',
+    'rita', 'rose', 'roseline', 'sabine', 'salome', 'sandra', 'solange', 'sophie', 'stephanie', 'suzanne',
+    'sylviane', 'sylvie', 'tatiana', 'therese', 'vanessa', 'victoire', 'victoria', 'virginie', 'viviane',
+    'yolande', 'yvette', 'yvonne', 'adjoua', 'akissi', 'affoue', 'aya', 'amenan', 'amoin', 'koffiwa',
+    'abiba', 'habiba', 'habibatou', 'mawa', 'masseni', 'matenin', 'tenin', 'korotoumou', 'koro', 'noura',
+    'aissata', 'aissatou', 'djamila', 'jamila', 'samira', 'yasmine', 'yasmina', 'chadia', 'fleur', 'angele',
+    'angelique', 'audrey', 'aurelie', 'barbara', 'bernadette', 'brigitte', 'camille', 'caroline', 'catherine',
+    'cecile', 'chantal', 'chloe', 'claudine', 'corinne', 'deborah', 'denise', 'edith', 'emmanuelle',
+    'eugenie', 'flore', 'gabrielle', 'gaelle', 'georgette', 'germaine', 'gladys', 'henriette', 'honore',
+    'jennifer', 'johanna', 'karen', 'katia', 'kelly', 'lara', 'laurette', 'liliane', 'line', 'lucile',
+    'maelle', 'maeva', 'maite', 'marcelline', 'margaux', 'marianne', 'marjolaine', 'mathilde', 'maud',
+    'mirella', 'morgane', 'muriel', 'myriam', 'nadine', 'nanou', 'natacha', 'nell', 'nelly', 'oceane',
+    'ophelie', 'orlane', 'pamela', 'paula', 'paule', 'perrine', 'philomene', 'reine', 'roberta', 'romaine',
+    'rosalie', 'roselyne', 'roxane', 'sabrina', 'salima', 'severine', 'sharon', 'sheila', 'simone', 'solene',
+    'sonita', 'stella', 'tania', 'tiffany', 'valentine', 'veronica', 'wendy', 'zoe', 'solen',
+  ]);
+
+  const MALE_NAMES = new Set([
+    'mr', 'monsieur', 'frere', 'tonton', 'papa', 'roi', 'prince',
+    'moussa', 'ibrahim', 'ibrahima', 'issouf', 'issa', 'ismael', 'ismail', 'abdoul', 'abdoulaye', 'abou',
+    'aboubacar', 'abraham', 'adam', 'adama', 'amadou', 'amamou', 'boubacar', 'boukary', 'cheick', 'cheikh',
+    'daouda', 'dramane', 'drissa', 'idrissa', 'karim', 'kassim', 'lassina', 'madou', 'mahamadou', 'mamadou',
+    'mamad', 'modibo', 'mohamed', 'mohammed', 'mouhamadou', 'moustapha', 'ousmane', 'oumar', 'oumarou',
+    'salif', 'salifou', 'saydou', 'seydou', 'sidiki', 'souleymane', 'soumaila', 'tidiane', 'yacouba',
+    'yaya', 'youssouf', 'zakaria', 'aziz', 'ali', 'aliou', 'amine', 'amir', 'anis', 'arthur', 'augustin',
+    'axel', 'baptiste', 'basile', 'benjamin', 'benoit', 'bernard', 'bertrand', 'brice', 'bruno', 'cedric',
+    'charles', 'christian', 'christophe', 'claude', 'clement', 'cyril', 'damien', 'daniel', 'david', 'denis',
+    'didier', 'dieudonne', 'dimitri', 'dominique', 'dylan', 'edouard', 'elie', 'emile', 'emmanuel', 'eric',
+    'ernest', 'etienne', 'fabien', 'fabrice', 'felix', 'fernand', 'florent', 'florian', 'franck', 'francois',
+    'frederic', 'gabriel', 'gael', 'gaston', 'georges', 'gerard', 'germain', 'ghislain', 'gilbert', 'gilles',
+    'gregoire', 'guillaume', 'guy', 'henri', 'herve', 'hugues', 'igor', 'ivan', 'jacques', 'jean', 'jeremie',
+    'jerome', 'joel', 'jonathan', 'jordan', 'joseph', 'jules', 'julien', 'justin', 'kevin', 'koffi', 'kouadio',
+    'kouakou', 'kouame', 'kouassi', 'konan', 'yao', 'nguessan', 'akossi', 'aubin', 'landry',
+    'laurent', 'leo', 'leon', 'lionel', 'loic', 'louis', 'luc', 'lucas', 'ludovic', 'marc', 'marcel', 'martial',
+    'martin', 'mathieu', 'matthieu', 'maurice', 'maxime', 'michel', 'mickael', 'moise', 'nathan', 'nicolas',
+    'noel', 'norbert', 'olivier', 'omar', 'oscar', 'pascal', 'patrice', 'patrick', 'paul', 'philippe', 'pierre',
+    'quentin', 'raphael', 'raymond', 'regis', 'remi', 'remy', 'renaud', 'rene', 'richard', 'robert', 'robin',
+    'roger', 'roland', 'romain', 'romuald', 'samuel', 'sebastien', 'serge', 'simon', 'stephane', 'sylvain',
+    'thierry', 'thomas', 'timothee', 'tony', 'tristan', 'ulrich', 'valentin', 'victor', 'vincent', 'wilfried',
+    'william', 'willy', 'xavier', 'yann', 'yannick', 'yohan', 'yves', 'anicet', 'wendyam', 'alexandre', 'alexis',
+    'alain', 'albert', 'alex', 'alfred', 'alphonse', 'andre', 'ange', 'antoine', 'armand', 'arnaud',
+  ]);
+
+  const tokens = cleaned.split(/[\s'-]+/).filter(Boolean);
+  for (const tok of tokens.slice(0, 3)) {
+    if (FEMALE_NAMES.has(tok)) return 'femme';
+    if (MALE_NAMES.has(tok)) return 'homme';
+  }
+  return 'inconnu';
+}
+
 export const RevenusView: FC<RevenusViewProps> = ({
   orders,
   metrics,
@@ -146,10 +223,10 @@ export const RevenusView: FC<RevenusViewProps> = ({
 
   const [visibleCount, setVisibleCount] = useState<number>(50);
 
-  // Statistiques avancées (Pays majeurs, Sexes/Voix, Paiements, Créneaux horaires, Taux de livraison)
+  // Statistiques avancées (Pays majeurs, Sexe des Clients, Paiements, Créneaux horaires, Taux de livraison)
   const analytics = useMemo(() => {
     const countryMap = new Map<string, { name: string; code: string; count: number; revenue: number }>();
-    const genderMap = { Femme: 0, Homme: 0, Duo: 0 };
+    const genderMap = { Femme: 0, Homme: 0, Inconnu: 0 };
     const paymentMap = new Map<string, { label: string; count: number; revenue: number }>();
     const formulaMap = new Map<string, { label: string; count: number; revenue: number }>();
     const slotMap = { Matin: 0, 'Après-midi': 0, Soirée: 0, Nuit: 0 };
@@ -164,10 +241,11 @@ export const RevenusView: FC<RevenusViewProps> = ({
       prevC.revenue += o.amount || 0;
       countryMap.set(cName, prevC);
 
-      // 2. Voix / Sexe
-      if (o.voiceGender === 'femme') genderMap.Femme += 1;
-      else if (o.voiceGender === 'duo') genderMap.Duo += 1;
-      else genderMap.Homme += 1;
+      // 2. Sexe du client qui nous contacte (détection par prénom)
+      const g = inferClientGender(o.clientName);
+      if (g === 'femme') genderMap.Femme += 1;
+      else if (g === 'homme') genderMap.Homme += 1;
+      else genderMap.Inconnu += 1;
 
       // 3. Moyen de paiement
       const rawPay = (o.paymentMethod || 'Wave').trim();
@@ -204,7 +282,6 @@ export const RevenusView: FC<RevenusViewProps> = ({
       if (o.status === 'livre') deliveredCount += 1;
     }
 
-    const totalOrders = filteredWhatsAppOrders.length || 1;
     const topCountries = [...countryMap.values()]
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
@@ -214,11 +291,12 @@ export const RevenusView: FC<RevenusViewProps> = ({
     const topFormulas = [...formulaMap.values()]
       .sort((a, b) => b.count - a.count)
       .slice(0, 4);
+    const identifiedGenderTotal = genderMap.Femme + genderMap.Homme || 1;
     const genderBreakdown = [
-      { label: 'Voix Féminine', count: genderMap.Femme, pct: Math.round((genderMap.Femme / totalOrders) * 100) },
-      { label: 'Voix Masculine', count: genderMap.Homme, pct: Math.round((genderMap.Homme / totalOrders) * 100) },
-      { label: 'Duo (Homme + Femme)', count: genderMap.Duo, pct: Math.round((genderMap.Duo / totalOrders) * 100) },
+      { label: 'Femmes', count: genderMap.Femme, pct: Math.round((genderMap.Femme / identifiedGenderTotal) * 100) },
+      { label: 'Hommes', count: genderMap.Homme, pct: Math.round((genderMap.Homme / identifiedGenderTotal) * 100) },
     ];
+    const unknownGenderCount = genderMap.Inconnu;
     const peakSlot = Object.entries(slotMap).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Soirée';
     const deliveryRate = filteredWhatsAppOrders.length > 0
       ? Math.round((deliveredCount / filteredWhatsAppOrders.length) * 100)
@@ -229,6 +307,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
       topPayments,
       topFormulas,
       genderBreakdown,
+      unknownGenderCount,
       slotMap,
       peakSlot,
       deliveryRate,
@@ -504,10 +583,10 @@ export const RevenusView: FC<RevenusViewProps> = ({
             </div>
           </div>
 
-          {/* Sexes / Voix Demandées */}
+          {/* Sexe des Clients */}
           <div className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 space-y-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">Sexes & Voix Choisis</span>
+              <span className="text-xs font-semibold text-white">Sexe des Clients</span>
               <Users className="w-4 h-4 text-[#10D98E]" />
             </div>
             <div className="space-y-2.5">
@@ -527,6 +606,11 @@ export const RevenusView: FC<RevenusViewProps> = ({
                   </div>
                 </div>
               ))}
+              {analytics.unknownGenderCount > 0 && (
+                <p className="text-[11px] text-[#6B7280] pt-1">
+                  {analytics.unknownGenderCount} contact{analytics.unknownGenderCount > 1 ? 's' : ''} non identifié{analytics.unknownGenderCount > 1 ? 's' : ''} (numéro ou pseudo)
+                </p>
+              )}
             </div>
           </div>
 

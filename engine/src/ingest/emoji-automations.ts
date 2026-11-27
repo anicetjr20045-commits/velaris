@@ -1180,6 +1180,11 @@ export async function executeEmojiAutomation(
           return { executed: false, error: 'session_owner_not_found' };
         }
         ownerFilter = `user_id=eq.${encodeURIComponent(ownerUserId)}&`;
+      } else {
+        const ownerUserId = await resolveSessionOwnerUserId(ctx.db, session);
+        if (ownerUserId) {
+          ownerFilter = `user_id=eq.${encodeURIComponent(ownerUserId)}&`;
+        }
       }
 
       const dbRules = await ctx.db.queryTable<Array<{
@@ -1192,7 +1197,7 @@ export async function executeEmojiAutomation(
         caption: string | null;
       }>>(
         'automation_rules',
-        `${ownerFilter}trigger_type=eq.reaction&enabled=eq.true&select=id,name,trigger_value,action_type,text_body,media_path,caption&limit=100`,
+        `${ownerFilter}trigger_type=eq.reaction&enabled=eq.true&select=id,name,trigger_value,action_type,text_body,media_path,caption&order=updated_at.desc&limit=100`,
       ).catch(() => []);
       customRule = dbRules?.find((r) => cleanEmoji(r.trigger_value) === emoji) || null;
     } catch (err: any) {
@@ -1231,7 +1236,10 @@ export async function executeEmojiAutomation(
           const parsed = JSON.parse(customRule.text_body);
           if (parsed.offerName) offerName = parsed.offerName;
           if (parsed.offer_name) offerName = parsed.offer_name;
-          if (parsed.amount) amount = Number(parsed.amount);
+          if (parsed.amount !== undefined && parsed.amount !== null) {
+            const parsedNum = Number(String(parsed.amount).replace(/\s/g, ''));
+            if (Number.isFinite(parsedNum) && parsedNum > 0) amount = parsedNum;
+          }
           if (parsed.currency) currency = parsed.currency;
           if (parsed.confirmationMessage) confirmationMessage = parsed.confirmationMessage;
         } catch {
