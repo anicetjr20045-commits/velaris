@@ -4,7 +4,7 @@
  * passthrough direct pour /api, Supabase et WAHA.
  */
 
-const CACHE_NAME = 'djelia-studio-pwa-v2';
+const CACHE_NAME = 'djelia-studio-pwa-v3';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192.png',
@@ -42,10 +42,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML / navigation : Network first pour garantir les dernières mises à jour
+  // HTML / navigation : Network first (sans cache HTTP) pour garantir les dernières mises à jour
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/'))
+      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match('/'))
     );
     return;
   }
