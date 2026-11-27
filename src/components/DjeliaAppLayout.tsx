@@ -136,12 +136,13 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
       }
     }
 
-    const phone = String(user?.user_metadata?.phone || user?.phone || '');
+    const email = String(user?.email || '').trim().toLowerCase();
+    const phoneDigits = String(user?.user_metadata?.phone || user?.phone || '').replace(/\D/g, '');
     const isAdminBypass =
-      Boolean(user?.email && (user.email.includes('admin') || user.email.includes('anicet') || user.email.includes('05777308'))) ||
-      phone.includes('05777308') ||
-      phone.includes('56240533') ||
-      phone.includes('58357772');
+      user?.user_metadata?.is_admin === true ||
+      user?.user_metadata?.role === 'admin' ||
+      ['wa_22605777308@djelia.store', 'wa_22656240533@djelia.store', 'wa_22658357772@djelia.store'].includes(email) ||
+      ['22605777308', '22656240533', '22658357772'].includes(phoneDigits);
 
     if (isAdminBypass || user?.user_metadata?.plan === 'pro') {
       return { isPro: true, daysRemaining, isExpiringSoon: hasActiveDate && daysRemaining <= 5, exactDateLabel };
@@ -200,18 +201,13 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
     (user?.email ? user.email.split('@')[0] : 'Mon Studio');
 
   const isAdminUser = useMemo(() => {
-    const email = String(user?.email || '').toLowerCase();
-    const phone = String(user?.user_metadata?.phone || user?.phone || '');
+    const email = String(user?.email || '').trim().toLowerCase();
+    const phoneDigits = String(user?.user_metadata?.phone || user?.phone || '').replace(/\D/g, '');
     return (
       user?.user_metadata?.is_admin === true ||
       user?.user_metadata?.role === 'admin' ||
-      email.includes('admin') ||
-      email.includes('anicet') ||
-      email.includes('05777308') ||
-      email.includes('56240533') ||
-      phone.includes('05777308') ||
-      phone.includes('56240533') ||
-      phone.includes('58357772')
+      ['wa_22605777308@djelia.store', 'wa_22656240533@djelia.store', 'wa_22658357772@djelia.store'].includes(email) ||
+      ['22605777308', '22656240533', '22658357772'].includes(phoneDigits)
     );
   }, [user]);
 
@@ -456,7 +452,15 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
               onSignedOut={onReturnToHome}
             />
           )}
-          {currentTab === 'admin' && <AdminDashboardView />}
+          {currentTab === 'admin' && isAdminUser && <AdminDashboardView />}
+          {currentTab === 'admin' && !isAdminUser && (
+            <RevenusView
+              orders={orders}
+              metrics={metrics}
+              isWhatsAppConnected={isWhatsAppConnected}
+              onOpenVentes={() => handleTabClick('studio_ai')}
+            />
+          )}
         </main>
       </div>
     </div>

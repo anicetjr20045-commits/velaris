@@ -43,9 +43,15 @@ export const Navbar: FC<NavbarProps> = ({
         }
       } catch {}
     }
-    if (user?.email && (user.email.includes('admin') || user.email.includes('anicet') || user.email.includes('05777308'))) return true;
-    const phone = String(user?.user_metadata?.phone || user?.phone || '');
-    if (phone.includes('05777308') || phone.includes('56240533') || phone.includes('58357772')) return true;
+    const email = String(user?.email || '').trim().toLowerCase();
+    const phoneDigits = String(user?.user_metadata?.phone || user?.phone || '').replace(/\D/g, '');
+    if (
+      user?.user_metadata?.is_admin === true ||
+      ['wa_22605777308@djelia.store', 'wa_22656240533@djelia.store', 'wa_22658357772@djelia.store'].includes(email) ||
+      ['22605777308', '22656240533', '22658357772'].includes(phoneDigits)
+    ) {
+      return true;
+    }
     if (user?.user_metadata?.plan === 'pro' || user?.user_metadata?.subscription_status === 'ACTIVE') return true;
     return (
       subscription.status === 'active' &&

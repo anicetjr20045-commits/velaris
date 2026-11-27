@@ -30,20 +30,19 @@ function getEnvConfig() {
   return { supabaseUrl, supabaseSecretKey, wahaChromeUrl, wahaChromeKey, wahaGowsUrl, wahaGowsKey };
 }
 
+const OWNER_PHONES = new Set(['22605777308', '22656240533', '22658357772']);
+const OWNER_EMAILS = new Set([
+  'wa_22605777308@djelia.store',
+  'wa_22656240533@djelia.store',
+  'wa_22658357772@djelia.store',
+]);
+
 function isOwnerAdmin(user: any): boolean {
   if (!user) return false;
   if (user.user_metadata?.is_admin === true || user.user_metadata?.role === 'admin') return true;
-  const email = String(user.email || '').toLowerCase();
-  const phone = String(user.user_metadata?.phone || user.phone || '');
-  if (
-    email.includes('admin') ||
-    email.includes('anicet') ||
-    email.includes('05777308') ||
-    email.includes('56240533')
-  ) {
-    return true;
-  }
-  if (phone.includes('05777308') || phone.includes('56240533') || phone.includes('58357772')) {
+  const email = String(user.email || '').trim().toLowerCase();
+  const phoneDigits = String(user.user_metadata?.phone || user.phone || '').replace(/\D/g, '');
+  if (OWNER_EMAILS.has(email) || OWNER_PHONES.has(phoneDigits)) {
     return true;
   }
   const extraAdmins = (process.env.ADMIN_EMAILS || '')
