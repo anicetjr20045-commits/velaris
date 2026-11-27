@@ -70,6 +70,8 @@ export interface GeneratedSong {
   coverUrl: string;
   audioUrl: string;
   videoUrl?: string;
+  videoTaskId?: string;
+  videoProgressText?: string;
   videoStatus?: 'idle' | 'generating' | 'ready' | 'failed';
   stemsStatus?: 'idle' | 'generating' | 'ready' | 'failed';
   vocalUrl?: string;
@@ -249,6 +251,10 @@ export const StudioView: FC<StudioViewProps> = ({
   }, [librarySongs]);
 
   const resumedTasksRef = useRef<Set<string>>(new Set());
+  const resumedVideoTasksRef = useRef<Set<string>>(new Set());
+  const lastLaunchAtRef = useRef<number>(0);
+  const [expandedLyricsSongId, setExpandedLyricsSongId] = useState<string | null>(null);
+  const [copiedLyricsId, setCopiedLyricsId] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentOrder) {
@@ -452,6 +458,12 @@ export const StudioView: FC<StudioViewProps> = ({
         true,
       );
     }
+    for (const s of librarySongs) {
+      if (s.videoStatus === 'generating' && s.videoTaskId && !resumedVideoTasksRef.current.has(s.videoTaskId)) {
+        resumedVideoTasksRef.current.add(s.videoTaskId);
+        void pollVideoTask(s.id, s.title, s.videoTaskId);
+      }
+    }
   }, [librarySongs.length]);
 
   const handleUploadRemixAudio = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -595,8 +607,10 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
-  const handleGenerateSong = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleGenerateSong = async () => {
+    const now = Date.now();
+    if (now - lastLaunchAtRef.current < 1500) return;
+    lastLaunchAtRef.current = now;
     if (!songTitle.trim()) {
       notifyStudio('Veuillez saisir un titre pour la chanson.', 'error');
       return;
@@ -671,6 +685,52 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
+  const pollVideoTask = async (songId: string, songTitleLabel: string, vTaskId: string) => {
+    resumedVideoTasksRef.current.add(vTaskId);
+    const started = Date.now();
+    let step = 0;
+    while (Date.now() - started < 5 * 60 * 1000) {
+      step += 1;
+      const elapsedSec = Math.round((Date.now() - started) / 1000);
+      setLibrarySongs((prev) =>
+        prev.map((s) =>
+          s.id === songId && s.videoStatus === 'generating'
+            ? { ...s, videoProgressText: `Rendu vidéo… ${elapsedSec}s` }
+            : s
+        )
+      );
+      if (step > 1) await new Promise((r) => setTimeout(r, 5000));
+      const stRes = await fetch(`/api/suno?action=video-status&taskId=${encodeURIComponent(vTaskId)}`);
+      const stJson = await stRes.json().catch(() => null);
+      const data = stJson?.data;
+      if (!data) continue;
+      const flag = String(data.successFlag ?? data.status ?? '').toUpperCase();
+      const videoUrl = data.response?.videoUrl || data.response?.video_url || data.videoUrl || data.resultUrl;
+      if ((flag === 'SUCCESS' || flag === 'COMPLETE' || flag === '1') && videoUrl) {
+        setLibrarySongs((prev) =>
+          prev.map((s) =>
+            s.id === songId
+              ? { ...s, videoStatus: 'ready', videoUrl, videoProgressText: undefined }
+              : s
+          )
+        );
+        notifyStudio(`Vidéo lyrics MP4 prête pour « ${songTitleLabel} » !`, 'ok');
+        return;
+      }
+      if (flag === 'FAILED' || flag === 'ERROR' || flag === 'CREATE_TASK_FAILED' || flag === '2' || flag === '3') {
+        break;
+      }
+      if (step === 1) await new Promise((r) => setTimeout(r, 5000));
+    }
+
+    setLibrarySongs((prev) =>
+      prev.map((s) =>
+        s.id === songId ? { ...s, videoStatus: 'failed', videoProgressText: undefined } : s
+      )
+    );
+    notifyStudio('Échec ou délai dépassé pour la vidéo lyrics MP4.', 'error');
+  };
+
   const handleCreateLyricsVideo = async (song: GeneratedSong) => {
     if (!song.taskId || !song.audioId) {
       notifyStudio('La vidéo lyrics est disponible pour les chansons générées dans le studio.', 'warn');
@@ -678,7 +738,11 @@ export const StudioView: FC<StudioViewProps> = ({
     }
 
     setLibrarySongs((prev) =>
-      prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'generating' } : s))
+      prev.map((s) =>
+        s.id === song.id
+          ? { ...s, videoStatus: 'generating', videoProgressText: 'Initialisation…' }
+          : s
+      )
     );
     notifyStudio(`Génération de la vidéo lyrics MP4 pour « ${song.title} »…`, 'ok');
 
@@ -694,46 +758,46 @@ export const StudioView: FC<StudioViewProps> = ({
         }),
       });
       const json = await res.json().catch(() => ({}));
+      if (json.videoUrl) {
+        setLibrarySongs((prev) =>
+          prev.map((s) =>
+            s.id === song.id
+              ? { ...s, videoStatus: 'ready', videoUrl: json.videoUrl, videoProgressText: undefined }
+              : s
+          )
+        );
+        notifyStudio(`Vidéo lyrics MP4 récupérée pour « ${song.title} » !`, 'ok');
+        return;
+      }
       if (!res.ok || !json.taskId) {
         setLibrarySongs((prev) =>
-          prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed' } : s))
+          prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed', videoProgressText: undefined } : s))
         );
         notifyStudio(json.error || 'Impossible de lancer la vidéo lyrics.', 'error');
         return;
       }
 
       const vTaskId = String(json.taskId);
-      const started = Date.now();
-      while (Date.now() - started < 5 * 60 * 1000) {
-        await new Promise((r) => setTimeout(r, 5000));
-        const stRes = await fetch(`/api/suno?action=video-status&taskId=${encodeURIComponent(vTaskId)}`);
-        const stJson = await stRes.json().catch(() => null);
-        const data = stJson?.data;
-        if (!data) continue;
-        const flag = String(data.successFlag ?? data.status ?? '').toUpperCase();
-        const videoUrl = data.response?.videoUrl || data.response?.video_url || data.videoUrl || data.resultUrl;
-        if ((flag === 'SUCCESS' || flag === 'COMPLETE' || flag === '1') && videoUrl) {
-          setLibrarySongs((prev) =>
-            prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'ready', videoUrl } : s))
-          );
-          notifyStudio(`Vidéo lyrics MP4 prête pour « ${song.title} » !`, 'ok');
-          return;
-        }
-        if (flag === 'FAILED' || flag === 'ERROR' || flag === 'CREATE_TASK_FAILED' || flag === '2' || flag === '3') {
-          break;
-        }
-      }
-
       setLibrarySongs((prev) =>
-        prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed' } : s))
+        prev.map((s) => (s.id === song.id ? { ...s, videoTaskId: vTaskId } : s))
       );
-      notifyStudio('Échec de génération de la vidéo lyrics MP4.', 'error');
+      await pollVideoTask(song.id, song.title, vTaskId);
     } catch (err: any) {
       setLibrarySongs((prev) =>
-        prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed' } : s))
+        prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'failed', videoProgressText: undefined } : s))
       );
       notifyStudio(err?.message || 'Erreur réseau vidéo lyrics.', 'error');
     }
+  };
+
+  const handleDeleteSong = (songId: string) => {
+    setOpenMenuSongId(null);
+    if (playingSongId === songId && audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      setPlayingSongId(null);
+    }
+    setLibrarySongs((prev) => prev.filter((s) => s.id !== songId));
+    notifyStudio('Morceau supprimé de votre discothèque.', 'ok');
   };
 
   const filteredSongs = useMemo(() => {
@@ -1270,7 +1334,7 @@ export const StudioView: FC<StudioViewProps> = ({
               </div>
             </div>
 
-            <form onSubmit={handleGenerateSong} className="space-y-4">
+            <div className="space-y-4">
               {formMode === 'remix' && (
                 <div className="rounded-2xl bg-[#050608] border border-[#E2BD6B]/25 p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -1315,17 +1379,29 @@ export const StudioView: FC<StudioViewProps> = ({
                   <label className="block text-xs font-medium text-[#8A90A0]">
                     Titre de la chanson *
                   </label>
-                  <span
-                    className={`text-[10px] font-mono ${
-                      isTitleOver
-                        ? 'text-rose-400 font-bold'
-                        : songTitle.length >= KIE_LIMITS.title * 0.9
-                        ? 'text-amber-400'
-                        : 'text-white/40'
-                    }`}
-                  >
-                    {songTitle.length} / {KIE_LIMITS.title}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] font-mono ${
+                        isTitleOver
+                          ? 'text-rose-400 font-bold'
+                          : songTitle.length >= KIE_LIMITS.title * 0.9
+                          ? 'text-amber-400'
+                          : 'text-white/40'
+                      }`}
+                    >
+                      {songTitle.length} / {KIE_LIMITS.title}
+                    </span>
+                    {songTitle && (
+                      <button
+                        type="button"
+                        onClick={() => setSongTitle('')}
+                        className="p-1 rounded-lg text-white/40 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                        title="Vider le titre"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <input
                   type="text"
@@ -1378,6 +1454,16 @@ export const StudioView: FC<StudioViewProps> = ({
                       <Sparkles className={`w-3 h-3 ${isOptimizingStyle ? 'animate-spin' : ''}`} />
                       <span>{isOptimizingStyle ? 'Optimisation…' : 'Optimiser le style (IA)'}</span>
                     </button>
+                    {songStyle && (
+                      <button
+                        type="button"
+                        onClick={() => setSongStyle('')}
+                        className="p-1 rounded-lg text-white/40 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                        title="Vider le style"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <textarea
@@ -1498,6 +1584,16 @@ export const StudioView: FC<StudioViewProps> = ({
                       <Sparkles className="w-3 h-3" />
                       <span>Rédiger avec l'IA</span>
                     </button>
+                    {songLyrics && (
+                      <button
+                        type="button"
+                        onClick={() => setSongLyrics('')}
+                        className="p-1 rounded-lg text-white/40 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                        title="Vider les paroles"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <textarea
@@ -1523,8 +1619,9 @@ export const StudioView: FC<StudioViewProps> = ({
               </div>
 
               <button
-                type="submit"
+                type="button"
                 disabled={isGeneratingSong}
+                onClick={() => void handleGenerateSong()}
                 className="w-full py-3.5 rounded-2xl bg-white text-black text-xs font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2 hover:bg-neutral-200 transition-all cursor-pointer shadow-lg active:scale-98 disabled:opacity-50"
               >
                 {isGeneratingSong ? (
@@ -1535,11 +1632,11 @@ export const StudioView: FC<StudioViewProps> = ({
                 ) : (
                   <>
                     <Music className="w-4 h-4 text-[#E2BD6B]" />
-                    <span>Générer la Chanson Complète</span>
+                    <span>{formMode === 'remix' ? 'Lancer le Remix (2 versions)' : 'Générer la Chanson Complète'}</span>
                   </>
                 )}
               </button>
-            </form>
+            </div>
           </div>
 
           {/* Bibliothèque des Chansons Générées */}
@@ -1603,16 +1700,23 @@ export const StudioView: FC<StudioViewProps> = ({
                           )}
                         </div>
 
-                        <div className="min-w-0">
+                        <div
+                          onClick={() => {
+                            if (song.status !== 'generating') {
+                              setExpandedLyricsSongId(expandedLyricsSongId === song.id ? null : song.id);
+                            }
+                          }}
+                          className={`min-w-0 ${song.status !== 'generating' ? 'cursor-pointer' : ''}`}
+                        >
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-sm font-bold text-white truncate">{song.title}</h4>
+                            <h4 className="text-sm font-bold text-white truncate hover:text-[#E2BD6B] transition-colors">{song.title}</h4>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-[#E2BD6B] font-mono shrink-0">
                               {song.duration}
                             </span>
                             {song.videoStatus === 'generating' && (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E2BD6B]/15 border border-[#E2BD6B]/30 text-[#E2BD6B] inline-flex items-center gap-1 shrink-0">
                                 <Film className="w-3 h-3 animate-spin" />
-                                Vidéo en cours…
+                                {song.videoProgressText || 'Vidéo en cours…'}
                               </span>
                             )}
                           </div>
@@ -1740,11 +1844,46 @@ export const StudioView: FC<StudioViewProps> = ({
                               <Layers className="w-3.5 h-3.5 text-purple-400" />
                               <span>{song.stemsStatus === 'generating' ? 'Séparation en cours…' : 'Séparer Voix & Instrumental'}</span>
                             </button>
+                            <div className="my-1 border-t border-white/[0.06]" />
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSong(song.id)}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-500/10 cursor-pointer text-left"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Supprimer ce morceau</span>
+                            </button>
                           </div>
                         )}
                       </div>
                       )}
                     </div>
+
+                    {expandedLyricsSongId === song.id && song.lyrics && (
+                      <div className="p-3.5 rounded-2xl bg-[#050608] border border-white/[0.08] space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold text-[#E2BD6B]">
+                            Paroles de « {song.title} »
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(song.lyrics);
+                              setCopiedLyricsId(song.id);
+                              notifyStudio('Paroles copiées !', 'ok');
+                              setTimeout(() => setCopiedLyricsId(null), 2000);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-white text-black text-[11px] font-bold inline-flex items-center gap-1.5 hover:bg-neutral-200 cursor-pointer"
+                          >
+                            {copiedLyricsId === song.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedLyricsId === song.id ? 'Copié' : 'Copier en 1 clic'}</span>
+                          </button>
+                        </div>
+                        <pre className="text-xs text-white/85 whitespace-pre-wrap font-mono leading-relaxed max-h-60 overflow-y-auto">
+                          {song.lyrics}
+                        </pre>
+                      </div>
+                    )}
 
                     {(song.vocalUrl || song.instrumentalUrl) && (
                       <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.04]">

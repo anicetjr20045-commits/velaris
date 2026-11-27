@@ -549,6 +549,29 @@ export default async function handler(req: any, res: any) {
       if (!kieRes.ok || (json?.code && json.code !== 200)) {
         const rawMsg = String(json?.msg || json?.message || json?.error || `HTTP ${kieRes.status}`);
         const low = rawMsg.toLowerCase();
+
+        // Si la vidéo MP4 existe déjà chez Kie.ai, tenter de la récupérer directement
+        if (low.includes('already exists')) {
+          const existingTaskId = String(json?.data?.taskId || taskId);
+          try {
+            const infoRes = await fetch(`${KIE_BASE_URL}/mp4/record-info?taskId=${encodeURIComponent(existingTaskId)}`, {
+              headers: { Authorization: `Bearer ${apiKey}` },
+              signal: AbortSignal.timeout(10000),
+            });
+            const infoJson: any = await infoRes.json().catch(() => null);
+            const infoData = infoJson?.data;
+            const existingVideoUrl = infoData?.response?.videoUrl || infoData?.response?.video_url || infoData?.videoUrl;
+            if (existingVideoUrl) {
+              return res.status(200).json({ success: true, videoUrl: existingVideoUrl, taskId: existingTaskId });
+            }
+            if (infoData) {
+              return res.status(200).json({ success: true, taskId: existingTaskId, alreadyExists: true });
+            }
+          } catch {
+            // Repli ci-dessous
+          }
+        }
+
         const friendly =
           kieRes.status === 402 || low.includes('credit') || low.includes('balance') || low.includes('insufficient')
             ? 'Crédits de génération insuffisants pour créer la vidéo lyrics MP4.'
