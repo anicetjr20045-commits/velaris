@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { resolveChariowProduct } from './_chariow-catalog.js';
 
 function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
@@ -9,8 +10,9 @@ function getEnvConfig() {
   let wahaChromeKey = process.env.WAHA_API_KEY || 'b4cffb1ef75fb400a79e30faa3a97802';
   let wahaGowsUrl = (process.env.WAHA_GOWS_URL || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, '');
   let wahaGowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
+  let chariowApiKey = process.env.CHARIOW_API_KEY || '';
 
-  if (!supabaseSecretKey) {
+  if (!supabaseSecretKey || !chariowApiKey) {
     try {
       const envPath = path.resolve(process.cwd(), '.env.local');
       if (fs.existsSync(envPath)) {
@@ -21,13 +23,14 @@ function getEnvConfig() {
             const v = m[2].trim();
             if (k === 'SUPABASE_SECRET_KEY' && !supabaseSecretKey) supabaseSecretKey = v;
             if (k === 'SUPABASE_URL' && v) supabaseUrl = v;
+            if (k === 'CHARIOW_API_KEY' && !chariowApiKey) chariowApiKey = v;
           }
         }
       }
     } catch {}
   }
 
-  return { supabaseUrl, supabaseSecretKey, wahaChromeUrl, wahaChromeKey, wahaGowsUrl, wahaGowsKey };
+  return { supabaseUrl, supabaseSecretKey, wahaChromeUrl, wahaChromeKey, wahaGowsUrl, wahaGowsKey, chariowApiKey };
 }
 
 const OWNER_PHONES = new Set(['22605777308', '22656240533', '22658357772']);
@@ -142,7 +145,50 @@ export default async function handler(req: any, res: any) {
           updated_at: new Date().toISOString(),
         },
       });
+      try {
+        await admin.from('credit_transactions').insert({
+          user_id: targetUserId,
+          amount_cfa: 0,
+          credits_added: 0,
+          balance_after: Number(meta.credits ?? 0),
+          payment_provider: 'ADMIN',
+          status: 'SUCCESS',
+          kind: 'subscription_grant',
+          reason: `Pass prolongé de ${days} jours par admin`,
+        });
+      } catch {}
       return res.status(200).json({ ok: true, expires_at: newExpiresAt });
+    }
+
+    if (action === 'toggle-ban') {
+      const targetUserId = String(body.targetUserId || '').trim();
+      const banned = Boolean(body.banned);
+      const { data: targetRes, error: targetErr } = await admin.auth.admin.getUserById(targetUserId);
+      if (targetErr || !targetRes?.user) {
+        return res.status(404).json({ error: 'Utilisateur introuvable.' });
+      }
+      const meta = (targetRes.user.user_metadata || {}) as Record<string, any>;
+      await admin.auth.admin.updateUserById(targetUserId, {
+        ban_duration: banned ? '876000h' : 'none',
+        user_metadata: {
+          ...meta,
+          is_banned: banned,
+          updated_at: new Date().toISOString(),
+        },
+      });
+      try {
+        await admin.from('credit_transactions').insert({
+          user_id: targetUserId,
+          amount_cfa: 0,
+          credits_added: 0,
+          balance_after: Number(meta.credits ?? 0),
+          payment_provider: 'ADMIN',
+          status: 'SUCCESS',
+          kind: banned ? 'ban' : 'unban',
+          reason: banned ? 'Compte suspendu par administrateur' : 'Compte réactivé par administrateur',
+        });
+      } catch {}
+      return res.status(200).json({ ok: true, banned });
     }
 
     if (action === 'mark-payout-paid') {
@@ -154,6 +200,64 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ ok: true, status });
     }
 
+    if (action === 'waha-session-action') {
+      const sessionName = String(body.sessionName || '').trim();
+      const engine = body.engine === 'WEBJS' ? 'WEBJS' : 'GOWS';
+      const op = String(body.op || 'restart');
+      if (!sessionName || !['restart', 'stop', 'logout'].includes(op)) {
+        return res.status(400).json({ error: 'Action WAHA invalide.' });
+      }
+      const baseUrl = engine === 'WEBJS' ? cfg.wahaChromeUrl : cfg.wahaGowsUrl;
+      const apiKey = engine === 'WEBJS' ? cfg.wahaChromeKey : cfg.wahaGowsKey;
+      const wRes = await fetch(`${baseUrl}/api/sessions/${encodeURIComponent(sessionName)}/${op}`, {
+        method: 'POST',
+        headers: { 'X-Api-Key': apiKey },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!wRes.ok) {
+        return res.status(502).json({ error: `WAHA ${op} HTTP ${wRes.status}` });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === 'verify-chariow-sale') {
+      const saleId = String(body.saleId || '').trim();
+      if (!saleId) return res.status(400).json({ error: 'sale_id manquant.' });
+      if (!cfg.chariowApiKey) return res.status(500).json({ error: 'CHARIOW_API_KEY manquante.' });
+      const cRes = await fetch(`https://api.chariow.com/v1/sales/${encodeURIComponent(saleId)}`, {
+        headers: { Authorization: `Bearer ${cfg.chariowApiKey}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+      const cJson = (await cRes.json().catch(() => ({}))) as any;
+      const sale = cJson.data || cJson;
+      if (!cRes.ok || !sale?.id) {
+        return res.status(404).json({ error: cJson.message || 'Vente Chariow introuvable.' });
+      }
+      const catalogItem = resolveChariowProduct(sale.product?.id);
+      return res.status(200).json({
+        ok: true,
+        sale: {
+          id: sale.id,
+          status: sale.status,
+          productId: sale.product?.id,
+          productLabel: catalogItem.label,
+          credits: catalogItem.credits,
+          priceCfa: catalogItem.priceCfa,
+          customerEmail: sale.customer?.email || '',
+          customerPhone: sale.customer?.phone?.number || '',
+        },
+      });
+    }
+
+    if (action === 'toggle-minisite') {
+      const slug = String(body.slug || '').trim().toLowerCase();
+      const active = Boolean(body.active);
+      if (!slug) return res.status(400).json({ error: 'Slug manquant.' });
+      const { error } = await admin.from('studios').update({ is_active: active }).eq('slug', slug);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true, active });
+    }
+
     return res.status(400).json({ error: 'Action non reconnue.' });
   }
 
@@ -163,7 +267,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const [usersRes, txRes, payoutsRes, gowsSessRes, chromeSessRes] = await Promise.all([
+    const gowsStart = Date.now();
+    const [usersRes, txRes, payoutsRes, studiosRes, gowsSessRes, chromeSessRes] = await Promise.all([
       admin.auth.admin.listUsers({ page: 1, perPage: 500 }),
       admin
         .from('credit_transactions')
@@ -175,28 +280,37 @@ export default async function handler(req: any, res: any) {
         .select('*')
         .order('created_at', { ascending: false })
         .limit(100),
+      Promise.resolve(
+        admin
+          .from('studios')
+          .select('slug, studio_name, user_id, is_active, created_at')
+          .order('created_at', { ascending: false })
+          .limit(200)
+      )
+        .then((r) => r.data || [])
+        .catch(() => []),
       fetch(`${cfg.wahaGowsUrl}/api/sessions?all=true`, {
         headers: { 'X-Api-Key': cfg.wahaGowsKey },
         signal: AbortSignal.timeout(4000),
       })
-        .then((r) => (r.ok ? r.json() : []))
-        .catch(() => []),
+        .then(async (r) => ({ ok: r.ok, ms: Date.now() - gowsStart, data: r.ok ? await r.json() : [] }))
+        .catch(() => ({ ok: false, ms: null, data: [] })),
       fetch(`${cfg.wahaChromeUrl}/api/sessions?all=true`, {
         headers: { 'X-Api-Key': cfg.wahaChromeKey },
         signal: AbortSignal.timeout(4000),
       })
-        .then((r) => (r.ok ? r.json() : []))
-        .catch(() => []),
+        .then(async (r) => ({ ok: r.ok, data: r.ok ? await r.json() : [] }))
+        .catch(() => ({ ok: false, data: [] })),
     ]);
 
     const users = usersRes.data?.users || [];
     const transactions = (txRes.data || []) as any[];
     const payouts = (payoutsRes.data || []) as any[];
+    const studios = (studiosRes || []) as any[];
 
     const now = Date.now();
     const dayMs = 24 * 3600 * 1000;
 
-    // Agrégation par utilisateur depuis credit_transactions
     const userSpendMap = new Map<string, { spentCfa: number; creditsBought: number; creditsUsed: number; actionsCount: number }>();
     let revenueTotalCfa = 0;
     let revenue30dCfa = 0;
@@ -210,8 +324,8 @@ export default async function handler(req: any, res: any) {
     let videosGenerated = 0;
     let voicesGenerated = 0;
     let analysesRun = 0;
+    let refundsCount = 0;
 
-    // 14 derniers jours
     const dailyMap = new Map<string, { date: string; label: string; revenueCfa: number; txCount: number }>();
     for (let i = 13; i >= 0; i--) {
       const d = new Date(now - i * dayMs);
@@ -257,18 +371,25 @@ export default async function handler(req: any, res: any) {
         else if (kind === 'music_video') videosGenerated += 1;
         else if (kind === 'voice_tts') voicesGenerated += 1;
         else if (kind === 'ai_analysis') analysesRun += 1;
+      } else if (kind === 'refund') {
+        refundsCount += 1;
       }
 
       if (uid) userSpendMap.set(uid, cur);
     }
+
+    // Coût API estimé (~28 F par crédit consommé en moyenne)
+    const estimatedApiCostCfa = Math.round(creditsConsumed * 28);
+    const estimatedNetMarginCfa = Math.max(0, revenueTotalCfa - estimatedApiCostCfa);
 
     let subsActive = 0;
     let subsExpiringSoon = 0;
     let subsExpired = 0;
     let creditsOutstanding = 0;
     let newUsers7d = 0;
+    let bannedCount = 0;
 
-    const members = users.map((u) => {
+    const members = users.map((u: any) => {
       const meta = (u.user_metadata || {}) as Record<string, any>;
       const expMs = meta.subscription_expires_at ? new Date(meta.subscription_expires_at).getTime() : 0;
       const hasActiveDate = Boolean(meta.subscription_expires_at) && expMs > now;
@@ -276,7 +397,9 @@ export default async function handler(req: any, res: any) {
         ? hasActiveDate
         : meta.subscription_status === 'ACTIVE' || meta.plan === 'pro';
       const daysLeft = hasActiveDate ? Math.ceil((expMs - now) / dayMs) : 0;
+      const isBanned = Boolean(meta.is_banned || (u.banned_until && new Date(u.banned_until).getTime() > now));
 
+      if (isBanned) bannedCount += 1;
       if (isSubActive) {
         subsActive += 1;
         if (hasActiveDate && daysLeft <= 5) subsExpiringSoon += 1;
@@ -300,6 +423,7 @@ export default async function handler(req: any, res: any) {
         slug: String(meta.studio_slug || ''),
         credits: Math.round(cr * 100) / 100,
         subStatus: isSubActive ? 'active' : meta.subscription_expires_at ? 'expired' : 'free',
+        isBanned,
         expiresAt: meta.subscription_expires_at || null,
         daysLeft,
         spentCfa: stats.spentCfa,
@@ -315,14 +439,15 @@ export default async function handler(req: any, res: any) {
       .sort((a, b) => b.spentCfa - a.spentCfa || b.creditsUsed - a.creditsUsed || b.credits - a.credits)
       .slice(0, 10);
 
-    const gowsSessions = Array.isArray(gowsSessRes) ? gowsSessRes : [];
-    const chromeSessions = Array.isArray(chromeSessRes) ? chromeSessRes : [];
+    const gowsSessions = Array.isArray(gowsSessRes.data) ? gowsSessRes.data : [];
+    const chromeSessions = Array.isArray(chromeSessRes.data) ? chromeSessRes.data : [];
     const wahaSessions = [
       ...gowsSessions.map((s: any) => ({ name: s.name, status: s.status, engine: 'GOWS' })),
       ...chromeSessions.map((s: any) => ({ name: s.name, status: s.status, engine: 'WEBJS' })),
     ];
 
     const pendingPayouts = payouts.filter((p) => p.status === 'pending');
+    const adminAuditLogs = transactions.filter((t) => t.payment_provider === 'ADMIN' || t.kind === 'refund').slice(0, 30);
 
     return res.status(200).json({
       ok: true,
@@ -333,11 +458,14 @@ export default async function handler(req: any, res: any) {
         revenueTodayCfa,
         revenueSubsCfa,
         revenuePacksCfa,
+        estimatedApiCostCfa,
+        estimatedNetMarginCfa,
         usersTotal: users.length,
         newUsers7d,
         subsActive,
         subsExpiringSoon,
         subsExpired,
+        bannedCount,
         creditsSold: Math.round(creditsSold * 100) / 100,
         creditsConsumed: Math.round(creditsConsumed * 100) / 100,
         creditsOutstanding: Math.round(creditsOutstanding * 100) / 100,
@@ -345,15 +473,20 @@ export default async function handler(req: any, res: any) {
         videosGenerated,
         voicesGenerated,
         analysesRun,
+        refundsCount,
         wahaWorkingCount: wahaSessions.filter((s) => s.status === 'WORKING').length,
+        gowsOnline: gowsSessRes.ok,
+        gowsLatencyMs: gowsSessRes.ms,
         pendingPayoutsCount: pendingPayouts.length,
         pendingPayoutsCfa: pendingPayouts.reduce((s, p) => s + Number(p.amount || 0), 0),
       },
       dailyRevenue: Array.from(dailyMap.values()),
       topUsers,
       members,
-      recentTransactions: transactions.slice(0, 30),
-      payouts: payouts.slice(0, 30),
+      recentTransactions: transactions.slice(0, 40),
+      adminAuditLogs,
+      payouts: payouts.slice(0, 40),
+      studios,
       wahaSessions,
     });
   } catch (err: any) {
