@@ -74,6 +74,8 @@ export interface GeneratedSong {
   stemsStatus?: 'idle' | 'generating' | 'ready' | 'failed';
   vocalUrl?: string;
   instrumentalUrl?: string;
+  status?: 'generating' | 'ready' | 'failed';
+  statusLabel?: string;
   createdAt: string;
 }
 
@@ -184,7 +186,7 @@ export const StudioView: FC<StudioViewProps> = ({
   const [isOptimizingStyle, setIsOptimizingStyle] = useState(false);
   const [generationStep, setGenerationStep] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<'create' | 'remix'>('create');
-  const [remixSource, setRemixSource] = useState<{ title: string; uploadUrl?: string; taskId?: string; audioId?: string } | null>(null);
+  const [remixSource, setRemixSource] = useState<{ title: string; style?: string; uploadUrl?: string; taskId?: string; audioId?: string } | null>(null);
   const [isUploadingRemixAudio, setIsUploadingRemixAudio] = useState(false);
   const [openMenuSongId, setOpenMenuSongId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<{ songId: string; mode: 'replace' | 'extend' } | null>(null);
@@ -222,11 +224,12 @@ export const StudioView: FC<StudioViewProps> = ({
     },
   ];
 
-  // Bibliothèque
+  // Bibliothèque (ignorer les brouillons 'generating' orphelins au rechargement)
   const [librarySongs, setLibrarySongs] = useState<GeneratedSong[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SONGS);
-      return saved ? JSON.parse(saved) : SEED_SONGS;
+      const parsed: GeneratedSong[] = saved ? JSON.parse(saved) : SEED_SONGS;
+      return parsed.filter((s) => s.status !== 'generating');
     } catch {
       return SEED_SONGS;
     }
@@ -240,7 +243,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_SONGS, JSON.stringify(librarySongs));
+      localStorage.setItem(STORAGE_KEY_SONGS, JSON.stringify(librarySongs.filter((s) => s.status !== 'generating')));
     } catch {
       // Ignore
     }
@@ -306,7 +309,36 @@ export const StudioView: FC<StudioViewProps> = ({
     }
   };
 
-  const pollGenerationTask = async (taskId: string, customTitle: string, customStyle: string, customLyrics: string) => {
+  const pollGenerationTask = async (
+    taskId: string,
+    customTitle: string,
+    customStyle: string,
+    customLyrics: string,
+    voiceSnapshot: 'Masculine' | 'Féminine' | 'Duo',
+    recipientSnapshot: string,
+    occasionSnapshot: string,
+  ) => {
+    const p1 = `pending-${taskId}-1`;
+    const p2 = `pending-${taskId}-2`;
+    const placeholders: GeneratedSong[] = [1, 2].map((num) => ({
+      id: num === 1 ? p1 : p2,
+      taskId,
+      title: `${customTitle} (v${num})`,
+      recipient: recipientSnapshot,
+      occasion: occasionSnapshot,
+      style: customStyle,
+      voice: voiceSnapshot,
+      duration: '…',
+      durationSeconds: 0,
+      lyrics: customLyrics,
+      coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+      audioUrl: '',
+      status: 'generating',
+      statusLabel: `Version ${num} en cours de composition…`,
+      createdAt: new Date().toISOString(),
+    }));
+    setLibrarySongs((prev) => [...placeholders, ...prev]);
+
     let completed = false;
     const started = Date.now();
     while (Date.now() - started < 6 * 60 * 1000) {
@@ -320,7 +352,15 @@ export const StudioView: FC<StudioViewProps> = ({
       const sunoData = data.response?.sunoData || data.sunoData || [];
 
       if (rawStatus === 'FIRST_SUCCESS') {
-        setGenerationStep('Version 1 prête, finalisation de la version 2…');
+        setLibrarySongs((prev) =>
+          prev.map((s) =>
+            s.id === p1
+              ? { ...s, statusLabel: 'Version 1 prête, finalisation de la v2…' }
+              : s.id === p2
+              ? { ...s, statusLabel: 'Version 2 en cours de finalisation…' }
+              : s
+          )
+        );
         continue;
       }
 
@@ -337,37 +377,43 @@ export const StudioView: FC<StudioViewProps> = ({
                 taskId,
                 audioId: t.id || t.audioId || t.audio_id,
                 title: sunoData.length > 1 ? `${t.title || customTitle} (v${idx + 1})` : (t.title || customTitle),
-                recipient: currentOrder?.recipient || customTitle,
-                occasion: currentOrder?.occasion || 'Création Studio',
+                recipient: recipientSnapshot,
+                occasion: occasionSnapshot,
                 style: t.tags || customStyle || 'Afro-Love',
-                voice: songVoice,
+                voice: voiceSnapshot,
                 duration: `${m}:${s < 10 ? '0' : ''}${s}`,
                 durationSeconds: durSec,
                 lyrics: t.prompt || customLyrics || 'Composition instrumentale',
                 coverUrl: t.imageUrl || t.image_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
                 audioUrl: t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url,
                 videoStatus: 'idle',
+                status: 'ready',
                 createdAt: new Date().toISOString(),
               };
             });
 
           if (generatedTracks.length > 0) {
-            setLibrarySongs((prev) => [...generatedTracks, ...prev]);
+            setLibrarySongs((prev) => {
+              const withoutPending = prev.filter((s) => s.id !== p1 && s.id !== p2);
+              return [...generatedTracks, ...withoutPending];
+            });
             if (currentOrder && onUpdateOrder) {
               onUpdateOrder({ ...currentOrder, status: 'production_suno' });
             }
-            notifyStudio(`${generatedTracks.length} version(s) prête(s) et ajoutée(s) à votre discothèque.`, 'ok');
+            notifyStudio(`${generatedTracks.length} version(s) prête(s) pour « ${customTitle} » !`, 'ok');
             completed = true;
             break;
           }
         }
       } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR' || rawStatus === 'CREATE_TASK_FAILED') {
+        setLibrarySongs((prev) => prev.filter((s) => s.id !== p1 && s.id !== p2));
         notifyStudio(data.errorMessage || data.failReason || 'Échec de génération musicale.', 'error');
         completed = true;
         break;
       }
     }
     if (!completed) {
+      setLibrarySongs((prev) => prev.filter((s) => s.id !== p1 && s.id !== p2));
       notifyStudio('La génération prend plus de temps que prévu. Vérifiez votre historique dans un instant.', 'warn');
     }
   };
@@ -396,6 +442,7 @@ export const StudioView: FC<StudioViewProps> = ({
     setFormMode('remix');
     setRemixSource({
       title: song.title,
+      style: song.style,
       uploadUrl: song.audioUrl,
       taskId: song.taskId,
       audioId: song.audioId,
@@ -447,15 +494,20 @@ export const StudioView: FC<StudioViewProps> = ({
         return;
       }
       setActiveTool(null);
-      setIsGeneratingSong(true);
-      setGenerationStep(isReplace ? 'Correction du passage en cours…' : 'Prolongement du morceau en cours…');
-      await pollGenerationTask(String(json.taskId), body.title, song.style, toolPrompt.trim() || song.lyrics);
+      notifyStudio(isReplace ? 'Correction lancée en arrière-plan…' : 'Prolongement lancé en arrière-plan…', 'ok');
+      void pollGenerationTask(
+        String(json.taskId),
+        body.title,
+        song.style,
+        toolPrompt.trim() || song.lyrics,
+        song.voice,
+        song.recipient,
+        song.occasion,
+      );
     } catch (err: any) {
       notifyStudio(err?.message || 'Erreur réseau lors de la modification.', 'error');
     } finally {
       setIsRunningTool(false);
-      setIsGeneratingSong(false);
-      setGenerationStep(null);
     }
   };
 
@@ -521,7 +573,7 @@ export const StudioView: FC<StudioViewProps> = ({
       notifyStudio(`Titre trop long : ${songTitle.length}/${KIE_LIMITS.title} caractères maximum.`, 'error');
       return;
     }
-    if (isStyleOver) {
+    if (formMode === 'create' && isStyleOver) {
       notifyStudio(`Style trop long : ${songStyle.length}/${KIE_LIMITS.style} caractères maximum.`, 'error');
       return;
     }
@@ -531,11 +583,15 @@ export const StudioView: FC<StudioViewProps> = ({
     }
 
     setIsGeneratingSong(true);
-    setGenerationStep(formMode === 'remix' ? 'Lancement du remix…' : 'Envoi vers le moteur de création…');
+    setGenerationStep(formMode === 'remix' ? 'Lancement du remix…' : 'Envoi au studio…');
 
     try {
       const vocalGender =
         songVoice === 'Féminine' ? 'f' : songVoice === 'Masculine' ? 'm' : 'duo';
+      const effectiveStyle =
+        formMode === 'remix'
+          ? (remixSource?.style || 'Original melody groove, studio mastering')
+          : (songStyle.trim() || 'Emotional Afro-Love with a Warm African Groove');
 
       const endpoint = formMode === 'remix' ? '/api/suno?action=remix' : '/api/suno?action=generate';
       const genRes = await fetch(endpoint, {
@@ -546,7 +602,7 @@ export const StudioView: FC<StudioViewProps> = ({
             ? { uploadUrl: remixSource.uploadUrl, taskId: remixSource.taskId, audioId: remixSource.audioId }
             : {}),
           title: songTitle.trim(),
-          style: songStyle.trim() || 'Emotional Afro-Love with a Warm African Groove',
+          style: effectiveStyle,
           prompt: songLyrics.trim(),
           customMode: true,
           instrumental: !songLyrics.trim(),
@@ -559,14 +615,18 @@ export const StudioView: FC<StudioViewProps> = ({
       const genJson = await genRes.json().catch(() => ({}));
       if (!genRes.ok || !genJson.taskId) {
         notifyStudio(genJson.error || 'Impossible de lancer la génération musicale.', 'error');
-        setIsGeneratingSong(false);
-        setGenerationStep(null);
         return;
       }
 
       const taskId = String(genJson.taskId);
-      setGenerationStep(formMode === 'remix' ? 'Remix en cours (1 à 3 min)…' : 'Composition en cours (1 à 3 min)…');
-      await pollGenerationTask(taskId, songTitle.trim(), songStyle.trim(), songLyrics.trim());
+      const titleSnap = songTitle.trim();
+      const lyricsSnap = songLyrics.trim();
+      const voiceSnap = songVoice;
+      const recipientSnap = currentOrder?.recipient || titleSnap;
+      const occasionSnap = currentOrder?.occasion || 'Création Studio';
+
+      notifyStudio(`« ${titleSnap} » lancé ! Vous pouvez déjà préparer la suivante.`, 'ok');
+      void pollGenerationTask(taskId, titleSnap, effectiveStyle, lyricsSnap, voiceSnap, recipientSnap, occasionSnap);
     } catch (err: any) {
       notifyStudio(`Erreur réseau lors de la génération : ${err?.message || 'inconnue'}`, 'error');
     } finally {
@@ -594,7 +654,7 @@ export const StudioView: FC<StudioViewProps> = ({
           taskId: song.taskId,
           audioId: song.audioId,
           author: studioName,
-          domainName: 'djelia.store',
+          domainName: studioSlug ? `djelia.store/s/${studioSlug}` : 'djelia.store',
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -614,8 +674,8 @@ export const StudioView: FC<StudioViewProps> = ({
         const stJson = await stRes.json().catch(() => null);
         const data = stJson?.data;
         if (!data) continue;
-        const flag = String(data.successFlag || data.status || '').toUpperCase();
-        const videoUrl = data.response?.videoUrl || data.response?.video_url || data.videoUrl;
+        const flag = String(data.successFlag ?? data.status ?? '').toUpperCase();
+        const videoUrl = data.response?.videoUrl || data.response?.video_url || data.videoUrl || data.resultUrl;
         if ((flag === 'SUCCESS' || flag === 'COMPLETE' || flag === '1') && videoUrl) {
           setLibrarySongs((prev) =>
             prev.map((s) => (s.id === song.id ? { ...s, videoStatus: 'ready', videoUrl } : s))
@@ -623,7 +683,7 @@ export const StudioView: FC<StudioViewProps> = ({
           notifyStudio(`Vidéo lyrics MP4 prête pour « ${song.title} » !`, 'ok');
           return;
         }
-        if (flag === 'FAILED' || flag === 'ERROR' || flag === 'CREATE_TASK_FAILED') {
+        if (flag === 'FAILED' || flag === 'ERROR' || flag === 'CREATE_TASK_FAILED' || flag === '2' || flag === '3') {
           break;
         }
       }
@@ -1253,7 +1313,8 @@ export const StudioView: FC<StudioViewProps> = ({
                 )}
               </div>
 
-              {/* 2. Style Musical + Optimisation IA */}
+              {/* 2. Style Musical + Optimisation IA (uniquement en mode Création) */}
+              {formMode === 'create' && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
@@ -1322,6 +1383,7 @@ export const StudioView: FC<StudioViewProps> = ({
                   ))}
                 </div>
               </div>
+              )}
 
               {/* 3. Choix de la Voix */}
               <div className="space-y-1.5">
@@ -1469,7 +1531,11 @@ export const StudioView: FC<StudioViewProps> = ({
                 return (
                   <div
                     key={song.id}
-                    className="p-4 rounded-3xl bg-[#08090C] border border-white/[0.06] hover:border-white/[0.1] transition-all space-y-3"
+                    className={`p-4 rounded-3xl bg-[#08090C] border transition-all space-y-3 ${
+                      song.status === 'generating'
+                        ? 'border-[#E2BD6B]/30 animate-pulse'
+                        : 'border-white/[0.06] hover:border-white/[0.1]'
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3.5 min-w-0">
@@ -1477,34 +1543,55 @@ export const StudioView: FC<StudioViewProps> = ({
                           <img
                             src={song.coverUrl}
                             alt={song.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            className={`w-full h-full object-cover transition-transform duration-300 ${
+                              song.status === 'generating' ? 'opacity-40 scale-105' : 'group-hover:scale-105'
+                            }`}
                           />
-                          <button
-                            type="button"
-                            onClick={() => handlePlaySong(song)}
-                            className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
-                          >
-                            {isPlaying ? (
-                              <Pause className="w-5 h-5 fill-white" />
-                            ) : (
-                              <Play className="w-5 h-5 fill-white translate-x-0.5" />
-                            )}
-                          </button>
+                          {song.status === 'generating' ? (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <Disc3 className="w-6 h-6 text-[#E2BD6B] animate-spin" />
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handlePlaySong(song)}
+                              className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
+                            >
+                              {isPlaying ? (
+                                <Pause className="w-5 h-5 fill-white" />
+                              ) : (
+                                <Play className="w-5 h-5 fill-white translate-x-0.5" />
+                              )}
+                            </button>
+                          )}
                         </div>
 
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="text-sm font-bold text-white truncate">{song.title}</h4>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.05] text-[#E2BD6B] font-mono shrink-0">
                               {song.duration}
                             </span>
+                            {song.videoStatus === 'generating' && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E2BD6B]/15 border border-[#E2BD6B]/30 text-[#E2BD6B] inline-flex items-center gap-1 shrink-0">
+                                <Film className="w-3 h-3 animate-spin" />
+                                Vidéo en cours…
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-[#8A90A0] truncate">
-                            Pour <strong className="text-white/90">{song.recipient}</strong> · Style : {song.style} ({song.voice})
+                            {song.status === 'generating'
+                              ? (song.statusLabel || 'Composition en cours…')
+                              : (
+                                <>
+                                  Pour <strong className="text-white/90">{song.recipient}</strong> · Style : {song.style} ({song.voice})
+                                </>
+                              )}
                           </p>
                         </div>
                       </div>
 
+                      {song.status !== 'generating' && (
                       <div className="flex items-center gap-1.5 shrink-0 relative">
                         <button
                           type="button"
@@ -1610,6 +1697,7 @@ export const StudioView: FC<StudioViewProps> = ({
                           </div>
                         )}
                       </div>
+                      )}
                     </div>
 
                     {(song.vocalUrl || song.instrumentalUrl) && (
