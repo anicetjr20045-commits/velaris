@@ -13,8 +13,93 @@ interface RevenusViewProps {
   isWhatsAppConnected?: boolean;
 }
 
-type PeriodKey = '7d' | '30d' | 'all';
+type PeriodKey = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'all' | 'custom_day' | 'custom_month';
 type SourceFilter = 'all' | 'whatsapp' | 'affiliate';
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  CI: '🇨🇮',
+  BF: '🇧🇫',
+  SN: '🇸🇳',
+  CM: '🇨🇲',
+  ML: '🇲🇱',
+  TG: '🇹🇬',
+  BJ: '🇧🇯',
+  NE: '🇳🇪',
+  GN: '🇬🇳',
+  GA: '🇬🇦',
+  CG: '🇨🇬',
+  CD: '🇨🇩',
+  FR: '🇫🇷',
+  US: '🇺🇸',
+  MA: '🇲🇦',
+  TN: '🇹🇳',
+  DZ: '🇩🇿',
+  BE: '🇧🇪',
+  CA: '🇨🇦',
+  CH: '🇨🇭',
+};
+
+function getCountryFlag(code?: string, name?: string): string {
+  const upper = String(code || '').trim().toUpperCase();
+  if (COUNTRY_FLAGS[upper]) return COUNTRY_FLAGS[upper];
+  const n = String(name || '').toLowerCase();
+  if (n.includes('ivoire')) return '🇨🇮';
+  if (n.includes('burkina')) return '🇧🇫';
+  if (n.includes('sénégal') || n.includes('senegal')) return '🇸🇳';
+  if (n.includes('cameroun')) return '🇨🇲';
+  if (n.includes('mali')) return '🇲🇱';
+  if (n.includes('togo')) return '🇹🇬';
+  if (n.includes('bénin') || n.includes('benin')) return '🇧🇯';
+  if (n.includes('niger')) return '🇳🇪';
+  if (n.includes('guinée') || n.includes('guinee')) return '🇬🇳';
+  if (n.includes('gabon')) return '🇬🇦';
+  if (n.includes('congo')) return '🇨🇬';
+  if (n.includes('france')) return '🇫🇷';
+  return '🌍';
+}
+
+function isDateInPeriod(
+  rawDate: string | undefined,
+  period: PeriodKey,
+  customDay: string,
+  customMonth: string
+): boolean {
+  if (period === 'all') return true;
+  const ts = rawDate ? Date.parse(rawDate) : NaN;
+  if (Number.isNaN(ts)) return false;
+  const d = new Date(ts);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  if (period === 'today') return ts >= startOfToday;
+  if (period === 'yesterday') {
+    const startOfYesterday = startOfToday - 24 * 3600 * 1000;
+    return ts >= startOfYesterday && ts < startOfToday;
+  }
+  if (period === 'week') {
+    const dayOfWeek = (now.getDay() + 6) % 7; // Lundi = 0
+    const startOfWeek = startOfToday - dayOfWeek * 24 * 3600 * 1000;
+    return ts >= startOfWeek;
+  }
+  if (period === 'month') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  if (period === 'year') {
+    return d.getFullYear() === now.getFullYear();
+  }
+  if (period === 'custom_day' && customDay) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}` === customDay;
+  }
+  if (period === 'custom_month' && customMonth) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${yyyy}-${mm}` === customMonth;
+  }
+  return true;
+}
 
 interface AffiliateCommission {
   order_id: string;
@@ -158,6 +243,8 @@ export const RevenusView: FC<RevenusViewProps> = ({
 }) => {
   const { user } = useAuth();
   const [period, setPeriod] = useState<PeriodKey>('all');
+  const [customDay, setCustomDay] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [customMonth, setCustomMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
 
   // Slug d'affiliation pour récupérer les commissions 50%
@@ -188,8 +275,25 @@ export const RevenusView: FC<RevenusViewProps> = ({
     }
   });
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiStep, setAiStep] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiUpToDate, setAiUpToDate] = useState(false);
+
+  useEffect(() => {
+    if (!aiLoading) {
+      setAiStep(0);
+      return;
+    }
+    setAiStep(1);
+    const t1 = window.setTimeout(() => setAiStep(2), 900);
+    const t2 = window.setTimeout(() => setAiStep(3), 2000);
+    const t3 = window.setTimeout(() => setAiStep(4), 3400);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [aiLoading]);
 
   useEffect(() => {
     if (!reportCacheKey) return;
@@ -280,31 +384,13 @@ export const RevenusView: FC<RevenusViewProps> = ({
 
   // Commandes directes WhatsApp filtrées par période
   const filteredWhatsAppOrders = useMemo(() => {
-    if (period === 'all') return orders;
-    const now = Date.now();
-    const days = period === '7d' ? 7 : 30;
-    const cutoff = now - days * 24 * 3600 * 1000;
-
-    return orders.filter((o) => {
-      const parsed = Date.parse(o.rawCreatedAt || o.createdAt);
-      if (Number.isNaN(parsed)) return true;
-      return parsed >= cutoff;
-    });
-  }, [orders, period]);
+    return orders.filter((o) => isDateInPeriod(o.rawCreatedAt || o.createdAt, period, customDay, customMonth));
+  }, [orders, period, customDay, customMonth]);
 
   // Commissions d'affiliation filtrées par période
   const filteredCommissions = useMemo(() => {
-    if (period === 'all') return affiliateStats.commissions;
-    const now = Date.now();
-    const days = period === '7d' ? 7 : 30;
-    const cutoff = now - days * 24 * 3600 * 1000;
-
-    return affiliateStats.commissions.filter((c) => {
-      const parsed = Date.parse(c.created_at);
-      if (Number.isNaN(parsed)) return true;
-      return parsed >= cutoff;
-    });
-  }, [affiliateStats.commissions, period]);
+    return affiliateStats.commissions.filter((c) => isDateInPeriod(c.created_at, period, customDay, customMonth));
+  }, [affiliateStats.commissions, period, customDay, customMonth]);
 
   // Calculs financiers consolidés
   const directWhatsAppRevenue = useMemo(() => {
@@ -499,9 +585,9 @@ export const RevenusView: FC<RevenusViewProps> = ({
 
   // Courbe douce de tendance
   const curvePath =
-    period === '7d'
+    period === 'today' || period === 'yesterday' || period === 'custom_day'
       ? 'M 0 46 C 45 42, 75 30, 120 32 C 165 34, 210 18, 255 20 C 285 21, 305 10, 320 6'
-      : period === '30d'
+      : period === 'week' || period === 'month' || period === 'custom_month'
       ? 'M 0 50 C 45 46, 85 36, 130 38 C 175 40, 215 20, 260 16 C 290 14, 305 8, 320 4'
       : 'M 0 52 C 55 48, 110 38, 165 28 C 215 18, 265 12, 320 4';
 
@@ -519,27 +605,62 @@ export const RevenusView: FC<RevenusViewProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-full border border-white/[0.08]">
-            {(
-              [
-                ['7d', '7j'],
-                ['30d', '30j'],
-                ['all', 'Tout'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setPeriod(key)}
-                className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
-                  period === key
-                    ? 'bg-white text-black'
-                    : 'text-white/60 hover:text-white'
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1 bg-black/40 p-1 rounded-2xl border border-white/[0.08]">
+              {(
+                [
+                  ['today', "Aujourd'hui"],
+                  ['yesterday', 'Hier'],
+                  ['week', 'Semaine'],
+                  ['month', 'Ce mois'],
+                  ['year', 'Année'],
+                  ['all', 'Tout'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setPeriod(key)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-colors cursor-pointer ${
+                    period === key
+                      ? 'bg-white text-black'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-white/[0.08]">
+              <span className="text-[10px] text-white/50">Jour:</span>
+              <input
+                type="date"
+                value={customDay}
+                onChange={(e) => {
+                  setCustomDay(e.target.value);
+                  if (e.target.value) setPeriod('custom_day');
+                }}
+                className={`bg-transparent text-[11px] font-mono outline-none cursor-pointer ${
+                  period === 'custom_day' ? 'text-[#E2BD6B] font-semibold' : 'text-white/80'
                 }`}
-              >
-                {label}
-              </button>
-            ))}
+              />
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-white/[0.08]">
+              <span className="text-[10px] text-white/50">Mois:</span>
+              <input
+                type="month"
+                value={customMonth}
+                onChange={(e) => {
+                  setCustomMonth(e.target.value);
+                  if (e.target.value) setPeriod('custom_month');
+                }}
+                className={`bg-transparent text-[11px] font-mono outline-none cursor-pointer ${
+                  period === 'custom_month' ? 'text-[#E2BD6B] font-semibold' : 'text-white/80'
+                }`}
+              />
+            </div>
           </div>
         </div>
 
@@ -591,7 +712,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
               strokeWidth="2.5"
               strokeLinecap="round"
             />
-            <circle cx="320" cy={period === '7d' ? '6' : '4'} r="4" fill="#FFF3D1" />
+            <circle cx="320" cy={period === 'today' || period === 'yesterday' || period === 'custom_day' ? '6' : '4'} r="4" fill="#FFF3D1" />
           </svg>
         </div>
       </section>
@@ -698,6 +819,56 @@ export const RevenusView: FC<RevenusViewProps> = ({
           </div>
         </div>
 
+        {aiLoading && (
+          <div className="rounded-2xl bg-[#08090C] border border-[#E2BD6B]/20 p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[#E2BD6B] font-medium flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#E2BD6B] animate-ping" />
+                Analyse intelligente en cours...
+              </span>
+              <span className="font-mono text-[11px] text-[#8A90A0]">
+                {Math.min(100, aiStep * 25)}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#E2BD6B] to-[#10D98E] transition-all duration-700 ease-out"
+                style={{ width: `${Math.max(15, aiStep * 25)}%` }}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              {[
+                { step: 1, label: '01 · Lecture des nouvelles commandes & contacts' },
+                { step: 2, label: '02 · Calcul des revenus, fidélité & VIP' },
+                { step: 3, label: '03 · Jugement IA (sexe, occasions & conseils)' },
+                { step: 4, label: '04 · Sauvegarde du nouveau point de reprise' },
+              ].map((item) => {
+                const done = aiStep > item.step;
+                const active = aiStep === item.step;
+                return (
+                  <div
+                    key={item.step}
+                    className={`flex items-center gap-2 text-[11px] px-2.5 py-1.5 rounded-xl border transition-all ${
+                      done
+                        ? 'border-[#10D98E]/25 bg-[#10D98E]/5 text-[#10D98E]'
+                        : active
+                        ? 'border-[#E2BD6B]/30 bg-[#E2BD6B]/10 text-white'
+                        : 'border-white/[0.04] text-[#6B7280]'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        done ? 'bg-[#10D98E]' : active ? 'bg-[#E2BD6B] animate-pulse' : 'bg-white/20'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {aiError && (
           <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">
             {aiError}
@@ -803,8 +974,8 @@ export const RevenusView: FC<RevenusViewProps> = ({
                   <div key={c.name} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-white/90 truncate flex items-center gap-1.5">
-                        <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[9px] font-mono text-[#E2BD6B]">
-                          {c.code}
+                        <span className="text-sm leading-none shrink-0" aria-hidden="true">
+                          {getCountryFlag(c.code, c.name)}
                         </span>
                         <span className="truncate">{c.name}</span>
                       </span>

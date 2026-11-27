@@ -233,16 +233,7 @@ export default async function handler(req: any, res: any) {
   const newOrders = ordersRes.data || [];
   const newContacts = contactsRes.data || [];
 
-  if (newOrders.length === 0 && newContacts.length === 0 && existingState?.last_report && !reset) {
-    return res.status(200).json({
-      ok: true,
-      upToDate: true,
-      state: existingState,
-      report: existingState.last_report,
-    });
-  }
-
-  // 2. Calcul exact des Clients qui Reviennent & Meilleurs Clients (VIP)
+  // 2. Calcul exact des Clients qui Reviennent & Meilleurs Clients (VIP) — toujours recalculé à chaque clic
   const contactLookup = new Map<string, { name: string; phone: string }>();
   for (const c of allContactsLightRes.data || []) {
     contactLookup.set(c.id, { name: String(c.name || '').trim(), phone: String(c.phone || '').trim() });
@@ -255,13 +246,18 @@ export default async function handler(req: any, res: any) {
     const amt = Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
     totalAllRevenue += amt;
     const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
-    const displayName = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || cInfo?.name || 'Client').trim();
-    const key = o.contact_id || `name:${displayName.toLowerCase()}`;
-    const prev = clientAgg.get(key) || { name: displayName, phone: cInfo?.phone || '', ordersCount: 0, totalSpent: 0 };
+    const rawName = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || cInfo?.name || '').trim();
+    const phone = cInfo?.phone || '';
+    const phoneDigits = phone.replace(/\D/g, '');
+    const key = phoneDigits.length >= 8
+      ? `tel:${phoneDigits.slice(-8)}`
+      : (o.contact_id || `name:${(rawName || 'client').toLowerCase()}`);
+    const displayName = rawName || phone || 'Client WhatsApp';
+    const prev = clientAgg.get(key) || { name: displayName, phone, ordersCount: 0, totalSpent: 0 };
     prev.ordersCount += 1;
     prev.totalSpent += amt;
-    if (!prev.name && displayName) prev.name = displayName;
-    if (!prev.phone && cInfo?.phone) prev.phone = cInfo.phone;
+    if (prev.name.startsWith('Client ') && rawName && !rawName.startsWith('Client ')) prev.name = rawName;
+    if (!prev.phone && phone) prev.phone = phone;
     clientAgg.set(key, prev);
   }
 
@@ -272,9 +268,30 @@ export default async function handler(req: any, res: any) {
   const returningRevenue = returningBuyers.reduce((acc, b) => acc + b.totalSpent, 0);
   const returningRevenuePct = totalAllRevenue > 0 ? Math.round((returningRevenue / totalAllRevenue) * 100) : 0;
   const topClients = allBuyers
-    .filter((b) => b.name && !b.name.toLowerCase().startsWith('client whatsapp'))
+    .filter((b) => (b.name && !b.name.toLowerCase().startsWith('client whatsapp')) || b.phone)
     .sort((a, b) => b.totalSpent - a.totalSpent || b.ordersCount - a.ordersCount)
-    .slice(0, 5);
+    .slice(0, 8);
+
+  if (newOrders.length === 0 && newContacts.length === 0 && existingState?.last_report && !reset) {
+    const refreshedReport = {
+      ...existingState.last_report,
+      totalUniqueBuyers: allBuyers.length,
+      returningClientsCount,
+      returningOrdersCount,
+      returningRevenuePct,
+      topClients,
+    };
+    await admin
+      .from('studio_analytics_state')
+      .update({ last_report: refreshedReport, updated_at: nowIso })
+      .eq('user_id', userId);
+    return res.status(200).json({
+      ok: true,
+      upToDate: true,
+      state: { ...existingState, last_report: refreshedReport },
+      report: refreshedReport,
+    });
+  }
 
   // 3. Calculs mathématiques exacts du delta
   let deltaRevenue = 0;
