@@ -567,9 +567,9 @@ export default async function handler(req: any, res: any) {
               amount_cents: Math.round(amount * 100),
               price_xof: amount,
               currency: 'XOF',
-              status: 'validated',
-              payment_status: 'paid',
-              stage: 'paid',
+              status: 'delivered',
+              payment_status: 'confirmed',
+              stage: 'delivered',
               payment_method: 'WhatsApp (Analyse IA)',
               occasion: String(sale.occasion || 'Chanson personnalisée').slice(0, 80),
               recipient_name: wc.name,
@@ -577,7 +577,9 @@ export default async function handler(req: any, res: any) {
               created_at: wc.dateIso,
               payment_confirmed_at: wc.dateIso,
             });
-            if (!insErr) {
+            if (insErr) {
+              console.error('analyze-business orders insert error:', insErr.message);
+            } else {
               syncedOrdersCount += 1;
               syncedRevenue += amount;
             }
