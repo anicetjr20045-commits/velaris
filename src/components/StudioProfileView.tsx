@@ -22,9 +22,14 @@ import {
 } from '../services/saspay';
 import {
   CHARIOW_CREDIT_PACKS,
+  formatChariowFullPhone,
+  getSavedChariowPaymentInfo,
   initiateChariowCheckout,
+  saveChariowPaymentInfo,
   verifyChariowSale,
+  type CountryInfo,
 } from '../services/chariow';
+import { ChariowCountryPhonePicker } from './ChariowCountryPhonePicker';
 
 interface StudioProfileViewProps {
   onSignedOut?: () => void;
@@ -64,6 +69,11 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
   const [subscription, setSubscription] = useState(getStudioSubscription());
   const [selectedPackId, setSelectedPackId] = useState<string>(CHARIOW_CREDIT_PACKS[1].productId);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  const initialPayment = getSavedChariowPaymentInfo(user?.user_metadata?.phone as string | undefined);
+  const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(initialPayment.country);
+  const [paymentPhone, setPaymentPhone] = useState<string>(initialPayment.localPhone);
+  const [showPaymentEditor, setShowPaymentEditor] = useState(false);
 
   useEffect(() => {
     return subscribeToBilling(() => {
@@ -129,6 +139,8 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
   const handleChariowSubscribe = async () => {
     if (!user) return;
     setBusy('checkout');
+    saveChariowPaymentInfo(selectedCountry.code, paymentPhone);
+    const fullPhone = formatChariowFullPhone(selectedCountry, paymentPhone) || (user.user_metadata?.phone as string) || '';
     const res = await initiateChariowCheckout({
       userId: user.id,
       email: user.email || '',
@@ -136,7 +148,8 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
         (user.user_metadata?.studio_name as string) ||
         (user.user_metadata?.full_name as string) ||
         'Créateur Velaris',
-      phone: (user.user_metadata?.phone as string) || '',
+      phone: fullPhone,
+      countryCode: selectedCountry.code,
     });
     setBusy(null);
     if (res.success && res.checkoutUrl) {
@@ -149,6 +162,8 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
   const handleRechargeCredits = async (productId: string) => {
     if (!user) return;
     setBusy('checkout');
+    saveChariowPaymentInfo(selectedCountry.code, paymentPhone);
+    const fullPhone = formatChariowFullPhone(selectedCountry, paymentPhone) || (user.user_metadata?.phone as string) || '';
     const res = await initiateChariowCheckout({
       userId: user.id,
       email: user.email || '',
@@ -156,7 +171,8 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
         (user.user_metadata?.studio_name as string) ||
         (user.user_metadata?.full_name as string) ||
         'Créateur Velaris',
-      phone: (user.user_metadata?.phone as string) || '',
+      phone: fullPhone,
+      countryCode: selectedCountry.code,
       productId,
     });
     setBusy(null);
@@ -268,6 +284,42 @@ export const StudioProfileView: FC<StudioProfileViewProps> = ({ onSignedOut }) =
               </span>
             </button>
           ))}
+        </div>
+
+        {/* Pays & Numéro Mobile Money mémorisés, modifiables à tout moment */}
+        <div className="rounded-2xl bg-black/30 border border-white/[0.08] p-3.5 space-y-3">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-lg leading-none">{selectedCountry.flag}</span>
+              <span className="text-white font-medium truncate">{selectedCountry.name}</span>
+              <span className="font-mono text-white/60">
+                {selectedCountry.dialCode} {paymentPhone || '—'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPaymentEditor((v) => !v)}
+              className="px-2.5 py-1 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-[11px] font-medium text-white transition-colors cursor-pointer shrink-0"
+            >
+              {showPaymentEditor ? 'Valider' : 'Changer pays / n°'}
+            </button>
+          </div>
+
+          {showPaymentEditor && (
+            <ChariowCountryPhonePicker
+              compact
+              selectedCountry={selectedCountry}
+              phoneNumber={paymentPhone}
+              onCountryChange={(c) => {
+                setSelectedCountry(c);
+                saveChariowPaymentInfo(c.code, paymentPhone);
+              }}
+              onPhoneChange={(digits) => {
+                setPaymentPhone(digits);
+                saveChariowPaymentInfo(selectedCountry.code, digits);
+              }}
+            />
+          )}
         </div>
 
         {(() => {

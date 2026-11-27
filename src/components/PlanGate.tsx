@@ -7,12 +7,18 @@ import {
   Smartphone,
   Zap,
   CheckCircle2,
-  ChevronDown,
   Loader2,
   TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { initiateChariowCheckout } from '../services/chariow';
+import {
+  formatChariowFullPhone,
+  getSavedChariowPaymentInfo,
+  initiateChariowCheckout,
+  saveChariowPaymentInfo,
+  type CountryInfo,
+} from '../services/chariow';
+import { ChariowCountryPhonePicker } from './ChariowCountryPhonePicker';
 
 interface PlanGateProps {
   isPro: boolean;
@@ -22,122 +28,6 @@ interface PlanGateProps {
   children: ReactNode;
 }
 
-interface CountryInfo {
-  name: string;
-  code: string;
-  dialCode: string;
-  flag: string;
-  region: string;
-  operators: string[];
-}
-
-const CHARIOW_COUNTRIES: CountryInfo[] = [
-  {
-    name: 'Burkina Faso',
-    code: 'BF',
-    dialCode: '+226',
-    flag: '🇧🇫',
-    region: 'Afrique de l’Ouest',
-    operators: ['Orange Money', 'Moov Money'],
-  },
-  {
-    name: 'Côte d’Ivoire',
-    code: 'CI',
-    dialCode: '+225',
-    flag: '🇨🇮',
-    region: 'Afrique de l’Ouest',
-    operators: ['Wave', 'Orange Money', 'MTN MoMo', 'Moov'],
-  },
-  {
-    name: 'Sénégal',
-    code: 'SN',
-    dialCode: '+221',
-    flag: '🇸🇳',
-    region: 'Afrique de l’Ouest',
-    operators: ['Wave', 'Orange Money', 'Free Money'],
-  },
-  {
-    name: 'Cameroun',
-    code: 'CM',
-    dialCode: '+237',
-    flag: '🇨🇲',
-    region: 'Afrique Centrale',
-    operators: ['MTN MoMo', 'Orange Money'],
-  },
-  {
-    name: 'Mali',
-    code: 'ML',
-    dialCode: '+223',
-    flag: '🇲🇱',
-    region: 'Afrique de l’Ouest',
-    operators: ['Orange Money', 'Moov Africa'],
-  },
-  {
-    name: 'Bénin',
-    code: 'BJ',
-    dialCode: '+229',
-    flag: '🇧🇯',
-    region: 'Afrique de l’Ouest',
-    operators: ['MTN MoMo', 'Moov Money'],
-  },
-  {
-    name: 'Togo',
-    code: 'TG',
-    dialCode: '+228',
-    flag: '🇹🇬',
-    region: 'Afrique de l’Ouest',
-    operators: ['T-Money', 'Moov Money'],
-  },
-  {
-    name: 'Gabon',
-    code: 'GA',
-    dialCode: '+241',
-    flag: '🇬🇦',
-    region: 'Afrique Centrale',
-    operators: ['Airtel Money', 'Moov Money'],
-  },
-  {
-    name: 'Congo',
-    code: 'CG',
-    dialCode: '+242',
-    flag: '🇨🇬',
-    region: 'Afrique Centrale',
-    operators: ['MTN MoMo', 'Airtel Money'],
-  },
-  {
-    name: 'RDC Kinshasa',
-    code: 'CD',
-    dialCode: '+243',
-    flag: '🇨🇩',
-    region: 'Afrique Centrale',
-    operators: ['M-Pesa', 'Orange Money', 'Airtel'],
-  },
-  {
-    name: 'Guinée',
-    code: 'GN',
-    dialCode: '+224',
-    flag: '🇬🇳',
-    region: 'Afrique de l’Ouest',
-    operators: ['Orange Money', 'MTN'],
-  },
-  {
-    name: 'France & Diaspora',
-    code: 'FR',
-    dialCode: '+33',
-    flag: '🇫🇷',
-    region: 'Diaspora',
-    operators: ['Carte Bancaire', 'Apple Pay'],
-  },
-  {
-    name: 'International',
-    code: 'US',
-    dialCode: '+1',
-    flag: '🌍',
-    region: 'International',
-    operators: ['Carte Bancaire Visa / Mastercard'],
-  },
-];
-
 export const PlanGate: FC<PlanGateProps> = ({
   isPro,
   featureDescription,
@@ -145,22 +35,9 @@ export const PlanGate: FC<PlanGateProps> = ({
 }) => {
   const { user, openAuthModal } = useAuth();
 
-  // Détecter indicatif par défaut depuis profil utilisateur
-  const userPhone = String(user?.user_metadata?.phone || '');
-  const detectedCountry = CHARIOW_COUNTRIES.find((c) =>
-    userPhone.startsWith(c.dialCode.replace('+', '')) || userPhone.startsWith(c.dialCode)
-  ) || CHARIOW_COUNTRIES[0];
-
-  const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(detectedCountry);
-  const [phoneNumber, setPhoneNumber] = useState<string>(() => {
-    if (userPhone) {
-      const clean = userPhone.replace(/\D/g, '');
-      const prefix = detectedCountry.dialCode.replace(/\D/g, '');
-      return clean.startsWith(prefix) ? clean.slice(prefix.length) : clean;
-    }
-    return '';
-  });
-  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const initialPayment = getSavedChariowPaymentInfo(user?.user_metadata?.phone as string | undefined);
+  const [selectedCountry, setSelectedCountry] = useState<CountryInfo>(initialPayment.country);
+  const [phoneNumber, setPhoneNumber] = useState<string>(initialPayment.localPhone);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -178,8 +55,8 @@ export const PlanGate: FC<PlanGateProps> = ({
     setErrorMsg(null);
 
     try {
-      const cleanDigits = phoneNumber.replace(/\D/g, '');
-      const fullPhone = `${selectedCountry.dialCode.replace('+', '')}${cleanDigits}`;
+      saveChariowPaymentInfo(selectedCountry.code, phoneNumber);
+      const fullPhone = formatChariowFullPhone(selectedCountry, phoneNumber);
 
       const res = await initiateChariowCheckout({
         userId: user.id,
@@ -316,86 +193,19 @@ export const PlanGate: FC<PlanGateProps> = ({
               </div>
             </div>
 
-            {/* SÉLECTEUR DE PAYS AVEC DRAPEAUX */}
-            <div className="space-y-2 relative">
-              <label className="block text-xs sm:text-sm font-semibold text-[#D2D7E5]">
-                Votre pays de paiement (Afrique de l'Ouest & Centrale) :
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                className="w-full h-13 px-4 rounded-2xl bg-[#08090E] border border-white/[0.15] hover:border-[#F5D060]/60 flex items-center justify-between text-left text-base text-white transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-3 truncate">
-                  <span className="text-2xl leading-none">{selectedCountry.flag}</span>
-                  <span className="font-semibold truncate">{selectedCountry.name}</span>
-                  <span className="text-xs sm:text-sm font-mono text-[#A0A5B5]">({selectedCountry.dialCode})</span>
-                </div>
-                <ChevronDown className="h-5 w-5 text-[#A0A5B5] shrink-0" />
-              </button>
-
-              {/* Menu Déroulant des Pays avec drapeaux */}
-              {isCountryDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 max-h-72 overflow-y-auto rounded-2xl bg-[#090A10] border border-white/[0.18] shadow-2xl z-50 p-2 space-y-1 divide-y divide-white/[0.06]">
-                  {CHARIOW_COUNTRIES.map((country) => (
-                    <button
-                      key={country.code}
-                      type="button"
-                      onClick={() => {
-                        setSelectedCountry(country);
-                        setIsCountryDropdownOpen(false);
-                      }}
-                      className={`w-full px-4 py-3 rounded-xl flex items-center justify-between text-left text-sm transition-colors cursor-pointer ${
-                        selectedCountry.code === country.code
-                          ? 'bg-[#F5D060]/20 text-[#F5D060] font-bold'
-                          : 'text-[#D0D4E0] hover:bg-white/[0.06]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 truncate">
-                        <span className="text-xl">{country.flag}</span>
-                        <span className="font-semibold">{country.name}</span>
-                        <span className="font-mono text-xs text-[#A0A5B5]">{country.dialCode}</span>
-                      </div>
-                      <span className="text-xs font-mono text-[#A0A5B5] shrink-0 truncate max-w-[130px] text-right font-medium">
-                        {country.operators[0]}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Opérateurs disponibles pour le pays sélectionné */}
-              <div className="flex flex-wrap gap-2 pt-1.5">
-                {selectedCountry.operators.map((op) => (
-                  <span
-                    key={op}
-                    className="inline-flex items-center text-xs font-mono px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[#BAC0D4] font-medium"
-                  >
-                    {op}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* SAISIE DU NUMÉRO DE TÉLÉPHONE */}
-            <div className="space-y-2">
-              <label className="block text-xs sm:text-sm font-semibold text-[#D2D7E5]">
-                Numéro Mobile Money (Wave, Orange, Moov, MTN) :
-              </label>
-              <div className="flex items-center rounded-2xl bg-[#08090E] border border-white/[0.15] focus-within:border-[#F5D060] transition-all overflow-hidden">
-                <span className="px-4 text-sm font-mono text-[#CBD2E1] bg-white/[0.04] border-r border-white/[0.1] h-13 flex items-center font-bold">
-                  {selectedCountry.dialCode}
-                </span>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="ex: 70 00 00 00"
-                  className="flex-1 h-13 px-4 bg-transparent text-base text-white placeholder-[#606575] focus:outline-none font-mono"
-                />
-              </div>
-            </div>
+            {/* SÉLECTEUR DE PAYS AVEC DRAPEAUX & NUMÉRO MOBILE MONEY */}
+            <ChariowCountryPhonePicker
+              selectedCountry={selectedCountry}
+              phoneNumber={phoneNumber}
+              onCountryChange={(c) => {
+                setSelectedCountry(c);
+                saveChariowPaymentInfo(c.code, phoneNumber);
+              }}
+              onPhoneChange={(digits) => {
+                setPhoneNumber(digits);
+                saveChariowPaymentInfo(selectedCountry.code, digits);
+              }}
+            />
 
             {errorMsg && (
               <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs sm:text-sm text-red-400">

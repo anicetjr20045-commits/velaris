@@ -19,7 +19,11 @@ import { AffiliationView } from './AffiliationView';
 import { StudioProfileView } from './StudioProfileView';
 import { PlanGate } from './PlanGate';
 import { getStudioCredits, getStudioSubscription, subscribeToBilling } from '../services/billing';
-import { initiateChariowCheckout } from '../services/chariow';
+import {
+  formatChariowFullPhone,
+  getSavedChariowPaymentInfo,
+  initiateChariowCheckout,
+} from '../services/chariow';
 
 export type StudioTab =
   | 'revenus'
@@ -153,6 +157,11 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
       openAuthModal('login');
       return;
     }
+    const savedPayment = getSavedChariowPaymentInfo(user.user_metadata?.phone as string | undefined);
+    const fullPhone =
+      formatChariowFullPhone(savedPayment.country, savedPayment.localPhone) ||
+      (user.user_metadata?.phone as string) ||
+      '';
     const res = await initiateChariowCheckout({
       userId: user.id,
       email: user.email || '',
@@ -160,7 +169,8 @@ export const DjeliaAppLayout: FC<DjeliaAppLayoutProps> = ({
         (user.user_metadata?.studio_name as string) ||
         (user.user_metadata?.full_name as string) ||
         'Créateur Velaris',
-      phone: (user.user_metadata?.phone as string) || '',
+      phone: fullPhone,
+      countryCode: savedPayment.country.code,
     });
     if (res.success && res.checkoutUrl) {
       window.location.assign(res.checkoutUrl);

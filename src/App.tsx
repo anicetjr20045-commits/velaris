@@ -84,29 +84,29 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
   const rawHash = window.location.hash.toLowerCase().replace('#', '').trim();
   const pathname = window.location.pathname;
 
-  // 1. Navigation explicite par hash dans l'URL
+  // 1. Navigation explicite par hash ou pathname dans l'URL
   if (rawHash === 'decouvrir' || pathname === '/decouvrir') {
     return { activeTab: 'decouvrir', studioSubTab: 'studio_ai' };
   }
-  if (rawHash === 'cockpit' || rawHash === 'revenus') {
+  if (rawHash === 'cockpit' || rawHash === 'revenus' || pathname === '/cockpit' || pathname === '/revenus') {
     return { activeTab: 'cockpit', studioSubTab: 'revenus' };
   }
-  if (rawHash === 'ventes' || rawHash === 'caisse') {
+  if (rawHash === 'ventes' || rawHash === 'caisse' || pathname === '/ventes') {
     return { activeTab: 'cockpit', studioSubTab: 'ventes' };
   }
-  if (rawHash === 'copilot' || rawHash === 'analyste') {
+  if (rawHash === 'copilot' || rawHash === 'analyste' || pathname === '/copilot') {
     return { activeTab: 'copilot', studioSubTab: 'analyste' };
   }
-  if (rawHash === 'academy' || rawHash === 'formation') {
+  if (rawHash === 'academy' || rawHash === 'formation' || pathname === '/academy') {
     return { activeTab: 'academy', studioSubTab: 'academy' };
   }
-  if (rawHash === 'studio' || rawHash === 'atelier' || rawHash === 'studio_ai') {
+  if (rawHash === 'studio' || rawHash === 'atelier' || rawHash === 'studio_ai' || pathname === '/studio') {
     return { activeTab: 'studio', studioSubTab: 'studio_ai' };
   }
   if (rawHash === 'conversations' || rawHash === 'discussions' || rawHash === 'messages' || rawHash === 'chat' || rawHash === 'whatsapp-web' || rawHash === 'cockpit-chat' || pathname === '/chat') {
     return { activeTab: 'cockpit', studioSubTab: 'revenus' };
   }
-  if (rawHash === 'pipeline') {
+  if (rawHash === 'pipeline' || pathname === '/pipeline') {
     return { activeTab: 'studio', studioSubTab: 'pipeline' };
   }
   if (rawHash === 'playground' || rawHash === 'play' || rawHash === 'simulateur' || pathname.includes('simulateur')) {
@@ -115,28 +115,23 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
   if (rawHash === 'affiliation' || rawHash === 'partenaire' || pathname === '/affiliation') {
     return { activeTab: 'studio', studioSubTab: 'affiliation' };
   }
-  if (rawHash === 'whatsapp') {
-    return { activeTab: 'studio', studioSubTab: 'whatsapp' };
+  if (rawHash === 'whatsapp' || rawHash === 'lines' || pathname === '/whatsapp') {
+    return { activeTab: 'studio', studioSubTab: rawHash === 'lines' ? 'lines' : 'whatsapp' };
   }
-  if (rawHash === 'automations') {
+  if (rawHash === 'automations' || pathname === '/automations') {
     return { activeTab: 'studio', studioSubTab: 'automations' };
   }
-  if (rawHash === 'profile') {
+  if (rawHash === 'profile' || rawHash === 'credits' || pathname === '/profile') {
     return { activeTab: 'studio', studioSubTab: 'profile' };
   }
-  if (rawHash === 'admin') {
+  if (rawHash === 'admin' || pathname === '/admin') {
     return { activeTab: 'studio', studioSubTab: 'admin' };
   }
   if (rawHash === 'home' || rawHash === 'accueil') {
     return { activeTab: 'home', studioSubTab: 'studio_ai' };
   }
 
-  // 2. Sur app.djelia.store : TOUJOURS entrer dans le cockpit Studio (jamais la vitrine commerciale)
-  if (isAppDomain) {
-    return { activeTab: 'cockpit', studioSubTab: 'revenus' };
-  }
-
-  // 3. Restauration depuis localStorage si l'utilisateur était déjà dans une vue de travail
+  // 2. Restauration depuis localStorage si l'utilisateur était déjà dans une section (évite de sortir au rafraîchissement)
   try {
     const savedActive = localStorage.getItem('velaris_active_tab') as MainTab | null;
     const savedSubTab = localStorage.getItem('velaris_studio_subtab') as StudioTab | null;
@@ -150,6 +145,11 @@ function parseInitialRoute(): { activeTab: MainTab; studioSubTab: StudioTab } {
     }
   } catch {
     // ignore
+  }
+
+  // 3. Sur app.djelia.store : entrer par défaut dans le cockpit Studio si aucune section sauvegardée
+  if (isAppDomain) {
+    return { activeTab: 'cockpit', studioSubTab: 'revenus' };
   }
 
   // 4. Utilisateur déjà connecté arrivant sur la racine -> redirection automatique vers le Cockpit
