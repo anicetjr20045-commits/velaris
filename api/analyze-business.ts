@@ -201,58 +201,82 @@ async function fetchLiveWhatsAppChats(
       })
       .slice(0, 30);
 
-    const digests = await Promise.all(
-      recent.map(async (c): Promise<WahaChatDigest | null> => {
-        const chatId = String(c.id);
-        const ts = Number(c?.lastMessage?.timestamp || c?.timestamp || 0);
-        const digits = chatId.replace(/@.*$/, '').replace(/\D/g, '');
-        const phone = digits ? `+${digits}` : '';
-        const name = String(c?.name || phone || 'Client WhatsApp').trim();
-        let msgs: Array<{ fromMe: boolean; at: string; body: string }> = [];
+    const digests: Array<WahaChatDigest | null> = [];
+    for (let i = 0; i < recent.length; i += 5) {
+      const batch = recent.slice(i, i + 5);
+      const batchResults = await Promise.all(
+        batch.map(async (c): Promise<WahaChatDigest | null> => {
+          const chatId = String(c.id);
+          const ts = Number(c?.lastMessage?.timestamp || c?.timestamp || 0);
+          const digits = chatId.replace(/@.*$/, '').replace(/\D/g, '');
+          const phone = digits ? `+${digits}` : '';
+          const name = String(c?.name || phone || 'Client WhatsApp').trim();
+          let msgs: Array<{ fromMe: boolean; at: string; body: string }> = [];
 
-        try {
-          const mCtrl = new AbortController();
-          const mTimer = setTimeout(() => mCtrl.abort(), 4500);
-          const mRes = await fetch(
-            `${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=12`,
-            { headers: { 'X-Api-Key': wahaKey }, signal: mCtrl.signal },
-          );
-          clearTimeout(mTimer);
-          if (mRes.ok) {
-            const rawMsgs = (await mRes.json()) as any[];
-            if (Array.isArray(rawMsgs)) {
-              msgs = rawMsgs
-                .map((m) => ({
-                  fromMe: Boolean(m?.fromMe),
-                  at: new Date((Number(m?.timestamp) || ts) * 1000).toISOString(),
-                  body: String(m?.body || '').trim().slice(0, 140),
-                }))
-                .filter((m) => m.body.length > 0)
-                .slice(0, 10);
+          try {
+            const mCtrl = new AbortController();
+            const mTimer = setTimeout(() => mCtrl.abort(), 6000);
+            const mRes = await fetch(
+              `${wahaUrl}/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=15`,
+              { headers: { 'X-Api-Key': wahaKey }, signal: mCtrl.signal },
+            );
+            clearTimeout(mTimer);
+            if (mRes.ok) {
+              const rawMsgs = (await mRes.json()) as any[];
+              if (Array.isArray(rawMsgs)) {
+                msgs = rawMsgs
+                  .map((m) => {
+                    const text = String(m?.body || '').trim().slice(0, 140);
+                    const mediaType = String(m?._data?.Info?.MediaType || '').toLowerCase();
+                    const hasMedia = Boolean(m?.hasMedia || mediaType);
+                    let mediaTag = '';
+                    if (hasMedia) {
+                      if (mediaType === 'image') mediaTag = '[IMAGE]';
+                      else if (mediaType === 'audio' || mediaType === 'ptt') mediaTag = '[AUDIO/VOCAL]';
+                      else if (mediaType === 'video') mediaTag = '[VIDEO]';
+                      else if (mediaType === 'document') mediaTag = '[DOCUMENT]';
+                      else mediaTag = '[MEDIA]';
+                    }
+                    const combined = [mediaTag, text].filter(Boolean).join(' ').trim();
+                    return {
+                      fromMe: Boolean(m?.fromMe),
+                      at: new Date((Number(m?.timestamp) || ts) * 1000).toISOString(),
+                      body: combined,
+                    };
+                  })
+                  .filter((m) => m.body.length > 0)
+                  .slice(0, 12);
+              }
+            }
+          } catch {}
+
+          if (msgs.length === 0 && (c?.lastMessage?.body || c?.lastMessage?.hasMedia)) {
+            const lmText = String(c.lastMessage.body || '').slice(0, 140);
+            const lmTag = c.lastMessage.hasMedia ? '[MEDIA]' : '';
+            const combined = [lmTag, lmText].filter(Boolean).join(' ').trim();
+            if (combined) {
+              msgs = [{
+                fromMe: Boolean(c.lastMessage.fromMe),
+                at: new Date(ts * 1000).toISOString(),
+                body: combined,
+              }];
             }
           }
-        } catch {}
 
-        if (msgs.length === 0 && c?.lastMessage?.body) {
-          msgs = [{
-            fromMe: Boolean(c.lastMessage.fromMe),
-            at: new Date(ts * 1000).toISOString(),
-            body: String(c.lastMessage.body).slice(0, 140),
-          }];
-        }
-
-        const dt = new Date(ts * 1000);
-        return {
-          chatId,
-          phone,
-          name,
-          lastTimestamp: ts,
-          dateIso: dt.toISOString(),
-          dayKey: dt.toISOString().slice(0, 10),
-          messages: msgs,
-        };
-      }),
-    );
+          const dt = new Date(ts * 1000);
+          return {
+            chatId,
+            phone,
+            name,
+            lastTimestamp: ts,
+            dateIso: dt.toISOString(),
+            dayKey: dt.toISOString().slice(0, 10),
+            messages: msgs,
+          };
+        }),
+      );
+      digests.push(...batchResults);
+    }
 
     return digests.filter((d): d is WahaChatDigest => d !== null);
   } catch {
@@ -309,12 +333,12 @@ export default async function handler(req: any, res: any) {
     .maybeSingle();
 
   const sinceAt = reset ? null : (existingState?.last_analyzed_at || null);
+  const waSinceAt = reset ? null : (existingState?.last_report?.waSyncedAt || null);
   const nowIso = new Date().toISOString();
-  // Pour WhatsApp en direct : toujours scanner au moins les 72 dernières heures pour rattraper les ventes non enregistrées
-  const minLookbackSec = Math.floor((Date.now() - 72 * 3600 * 1000) / 1000);
-  const waCutoffSec = sinceAt
-    ? Math.min(Math.floor(Date.parse(sinceAt) / 1000), minLookbackSec)
-    : Math.floor((Date.now() - 7 * 86400 * 1000) / 1000);
+  // Checkpoint strict : si waSyncedAt existe, on ne scanne que les nouveautés (avec 5 min de marge) ; sinon rattrapage 72h
+  const waCutoffSec = waSinceAt
+    ? Math.max(0, Math.floor(Date.parse(waSinceAt) / 1000) - 300)
+    : Math.floor((Date.now() - 72 * 3600 * 1000) / 1000);
 
   const fetchLimit = sinceAt ? 500 : 2500;
   let ordersQuery = admin
@@ -407,11 +431,13 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Préparer les discussions WhatsApp non encore enregistrées comme commandes pour que l'IA détecte les ventes d'hier/aujourd'hui
+  // Pré-filtrage déterministe des discussions WhatsApp contenant un signal de paiement/livraison (économie de crédits IA)
+  const SALE_SIGNAL_RE = /\[(IMAGE|AUDIO\/VOCAL|DOCUMENT|VIDEO|MEDIA)\]|paiement|pay[ée]|re[çc]u|wave|orange|mtn|moov|franc|1\s?200|3\s?000|5\s?000|merci|ecout|[ée]cout|chanson|djelia|ecoute\/|livr[ée]|envoy[ée]|valid[ée]|d[ée]p[ôo]t|capture/i;
   const waChatsForSaleDetection = waChats
     .filter((wc) => {
       const digits = wc.phone.replace(/\D/g, '');
-      return digits.length >= 8 && !existingOrderDayKeys.has(`${digits.slice(-8)}|${wc.dayKey}`);
+      if (digits.length < 8 || existingOrderDayKeys.has(`${digits.slice(-8)}|${wc.dayKey}`)) return false;
+      return wc.messages.some((m) => SALE_SIGNAL_RE.test(m.body));
     })
     .map((wc) => ({
       chatId: wc.chatId,
@@ -503,7 +529,7 @@ export default async function handler(req: any, res: any) {
   let syncedOrdersCount = 0;
   let syncedRevenue = 0;
 
-  if (kieApiKey) {
+  if (kieApiKey && (waChatsForSaleDetection.length > 0 || ambiguousForAi.length > 0 || newOrders.length > 0)) {
     try {
       const prompt = [
         'Tu es un analyste business expert pour un studio de chansons personnalisées vendues sur WhatsApp en Afrique francophone (prix standard 1 200 F CFA ou 3 000 F CFA).',
@@ -683,6 +709,7 @@ export default async function handler(req: any, res: any) {
 
   const report = {
     analyzedAt: nowIso,
+    waSyncedAt: nowIso,
     sinceAt,
     deltaOrders: totalNewOrders,
     deltaRevenue: totalNewRevenue,

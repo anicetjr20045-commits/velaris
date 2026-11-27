@@ -353,7 +353,7 @@ export const RevenusView: FC<RevenusViewProps> = ({
         }
       }
       setAiUpToDate(Boolean(json.upToDate));
-      if (json.syncedOrdersCount > 0 || json.report?.deltaContacts > 0) {
+      if (!json.upToDate || json.syncedOrdersCount > 0 || json.report?.deltaContacts > 0) {
         const freshOrders = await getLiveOrders();
         if (freshOrders.length > 0) setLiveSyncedOrders(freshOrders);
       }
