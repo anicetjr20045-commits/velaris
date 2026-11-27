@@ -165,15 +165,45 @@ export const StudioView: FC<StudioViewProps> = ({
   /* ------------------------------------------------------------------ */
   const [songTitle, setSongTitle] = useState(currentOrder ? `Chanson pour ${currentOrder.recipient}` : 'Ma Chanson Personnalisée');
   // Style en saisie libre au clavier (ex: Zouk, Afro-Love, etc.)
-  const [songStyle, setSongStyle] = useState(currentOrder?.style || 'Zouk');
+  const [songStyle, setSongStyle] = useState(
+    currentOrder?.style ||
+      'Emotional Afro-Love with a Warm African Groove, 90-98 BPM. Warm acoustic guitar, soft piano, subtle African percussion, smooth bass, delicate strings, heartfelt intimate atmosphere.'
+  );
   const [songVoice, setSongVoice] = useState<'Masculine' | 'Féminine' | 'Duo'>('Féminine');
-  const [songDuration, setSongDuration] = useState<'1 min' | '2 min' | '3 min'>('2 min');
+  const [songDuration, setSongDuration] = useState<'Auto' | 'Court' | 'Complet'>('Auto');
   const [songLyrics, setSongLyrics] = useState(currentOrder?.transcription || '');
   const [isGeneratingSong, setIsGeneratingSong] = useState(false);
+  const [isOptimizingStyle, setIsOptimizingStyle] = useState(false);
   const [generationStep, setGenerationStep] = useState<string | null>(null);
 
-  // Suggestions rapides de style
-  const styleSuggestions = ['Zouk', 'Afro-Love', 'Rumba Congolaise', 'Gospel', 'Amapiano', 'Acoustique Pure', 'Mandingue'];
+  // 5 styles officiels pré-optimisés (cliquables en 1 clic)
+  const stylePresets: ReadonlyArray<{ label: string; prompt: string }> = [
+    {
+      label: 'Doux',
+      prompt:
+        'Emotional Afro-Love with a Warm African Groove, 90-98 BPM. Warm acoustic guitar, soft piano, subtle African percussion, smooth bass, delicate strings, soft backing vocals and rich harmonies in the chorus, heartfelt intimate atmosphere.',
+    },
+    {
+      label: 'Dansant',
+      prompt:
+        'Ultra-energetic Afrobeats, fast tempo 120-130 BPM. Heavy driving drum patterns with strong kick, snappy snares, rolling congas, djembe, shakers, bouncy infectious bassline, bright melodic synth leads, highlife guitars, festive explosive chorus.',
+    },
+    {
+      label: 'Coupé-Décalé',
+      prompt:
+        'High-energy Ivorian Coupé-Décalé fused with Afro Drill and stadium anthem vibes, 128-132 BPM. Explosive percussion, driving kick, groovy bassline, rhythmic chants, crowd shouts, whistles, claps, bright African synths, powerful brass stabs, nonstop dance energy.',
+    },
+    {
+      label: 'Reggae',
+      prompt:
+        'Roots Reggae with warm West African acoustic feel, 76-82 BPM. Heavy one-drop drum groove, deep melodic bassline, clean upbeat offbeat guitar chops, gentle organ, soft brass accents, authentic conscious groove, positive uplifting atmosphere.',
+    },
+    {
+      label: 'Ambiance',
+      prompt:
+        'Authentic Congolese Rumba and festive West African celebration, 98-108 BPM. Clean interlocking electric guitars, deep melodic bassline, warm congas and bongos, subtle shakers, rich call-and-response choir harmonies, joyful communal singing atmosphere.',
+    },
+  ];
 
   // Bibliothèque
   const [librarySongs, setLibrarySongs] = useState<GeneratedSong[]>(() => {
@@ -230,6 +260,35 @@ export const StudioView: FC<StudioViewProps> = ({
   const isStyleOver = songStyle.length > KIE_LIMITS.style;
   const isLyricsOver = songLyrics.length > KIE_LIMITS.lyrics;
 
+  const handleOptimizeStyle = async () => {
+    if (!songStyle.trim()) {
+      notifyStudio('Tapez d’abord un style ou une idée musicale à optimiser.', 'warn');
+      return;
+    }
+    setIsOptimizingStyle(true);
+    try {
+      const res = await fetch('/api/suno?action=optimize-style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          style: songStyle.trim(),
+          voice: songVoice,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.optimizedStyle) {
+        notifyStudio(json.error || 'Impossible d’optimiser ce style pour le moment.', 'error');
+        return;
+      }
+      setSongStyle(json.optimizedStyle);
+      notifyStudio('Style optimisé pour une qualité studio maximale.', 'ok');
+    } catch {
+      notifyStudio('Erreur réseau lors de l’optimisation du style.', 'error');
+    } finally {
+      setIsOptimizingStyle(false);
+    }
+  };
+
   const handleGenerateSong = async (e: FormEvent) => {
     e.preventDefault();
     if (!songTitle.trim()) {
@@ -237,20 +296,20 @@ export const StudioView: FC<StudioViewProps> = ({
       return;
     }
     if (isTitleOver) {
-      notifyStudio(`Titre trop long : ${songTitle.length}/${KIE_LIMITS.title} caractères maximum acceptés par Suno/Kie.ai.`, 'error');
+      notifyStudio(`Titre trop long : ${songTitle.length}/${KIE_LIMITS.title} caractères maximum.`, 'error');
       return;
     }
     if (isStyleOver) {
-      notifyStudio(`Style trop long : ${songStyle.length}/${KIE_LIMITS.style} caractères maximum acceptés par Suno/Kie.ai.`, 'error');
+      notifyStudio(`Style trop long : ${songStyle.length}/${KIE_LIMITS.style} caractères maximum.`, 'error');
       return;
     }
     if (isLyricsOver) {
-      notifyStudio(`Paroles trop longues : ${songLyrics.length}/${KIE_LIMITS.lyrics} caractères maximum acceptés par Suno/Kie.ai.`, 'error');
+      notifyStudio(`Paroles trop longues : ${songLyrics.length}/${KIE_LIMITS.lyrics} caractères maximum.`, 'error');
       return;
     }
 
     setIsGeneratingSong(true);
-    setGenerationStep('Envoi vers Suno via Kie.ai…');
+    setGenerationStep('Envoi vers le moteur de création…');
 
     try {
       const vocalGender =
@@ -261,27 +320,28 @@ export const StudioView: FC<StudioViewProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: songTitle.trim(),
-          style: songStyle.trim() || 'Afro-Love acoustique',
+          style: songStyle.trim() || 'Emotional Afro-Love with a Warm African Groove',
           prompt: songLyrics.trim(),
           customMode: true,
           instrumental: !songLyrics.trim(),
           vocalGender,
-          model: 'V4_5',
+          durationMode: songDuration.toLowerCase(),
+          model: 'V6',
         }),
       });
 
       const genJson = await genRes.json().catch(() => ({}));
       if (!genRes.ok || !genJson.taskId) {
-        notifyStudio(genJson.error || 'Impossible de lancer la génération Suno via Kie.ai.', 'error');
+        notifyStudio(genJson.error || 'Impossible de lancer la génération musicale.', 'error');
         setIsGeneratingSong(false);
         setGenerationStep(null);
         return;
       }
 
       const taskId = String(genJson.taskId);
-      setGenerationStep('Composition Suno en cours (1 à 3 min)…');
+      setGenerationStep('Composition en cours (1 à 3 min)…');
 
-      // Polling jusqu'à obtention des 2 pistes Suno
+      // Polling jusqu'à obtention complète des 2 versions
       let completed = false;
       const started = Date.now();
       while (Date.now() - started < 6 * 60 * 1000) {
@@ -294,7 +354,12 @@ export const StudioView: FC<StudioViewProps> = ({
         const rawStatus = String(data.status || '').toUpperCase();
         const sunoData = data.response?.sunoData || data.sunoData || [];
 
-        if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE' || rawStatus === 'FIRST_SUCCESS') {
+        if (rawStatus === 'FIRST_SUCCESS') {
+          setGenerationStep('Version 1 prête, finalisation de la version 2…');
+          continue;
+        }
+
+        if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETE') {
           if (Array.isArray(sunoData) && sunoData.length > 0) {
             const generatedTracks: GeneratedSong[] = sunoData
               .filter((t: any) => t.audioUrl || t.audio_url || t.streamAudioUrl || t.stream_audio_url)
@@ -326,23 +391,23 @@ export const StudioView: FC<StudioViewProps> = ({
               if (currentOrder && onUpdateOrder) {
                 onUpdateOrder({ ...currentOrder, status: 'production_suno' });
               }
-              notifyStudio(`${generatedTracks.length} version(s) Suno prête(s) et ajoutée(s) à votre discothèque.`, 'ok');
+              notifyStudio(`${generatedTracks.length} version(s) prête(s) et ajoutée(s) à votre discothèque.`, 'ok');
               completed = true;
               break;
             }
           }
         } else if (rawStatus === 'FAILED' || rawStatus === 'ERROR' || rawStatus === 'CREATE_TASK_FAILED') {
-          notifyStudio(data.errorMessage || data.failReason || 'Échec de génération Suno.', 'error');
+          notifyStudio(data.errorMessage || data.failReason || 'Échec de génération musicale.', 'error');
           completed = true;
           break;
         }
       }
 
       if (!completed) {
-        notifyStudio('La génération prend plus de temps que prévu sur Kie.ai. Vérifiez votre historique dans un instant.', 'warn');
+        notifyStudio('La génération prend plus de temps que prévu. Vérifiez votre historique dans un instant.', 'warn');
       }
     } catch (err: any) {
-      notifyStudio(`Erreur réseau Suno/Kie.ai : ${err?.message || 'inconnue'}`, 'error');
+      notifyStudio(`Erreur réseau lors de la génération : ${err?.message || 'inconnue'}`, 'error');
     } finally {
       setIsGeneratingSong(false);
       setGenerationStep(null);
@@ -351,7 +416,7 @@ export const StudioView: FC<StudioViewProps> = ({
 
   const handleCreateLyricsVideo = async (song: GeneratedSong) => {
     if (!song.taskId || !song.audioId) {
-      notifyStudio('La vidéo lyrics est disponible pour les chansons générées via Suno/Kie.ai.', 'warn');
+      notifyStudio('La vidéo lyrics est disponible pour les chansons générées dans le studio.', 'warn');
       return;
     }
 
@@ -930,7 +995,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 <h3 className="text-sm font-bold text-white">Composer une Chanson</h3>
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.05] text-[#8A90A0]">
-                Moteur Suno IA
+                Moteur Studio HD
               </span>
             </div>
 
@@ -961,7 +1026,7 @@ export const StudioView: FC<StudioViewProps> = ({
                     const v = e.target.value;
                     setSongTitle(v);
                     if (v.length > KIE_LIMITS.title && songTitle.length <= KIE_LIMITS.title) {
-                      notifyStudio(`Limite Suno/Kie.ai atteinte : le titre ne doit pas dépasser ${KIE_LIMITS.title} caractères.`, 'warn');
+                      notifyStudio(`Limite atteinte : le titre ne doit pas dépasser ${KIE_LIMITS.title} caractères.`, 'warn');
                     }
                   }}
                   placeholder="Ex: Aminata, Reine de nos Cœurs"
@@ -971,65 +1036,76 @@ export const StudioView: FC<StudioViewProps> = ({
                 />
                 {isTitleOver && (
                   <p className="text-[11px] text-rose-400">
-                    Dépassement de {songTitle.length - KIE_LIMITS.title} caractère(s) sur la limite Suno ({KIE_LIMITS.title} max).
+                    Dépassement de {songTitle.length - KIE_LIMITS.title} caractère(s) sur la limite ({KIE_LIMITS.title} max).
                   </p>
                 )}
               </div>
 
-              {/* 2. Style Musical au clavier libre */}
+              {/* 2. Style Musical + Optimisation IA */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Style Musical (champ style Kie.ai) *
+                    Style Musical *
                   </label>
-                  <span
-                    className={`text-[10px] font-mono ${
-                      isStyleOver
-                        ? 'text-rose-400 font-bold'
-                        : songStyle.length >= KIE_LIMITS.style * 0.9
-                        ? 'text-amber-400'
-                        : 'text-white/40'
-                    }`}
-                  >
-                    {songStyle.length} / {KIE_LIMITS.style}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-[10px] font-mono ${
+                        isStyleOver
+                          ? 'text-rose-400 font-bold'
+                          : songStyle.length >= KIE_LIMITS.style * 0.9
+                          ? 'text-amber-400'
+                          : 'text-white/40'
+                      }`}
+                    >
+                      {songStyle.length} / {KIE_LIMITS.style}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isOptimizingStyle}
+                      onClick={handleOptimizeStyle}
+                      className="text-[11px] text-[#E2BD6B] hover:underline inline-flex items-center gap-1 cursor-pointer font-medium disabled:opacity-50"
+                    >
+                      <Sparkles className={`w-3 h-3 ${isOptimizingStyle ? 'animate-spin' : ''}`} />
+                      <span>{isOptimizingStyle ? 'Optimisation…' : 'Optimiser le style (IA)'}</span>
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type="text"
+                <textarea
+                  rows={3}
                   required
                   value={songStyle}
                   onChange={(e) => {
                     const v = e.target.value;
                     setSongStyle(v);
                     if (v.length > KIE_LIMITS.style && songStyle.length <= KIE_LIMITS.style) {
-                      notifyStudio(`Limite Suno/Kie.ai atteinte : le style ne doit pas dépasser ${KIE_LIMITS.style} caractères.`, 'warn');
+                      notifyStudio(`Limite atteinte : le style ne doit pas dépasser ${KIE_LIMITS.style} caractères.`, 'warn');
                     }
                   }}
-                  placeholder="Tapez le style : Zouk, Afro-Love, Rumba, Gospel, Amapiano..."
-                  className={`w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border text-xs text-white focus:outline-none ${
+                  placeholder="Choisissez un style ci-dessous ou tapez un style puis cliquez sur « Optimiser le style (IA) »..."
+                  className={`w-full px-3.5 py-2.5 rounded-2xl bg-[#050608] border text-xs text-white focus:outline-none leading-relaxed resize-none ${
                     isStyleOver ? 'border-rose-500 focus:border-rose-400' : 'border-white/[0.08] focus:border-[#E2BD6B]'
                   }`}
                 />
                 {isStyleOver && (
                   <p className="text-[11px] text-rose-400">
-                    Dépassement de {songStyle.length - KIE_LIMITS.style} caractère(s) sur la limite Suno ({KIE_LIMITS.style} max).
+                    Dépassement de {songStyle.length - KIE_LIMITS.style} caractère(s) sur la limite ({KIE_LIMITS.style} max).
                   </p>
                 )}
 
-                {/* Suggestions rapides en 1 clic */}
+                {/* 5 Styles officiels pré-optimisés en 1 clic */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {styleSuggestions.map((st) => (
+                  {stylePresets.map((preset) => (
                     <button
-                      key={st}
+                      key={preset.label}
                       type="button"
-                      onClick={() => setSongStyle(st)}
+                      onClick={() => setSongStyle(preset.prompt)}
                       className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
-                        songStyle.toLowerCase() === st.toLowerCase()
+                        songStyle.trim() === preset.prompt
                           ? 'bg-[#E2BD6B]/20 border-[#E2BD6B] text-[#E2BD6B]'
                           : 'bg-white/[0.03] border-white/[0.06] text-[#8A90A0] hover:text-white'
                       }`}
                     >
-                      {st}
+                      {preset.label}
                     </button>
                   ))}
                 </div>
@@ -1058,24 +1134,28 @@ export const StudioView: FC<StudioViewProps> = ({
                 </div>
               </div>
 
-              {/* 4. Durée cible */}
+              {/* 4. Mode de durée */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-[#8A90A0]">
-                  Durée Cible *
+                  Durée *
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['1 min', '2 min', '3 min'] as const).map((d) => (
+                  {([
+                    { id: 'Auto', label: 'Auto (Optimisé)' },
+                    { id: 'Court', label: 'Court (~1-2 min)' },
+                    { id: 'Complet', label: 'Complet (~3-4 min)' },
+                  ] as const).map((d) => (
                     <button
-                      key={d}
+                      key={d.id}
                       type="button"
-                      onClick={() => setSongDuration(d)}
-                      className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-center ${
-                        songDuration === d
+                      onClick={() => setSongDuration(d.id)}
+                      className={`py-2 px-2 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer text-center ${
+                        songDuration === d.id
                           ? 'bg-white text-black border-white font-bold'
                           : 'bg-[#050608] border-white/[0.06] text-[#8A90A0] hover:text-white'
                       }`}
                     >
-                      {d}
+                      {d.label}
                     </button>
                   ))}
                 </div>
@@ -1085,7 +1165,7 @@ export const StudioView: FC<StudioViewProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <label className="block text-xs font-medium text-[#8A90A0]">
-                    Paroles (champ prompt Kie.ai)
+                    Paroles
                   </label>
                   <div className="flex items-center gap-3">
                     <span
@@ -1116,7 +1196,7 @@ export const StudioView: FC<StudioViewProps> = ({
                     const v = e.target.value;
                     setSongLyrics(v);
                     if (v.length > KIE_LIMITS.lyrics && songLyrics.length <= KIE_LIMITS.lyrics) {
-                      notifyStudio(`Limite Suno/Kie.ai atteinte : les paroles ne doivent pas dépasser ${KIE_LIMITS.lyrics} caractères.`, 'warn');
+                      notifyStudio(`Limite atteinte : les paroles ne doivent pas dépasser ${KIE_LIMITS.lyrics} caractères.`, 'warn');
                     }
                   }}
                   placeholder="Écrivez ou collez les paroles ici, ou cliquez sur 'Rédiger avec l'IA'..."
@@ -1126,7 +1206,7 @@ export const StudioView: FC<StudioViewProps> = ({
                 />
                 {isLyricsOver && (
                   <p className="text-[11px] text-rose-400">
-                    Dépassement de {songLyrics.length - KIE_LIMITS.lyrics} caractère(s) sur la limite Suno ({KIE_LIMITS.lyrics} max).
+                    Dépassement de {songLyrics.length - KIE_LIMITS.lyrics} caractère(s) sur la limite ({KIE_LIMITS.lyrics} max).
                   </p>
                 )}
               </div>
@@ -1238,7 +1318,7 @@ export const StudioView: FC<StudioViewProps> = ({
                             disabled={song.videoStatus === 'generating'}
                             onClick={() => handleCreateLyricsVideo(song)}
                             className="px-2.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white/80 hover:text-white text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                            title="Transformer en Vidéo Lyrics MP4 via Kie.ai"
+                            title="Transformer en Vidéo Lyrics MP4"
                           >
                             <Film className={`w-3.5 h-3.5 ${song.videoStatus === 'generating' ? 'animate-spin text-[#E2BD6B]' : ''}`} />
                             <span className="hidden sm:inline">

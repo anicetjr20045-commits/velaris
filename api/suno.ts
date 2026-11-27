@@ -34,6 +34,30 @@ function stripEmojis(text: string): string {
     .trim();
 }
 
+function sanitizeSunoStyle(raw: string): string {
+  let cleaned = stripEmojis(raw).replace(/\bskank(?:ing)?\b/gi, 'upbeat offbeat guitar chops');
+  const ARTIST_REPLACEMENTS: [RegExp, string][] = [
+    [/burna\s*boy/gi, 'modern Afropop star sound'],
+    [/wizkid/gi, 'smooth Afrobeats sound'],
+    [/davido/gi, 'uplifting Afropop anthem sound'],
+    [/rema/gi, 'Afrorave melodic sound'],
+    [/asake/gi, 'Fuji-infused energetic Afrobeats sound'],
+    [/fally\s*ipupa/gi, 'modern Congolese rumba style'],
+    [/koffi\s*olomide/gi, 'Tcha-Tcho rumba style'],
+    [/magic\s*system/gi, 'festive Zouglou style'],
+    [/dj\s*arafat/gi, 'high-energy Coupé-Décalé style'],
+    [/serge\s*beynaud/gi, 'melodic Coupé-Décalé dance sound'],
+    [/aya\s*nakamura/gi, 'modern French Afro-R&B pop sound'],
+    [/dadju/gi, 'smooth French Afro-Love sound'],
+    [/tayc/gi, 'sensual Afro-Love acoustic sound'],
+    [/bob\s*marley/gi, 'classic warm Roots Reggae sound'],
+  ];
+  for (const [re, repl] of ARTIST_REPLACEMENTS) {
+    cleaned = cleaned.replace(re, repl);
+  }
+  return cleaned.trim().slice(0, 1000);
+}
+
 function extractMeta(html: string, prop: string): string {
   const re1 = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i');
   const re2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, 'i');
@@ -207,46 +231,96 @@ export default async function handler(req: any, res: any) {
   const apiKey = getKieApiKey();
 
   try {
-    // 1. GÉNÉRATION DE CHANSON SUNO VIA KIE.AI
+    // 0. OPTIMISATION DE STYLE PAR IA (SANS TERMES BANNIS)
+    if (req.method === 'POST' && action === 'optimize-style') {
+      const rawStyle = sanitizeSunoStyle(String(req.body?.style || ''));
+      const voiceRaw = String(req.body?.voice || '').toLowerCase();
+      if (!rawStyle) {
+        return res.status(400).json({ error: 'Veuillez saisir un style à optimiser.' });
+      }
+      const voiceHint =
+        voiceRaw.includes('fem') || voiceRaw === 'f'
+          ? 'Expressive female lead vocal, clear French pronunciation'
+          : voiceRaw.includes('masc') || voiceRaw === 'm'
+          ? 'Expressive soulful male lead vocal, clear French pronunciation'
+          : 'Emotional male and female duet vocals, clear French pronunciation';
+
+      const optRes = await fetch('https://api.kie.ai/openai/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'deepseek-v4-1-flash',
+          stream: false,
+          temperature: 0.3,
+          reasoning: { effort: 'none' },
+          input: [
+            'Tu es un directeur musical expert en production audio.',
+            `Transforme cette demande de style en une description de production musicale professionnelle en ANGLAIS (max 450 caractères) : "${rawStyle}".`,
+            `Inclus impérativement le choix vocal : ${voiceHint}.`,
+            'Précise le BPM, les instruments clés, le groove, le mixage et l\'ambiance.',
+            'INTERDIT : aucun nom d\'artiste réel, aucun mot vulgaire/banni (comme "skank"), aucun emoji.',
+            'Réponds UNIQUEMENT par la description finale brute, sans guillemets ni explication.',
+          ].join('\n'),
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!optRes.ok) {
+        return res.status(502).json({ error: 'Impossible d\'optimiser le style pour le moment.' });
+      }
+      const optJson: any = await optRes.json().catch(() => ({}));
+      const rawOut =
+        optJson?.output_text ||
+        optJson?.output?.[0]?.content?.[0]?.text ||
+        optJson?.choices?.[0]?.message?.content ||
+        '';
+      const optimizedStyle = sanitizeSunoStyle(String(rawOut).replace(/^["']|["']$/g, ''));
+      if (!optimizedStyle) {
+        return res.status(502).json({ error: 'Réponse vide lors de l\'optimisation du style.' });
+      }
+      return res.status(200).json({ success: true, optimizedStyle });
+    }
+
+    // 1. GÉNÉRATION DE CHANSON
     if (req.method === 'POST' && action === 'generate') {
       const body = req.body || {};
       const customMode = body.customMode !== false;
       const instrumental = Boolean(body.instrumental);
-      const model = String(body.model || 'V4_5');
+      const model = String(body.model || 'V6');
       const rawTitle = stripEmojis(String(body.title || 'Chanson Personnalisée'));
-      const rawStyle = stripEmojis(String(body.style || 'Afro-Love acoustique'));
+      const rawStyle = sanitizeSunoStyle(String(body.style || 'Afro-Love acoustique'));
       const rawPrompt = stripEmojis(String(body.prompt || body.lyrics || ''));
       const vocalGenderRaw = String(body.vocalGender || '').toLowerCase();
 
       if (rawTitle.length > 80) {
-        return res.status(400).json({ error: `Le titre dépasse la limite Kie.ai de 80 caractères (${rawTitle.length}/80).` });
+        return res.status(400).json({ error: `Le titre dépasse la limite de 80 caractères (${rawTitle.length}/80).` });
       }
       if (rawStyle.length > 1000) {
-        return res.status(400).json({ error: `Le style musical dépasse la limite Kie.ai de 1000 caractères (${rawStyle.length}/1000).` });
+        return res.status(400).json({ error: `Le style musical dépasse la limite de 1000 caractères (${rawStyle.length}/1000).` });
       }
       if (customMode && !instrumental && rawPrompt.length > 5000) {
-        return res.status(400).json({ error: `Les paroles dépassent la limite Kie.ai de 5000 caractères (${rawPrompt.length}/5000).` });
+        return res.status(400).json({ error: `Les paroles dépassent la limite de 5000 caractères (${rawPrompt.length}/5000).` });
       }
       if (!customMode && rawPrompt.length > 400) {
         return res.status(400).json({ error: `Le prompt simple dépasse la limite de 400 caractères (${rawPrompt.length}/400).` });
       }
 
-      let finalStyle = rawStyle;
+      // Nettoyer tout tag vocal conflictuel avant d'appliquer la voix choisie
+      let finalStyle = rawStyle
+        .replace(/\b(male and female vocals?|female lead vocals?|male lead vocals?|female vocals?|male vocals?|duet)\b[,.]?\s*/gi, '')
+        .trim();
       let vocalGender: 'm' | 'f' | undefined = undefined;
       if (vocalGenderRaw === 'f' || vocalGenderRaw === 'femme' || vocalGenderRaw === 'féminine') {
         vocalGender = 'f';
-        if (!finalStyle.toLowerCase().includes('female vocals')) {
-          finalStyle = `female vocals, ${finalStyle}`.slice(0, 1000);
-        }
+        finalStyle = `female vocals, expressive female lead vocal, ${finalStyle}`.slice(0, 1000);
       } else if (vocalGenderRaw === 'm' || vocalGenderRaw === 'homme' || vocalGenderRaw === 'masculine') {
         vocalGender = 'm';
-        if (!finalStyle.toLowerCase().includes('male vocals')) {
-          finalStyle = `male vocals, ${finalStyle}`.slice(0, 1000);
-        }
+        finalStyle = `male vocals, expressive male lead vocal, ${finalStyle}`.slice(0, 1000);
       } else if (vocalGenderRaw === 'duo' || vocalGenderRaw === 'duet') {
-        if (!finalStyle.toLowerCase().includes('duet')) {
-          finalStyle = `duet, male and female vocals, ${finalStyle}`.slice(0, 1000);
-        }
+        finalStyle = `duet, male and female vocals, ${finalStyle}`.slice(0, 1000);
       }
 
       const payload: Record<string, any> = {
@@ -276,7 +350,7 @@ export default async function handler(req: any, res: any) {
         const low = rawMsg.toLowerCase();
         const friendly =
           kieRes.status === 402 || low.includes('credit') || low.includes('balance') || low.includes('insufficient')
-            ? 'Crédits Kie.ai insuffisants pour lancer la génération Suno. Rechargez votre solde Kie.ai.'
+            ? 'Crédits de génération insuffisants. Rechargez votre solde.'
             : rawMsg;
         return res.status(kieRes.status >= 400 ? kieRes.status : 400).json({ error: friendly, raw: json });
       }
@@ -330,7 +404,7 @@ export default async function handler(req: any, res: any) {
         const low = rawMsg.toLowerCase();
         const friendly =
           kieRes.status === 402 || low.includes('credit') || low.includes('balance') || low.includes('insufficient')
-            ? 'Crédits Kie.ai insuffisants pour générer la vidéo lyrics MP4.'
+            ? 'Crédits de génération insuffisants pour créer la vidéo lyrics MP4.'
             : rawMsg;
         return res.status(kieRes.status >= 400 ? kieRes.status : 400).json({ error: friendly, raw: json });
       }
