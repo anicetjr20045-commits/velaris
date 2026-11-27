@@ -25,8 +25,11 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 27 Novembre 2026 (22:53 UTC)
-- **Landing Page, Auth Anti-Fraude & Récupération WhatsApp/Email** :
+- **Dernière mise à jour** : 27 Novembre 2026 (23:07 UTC)
+- **Responsive Mobile-First, Tablette & Desktop (`LandingPage.tsx`, `StudioAudioShowcase.tsx`, `App.tsx`)** :
+  - `src/components/LandingPage.tsx` : refonte complète des échelles typographiques, espacements verticaux (`space-y-14 sm:space-y-24`), paddings cartes (`p-5 sm:p-8`) et suppression de `min-h-[480px]` et de `Moteur Suno V6` sur le Hero pour un rendu compact et net sur mobile, tablette et desktop.
+  - `src/components/StudioAudioShowcase.tsx` & `src/App.tsx` : `min-w-0 flex-1` sur les pistes audio et `overflow-x-hidden` global pour éliminer tout débordement horizontal sur mobile.
+- **Landing Page, Auth Anti-Fraude & Récupération WhatsApp/Email (`commit 493cb3a`)** :
   - `src/components/LandingPage.tsx` : correction du Hero (`Encaissez 24h/24 sur WhatsApp`), suppression de toute mention `Suno`, ajout de l'encadré ROI irrésistible (2 chansons vendues remboursent le Pass).
   - `api/auth-whatsapp.ts` : suivi serveur des tentatives échouées (`failedCodeAttempts`) par `codeHash` en plus du jeton HMAC pour bloquer tout rejeu brute-force.
   - `src/components/AuthModal.tsx` : récupération de compte (« Mot de passe oublié ? ») disponible par **WhatsApp OTP** (avec passage direct à la définition du nouveau mot de passe) et par **Email**.

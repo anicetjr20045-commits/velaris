@@ -159,7 +159,7 @@ export const StudioAudioShowcase: FC = () => {
               }`}
             >
               {/* Play Button & Title */}
-              <div className="flex items-center gap-4 sm:gap-6 min-w-[220px]">
+              <div className="flex items-center gap-3 sm:gap-5 min-w-0 flex-1">
                 <button
                   type="button"
                   aria-label={isThisPlaying ? "Pause" : "Écouter " + sample.title}

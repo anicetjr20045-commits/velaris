@@ -195,70 +195,70 @@ export const LandingPage: FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="pb-24 text-[#E2E4E9] relative z-10 space-y-24 sm:space-y-32">
+    <div className="pb-16 sm:pb-24 text-[#E2E4E9] relative z-10 space-y-14 sm:space-y-24 overflow-x-hidden">
       
       {/* ========================================================================= */}
-      {/* VIEW 1: HERO SECTION CINÉMATIQUE (TITRE SYNE + MONOLITHE CORE)             */}
+      {/* VIEW 1: HERO SECTION CINÉMATIQUE (MOBILE-FIRST, TABLET & DESKTOP)         */}
       {/* ========================================================================= */}
-      <section id="hero-section" className="pt-6 sm:pt-14 max-w-7xl mx-auto px-4 sm:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <section id="hero-section" className="pt-3 sm:pt-12 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
           {/* Left Editorial & Mathematical Precision Copy */}
-          <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-inner">
-              <span className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]"></span>
-              <span className="text-[11px] font-mono tracking-wider text-[#C7CAD4] uppercase font-semibold">
-                Studio Musical IA & Commerce Autonome WhatsApp
+          <div className="lg:col-span-7 space-y-5 sm:space-y-7 text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.08] shadow-inner max-w-full">
+              <span className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#D4AF37] shrink-0"></span>
+              <span className="text-[10px] sm:text-[11px] font-mono tracking-wider text-[#C7CAD4] uppercase font-semibold truncate">
+                Studio Musical IA & Commerce WhatsApp
               </span>
             </div>
 
-            <h1 className="font-heading text-5xl sm:text-6xl lg:text-[74px] font-extrabold tracking-tight leading-[1.0] text-white">
+            <h1 className="font-heading text-3xl sm:text-5xl lg:text-[62px] font-extrabold tracking-tight leading-[1.08] text-white">
               Votre Studio Musical IA.<br />
               <span className="text-gradient-gold">Encaissez 24h/24 sur WhatsApp.</span>
             </h1>
 
-            <p className="text-[#C7CAD4] text-base sm:text-lg max-w-2xl font-light leading-relaxed mx-auto lg:mx-0">
+            <p className="text-[#C7CAD4] text-sm sm:text-base lg:text-lg max-w-2xl font-light leading-relaxed mx-auto lg:mx-0">
               Aucune compétence musicale requise. L&apos;IA rédige les paroles, compose la chanson en 15 minutes et votre Concierge WhatsApp qualifie vos clients pour encaisser directement sur votre <span className="text-white font-medium">Wave</span> ou <span className="text-white font-medium">Orange Money</span>, sans stock ni livreur.
             </p>
 
             {/* Dual Flagship Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-1">
               <button
                 type="button"
                 onClick={handlePrimaryAction}
                 disabled={checkoutLoading}
-                className="w-full sm:w-auto btn-apple-pro px-8 py-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+                className="w-full sm:w-auto btn-apple-pro px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
               >
                 <span>{checkoutLoading ? 'Initialisation sécurisée…' : 'Déployer mon Studio — 4 900 F'}</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
 
               <button
                 type="button"
                 onClick={() => scrollToSection('cashflow-simulator')}
-                className="w-full sm:w-auto btn-titanium-gold px-7 py-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2.5 cursor-pointer"
+                className="w-full sm:w-auto btn-titanium-gold px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
               >
-                <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
-                <span>Simuler mon Cash-Flow</span>
+                <TrendingUp className="w-4 h-4 text-[#D4AF37] shrink-0" />
+                <span>Simuler mes Revenus</span>
               </button>
             </div>
 
             {/* 3 Institutional Guarantees */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/[0.06] text-center lg:text-left">
+            <div className="grid grid-cols-3 gap-2 sm:gap-5 pt-4 sm:pt-6 border-t border-white/[0.06] text-center lg:text-left">
               <div>
-                <div className="font-mono text-xs uppercase tracking-wider text-[#8E94A3]">Règlement</div>
-                <div className="font-heading text-xl sm:text-2xl text-white font-bold mt-0.5">T+0 Direct</div>
-                <div className="text-[11px] text-[#8E94A3]">Zéro intermédiaire de garde</div>
+                <div className="font-mono text-[10px] sm:text-xs uppercase tracking-wider text-[#8E94A3]">Règlement</div>
+                <div className="font-heading text-base sm:text-xl lg:text-2xl text-white font-bold mt-0.5">Direct T+0</div>
+                <div className="text-[10px] sm:text-[11px] text-[#8E94A3] leading-tight">Sur votre Wave / OM</div>
               </div>
               <div>
-                <div className="font-mono text-xs uppercase tracking-wider text-[#8E94A3]">Marge Nette</div>
-                <div className="font-heading text-xl sm:text-2xl text-[#E0C583] font-bold mt-0.5">100 %</div>
-                <div className="text-[11px] text-[#8E94A3]">Vos prix, vos gains intacts</div>
+                <div className="font-mono text-[10px] sm:text-xs uppercase tracking-wider text-[#8E94A3]">Marge Nette</div>
+                <div className="font-heading text-base sm:text-xl lg:text-2xl text-[#E0C583] font-bold mt-0.5">100 %</div>
+                <div className="text-[10px] sm:text-[11px] text-[#8E94A3] leading-tight">Zéro commission</div>
               </div>
               <div>
-                <div className="font-mono text-xs uppercase tracking-wider text-[#8E94A3]">Exécution</div>
-                <div className="font-heading text-xl sm:text-2xl text-white font-bold mt-0.5">&lt; 15 min</div>
-                <div className="text-[11px] text-[#8E94A3]">Du lead à la livraison</div>
+                <div className="font-mono text-[10px] sm:text-xs uppercase tracking-wider text-[#8E94A3]">Livraison</div>
+                <div className="font-heading text-base sm:text-xl lg:text-2xl text-white font-bold mt-0.5">&lt; 15 min</div>
+                <div className="text-[10px] sm:text-[11px] text-[#8E94A3] leading-tight">Audio HD sur WhatsApp</div>
               </div>
             </div>
           </div>
@@ -267,15 +267,15 @@ export const LandingPage: FC<LandingPageProps> = ({
           <div className="lg:col-span-5 relative">
             <div
               onPointerMove={handleSpotlightMove}
-              className="spotlight-card rounded-3xl p-6 sm:p-7 border border-white/[0.1] relative flex flex-col justify-between min-h-[480px]"
+              className="spotlight-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/[0.1] relative flex flex-col justify-between"
             >
               {/* Top Telemetry Header */}
-              <div className="flex items-center justify-between relative z-10 mb-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37] shadow-[0_0_10px_#D4AF37]"></span>
-                  <span className="font-mono text-xs text-white font-semibold tracking-wider">VELARIS BLACK CORE #001</span>
+              <div className="flex items-center justify-between relative z-10 mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-[#D4AF37] shadow-[0_0_10px_#D4AF37] shrink-0"></span>
+                  <span className="font-mono text-[11px] sm:text-xs text-white font-semibold tracking-wider truncate">STUDIO DJELIA #001</span>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-md font-mono text-[10px] bg-[#00E599]/10 text-[#00E599] border border-[#00E599]/25 uppercase font-medium">
+                <span className="px-2 py-0.5 rounded-md font-mono text-[10px] bg-[#00E599]/10 text-[#00E599] border border-[#00E599]/25 uppercase font-medium shrink-0">
                   Autonome 24/7
                 </span>
               </div>
@@ -301,12 +301,12 @@ export const LandingPage: FC<LandingPageProps> = ({
               </div>
 
               {/* Bottom Controls Hint */}
-              <div className="flex items-center justify-between pt-3 border-t border-white/[0.06] text-[11px] font-mono text-[#8E94A3] relative z-10">
-                <span className="flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Audio Haute-Fidélité 24/7 · Moteur Suno V6</span>
+              <div className="flex items-center justify-between pt-3 border-t border-white/[0.06] text-[10px] sm:text-[11px] font-mono text-[#8E94A3] relative z-10 gap-2">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                  <span className="truncate">Audio Haute Fidélité 24/7</span>
                 </span>
-                <span className="text-[#E0C583]">GPU Accéléré</span>
+                <span className="text-[#E0C583] shrink-0">Rendu Express</span>
               </div>
             </div>
           </div>
@@ -317,20 +317,20 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* VIEW 2: INTERACTIVE CASH-FLOW SIMULATOR (CALCULATEUR DYNAMIQUE REEL)       */}
       {/* ========================================================================= */}
-      <section id="cashflow-simulator" className="pt-6 max-w-7xl mx-auto px-4 sm:px-8">
+      <section id="cashflow-simulator" className="pt-2 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div
           onPointerMove={handleSpotlightMove}
-          className="spotlight-card rounded-3xl p-8 sm:p-12 border border-[#D4AF37]/20 bg-gradient-to-b from-[#0D0F15]/80 via-[#08090D] to-[#020204]"
+          className="spotlight-card rounded-2xl sm:rounded-3xl p-5 sm:p-10 border border-[#D4AF37]/20 bg-gradient-to-b from-[#0D0F15]/80 via-[#08090D] to-[#020204]"
         >
-          <div className="max-w-2xl mx-auto text-center space-y-3 mb-10">
-            <span className="font-mono text-xs uppercase tracking-[0.22em] text-[#D4AF37] font-semibold">
-              Calculateur Dynamique de Rendement
+          <div className="max-w-2xl mx-auto text-center space-y-2.5 mb-7 sm:mb-10">
+            <span className="font-mono text-[10px] sm:text-xs uppercase tracking-[0.2em] text-[#D4AF37] font-semibold">
+              Calculateur de Rendement
             </span>
-            <h2 className="font-heading text-3xl sm:text-4xl text-white font-bold">
+            <h2 className="font-heading text-2xl sm:text-3xl lg:text-4xl text-white font-bold">
               Simulez votre encaissement mensuel
             </h2>
-            <p className="text-sm text-[#C7CAD4]">
-              Vos agents négocient et livrent sans fatigue. Définissez vos paramètres commerciaux :
+            <p className="text-xs sm:text-sm text-[#C7CAD4]">
+              Vos agents négocient et livrent sans fatigue. Définissez vos paramètres :
             </p>
           </div>
 
@@ -402,7 +402,7 @@ export const LandingPage: FC<LandingPageProps> = ({
                 <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#C7CAD4] mb-2">
                   Cash-Flow Net Encaissé / Mois
                 </div>
-                <div className="font-heading text-5xl sm:text-6xl text-gradient-gold font-bold tracking-tight py-2 tabular-nums">
+                <div className="font-heading text-3xl sm:text-5xl text-gradient-gold font-bold tracking-tight py-1.5 tabular-nums">
                   {monthlyNetCashflow.toLocaleString()} F
                 </div>
                 <div className="inline-flex items-center gap-2 text-xs font-mono text-[#00E599] mt-2 bg-[#00E599]/10 px-3 py-1 rounded-full border border-[#00E599]/25">
@@ -799,34 +799,34 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 2. LE DIAGNOSTIC DU PROBLÈME : POURQUOI VOS ANCIENS BUSINESS ONT ÉCHOUÉ */}
       {/* ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-8 space-y-12">
-        <div className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono tracking-widest text-[#D4AF37] uppercase font-semibold">
-            <ShieldAlert className="h-4.5 w-4.5 text-amber-400" />
+      <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-8 sm:space-y-12">
+        <div className="text-center max-w-3xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-mono tracking-widest text-[#D4AF37] uppercase font-semibold">
+            <ShieldAlert className="h-4 w-4 text-amber-400" />
             <span>Le Constat Sans Concession</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Vous avez déjà essayé d'autres business en ligne ?
+          <h2 className="font-heading text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+            Vous avez déjà essayé d&apos;autres business en ligne ?
           </h2>
-          <p className="text-base sm:text-lg text-[#C7CAD4] leading-relaxed">
+          <p className="text-sm sm:text-base text-[#C7CAD4] leading-relaxed">
             La majorité des personnes qui échouent sur internet ne manquent pas de volonté. Elles choisissent simplement des modèles inadaptés au contexte africain.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           {COMPARISONS.map((comp) => (
             <div
               key={comp.title}
               onPointerMove={handleSpotlightMove}
-              className="spotlight-card p-8 space-y-5"
+              className="spotlight-card p-5 sm:p-7 space-y-3 sm:space-y-4"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-mono font-bold uppercase text-rose-400 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                <span className="text-[11px] sm:text-xs font-mono font-bold uppercase text-rose-400 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20">
                   {comp.failureRate}
                 </span>
               </div>
-              <h3 className="text-xl sm:text-2xl font-heading font-bold text-white">{comp.title}</h3>
-              <p className="text-sm sm:text-base text-[#C7CAD4] leading-relaxed">{comp.pain}</p>
+              <h3 className="text-lg sm:text-xl font-heading font-bold text-white">{comp.title}</h3>
+              <p className="text-xs sm:text-sm text-[#C7CAD4] leading-relaxed">{comp.pain}</p>
             </div>
           ))}
         </div>
@@ -834,39 +834,39 @@ export const LandingPage: FC<LandingPageProps> = ({
         {/* Le Pivot Velaris Academy */}
         <div
           onPointerMove={handleSpotlightMove}
-          className="spotlight-card border border-[#D4AF37]/30 bg-gradient-to-br from-[#0D0F15] via-[#08090D] to-[#020204] p-8 sm:p-12 relative overflow-hidden"
+          className="spotlight-card border border-[#D4AF37]/30 bg-gradient-to-br from-[#0D0F15] via-[#08090D] to-[#020204] p-5 sm:p-10 relative overflow-hidden"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
-            <div className="space-y-5">
-              <div className="inline-flex items-center gap-2.5 text-xs sm:text-sm font-mono text-[#D4AF37] uppercase tracking-wider font-semibold">
-                <Zap className="h-5 w-5" />
-                <span>Pourquoi la Chanson Personnalisée avec Velaris change tout</span>
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6 sm:gap-10 items-center">
+            <div className="space-y-3 sm:space-y-5">
+              <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-mono text-[#D4AF37] uppercase tracking-wider font-semibold">
+                <Zap className="h-4 w-4 shrink-0" />
+                <span>Pourquoi la Chanson Personnalisée change tout</span>
               </div>
-              <h3 className="text-2xl sm:text-4xl font-heading font-extrabold text-white tracking-tight leading-snug">
+              <h3 className="text-xl sm:text-3xl font-heading font-extrabold text-white tracking-tight leading-snug">
                 Le seul business où le client paie avant la livraison et ne négocie jamais.
               </h3>
-              <p className="text-base sm:text-lg text-[#C7CAD4] leading-relaxed">
-                Quand un homme commande une chanson pour demander sa femme en mariage, ou quand une fille veut surprendre sa mère pour ses 60 ans, <strong className="text-white font-semibold">ce n'est pas un gadget qu'ils achètent : c'est un souvenir pour la vie.</strong>
+              <p className="text-xs sm:text-base text-[#C7CAD4] leading-relaxed">
+                Quand un homme commande une chanson pour demander sa femme en mariage, ou quand une fille veut surprendre sa mère pour ses 60 ans, <strong className="text-white font-semibold">ce n&apos;est pas un gadget qu&apos;ils achètent : c&apos;est un souvenir pour la vie.</strong>
                 Le taux de retour est de 0%. Vous livrez un fichier audio MP3 de 3 minutes sur WhatsApp, vous encaissez votre argent le jour même.
               </p>
             </div>
 
-            <div className="space-y-4 bg-black/40 border border-white/[0.08] rounded-2xl p-7">
-              <div className="flex items-center gap-3.5 text-base text-white font-medium">
-                <Check className="h-5 w-5 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
+            <div className="space-y-3 bg-black/40 border border-white/[0.08] rounded-2xl p-4 sm:p-6">
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-white font-medium">
+                <Check className="h-4 w-4 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
                 <span>0 F CFA de stock immobilisé ou périssable</span>
               </div>
-              <div className="flex items-center gap-3.5 text-base text-white font-medium">
-                <Check className="h-5 w-5 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-white font-medium">
+                <Check className="h-4 w-4 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
                 <span>0 livreur à moto, 0 colis retourné</span>
               </div>
-              <div className="flex items-center gap-3.5 text-base text-white font-medium">
-                <Check className="h-5 w-5 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-white font-medium">
+                <Check className="h-4 w-4 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
                 <span>Paiement immédiat sur Wave ou Orange Money</span>
               </div>
-              <div className="flex items-center gap-3.5 text-base text-white font-medium">
-                <Check className="h-5 w-5 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
-                <span>L'IA rédige et arrange la musique à votre place</span>
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-white font-medium">
+                <Check className="h-4 w-4 text-[#D4AF37] shrink-0" strokeWidth={2.5} />
+                <span>L&apos;IA rédige et arrange la musique à votre place</span>
               </div>
             </div>
           </div>
@@ -876,28 +876,28 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 3. L'OFFRE IRRESISTIBLE : BENTO GRID DES 4 ATOUTS                          */}
       {/* ========================================================================= */}
-      <section id="offre-complete" className="max-w-7xl mx-auto px-4 sm:px-8 space-y-14">
-        <div className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono tracking-widest text-[#D4AF37] uppercase font-semibold">
-            <Layers className="h-4.5 w-4.5" />
-            <span>L'Écosystème Clé en Main</span>
+      <section id="offre-complete" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-8 sm:space-y-12">
+        <div className="text-center max-w-3xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-mono tracking-widest text-[#D4AF37] uppercase font-semibold">
+            <Layers className="h-4 w-4" />
+            <span>L&apos;Écosystème Clé en Main</span>
           </div>
-          <h2 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white">
+          <h2 className="font-heading text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white">
             Nous avons éliminé toutes les barrières.
           </h2>
-          <p className="text-base sm:text-lg text-[#C7CAD4] leading-relaxed">
-            Vous n'avez pas à deviner comment vendre ni comment créer de la musique. Vous disposez de la formation, de la technologie, des automatisations et de votre propre vitrine en ligne.
+          <p className="text-sm sm:text-base text-[#C7CAD4] leading-relaxed">
+            Vous n&apos;avez pas à deviner comment vendre ni comment créer de la musique. Vous disposez de la formation, de la technologie, des automatisations et de votre propre vitrine en ligne.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-7">
           {BENTO_OFFERS.map((offer) => {
             const Icon = offer.icon;
             return (
               <div
                 key={offer.num}
                 onPointerMove={handleSpotlightMove}
-                className="spotlight-card p-8 sm:p-10 flex flex-col justify-between"
+                className="spotlight-card p-5 sm:p-8 flex flex-col justify-between"
               >
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
@@ -1045,28 +1045,28 @@ export const LandingPage: FC<LandingPageProps> = ({
       {/* ========================================================================= */}
       {/* 8. APPEL FINAL A L'ACTION : IL SERAIT IRRESPONSABLE DE DIRE NON            */}
       {/* ========================================================================= */}
-      <section className="relative max-w-5xl mx-auto px-4 sm:px-8">
+      <section className="relative max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
         <div
           onPointerMove={handleSpotlightMove}
-          className="spotlight-card rounded-[36px] border border-[#D4AF37]/40 bg-gradient-to-b from-[#181C26]/90 via-[#0B0D13] to-[#020204] p-8 sm:p-16 text-center shadow-2xl relative overflow-hidden"
+          className="spotlight-card rounded-2xl sm:rounded-[32px] border border-[#D4AF37]/40 bg-gradient-to-b from-[#181C26]/90 via-[#0B0D13] to-[#020204] p-6 sm:p-12 lg:p-14 text-center shadow-2xl relative overflow-hidden"
         >
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_20rem_at_50%_120%,rgba(212,175,55,0.15),transparent_70%)]"
           />
-          <div className="relative space-y-7">
-            <div className="inline-flex items-center gap-2.5 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-5 py-2 text-xs sm:text-sm text-[#D4AF37] font-mono font-medium shadow-[0_0_20px_rgba(212,175,55,0.15)]">
-              <Sparkles className="h-4 w-4" />
-              <span>Accès Immédiat · Démarrage dès Aujourd'hui</span>
+          <div className="relative space-y-5 sm:space-y-7">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-1.5 text-[11px] sm:text-xs text-[#D4AF37] font-mono font-medium shadow-[0_0_20px_rgba(212,175,55,0.15)]">
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              <span>Accès Immédiat · Démarrage dès Aujourd&apos;hui</span>
             </div>
 
-            <h2 className="mx-auto max-w-3xl font-heading text-4xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight text-white">
-              Arrêtez d'attendre.<br />
+            <h2 className="mx-auto max-w-3xl font-heading text-2xl sm:text-4xl lg:text-5xl font-extrabold leading-[1.1] tracking-tight text-white">
+              Arrêtez d&apos;attendre.<br />
               <span className="text-gradient-gold">Votre infrastructure est prête.</span>
             </h2>
 
-            <p className="mx-auto max-w-2xl text-base sm:text-lg md:text-xl leading-relaxed text-[#C7CAD4]">
-              Rejoignez Velaris Academy dès aujourd'hui. Configurez votre studio en 10 minutes, accédez à tous les modules de formation et commencez à encaisser vos premières commandes sur votre Wave ou Orange Money.
+            <p className="mx-auto max-w-2xl text-sm sm:text-base md:text-lg leading-relaxed text-[#C7CAD4]">
+              Rejoignez Djelia dès aujourd&apos;hui. Configurez votre studio en 10 minutes, accédez à tous les modules de formation et commencez à encaisser vos premières commandes sur votre Wave ou Orange Money.
             </p>
 
             <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">

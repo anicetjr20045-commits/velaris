@@ -622,7 +622,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#06070A] text-[#F5F6FA] font-sans selection:bg-[#E2BD6B]/25 selection:text-white relative">
+    <div className="min-h-screen bg-[#06070A] text-[#F5F6FA] font-sans selection:bg-[#E2BD6B]/25 selection:text-white relative overflow-x-hidden">
       <CosmicBackground />
       <div className="relative z-10 flex min-h-screen flex-col">
         {/* Public Navigation Bar (only on home & decouvrir) */}
