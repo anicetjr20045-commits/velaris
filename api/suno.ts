@@ -234,7 +234,10 @@ export default async function handler(req: any, res: any) {
     // 0. OPTIMISATION DE STYLE PAR IA (SANS TERMES BANNIS)
     if (req.method === 'POST' && action === 'optimize-style') {
       const rawStyle = sanitizeSunoStyle(String(req.body?.style || ''));
-      const voiceRaw = String(req.body?.voice || '').toLowerCase();
+      const voiceRaw = String(req.body?.voice || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
       if (!rawStyle) {
         return res.status(400).json({ error: 'Veuillez saisir un style à optimiser.' });
       }
@@ -293,7 +296,10 @@ export default async function handler(req: any, res: any) {
       const rawTitle = stripEmojis(String(body.title || 'Chanson Personnalisée'));
       const rawStyle = sanitizeSunoStyle(String(body.style || 'Afro-Love acoustique'));
       const rawPrompt = stripEmojis(String(body.prompt || body.lyrics || ''));
-      const vocalGenderRaw = String(body.vocalGender || '').toLowerCase();
+      const vocalGenderRaw = String(body.vocalGender || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
 
       if (rawTitle.length > 80) {
         return res.status(400).json({ error: `Le titre dépasse la limite de 80 caractères (${rawTitle.length}/80).` });
