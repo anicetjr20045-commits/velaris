@@ -47,7 +47,7 @@ const FEMALE_NAMES = new Set([
   'mme', 'madame', 'mlle', 'mademoiselle', 'soeur', 'tante', 'tata', 'maman', 'reine', 'princesse',
   'fatou', 'fatoumata', 'aminata', 'amina', 'aicha', 'aichatou', 'awa', 'mariam', 'mariama', 'maimouna',
   'kadiatou', 'kady', 'kadi', 'kadidia', 'kadidja', 'salimata', 'sali', 'safiatou', 'safia', 'fanta',
-  'djeneba', 'rokia', 'rokhaya', 'binta', 'bintou', 'assita', 'assetou', 'oumou', 'oumu', 'hawa',
+  'djeneba', 'rokia', 'rokhaya', 'binta', 'bintou', 'assita', 'assetou', 'oumou', 'oumu', 'hawa', 'haoua',
   'nene', 'ramata', 'ramatoulaye', 'bibata', 'zenab', 'zeinab', 'zeynab', 'nafissatou', 'nadia',
   'nathalie', 'christelle', 'christine', 'carine', 'karine', 'sandrine', 'mireille', 'sonia', 'ruth',
   'esther', 'sarah', 'sara', 'grace', 'benedicte', 'beatrice', 'veronique', 'valerie', 'celine',
@@ -73,7 +73,8 @@ const FEMALE_NAMES = new Set([
   'morgane', 'muriel', 'myriam', 'nadine', 'natacha', 'nelly', 'oceane', 'ophelie', 'pamela',
   'paula', 'paule', 'perrine', 'philomene', 'rosalie', 'roselyne', 'roxane', 'sabrina', 'salima',
   'severine', 'sharon', 'sheila', 'simone', 'solene', 'stella', 'tania', 'tiffany', 'valentine',
-  'wendy', 'zoe', 'solen',
+  'wendy', 'zoe', 'solen', 'maria', 'ariane', 'claudette', 'armelle', 'dorcas', 'eunice', 'lydia',
+  'miriam', 'naima', 'rahima', 'latifa', 'farida', 'souad', 'asma', 'halima', 'salma',
 ]);
 
 const MALE_NAMES = new Set([
@@ -100,10 +101,22 @@ const MALE_NAMES = new Set([
   'sebastien', 'serge', 'simon', 'stephane', 'sylvain', 'thierry', 'thomas', 'timothee', 'tony',
   'tristan', 'ulrich', 'valentin', 'victor', 'vincent', 'wilfried', 'william', 'willy', 'xavier',
   'yann', 'yannick', 'yohan', 'yves', 'anicet', 'wendyam', 'alexandre', 'alexis', 'alain', 'albert',
-  'alex', 'alfred', 'alphonse', 'andre', 'antoine', 'armand', 'arnaud',
+  'alex', 'alfred', 'alphonse', 'andre', 'antoine', 'armand', 'arnaud', 'anselme', 'pacome', 'rodrigue',
+  'boris', 'arthur', 'ismael', 'souleyman', 'adama', 'issa', 'konate', 'martial', 'desire', 'hermann',
 ]);
 
-function inferGenderFast(rawName?: string): 'femme' | 'homme' | 'inconnu' {
+const FEMALE_SUBSTRINGS = ['fatou', 'aminata', 'amina', 'aicha', 'mariam', 'rokia', 'haoua', 'hawa', 'kadiatou', 'salimata', 'djeneba', 'bintou', 'princesse', 'madame', 'maman', 'sonia', 'mireille', 'nadia', 'nathalie', 'sandrine', 'christelle', 'jessica', 'vanessa', 'esther', 'ruth', 'sarah'];
+const MALE_SUBSTRINGS = ['moussa', 'ibrahim', 'abdoul', 'mamadou', 'mohamed', 'ousmane', 'souleymane', 'seydou', 'yacouba', 'eric', 'franck', 'emmanuel', 'christian', 'alexandre', 'anselme', 'pacome', 'jonathan', 'kevin', 'wilfried', 'stephane', 'romain', 'nicolas'];
+
+function inferGenderFast(rawName?: string, occasion?: string, notes?: string): 'femme' | 'homme' | 'inconnu' {
+  const ctx = `${occasion || ''} ${notes || ''}`.toLowerCase();
+  if (/\bpour mon mari\b|\bpour mon cheri\b|\bpour mon fiancé\b|\bpour mon copain\b|\bpour mon homme\b|\bpour mon epoux\b/.test(ctx)) {
+    return 'femme';
+  }
+  if (/\bpour ma femme\b|\bpour ma cherie\b|\bpour ma fiancee\b|\bpour ma copine\b|\bpour mon epouse\b/.test(ctx)) {
+    return 'homme';
+  }
+
   if (!rawName) return 'inconnu';
   const cleaned = rawName
     .normalize('NFD')
@@ -112,10 +125,19 @@ function inferGenderFast(rawName?: string): 'femme' | 'homme' | 'inconnu' {
     .replace(/[^a-z\s'-]/g, ' ')
     .trim();
   if (!cleaned || cleaned.startsWith('client ')) return 'inconnu';
+
   const tokens = cleaned.split(/[\s'-]+/).filter(Boolean);
-  for (const tok of tokens.slice(0, 3)) {
+  for (const tok of tokens.slice(0, 4)) {
     if (FEMALE_NAMES.has(tok)) return 'femme';
     if (MALE_NAMES.has(tok)) return 'homme';
+  }
+  // Vérification dans les pseudos collés (ex: keitarokia119, ericpacomegbocho21, haouadiakite)
+  const compact = cleaned.replace(/\s+/g, '');
+  for (const sub of FEMALE_SUBSTRINGS) {
+    if (compact.includes(sub)) return 'femme';
+  }
+  for (const sub of MALE_SUBSTRINGS) {
+    if (compact.includes(sub)) return 'homme';
   }
   return 'inconnu';
 }
@@ -189,8 +211,7 @@ export default async function handler(req: any, res: any) {
   const sinceAt = reset ? null : (existingState?.last_analyzed_at || null);
   const nowIso = new Date().toISOString();
 
-  // 1. Charger les NOUVELLES commandes & NOUVEAUX contacts depuis last_analyzed_at (ou tout l'historique si 1ère fois / reset)
-  const fetchLimit = sinceAt ? 300 : 2000;
+  const fetchLimit = sinceAt ? 500 : 2500;
   let ordersQuery = admin
     .from('orders')
     .select('id, contact_id, amount_cents, price_xof, status, payment_method, occasion, recipient_name, notes, created_at')
@@ -210,16 +231,15 @@ export default async function handler(req: any, res: any) {
     contactsQuery = contactsQuery.gt('created_at', sinceAt);
   }
 
-  // Toujours calculer les Meilleurs Clients & Clients qui Reviennent sur l'ensemble des commandes (colonnes ultra-légères)
   const allOrdersLightQuery = admin
     .from('orders')
-    .select('contact_id, amount_cents, price_xof, recipient_name, created_at')
+    .select('id, contact_id, amount_cents, price_xof, recipient_name, created_at')
     .eq('user_id', userId)
     .limit(2500);
 
   const allContactsLightQuery = admin
     .from('contacts')
-    .select('id, name, phone')
+    .select('id, name, phone, created_at')
     .eq('user_id', userId)
     .limit(2500);
 
@@ -233,7 +253,7 @@ export default async function handler(req: any, res: any) {
   const newOrders = ordersRes.data || [];
   const newContacts = contactsRes.data || [];
 
-  // 2. Calcul exact des Clients qui Reviennent & Meilleurs Clients (VIP) — toujours recalculé à chaque clic
+  // 1. Calcul exact des Clients qui Reviennent & Meilleurs Clients (VIP) — sans jamais fusionner des inconnus par prénom
   const contactLookup = new Map<string, { name: string; phone: string }>();
   for (const c of allContactsLightRes.data || []) {
     contactLookup.set(c.id, { name: String(c.name || '').trim(), phone: String(c.phone || '').trim() });
@@ -249,9 +269,10 @@ export default async function handler(req: any, res: any) {
     const rawName = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || cInfo?.name || '').trim();
     const phone = cInfo?.phone || '';
     const phoneDigits = phone.replace(/\D/g, '');
+    // Clé stricte : téléphone (>=8 chiffres) ou contact_id, sinon ordre individuel (jamais par prénom seul)
     const key = phoneDigits.length >= 8
       ? `tel:${phoneDigits.slice(-8)}`
-      : (o.contact_id || `name:${(rawName || 'client').toLowerCase()}`);
+      : (o.contact_id ? `cid:${o.contact_id}` : `ord:${o.id}`);
     const displayName = rawName || phone || 'Client WhatsApp';
     const prev = clientAgg.get(key) || { name: displayName, phone, ordersCount: 0, totalSpent: 0 };
     prev.ordersCount += 1;
@@ -268,9 +289,34 @@ export default async function handler(req: any, res: any) {
   const returningRevenue = returningBuyers.reduce((acc, b) => acc + b.totalSpent, 0);
   const returningRevenuePct = totalAllRevenue > 0 ? Math.round((returningRevenue / totalAllRevenue) * 100) : 0;
   const topClients = allBuyers
-    .filter((b) => (b.name && !b.name.toLowerCase().startsWith('client whatsapp')) || b.phone)
+    .filter((b) => b.phone || (b.name && !b.name.toLowerCase().startsWith('client whatsapp')))
     .sort((a, b) => b.totalSpent - a.totalSpent || b.ordersCount - a.ordersCount)
     .slice(0, 8);
+
+  // Activité des 7 derniers jours (contacts + ventes) pour transparence sur Aujourd'hui / Hier
+  const dayStatsMap = new Map<string, { date: string; contacts: number; orders: number; revenue: number }>();
+  const ensureDay = (iso: string) => {
+    const key = String(iso || '').slice(0, 10);
+    if (!key) return null;
+    let d = dayStatsMap.get(key);
+    if (!d) {
+      d = { date: key, contacts: 0, orders: 0, revenue: 0 };
+      dayStatsMap.set(key, d);
+    }
+    return d;
+  };
+  for (const c of allContactsLightRes.data || []) {
+    const d = ensureDay(c.created_at);
+    if (d) d.contacts += 1;
+  }
+  for (const o of allOrdersLightRes.data || []) {
+    const d = ensureDay(o.created_at);
+    if (d) {
+      d.orders += 1;
+      d.revenue += Number(o.price_xof) || Math.round(Number(o.amount_cents || 0) / 100);
+    }
+  }
+  const recentDays = [...dayStatsMap.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
 
   if (newOrders.length === 0 && newContacts.length === 0 && existingState?.last_report && !reset) {
     const refreshedReport = {
@@ -280,6 +326,7 @@ export default async function handler(req: any, res: any) {
       returningOrdersCount,
       returningRevenuePct,
       topClients,
+      recentDays,
     };
     await admin
       .from('studio_analytics_state')
@@ -293,7 +340,7 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  // 3. Calculs mathématiques exacts du delta
+  // 2. Calculs mathématiques exacts du delta
   let deltaRevenue = 0;
   const countryMap = new Map<string, number>();
 
@@ -306,27 +353,29 @@ export default async function handler(req: any, res: any) {
     countryMap.set(country, (countryMap.get(country) || 0) + 1);
   }
 
-  // 4. Classification rapide par prénom + envoi des cas ambigus à l'IA (1 seul appel)
+  // 3. Déduplication stricte des personnes uniques (1 personne = 1 vote de sexe, jamais doublée)
   let deltaWomen = 0;
   let deltaMen = 0;
   let deltaUnknown = 0;
   const ambiguousForAi: Array<{ id: string; name: string; occasion: string; notes: string }> = [];
-  const seenIds = new Set<string>();
+  const seenPersonKeys = new Set<string>();
 
-  const processPerson = (id: string, name: string, occasion: string, notes: string) => {
-    if (seenIds.has(id)) return;
-    seenIds.add(id);
-    const fast = inferGenderFast(name);
+  const registerPerson = (personKey: string, id: string, name: string, occasion: string, notes: string) => {
+    if (seenPersonKeys.has(personKey)) return;
+    seenPersonKeys.add(personKey);
+
+    const cleanName = name.trim();
+    const fast = inferGenderFast(cleanName, occasion, notes);
     if (fast === 'femme') {
       deltaWomen += 1;
     } else if (fast === 'homme') {
       deltaMen += 1;
-    } else if (ambiguousForAi.length < 100) {
+    } else if (cleanName && !cleanName.toLowerCase().startsWith('client ') && ambiguousForAi.length < 180) {
       ambiguousForAi.push({
         id,
-        name: name.slice(0, 60),
-        occasion: occasion.slice(0, 60),
-        notes: notes.slice(0, 120),
+        name: cleanName.slice(0, 60),
+        occasion: occasion.slice(0, 50),
+        notes: notes.slice(0, 100),
       });
     } else {
       deltaUnknown += 1;
@@ -334,10 +383,18 @@ export default async function handler(req: any, res: any) {
   };
 
   for (const c of newContacts) {
-    processPerson(c.id, String(c.name || ''), String(c.occasion || ''), String(c.notes || ''));
+    const digits = String(c.phone || '').replace(/\D/g, '');
+    const pKey = digits.length >= 8 ? `tel:${digits.slice(-8)}` : `cid:${c.id}`;
+    registerPerson(pKey, c.id, String(c.name || ''), String(c.occasion || ''), String(c.notes || ''));
   }
   for (const o of newOrders) {
-    processPerson(o.id, String(o.recipient_name || ''), String(o.occasion || ''), String(o.notes || ''));
+    const cInfo = o.contact_id ? contactLookup.get(o.contact_id) : undefined;
+    const digits = String(cInfo?.phone || '').replace(/\D/g, '');
+    const pKey = digits.length >= 8
+      ? `tel:${digits.slice(-8)}`
+      : (o.contact_id ? `cid:${o.contact_id}` : `ord:${o.id}`);
+    const name = (cInfo?.name && !cInfo.name.startsWith('Client ') ? cInfo.name : '') || String(o.recipient_name || '');
+    registerPerson(pKey, o.id, name, String(o.occasion || ''), String(o.notes || ''));
   }
 
   let topOccasions: string[] = [];
@@ -352,7 +409,7 @@ export default async function handler(req: any, res: any) {
           ? 'On te donne UNIQUEMENT les nouveautés depuis la dernière analyse.'
           : 'Première analyse complète de tout l’historique du compte.',
         '',
-        `Chiffres exacts de la période : ${newOrders.length} ventes, ${deltaRevenue} F CFA, ${newContacts.length} contacts.`,
+        `Chiffres exacts de la période : ${newOrders.length} ventes, ${deltaRevenue} F CFA, ${newContacts.length} nouveaux contacts.`,
         `Fidélité globale : ${returningClientsCount} client(s) revenu(s) (>= 2 commandes) générant ${returningRevenuePct}% du chiffre d'affaires (${returningOrdersCount} commandes).`,
         `Top clients VIP : ${JSON.stringify(topClients.slice(0, 3))}`,
         `Pays : ${JSON.stringify(Object.fromEntries(countryMap))}`,
@@ -368,7 +425,7 @@ export default async function handler(req: any, res: any) {
         '  "verdict": "2 à 3 phrases directes et concrètes sur la performance, la fidélité client et le profil qui achète.",',
         '  "recommendations": ["Action concrète 1", "Action concrète 2"]',
         '}',
-        'Pour "genders" : déduis le sexe du CLIENT qui contacte (indices dans occasion/notes comme "pour mon mari" => femme, "pour ma femme" => homme, ou prénom). Sinon "inconnu".',
+        'Pour "genders" : déduis le sexe du CLIENT qui contacte (prénom ou pseudo africain/francophone, ou indice dans occasion/notes). Si impossible à savoir, mets "inconnu".',
       ].join('\n');
 
       const aiRes = await fetch('https://api.kie.ai/openai/v1/responses', {
@@ -400,7 +457,6 @@ export default async function handler(req: any, res: any) {
             else if (g.gender === 'homme') deltaMen += 1;
             else deltaUnknown += 1;
           }
-          // Tout ambigu non renvoyé par l'IA passe en inconnu
           for (const item of ambiguousForAi) {
             if (!judgedIds.has(item.id)) deltaUnknown += 1;
           }
@@ -452,6 +508,7 @@ export default async function handler(req: any, res: any) {
     returningOrdersCount,
     returningRevenuePct,
     topClients,
+    recentDays,
     topOccasions,
     topCountries: [...countryMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => ({ name, count })),
     verdict,

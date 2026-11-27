@@ -959,6 +959,14 @@ export const RevenusView: FC<RevenusViewProps> = ({
       </section>
 
       {/* 2C. ANALYTIQUE DÉTAILLÉE (PAYS MAJEURS, SEXE DES CLIENTS, PAIEMENTS, CRÉNEAUX) */}
+      {filteredWhatsAppOrders.length === 0 && (
+        <section className="rounded-3xl bg-[#0D0F14] border border-white/[0.06] p-5 text-center space-y-1">
+          <p className="text-sm font-semibold text-white">Aucune vente enregistrée sur cette période</p>
+          <p className="text-xs text-[#8A90A0]">
+            Les ventes et nouveaux contacts enregistrés à partir de maintenant apparaîtront ici automatiquement pour chaque jour, semaine, mois ou année.
+          </p>
+        </section>
+      )}
       {filteredWhatsAppOrders.length > 0 && (
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Pays Majeurs */}
