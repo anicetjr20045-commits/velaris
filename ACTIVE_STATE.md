@@ -3059,3 +3059,11 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 
 Rapport complet : `AUDIT_SECURITE_2026-11-28.md`.
 Trois secrets de production sont en dur dans le repo **public** GitHub et vérifiés exploitables : clé WAHA Chrome (`b4cffb1e...`), clé WAHA GOWS (`468e5262...`), secret webhook Chariow (`whsec_mlMpUo07...`). Un webhook Chariow forgé a crédité 30 crédits (200 + credits_added=30). Datasets de conversations clients aussi publiés. RLS Supabase et 401 des routes sensibles sont corrects. Action immédiate : rotation des 3 secrets + suppression des fallbacks en dur.
+
+## Rotation des secrets terminée — 28/11 (état vérifié)
+
+Corrigé et testé en prod, dans cet ordre : nouvelles clés WAHA Chrome + GOWS + HMAC webhook déployées sur le VPS **et** dans les env Vercel, garde-fou Caddy mis à jour (il bloquait tout avec l'ancienne clé en dur), `.env.local` aligné, tous les fallbacks en dur supprimés du code, CSP/Permissions-Policy/Referrer-Policy actifs, 395 numéros masqués dans les datasets.
+
+Vérifications réelles : anciennes clés → 401 ; nouvelle clé → 200 sur les deux passerelles ; code OTP WhatsApp réellement envoyé depuis la prod avec les nouvelles clés ; webhook Chariow forgé sur un faux `sale_id` → 401 « Vente inconnue chez Chariow » ; vente réelle non payée → ignorée (`applied:false`). `tsc -b` : 0 erreur.
+
+Reste côté dashboards (impossible par API) : régénérer `CHARIOW_WEBHOOK_SECRET` (Chariow), tourner la clé Kie.ai, recharger le crédit Fish, rescanner la session WAHA `Test`.
