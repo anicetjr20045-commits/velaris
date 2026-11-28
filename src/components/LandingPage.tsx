@@ -371,46 +371,59 @@ export const LandingPage: FC<LandingPageProps> = ({
       <section className="bg-[#0B0B0D] border-y border-white/[0.08] py-16 sm:py-24">
         <div className="max-w-5xl mx-auto px-5 sm:px-10 space-y-10">
           <div className="max-w-2xl space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#E5C170]">Tout est inclus</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#E5C170]">Tout est inclus dans ton accès</p>
             <h2 className="font-bold text-white text-3xl sm:text-4xl lg:text-5xl tracking-[-0.04em] leading-[1.06]">
-              On ne te laisse pas te débrouiller seul.
+              Pas juste une formation. Toute l’usine de production et de vente dans ta poche.
             </h2>
+            <p className="text-sm sm:text-base text-[#86868B] leading-relaxed">
+              Ce qu’une agence te facturerait plus de 300 000 F CFA à assembler, tu l’actives ce soir en 5 minutes pour 4 900 F CFA.
+            </p>
           </div>
 
           <div className="divide-y divide-white/[0.1]">
             {[
               [
                 '01',
-                'L’Académie pas-à-pas',
-                '4 modules courts faits pour être suivis ce weekend : comment lancer ta pub Meta à 0,16 $, quoi répondre sur WhatsApp et comment encaisser sur Wave/OM.',
+                'L’Académie Vidéo & Scripts WhatsApp mot à mot',
+                '4 modules concrets pour lancer tes pubs Meta à 0,16 $ la discussion dès ce weekend, avec les messages exacts à copier-coller pour faire payer le client sur Wave ou Orange Money avant même de produire.',
               ],
               [
                 '02',
-                'Le Studio Musical IA',
-                'Tu entres le prénom, l’occasion et le style du client. En 3 minutes, tu as une chanson qualité studio prête à livrer. Aucune compétence musicale.',
+                'Le Studio Musical IA & Vidéos Lyrics signées',
+                'Tu entres le prénom, l’occasion et le style : en 3 minutes tu obtiens 2 versions complètes qualité studio, les paroles prêtes à copier, le remix, l’extraction voix/instru et une vidéo lyrics MP4 signée au nom de ton propre studio.',
               ],
               [
                 '03',
-                'Le Pilote WhatsApp 24/7',
-                'Tu scannes ton QR Code une seule fois. Tes réponses automatiques et relances tournent même quand tu es en cours, au travail ou en train de dormir.',
+                'Le Studio Vocal IA (Notes vocales africaines)',
+                'Plus besoin de t’enregistrer au micro à chaque prospect : génère des notes vocales WhatsApp chaleureuses et naturelles avec nos voix studio pour accueillir, expliquer les tarifs et rassurer tes clients instantanément.',
               ],
               [
                 '04',
-                'Ton site /s/ton-nom & l’Affiliation',
-                'Un site public à ton nom prêt à partager sur TikTok et tes statuts WhatsApp, plus 50 % de commission nette (600 F CFA) sur chaque vente affiliée.',
+                'Le Pilote WhatsApp 24/7 & Automatisations',
+                'Tu scannes ton QR Code une seule fois. Tes notes vocales, extraits de démo, vidéos et relances partent automatiquement à chaque message ou réaction, même quand tu dors, que tu es en cours ou au travail.',
               ],
               [
                 '05',
-                '30 crédits offerts immédiatement',
-                'Tu peux encaisser tes premiers 36 000 F CFA avant même d’avoir besoin de recharger tes crédits.',
+                'Ton Mini-Site (/s/ton-nom) & Liens d’Écoute Anti-Vol',
+                'Ta propre vitrine personnalisée prête à partager sur TikTok et tes statuts WhatsApp, plus des liens d’écoute sécurisés : ton client peut écouter un aperçu pour craquer, mais le téléchargement reste verrouillé tant qu’il n’a pas payé.',
+              ],
+              [
+                '06',
+                'Affiliation 50 % Net & Cockpit Revenus IA',
+                'Encaisse 50 % de commission nette (600 F CFA) sur chaque commande via ton lien, retirable dès 1 500 F sur ton Mobile Money. Suis tes ventes par pays, tes heures de pointe et ton Analyste IA qui te dit comment vendre encore plus.',
+              ],
+              [
+                '07',
+                '30 crédits de production offerts dès l’entrée',
+                'Pas besoin de ressortir ta carte dès le premier jour : tes 30 crédits inclus te permettent déjà d’encaisser 36 000 F CFA+ de commandes avant de recharger 1 seul franc.',
               ],
             ].map(([num, title, desc]) => (
               <div key={num} className="py-6 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-6 items-baseline">
                 <div className="md:col-span-5 flex items-baseline gap-4">
-                  <span className="text-xs font-semibold text-[#86868B] tabular-nums">{num}</span>
+                  <span className="text-xs font-semibold text-[#E5C170] tabular-nums">{num}</span>
                   <h3 className="text-lg font-semibold text-white">{title}</h3>
                 </div>
-                <p className="pl-8 md:pl-0 md:col-span-7 text-sm text-[#86868B] leading-relaxed">
+                <p className="pl-8 md:pl-0 md:col-span-7 text-sm text-[#A1A1AA] leading-relaxed">
                   {desc}
                 </p>
               </div>
