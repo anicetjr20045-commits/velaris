@@ -129,7 +129,11 @@ export default async function handler(req: any, res: any) {
   // Indispensable : le secret de signature est public (repo open source), donc un
   // webhook peut être forgé de toutes pièces. On refuse tout sale_id inconnu.
   const chariowApiKey = process.env.CHARIOW_API_KEY || '';
-  if (chariowApiKey && saleId && !saleId.startsWith('SALE-')) {
+  if (chariowApiKey) {
+    if (!saleId || saleId === 'SALE-UNKNOWN') {
+      console.warn('[Chariow Webhook] saleId manquant, rejeté.');
+      return res.status(401).json({ error: 'Identifiant de vente manquant' });
+    }
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 8000);
