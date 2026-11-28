@@ -625,8 +625,8 @@ export function App() {
     <div className="min-h-screen bg-[#06070A] text-[#F5F6FA] font-sans selection:bg-[#E2BD6B]/25 selection:text-white relative overflow-x-hidden">
       <CosmicBackground />
       <div className="relative z-10 flex min-h-screen flex-col">
-        {/* Public Navigation Bar (only on home & decouvrir) */}
-        {(activeTab === 'home' || activeTab === 'decouvrir') && (
+        {/* Public Navigation Bar (only on decouvrir; LandingPage has its own Apple top bar) */}
+        {activeTab === 'decouvrir' && (
           <Navbar
             onEnterStudio={() => {
               changeTab('cockpit', 'revenus');
@@ -641,7 +641,7 @@ export function App() {
 
         {/* Main Content Area */}
         {activeTab === 'home' && (
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 pt-6">
+          <main className="w-full flex-1">
             <LandingPage
               onOpenStudio={() => {
                 changeTab('studio', 'studio_ai');

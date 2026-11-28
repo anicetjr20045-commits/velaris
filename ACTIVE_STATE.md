@@ -25,8 +25,11 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 27 Novembre 2026 (23:31 UTC)
-- **Console d'Administration Complète (`api/admin.ts`, `AdminDashboardView.tsx`)** :
+- **Dernière mise à jour** : 28 Novembre 2026 (00:04 UTC)
+- **Nouvelle Landing Page Apple Pleine Largeur (`LandingPage.tsx`, `public/proofs/`, `App.tsx`)** :
+  - Intégration exacte du modèle Apple-ready (`src/components/LandingPage.tsx`) et des 4 captures de preuves dans `public/proofs/`.
+  - `src/App.tsx` : suppression de `<Navbar />` sur `activeTab === 'home'` et retrait du conteneur `max-w-7xl px-4 sm:px-6 pt-6` pour un affichage 100 % pleine largeur.
+- **Console d'Administration Complète (`api/admin.ts`, `AdminDashboardView.tsx`, `commit 4350535`)** :
   - 4 onglets structurés : **Revenus & Top Créateurs** (revenus totaux/30j/7j/aujourd'hui, coût API estimé & marge nette, graphique 14j, Top 10 meilleurs utilisateurs, stats production IA), **Membres** (gestion fine : +/- crédits avec motif, Pass personnalisé 1–365j, suspension/réactivation), **Chariow & Retraits** (vérification manuelle `sale_id`, validation/rejet retraits affiliation, transactions), **WhatsApp, Mini-sites & Audit** (redémarrage/arrêt sessions WAHA GOWS/WEBJS, activation/désactivation mini-sites `/s/:slug`, journal d'audit admin & remboursements).
 - **Responsive Mobile-First, Tablette & Desktop (`LandingPage.tsx`, `StudioAudioShowcase.tsx`, `App.tsx`)** :
   - `src/components/LandingPage.tsx` : refonte complète des échelles typographiques, espacements verticaux (`space-y-14 sm:space-y-24`), paddings cartes (`p-5 sm:p-8`) et suppression de `min-h-[480px]` et de `Moteur Suno V6` sur le Hero pour un rendu compact et net sur mobile, tablette et desktop.
