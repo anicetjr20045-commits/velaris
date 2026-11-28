@@ -8,7 +8,7 @@ function getEnvConfig() {
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
   let kieApiKey = process.env.KIE_API_KEY || '';
   let wahaGowsUrl = (process.env.WAHA_GOWS_URL || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, '');
-  let wahaGowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
+  let wahaGowsKey = process.env.WAHA_GOWS_API_KEY || '';
 
   if (!supabaseSecretKey || !kieApiKey) {
     try {

@@ -44,7 +44,7 @@ export class VoiceClonerService {
   private readonly log?: ((msg: string, meta?: Record<string, unknown>) => void) | undefined;
 
   constructor(opts: VoiceClonerOpts = {}) {
-    this.apiKey = opts.apiKey || process.env.FISH_API_KEY || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
+    this.apiKey = opts.apiKey || process.env.FISH_API_KEY;
     this.model = opts.model || 's2.1-pro-free';
     const isMale = opts.voiceProfile === 'male' || opts.voiceProfile === 'user';
     this.referenceText = opts.referenceText || (isMale ? MALE_USER_REFERENCE_TEXT : SISTER_TIKTOK_REFERENCE_TEXT);

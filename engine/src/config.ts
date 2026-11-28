@@ -84,7 +84,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): EngineConfig {
     // lui passer une clé DeepSeek directe (non-Kie) causait des 401 sur toutes les transcriptions.
     sttUrl: env.STT_URL?.trim() || "http://stt-whisper:5001",
     kieApiKey: kieApiKey || null,
-    fishApiKey: env.FISH_API_KEY?.trim() || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w',
+    fishApiKey: env.FISH_API_KEY?.trim(),
     enableAiAutoReply: env.ENABLE_AI_AUTO_REPLY === 'true',
     enableConcierge: env.ENABLE_CONCIERGE !== 'false',
     spoolDir: env.SPOOL_DIR?.trim() || './spool',

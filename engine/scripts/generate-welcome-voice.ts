@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { encode } from '@msgpack/msgpack';
 
-const FISH_API_KEY = process.env.FISH_API_KEY || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
+const FISH_API_KEY = process.env.FISH_API_KEY;
 const REFERENCE_TEXT = "Donc je voulais vous dire merci pour vos commentaires, vos likes, vos partages à tous, ça me fait plaisir. Et puis quand vous m'envoyez des messages là, on me parle comme votre amie et tout, c'est un plaisir sincèrement, j'adore !";
 const refAudioPath = path.resolve('/root/projets/velaris/engine/src/assets/sample_sister_reference.mp3');
 

@@ -8,7 +8,7 @@ import { resolveChariowProduct } from './_chariow-catalog.js';
 function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
-  let webhookSecret = process.env.CHARIOW_WEBHOOK_SECRET || 'whsec_mlMpUo07yWwjQoO0lPsNLJUFimVYXV7Hs85Iu04Z';
+  let webhookSecret = process.env.CHARIOW_WEBHOOK_SECRET || '';
   let wahaBaseUrl = (process.env.WAHA_BASE_URL || 'https://waha.velarisagent.life').replace(/\/+$/, '');
   let wahaApiKey = process.env.WAHA_API_KEY || '';
   let wahaSession = process.env.WAHA_SESSION || 'Test';
@@ -24,7 +24,7 @@ function getEnvConfig() {
             const k = m[1].trim();
             const v = m[2].trim();
             if (k === 'SUPABASE_SECRET_KEY' && !supabaseSecretKey) supabaseSecretKey = v;
-            if (k === 'CHARIOW_WEBHOOK_SECRET' && webhookSecret === 'whsec_mlMpUo07yWwjQoO0lPsNLJUFimVYXV7Hs85Iu04Z') webhookSecret = v;
+            if (k === 'CHARIOW_WEBHOOK_SECRET' && !webhookSecret) webhookSecret = v;
             if (k === 'WAHA_API_KEY' && !wahaApiKey) wahaApiKey = v;
           }
         }
@@ -77,12 +77,10 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // B. Vérification du jeton d'URL ou d'en-tête (fallback)
+  // B. Vérification du jeton d'URL ou d'en-tête (fallback).
+  // Le secret n'est plus écrit en dur : il a fuité publiquement une première fois.
   if (!isAuthenticated && providedToken) {
-    if (
-      safeEqual(providedToken, config.webhookSecret) ||
-      safeEqual(providedToken, 'whsec_mlMpUo07yWwjQoO0lPsNLJUFimVYXV7Hs85Iu04Z')
-    ) {
+    if (safeEqual(providedToken, config.webhookSecret)) {
       isAuthenticated = true;
     }
   }
@@ -126,6 +124,41 @@ export default async function handler(req: any, res: any) {
   const metadataUserId = metadata.user_id && metadata.user_id !== 'anonymous' ? metadata.user_id : null;
   const customerEmail = String(sale.customer?.email || '').trim().toLowerCase();
   const rawCustomerPhone = String(sale.customer?.phone?.number || metadata.phone || '');
+
+  // 1-bis. Contre-vérification serveur : la vente doit exister chez Chariow.
+  // Indispensable : le secret de signature est public (repo open source), donc un
+  // webhook peut être forgé de toutes pièces. On refuse tout sale_id inconnu.
+  const chariowApiKey = process.env.CHARIOW_API_KEY || '';
+  if (chariowApiKey && saleId && !saleId.startsWith('SALE-')) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const verifyRes = await fetch(`https://api.chariow.com/v1/sales/${encodeURIComponent(saleId)}`, {
+        headers: {
+          Authorization: `Bearer ${chariowApiKey}`,
+          Accept: 'application/json',
+          'User-Agent': 'velaris-webhook/1.0',
+        },
+        signal: ctrl.signal,
+      });
+      clearTimeout(timer);
+      if (verifyRes.status === 404) {
+        console.warn(`[Chariow Webhook] Vente ${saleId} inconnue côté Chariow, rejetée.`);
+        return res.status(401).json({ error: 'Vente inconnue chez Chariow' });
+      }
+      if (verifyRes.ok) {
+        const remote = (await verifyRes.json().catch(() => null)) as { data?: { status?: string } } | null;
+        const remoteStatus = String(remote?.data?.status || '').toLowerCase();
+        if (remoteStatus && !['completed', 'paid', 'success', 'active'].includes(remoteStatus)) {
+          console.warn(`[Chariow Webhook] Vente ${saleId} au statut distant "${remoteStatus}", ignorée.`);
+          return res.status(200).json({ received: true, applied: false, reason: `Statut Chariow: ${remoteStatus}` });
+        }
+        console.log(`[Chariow Webhook] Vente ${saleId} confirmée par l'API Chariow (${remoteStatus || 'ok'}).`);
+      }
+    } catch (e) {
+      console.warn('[Chariow Webhook] Contre-vérification indisponible, on poursuit:', (e as Error).message);
+    }
+  }
 
   if (!config.supabaseSecretKey) {
     console.error('[Chariow Webhook] Clé Supabase manquante');

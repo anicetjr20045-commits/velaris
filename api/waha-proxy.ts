@@ -30,13 +30,12 @@ function getConfig() {
     supabaseUrl: env('SUPABASE_URL') || env('VITE_SUPABASE_URL') || 'https://zoamdwupbhegcmancaeu.supabase.co',
     supabaseSecretKey: env('SUPABASE_SECRET_KEY'),
     wahaChromeUrl: (env('WAHA_BASE_URL') || 'https://waha.velarisagent.life').replace(/\/+$/, ''),
-    wahaChromeKey: env('WAHA_API_KEY') || 'b4cffb1ef75fb400a79e30faa3a97802',
+    // Plus aucune clé en dur : le repo est public.
+    wahaChromeKey: env('WAHA_API_KEY'),
     wahaGowsUrl: (env('WAHA_GOWS_URL') || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, ''),
-    wahaGowsKey: env('WAHA_GOWS_API_KEY') || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466',
+    wahaGowsKey: env('WAHA_GOWS_API_KEY'),
     webhookUrl: env('WAHA_WEBHOOK_URL') || 'https://waha.velarisagent.life/webhooks/waha',
-    webhookHmacKey:
-      env('WAHA_WEBHOOK_HMAC_KEY_ENGINE') ||
-      '5a883800d77cd375559c3bdb8f99d71000b3c177a0affa9907b1cfe0535e824f',
+    webhookHmacKey: env('WAHA_WEBHOOK_HMAC_KEY_ENGINE') || env('WAHA_WEBHOOK_HMAC_KEY') || '',
   };
 }
 

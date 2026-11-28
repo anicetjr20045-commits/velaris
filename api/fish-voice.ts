@@ -20,7 +20,7 @@ function getFishApiKey(): string {
       }
     } catch {}
   }
-  return key || 'sk-fish-rqWm8BgYyKZROEpKmgfZYfwpDp6x6cKy6oDCDncbq-w';
+  return key;
 }
 
 export default async function handler(req: any, res: any) {

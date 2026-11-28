@@ -1344,7 +1344,7 @@
      - Ajout du bac à sable de simulation (`engine/test/scenarios/`) rejouant 12 scénarios conversationnels complets de bout en bout contre le moteur réel.
      - 183 tests unitaires (35 suites) + 12/12 scénarios passés avec succès (0 échec).
   2. **Génération & Rotation des Secrets de Sécurité** :
-     - Secret n°1 (`WAHA_WEBHOOK_HMAC_KEY`) généré via openssl (64 car. hex) : `5a883800d77cd375559c3bdb8f99d71000b3c177a0affa9907b1cfe0535e824f`.
+     - Secret n°1 (`WAHA_WEBHOOK_HMAC_KEY`) généré via openssl (64 car. hex) : `b40e583039b020c610384dc13f92430864ce3bb93e69101655bdf79047a1bfb3`.
      - Secret n°2 (`ADMIN_API_KEY`) généré via openssl (64 car. hex) : `62e11f9349b40fd4cdf5daeeee9c02f7b52113231625ca4bbe6a314cd6d5e0aa`.
      - Configuration WAHA mise à jour via API `PUT /api/sessions/Test` avec le nouveau secret HMAC (statut session : `WORKING`, `CONNECTED`).
      - Fichier `/root/waha-vps-setup/.env` et `docker-compose.yml` mis à jour sur le VPS avec `WAHA_WEBHOOK_HMAC_KEY` et `ADMIN_API_KEY`.
@@ -3054,3 +3054,8 @@ Velaris est **la Première Académie & Suite Logicielle Tout-en-Un** permettant 
 - Suivi du client actif (`activeContext`) : comprend immédiatement les questions de suivi ("et elle ?", "combien ?", "envoie-lui l'offre") sans redemander le sujet
 - Accès direct et total à la base WhatsApp : analyse transversale de tous les messages de tous les clients pour répondre à des questions globales ("Quel client me parle de mariage ?", "Qui a envoyé des photos ?")
 - Exécution d'actions WhatsApp par langage naturel : envoyer des formules, coordonnées Wave/Orange Money ou vocaux en le disant simplement au bot
+
+## Audit sécurité externe — 28/11/2026
+
+Rapport complet : `AUDIT_SECURITE_2026-11-28.md`.
+Trois secrets de production sont en dur dans le repo **public** GitHub et vérifiés exploitables : clé WAHA Chrome (`b4cffb1e...`), clé WAHA GOWS (`468e5262...`), secret webhook Chariow (`whsec_mlMpUo07...`). Un webhook Chariow forgé a crédité 30 crédits (200 + credits_added=30). Datasets de conversations clients aussi publiés. RLS Supabase et 401 des routes sensibles sont corrects. Action immédiate : rotation des 3 secrets + suppression des fallbacks en dur.

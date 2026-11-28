@@ -232,7 +232,7 @@ export default async function handler(req: any, res: any) {
 
     try {
       const gowsUrl = (process.env.WAHA_GOWS_URL || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, '');
-      const gowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
+      const gowsKey = process.env.WAHA_GOWS_API_KEY || '';
 
       // 1. Essai prioritaire sur la passerelle active GOWS (studio_5756a961)
       let result: { ok: true } | { ok: false; status: number; errJson: any } = await trySendGateway(

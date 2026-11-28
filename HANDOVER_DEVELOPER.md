@@ -173,7 +173,7 @@ ssh root@162.35.113.220 "cd /root/waha-vps-setup && docker build -t velaris-engi
 ssh root@162.35.113.220 "docker logs -f --tail 50 velaris-engine"
 
 # Vérifier les sessions WAHA actives
-ssh root@162.35.113.220 "curl -s -H 'X-Api-Key: b4cffb1ef75fb400a79e30faa3a97802' http://127.0.0.1:3000/api/sessions?all=true"
+ssh root@162.35.113.220 "curl -s -H 'X-Api-Key: 300e4c5754214dabe5bb745b53d81aab52f588d835393d0f' http://127.0.0.1:3000/api/sessions?all=true"
 ```
 
 ---

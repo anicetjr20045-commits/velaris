@@ -7,9 +7,9 @@ function getEnvConfig() {
   let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://zoamdwupbhegcmancaeu.supabase.co';
   let supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || '';
   let wahaChromeUrl = (process.env.WAHA_BASE_URL || 'https://waha.velarisagent.life').replace(/\/+$/, '');
-  let wahaChromeKey = process.env.WAHA_API_KEY || 'b4cffb1ef75fb400a79e30faa3a97802';
+  let wahaChromeKey = process.env.WAHA_API_KEY;
   let wahaGowsUrl = (process.env.WAHA_GOWS_URL || 'https://waha2.162.35.113.220.sslip.io').replace(/\/+$/, '');
-  let wahaGowsKey = process.env.WAHA_GOWS_API_KEY || '468e5262820b3e72f3efe2044443e4e04638eab1b4cc2466';
+  let wahaGowsKey = process.env.WAHA_GOWS_API_KEY || '';
   let chariowApiKey = process.env.CHARIOW_API_KEY || '';
 
   if (!supabaseSecretKey || !chariowApiKey) {

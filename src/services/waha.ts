@@ -20,7 +20,8 @@ export const WAHA_CONFIG = {
   defaultSession: (typeof window !== 'undefined' && localStorage.getItem('waha_session')) || 'Test',
   secondarySession: 'anicet2',
   protectedSessions: ['anicet2'] as readonly string[],
-  webhookHmacKey: '5a883800d77cd375559c3bdb8f99d71000b3c177a0affa9907b1cfe0535e824f',
+  // Clé de signature des webhooks : côté client obligatoirement, donc régénérable.
+  webhookHmacKey: env.VITE_WAHA_WEBHOOK_HMAC_KEY || 'b40e583039b020c610384dc13f92430864ce3bb93e69101655bdf79047a1bfb3',
 };
 
 export const isProtectedSession = (name: string) => WAHA_CONFIG.protectedSessions.includes(name);
