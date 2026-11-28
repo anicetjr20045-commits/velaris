@@ -25,8 +25,11 @@
 ## 🎯 Statut Actuel & Point de Reprise
 
 - **Projet** : `velaris` (`/root/projets/velaris`) ➔ **Velaris Academy & Studio** (`https://app.djelia.store` & `https://velaris-dun.vercel.app`)
-- **Dernière mise à jour** : 28 Novembre 2026 (00:04 UTC)
-- **Nouvelle Landing Page Apple Pleine Largeur (`LandingPage.tsx`, `public/proofs/`, `App.tsx`)** :
+- **Dernière mise à jour** : 28 Novembre 2026 (00:13 UTC)
+- **Optimisation Landing Page & Floutage Meta (`LandingPage.tsx`, `public/proofs/proof_ads.jpg`)** :
+  - `src/components/LandingPage.tsx` : ouverture réelle d'`AuthModal` (`login` / `signup`) pour les visiteurs non connectés, alignement de la commission affiliation à **50 % net (600 F CFA)**, suppression de la mention `Suno V6`, et grille 2×2 sur mobile pour les 4 onglets de preuves.
+  - `public/proofs/proof_ads.jpg` : miniatures de page Facebook et en-tête de compte floutés.
+- **Nouvelle Landing Page Apple Pleine Largeur (`LandingPage.tsx`, `public/proofs/`, `App.tsx`, `commit 9879244`)** :
   - Intégration exacte du modèle Apple-ready (`src/components/LandingPage.tsx`) et des 4 captures de preuves dans `public/proofs/`.
   - `src/App.tsx` : suppression de `<Navbar />` sur `activeTab === 'home'` et retrait du conteneur `max-w-7xl px-4 sm:px-6 pt-6` pour un affichage 100 % pleine largeur.
 - **Console d'Administration Complète (`api/admin.ts`, `AdminDashboardView.tsx`, `commit 4350535`)** :

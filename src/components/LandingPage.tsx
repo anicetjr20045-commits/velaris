@@ -1,5 +1,6 @@
 import { useState, type FC } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 export interface LandingPageProps {
   onOpenStudio: () => void;
@@ -82,6 +83,7 @@ export const LandingPage: FC<LandingPageProps> = ({
   onOpenStudio,
   onOpenCockpit,
 }) => {
+  const { user, openAuthModal } = useAuth();
   const [activeProofId, setActiveProofId] = useState<string>('dashboard');
   const [dailySales, setDailySales] = useState<number>(7);
   const [priceMode, setPriceMode] = useState<1200 | 1650>(1200);
@@ -93,6 +95,22 @@ export const LandingPage: FC<LandingPageProps> = ({
   const salesToBreakEven = Math.ceil(4900 / priceMode);
 
   const handlePrimaryAction = () => {
+    if (!user) {
+      openAuthModal('signup');
+      return;
+    }
+    if (onOpenCockpit) {
+      onOpenCockpit();
+    } else {
+      onOpenStudio();
+    }
+  };
+
+  const handleLoginAction = () => {
+    if (!user) {
+      openAuthModal('login');
+      return;
+    }
     if (onOpenCockpit) {
       onOpenCockpit();
     } else {
@@ -114,10 +132,10 @@ export const LandingPage: FC<LandingPageProps> = ({
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={handlePrimaryAction}
+              onClick={handleLoginAction}
               className="text-xs text-[#86868B] hover:text-white transition-colors cursor-pointer"
             >
-              Connexion
+              {user ? 'Mon Studio' : 'Connexion'}
             </button>
             <button
               type="button"
@@ -203,13 +221,13 @@ export const LandingPage: FC<LandingPageProps> = ({
             </h2>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
             {PROOFS.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => setActiveProofId(p.id)}
-                className={`shrink-0 px-4 py-2.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                className={`px-3 sm:px-4 py-2.5 rounded-2xl sm:rounded-full text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer truncate ${
                   p.id === activeProof.id
                     ? 'bg-white text-black'
                     : 'bg-[#141416] text-[#86868B] hover:text-white border border-white/[0.08]'
@@ -368,7 +386,7 @@ export const LandingPage: FC<LandingPageProps> = ({
               ],
               [
                 '02',
-                'Le Studio IA Suno V6',
+                'Le Studio Musical IA',
                 'Tu entres le prénom, l’occasion et le style du client. En 3 minutes, tu as une chanson qualité studio prête à livrer. Aucune compétence musicale.',
               ],
               [
@@ -379,7 +397,7 @@ export const LandingPage: FC<LandingPageProps> = ({
               [
                 '04',
                 'Ton site /s/ton-nom & l’Affiliation',
-                'Un site public à ton nom prêt à partager sur TikTok et tes statuts WhatsApp, plus 25 % de commission sur chaque vente affiliée.',
+                'Un site public à ton nom prêt à partager sur TikTok et tes statuts WhatsApp, plus 50 % de commission nette (600 F CFA) sur chaque vente affiliée.',
               ],
               [
                 '05',
